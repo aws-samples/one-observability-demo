@@ -1,11 +1,6 @@
-## My Project
+## One Observability Demo
 
-TODO: Fill this README out!
-
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+This repo contains a sample application which is used in the One Observability Demo workshop here - https://observability.workshop.aws/
 
 ## Security
 
