@@ -1,0 +1,23 @@
+﻿<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+@if (ViewData["txStatus"].ToString() == "success")
+{
+    <div class="alert-success">
+        <h1>Adoption Complete</h1>
+        <hr />
+        <h2>Thank you for adopting me!</h2>
+    </div>
+}
+else
+{
+    <div class="alert-danger">
+        <h1>Error</h1>
+        <hr />
+        <h2>Sorry, something went wrong</h2>
+        <h3>Error @ViewData["error"]</h3>
+    </div>
+}

@@ -1,0 +1,19 @@
+
+{
+    "comment" : "This file is used to help set default values when using the dotnet CLI extension Amazon.ElasticBeanstalk.Tools. For more information run \"dotnet eb --help\" from the project root.",
+    "profile" : "default",
+    "region"  : "us-east-1",
+    "application" : "PetSearch",
+    "environment" : "PetSearch-live",
+    "cname"       : "petsearch-live",
+    "solution-stack" : "64bit Windows Server 2016 v2.5.2 running IIS 10.0",
+    "environment-type" : "SingleInstance",
+    "service-role"     : "aws-elasticbeanstalk-service-role",
+    "health-check-url" : "/",
+    "instance-type"    : "c1.medium",
+    "key-pair"         : "Windows-MySQL",
+    "iis-website"      : "Default Web Site",
+    "app-path"         : "/",
+    "enable-xray"      : true,
+    "instance-profile" : "petsearch-live"
+}

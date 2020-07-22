@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="$PROJECT_DIR$" t="IncludeFlat">
+      <e p=".dockerignore" t="Include" />
+      <e p="packages" t="ExcludeRecursive" />
+      <e p="petsite" t="IncludeRecursive">
+        <e p="._bundleconfig.json" t="Include" />
+        <e p="._compilerconfig.json" t="Include" />
+        <e p="appsettings.Development.json" t="Include" />
+        <e p="appsettings.json" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="bundleconfig.json" t="Include" />
+        <e p="compilerconfig.json" t="Include" />
+        <e p="compilerconfig.json.defaults" t="Include" />
+        <e p="Controllers" t="Include">
+          <e p="AdoptionController.cs" t="Include" />
+          <e p="HealthController.cs" t="Include" />
+          <e p="HomeController.cs" t="Include" />
+          <e p="PaymentController.cs" t="Include" />
+          <e p="PetListAdoptionsController.cs" t="Include" />
+        </e>
+        <e p="Dockerfile" t="Include" />
+        <e p="kubernetes" t="Include">
+          <e p="deployment.yaml" t="Include" />
+          <e p="irp-trust-policy.json" t="Include" />
+          <e p="irsa.sh" t="Include" />
+          <e p="service.yaml" t="Include" />
+          <e p="xray-daemon" t="Include">
+            <e p="Dockerfile" t="Include" />
+            <e p="xray-daemon-config.yaml" t="Include" />
+          </e>
+        </e>
+        <e p="Models" t="Include">
+          <e p="ErrorViewModel.cs" t="Include" />
+        </e>
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="netcoreapp3.0" t="Include">
+              <e p="PetSite.AssemblyInfo.cs" t="Include" />
+              <e p="PetSite.RazorAssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="PetSite.csproj" t="IncludeRecursive" />
+        <e p="Program.cs" t="Include" />
+        <e p="Properties" t="Include">
+          <e p="launchSettings.json" t="Include" />
+        </e>
+        <e p="SearchParams.cs" t="Include" />
+        <e p="Startup.cs" t="Include" />
+        <e p="ViewModels" t="Include">
+          <e p="Pets.cs" t="Include" />
+        </e>
+        <e p="Views" t="Include">
+          <e p="_ViewImports.cshtml" t="Include" />
+          <e p="_ViewStart.cshtml" t="Include" />
+          <e p="Adoption" t="Include">
+            <e p="Index.cshtml" t="Include" />
+          </e>
+          <e p="Home" t="Include">
+            <e p="HouseKeeping.cshtml" t="Include" />
+            <e p="Index.cshtml" t="Include" />
+            <e p="Privacy.cshtml" t="Include" />
+          </e>
+          <e p="Payment" t="Include">
+            <e p="Index.cshtml" t="Include" />
+          </e>
+          <e p="PetListAdoptions" t="Include">
+            <e p="Index.cshtml" t="Include" />
+          </e>
+          <e p="Shared" t="Include">
+            <e p="_AdoptionItem.cshtml" t="Include" />
+            <e p="_Layout.cshtml" t="Include" />
+            <e p="_PetItem.cshtml" t="Include" />
+            <e p="_ValidationScriptsPartial.cshtml" t="Include" />
+            <e p="Error.cshtml" t="Include" />
+          </e>
+        </e>
+        <e p="wwwroot" t="Include">
+          <e p="css" t="Include">
+            <e p="petstyles.css" t="Include" />
+            <e p="site.css" t="Include" />
+          </e>
+          <e p="favicon.ico" t="Include" />
+          <e p="images" t="Include">
+            <e p="arrow-down.png" t="Include" />
+            <e p="arrow-right.svg" t="Include" />
+            <e p="brand.png" t="Include" />
+            <e p="main_banner.png" t="Include" />
+            <e p="main_banner_text.png" t="Include" />
+            <e p="products" t="Include">
+              <e p="1.png" t="Include" />
+              <e p="10.png" t="Include" />
+              <e p="11.png" t="Include" />
+              <e p="12.png" t="Include" />
+              <e p="2.png" t="Include" />
+              <e p="3.png" t="Include" />
+              <e p="4.png" t="Include" />
+              <e p="5.png" t="Include" />
+              <e p="6.png" t="Include" />
+              <e p="7.png" t="Include" />
+              <e p="8.png" t="Include" />
+              <e p="9.png" t="Include" />
+            </e>
+          </e>
+          <e p="js" t="Include">
+            <e p="site.js" t="Include" />
+            <e p="site.min.js" t="Include" />
+          </e>
+          <e p="lib" t="Include">
+            <e p="bootstrap" t="Include">
+              <e p="dist" t="Include">
+                <e p="css" t="Include">
+                  <e p="bootstrap-grid.css" t="Include" />
+                  <e p="bootstrap-grid.css.map" t="Include" />
+                  <e p="bootstrap-grid.min.css" t="Include" />
+                  <e p="bootstrap-grid.min.css.map" t="Include" />
+                  <e p="bootstrap-reboot.css" t="Include" />
+                  <e p="bootstrap-reboot.css.map" t="Include" />
+                  <e p="bootstrap-reboot.min.css" t="Include" />
+                  <e p="bootstrap-reboot.min.css.map" t="Include" />
+                  <e p="bootstrap.css" t="Include" />
+                  <e p="bootstrap.css.map" t="Include" />
+                  <e p="bootstrap.min.css" t="Include" />
+                  <e p="bootstrap.min.css.map" t="Include" />
+                </e>
+                <e p="js" t="Include">
+                  <e p="bootstrap.bundle.js" t="Include" />
+                  <e p="bootstrap.bundle.js.map" t="Include" />
+                  <e p="bootstrap.bundle.min.js" t="Include" />
+                  <e p="bootstrap.bundle.min.js.map" t="Include" />
+                  <e p="bootstrap.js" t="Include" />
+                  <e p="bootstrap.js.map" t="Include" />
+                  <e p="bootstrap.min.js" t="Include" />
+                  <e p="bootstrap.min.js.map" t="Include" />
+                </e>
+              </e>
+              <e p="LICENSE" t="Include" />
+            </e>
+            <e p="jquery" t="Include">
+              <e p="dist" t="Include">
+                <e p="jquery.js" t="Include" />
+                <e p="jquery.min.js" t="Include" />
+                <e p="jquery.min.map" t="Include" />
+              </e>
+              <e p="LICENSE.txt" t="Include" />
+            </e>
+            <e p="jquery-validation" t="Include">
+              <e p="dist" t="Include">
+                <e p="additional-methods.js" t="Include" />
+                <e p="additional-methods.min.js" t="Include" />
+                <e p="jquery.validate.js" t="Include" />
+                <e p="jquery.validate.min.js" t="Include" />
+              </e>
+              <e p="LICENSE.md" t="Include" />
+            </e>
+            <e p="jquery-validation-unobtrusive" t="Include">
+              <e p="jquery.validate.unobtrusive.js" t="Include" />
+              <e p="jquery.validate.unobtrusive.min.js" t="Include" />
+              <e p="LICENSE.txt" t="Include" />
+            </e>
+          </e>
+        </e>
+      </e>
+      <e p="petsite.sln" t="IncludeFlat" />
+    </e>
+    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.1/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.1/resharper-host/local/Transient/ReSharperHost/v201/SolutionCaches/_petsite.1033656977.00" t="ExcludeRecursive" />
+  </component>
+</project>

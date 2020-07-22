@@ -1,0 +1,109 @@
+﻿@using PetSite.ViewModels
+@{
+    ViewData["Title"] = "Adopt Me";
+    @model Pet;
+}
+
+<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+<br />
+
+<div class="container align-items-center">
+    <div class="pet-items d-table-row">
+        <img class="pet-thumbnail" src="@Model.peturl" />
+        <div class="pet-name">
+            <span>@Model.pettype-@Model.petcolor</span>
+        </div>
+        <div class="pet-price">
+            <span>@Model.price</span>
+        </div>
+        <div class="pet-name">
+            @for (int i = 0; i < Int32.Parse(Model.cuteness_rate); i++)
+            {
+                <span>❤</span>
+            }
+        </div>
+
+        <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
+        <input type="hidden" asp-for="@Model.petid" name="petid" />
+        <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+        <input type="hidden" asp-for="@Model.peturl" name="peturl" />
+        <input type="hidden" asp-for="@Model.price" name="price" />
+        <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+    </div>
+</div>
+<hr />
+<div class="container align-items-center">
+    <div class="pet-items d-table-row">
+        <span class="alert-danger">Information entered on this page is neither stored nor processed.</span>
+    </div>
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col-xs-12 col-md-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        Payment Details
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <form role="form">
+                        <div class="form-group">
+                            <label for="cardNumber">
+                                CARD NUMBER
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="cardNumber" placeholder="Valid Card Number" value="0001 1000 0001 1000"
+                                       required autofocus />
+                                <span class="input-group-addon"><span class="glyphicon glyphicon-lock"></span></span>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-xs-7 col-md-7">
+                                <div class="form-group">
+                                    <label for="expityMonth">
+                                        EXPIRY DATE
+                                    </label>
+                                    <div class="col-xs-6 col-lg-6 pl-ziro">
+                                        <input type="text" class="form-control" id="expityMonth" placeholder="MM" required value="12" />
+                                    </div>
+                                    <div class="col-xs-6 col-lg-6 pl-ziro">
+                                        <input type="text" class="form-control" id="expityYear" placeholder="YY" required  value="2025"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xs-5 col-md-5 pull-right">
+                                <div class="form-group">
+                                    <label for="cvCode">
+                                        CV CODE
+                                    </label>
+                                    <input type="password" class="form-control" id="cvCode" placeholder="CV" value="987" required />
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <ul class="nav nav-pills nav-stacked">
+                <li class="active">
+                    <a href="#"><span class="badge pull-right"><span class="glyphicon glyphicon-usd"></span>@Model.price</span> Final Payment</a>
+                </li>
+            </ul>
+            <br />
+            <form asp-controller="Payment" asp-action="MakePayment" method="post">
+                <input class="btn btn-success btn-lg btn-block" type="submit" value="Pay" />
+                <input type="hidden" asp-for="@Model.petid" name="petid" />    
+                <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+            </form>
+        </div>
+    </div>
+</div>
+

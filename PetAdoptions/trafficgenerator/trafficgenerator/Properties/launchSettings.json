@@ -1,0 +1,10 @@
+﻿{
+  "profiles": {
+    "trafficgenerator": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+﻿@using Microsoft.CodeAnalysis.CSharp.Syntax
+@model Pet;
+
+    <form asp-controller="adoption" asp-action="takemehome" method="post">
+        <img class="pet-thumbnail" src="@Model.peturl" />
+        @if (Model.availability == "yes")
+        {
+            <input class="pet-button" type="submit" value="Take me home"/>
+        }
+        else
+        {
+            <span class="alert-danger">Not available</span>
+        }
+        
+        <div class="pet-name">
+            <span>@Model.pettype-@Model.petcolor</span>
+        </div>
+        <div class="pet-price">
+            <span>@Model.price</span>
+        </div>
+
+        @for (int i = 0; i < Int32.Parse(Model.cuteness_rate); i++)
+        {
+            <span style="color: red">❤</span>
+        }
+
+        <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
+        <input type="hidden" asp-for="@Model.petid" name="petid" />
+        <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+        <input type="hidden" asp-for="@Model.peturl" name="peturl" />
+        <input type="hidden" asp-for="@Model.price" name="price" />
+        <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+    </form>

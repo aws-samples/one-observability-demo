@@ -1,0 +1,10 @@
+{
+  "app": "npx ts-node app/pet_stack.ts",
+  "context": {
+    "vpc_cidr": "11.0.0.0/16",
+    "snstopic_email": "someone@example.com",
+    "rdsusername":"",
+    "rdspassword":"",
+    "petsite_on_eks":"false"
+  }
+}

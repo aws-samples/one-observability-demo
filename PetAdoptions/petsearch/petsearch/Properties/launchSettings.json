@@ -1,0 +1,42 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:55105",
+      "sslPort": 44348
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "api/health/status",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "api/health/status",
+      "environmentVariables": {
+        "ASPNETCORE_URLS": "https://+:443;http://+:80",
+        "ASPNETCORE_HTTPS_PORT": "44349"
+      },
+      "httpPort": 55108,
+      "sslPort": 44349,
+      "useSSL": true
+    },
+    "PetSearch": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "api/search",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:5001;http://localhost:5000"
+    }
+  }
+}

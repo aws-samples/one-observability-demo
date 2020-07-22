@@ -1,0 +1,15 @@
+{
+    "manifestVersion": 1,
+    "deployments": {
+        "aspNetCoreWeb": [
+        {
+            "name": "petsearch",
+            "parameters": {
+                "appBundle": "site.zip",
+                "iisPath": "/",
+                "iisWebSite": "Default Web Site"
+            }
+        }
+        ]
+    }
+}

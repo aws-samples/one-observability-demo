@@ -1,0 +1,14 @@
+diff --git cdk/pet_stack/lib/services.ts cdk/pet_stack/lib/services.ts
+index 539aebe..6a764bb 100644
+--- cdk/pet_stack/lib/services.ts
++++ cdk/pet_stack/lib/services.ts
+@@ -54,7 +54,8 @@ export class Services extends cdk.Stack {
+             sortKey: {
+                 name: 'petid',
+                 type: ddb.AttributeType.STRING
+-            }
++            },
++            billingMode: ddb.BillingMode.PAY_PER_REQUEST
+         });
+ 
+         // Seeds the petadoptions dynamodb table with all data required

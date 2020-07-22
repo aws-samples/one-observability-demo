@@ -1,0 +1,40 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:55730",
+      "sslPort": 44347
+    }
+  },
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "PetSite": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:5000"
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
+      "environmentVariables": {
+        "ASPNETCORE_URLS": "https://+:443;http://+:80",
+        "ASPNETCORE_HTTPS_PORT": "44348",
+        "AWS_XRAY_DAEMON_ADDRESS":"xray-service:default"
+      },
+      "httpPort": 55731,
+      "useSSL": true,
+      "sslPort": 44348
+    }
+  }
+}
