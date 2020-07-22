@@ -21,7 +21,7 @@
 #contributors    @ijaganna
 #date            2020-05-24
 #version         0.1
-#usage           curl -sSL https://raw.githubusercontent.com/awsimaya/PetAdoptions/master/envsetup.sh | bash -s stable
+#usage           curl -sSL https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/envsetup.sh | bash -s stable
 #==============================================================================
 
 # Create a directory
@@ -72,4 +72,4 @@ npm install -g npm
 npm i -g aws-cdk --force
 
 # Download lab repository
-git clone https://github.com/awsimaya/PetAdoptions
+git clone https://github.com/aws-samples/one-observability-demo
