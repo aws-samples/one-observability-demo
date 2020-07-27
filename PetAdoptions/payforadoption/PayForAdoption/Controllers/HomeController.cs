@@ -12,6 +12,8 @@ using System.Text.Json;
 using Amazon.XRay.Recorder.Handlers.System.Net;
 using Amazon.XRay.Recorder.Core;
 using Microsoft.Extensions.Configuration;
+using Amazon.SecretsManager;
+using Amazon.SecretsManager.Model;
 
 namespace PayForAdoption.Controllers
 {
@@ -22,6 +24,8 @@ namespace PayForAdoption.Controllers
         private static SqlConnection _sqlConnection = new SqlConnection();
         private static HttpClient _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
         private static IConfiguration _configuration;
+        private static string ConnectionString;
+
         public HomeController(IConfiguration configuration)
         {
             _configuration = configuration;
@@ -29,7 +33,7 @@ namespace PayForAdoption.Controllers
         }
 
         [HttpPost("CompleteAdoption")]
-        public string CompleteAdoption([FromQuery] string petId, string pettype)
+        public async Task<string> CompleteAdoption([FromQuery] string petId, string pettype)
         {
             try
             {
@@ -37,7 +41,7 @@ namespace PayForAdoption.Controllers
                 AWSXRayRecorder.Instance.AddAnnotation("PetId", petId);
                 AWSXRayRecorder.Instance.AddAnnotation("PetType", pettype);
                 
-                _sqlConnection.ConnectionString = _configuration["rdsconnectionstring"];
+                _sqlConnection.ConnectionString = await GetConnectionString();
 
                 var sqlCommandText = $"INSERT INTO [dbo].[transactions] ([PetId], [Transaction_Id], [Adoption_Date]) VALUES ('{petId}', '{Guid.NewGuid().ToString()}', '{DateTime.Now.ToString()}')";
 
@@ -61,9 +65,9 @@ namespace PayForAdoption.Controllers
         }
         
         [HttpPost("CleanUpAdoptions")]
-        public void CleanupAdoptions()
+        public async Task CleanupAdoptions()
         {
-            _sqlConnection.ConnectionString = _configuration["rdsconnectionstring"];
+            _sqlConnection.ConnectionString = await GetConnectionString();
 
             var sqlCommandText = $"DELETE FROM [dbo].[transactions]";
 
@@ -95,6 +99,34 @@ namespace PayForAdoption.Controllers
             
             StringContent putData = new StringContent(JsonSerializer.Serialize(putParams));
             return await _httpClient.PutAsync(_configuration["updateadoptionstatusurl"], putData);
+        }
+
+        private static async Task<string> GetConnectionString()
+        {
+            if (string.IsNullOrEmpty(ConnectionString))
+            {
+                var endpoint = _configuration["rdsendpoint"];
+                var secretArn = _configuration["rdssecretarn"];
+
+                var client = new AmazonSecretsManagerClient();
+                var response = await client.GetSecretValueAsync(new GetSecretValueRequest() { SecretId = secretArn });
+
+                var secret = JsonDocument.Parse(response.SecretString).RootElement;
+                var username = secret.GetProperty("username").GetString();
+                var password = secret.GetProperty("password").GetString();
+
+                var builder = new SqlConnectionStringBuilder
+                {
+                    DataSource = endpoint,
+                    InitialCatalog = "adoptions",
+                    UserID = username,
+                    Password = password
+                };
+
+                ConnectionString = builder.ConnectionString;
+            }
+
+            return ConnectionString;
         }
     }
 }

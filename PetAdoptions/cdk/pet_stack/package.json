@@ -46,6 +46,7 @@
     "@aws-cdk/custom-resources": "^1.51.0",
     "@types/js-yaml": "^3.12.5",
     "aws-cdk-dynamodb-seeder": "1.37.0",
+    "cdk-sqlserver-seeder": "^0.2.3",
     "js-yaml": "^3.14.0",
     "source-map-support": "^0.5.19"
   }
