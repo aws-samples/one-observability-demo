@@ -27,7 +27,7 @@ namespace PetSearch
                             .AddJsonFile($"appsettings.{env.EnvironmentName}.json",
                                 optional: true, reloadOnChange: true);
                     else
-                        config.AddSystemsManager(configureSource =>
+                        config.Add<SystemsManagerConfigurationProviderWithReload.ConfigurationSource>(configureSource =>
                         {
                             configureSource.Path = "/petstore";
                             configureSource.Optional = true;

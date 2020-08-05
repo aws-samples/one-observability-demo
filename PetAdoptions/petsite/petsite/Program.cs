@@ -1,12 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Amazon.Extensions.NETCore.Setup;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore;
 using Prometheus.DotNetRuntime;
 
 namespace PetSite
@@ -43,7 +39,7 @@ namespace PetSite
                             .AddJsonFile($"appsettings.{env.EnvironmentName}.json",
                                 optional: true, reloadOnChange: true);
                     else
-                        config.AddSystemsManager(configureSource =>
+                        config.Add<SystemsManagerConfigurationProviderWithReload.ConfigurationSource>(configureSource =>
                         {
                             configureSource.Path = "/petstore";
                             configureSource.Optional = true;
