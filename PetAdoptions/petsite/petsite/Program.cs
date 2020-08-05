@@ -39,7 +39,7 @@ namespace PetSite
                             .AddJsonFile($"appsettings.{env.EnvironmentName}.json",
                                 optional: true, reloadOnChange: true);
                     else
-                        config.Add<SystemsManagerConfigurationProviderWithReload.ConfigurationSource>(configureSource =>
+                        config.AddSystemsManagerWithReload(configureSource =>
                         {
                             configureSource.Path = "/petstore";
                             configureSource.Optional = true;
