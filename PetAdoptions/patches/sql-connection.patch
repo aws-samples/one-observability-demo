@@ -3,7 +3,7 @@ index d801a84..f2eb9d0 100644
 --- payforadoption/PayForAdoption/Controllers/HomeController.cs
 +++ payforadoption/PayForAdoption/Controllers/HomeController.cs
 @@ -1,4 +1,5 @@
--﻿using System;
+-using System;
 +using System;
 +using System.Data;
  using System.Collections.Generic;
@@ -21,29 +21,29 @@ index d801a84..f2eb9d0 100644
                  AWSXRayRecorder.Instance.AddAnnotation("PetId", petId);
                  AWSXRayRecorder.Instance.AddAnnotation("PetType", pettype);
                  
--                _sqlConnection.ConnectionString = _configuration["rdsconnectionstring"];
+-                _sqlConnection.ConnectionString = await GetConnectionString();
 -
                  var sqlCommandText = $"INSERT INTO [dbo].[transactions] ([PetId], [Transaction_Id], [Adoption_Date]) VALUES ('{petId}', '{Guid.NewGuid().ToString()}', '{DateTime.Now.ToString()}')";
  
                  AWSXRayRecorder.Instance.AddMetadata("Query",sqlCommandText);
  
 -                using (_sqlConnection)
-+                using (SqlConnection _sqlConnection = new SqlConnection(_configuration["rdsconnectionstring"]))
++                using (SqlConnection _sqlConnection = new SqlConnection(await GetConnectionString()))
                  {
                      using var command = new TraceableSqlCommand(sqlCommandText, _sqlConnection);
                      command.Connection.Open();
 @@ -63,13 +61,12 @@ namespace PayForAdoption.Controllers
          [HttpPost("CleanUpAdoptions")]
-         public void CleanupAdoptions()
+         public async Task CleanupAdoptions()
          {
--            _sqlConnection.ConnectionString = _configuration["rdsconnectionstring"];
+-            _sqlConnection.ConnectionString = await GetConnectionString();
  
              var sqlCommandText = $"DELETE FROM [dbo].[transactions]";
  
              AWSXRayRecorder.Instance.AddMetadata("Query",sqlCommandText);
      
 -            using (_sqlConnection)
-+            using (SqlConnection _sqlConnection = new SqlConnection(_configuration["rdsconnectionstring"]))
++            using (SqlConnection _sqlConnection = new SqlConnection(await GetConnectionString()))
              {
                  using var command = new TraceableSqlCommand(sqlCommandText, _sqlConnection);
                  command.Connection.Open();

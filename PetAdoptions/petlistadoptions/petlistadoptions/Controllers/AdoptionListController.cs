@@ -11,6 +11,8 @@ using Amazon.XRay.Recorder.Handlers.SqlServer;
 using Amazon.XRay.Recorder.Handlers.System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Amazon.SecretsManager;
+using Amazon.SecretsManager.Model;
 
 namespace PetListAdoptions.Controllers
 {
@@ -21,6 +23,8 @@ namespace PetListAdoptions.Controllers
         private static IConfiguration _configuration;
         private static SqlConnection _sqlConnection = new SqlConnection();
         private static HttpClient httpClient;
+        private static string ConnectionString;
+
 
         public AdoptionListController(IConfiguration configuration)
         {
@@ -40,7 +44,7 @@ namespace PetListAdoptions.Controllers
             {
                 AWSXRayRecorder.Instance.BeginSubsegment("Fetching adoption list");
 
-                _sqlConnection.ConnectionString = _configuration["rdsconnectionstring"];
+                _sqlConnection.ConnectionString = await GetConnectionString();
 
                 var sqlCommandText = $"SELECT TOP 25 * FROM [dbo].[transactions]";
 
@@ -85,6 +89,34 @@ namespace PetListAdoptions.Controllers
             }
 
             return adoptionItems;
+        }
+
+        private static async Task<string> GetConnectionString()
+        {
+            if (string.IsNullOrEmpty(ConnectionString))
+            {
+                var endpoint = _configuration["rdsendpoint"];
+                var secretArn = _configuration["rdssecretarn"];
+
+                var client = new AmazonSecretsManagerClient();
+                var response = await client.GetSecretValueAsync(new GetSecretValueRequest() { SecretId = secretArn });
+
+                var secret = JsonDocument.Parse(response.SecretString).RootElement;
+                var username = secret.GetProperty("username").GetString();
+                var password = secret.GetProperty("password").GetString();
+
+                var builder = new SqlConnectionStringBuilder
+                {
+                    DataSource = endpoint,
+                    InitialCatalog = "adoptions",
+                    UserID = username,
+                    Password = password
+                };
+
+                ConnectionString = builder.ConnectionString;
+            }
+
+            return ConnectionString;
         }
     }
 }

@@ -14,7 +14,7 @@ import * as ssm from '@aws-cdk/aws-ssm';
 import * as eks from '@aws-cdk/aws-eks';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
-import { SqlSeeder } from './sql-seeder'
+import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
 import { ListAdoptionsService } from './services/list-adoptions-service'
 import { PetSiteService } from './services/pet-site-service'
@@ -22,7 +22,6 @@ import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import path = require('path');
-import { Version } from '@aws-cdk/aws-lambda';
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 
 export class Services extends cdk.Stack {
@@ -88,14 +87,10 @@ export class Services extends cdk.Stack {
         rdssecuritygroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(1433), 'allow MSSQL access from the world');
 
         const rdsUsername = this.node.tryGetContext('rdsusername');
-        const rdsPassword = this.node.tryGetContext('rdspassword');
-        const rdsPasswordSecret = new cdk.SecretValue(rdsPassword);
-
         const instance = new rds.DatabaseInstance(this, 'Instance', {
             engine: rds.DatabaseInstanceEngine.SQL_SERVER_WEB,
             instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
             masterUsername: rdsUsername,
-            masterUserPassword: rdsPasswordSecret,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             deletionProtection: false,
             vpc: theVPC,
@@ -103,12 +98,12 @@ export class Services extends cdk.Stack {
             securityGroups: [rdssecuritygroup]
         });
 
-        var sqlSeeder = new SqlSeeder(this, "sql-seeder", {
+        var sqlSeeder = new SqlServerSeeder(this, "sql-seeder", {
             vpc: theVPC,
             database: instance,
             port: 1433,
-            username: rdsUsername,
-            password: rdsPassword
+            createScriptPath: "resources/rds_sqlserver.sql",
+            memorySize: 512
         })
 
         const readSSMParamsPolicy = new iam.PolicyStatement({
@@ -132,7 +127,8 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PayForAdoption",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            healthCheck: '/health/status'
+            healthCheck: '/health/status',
+            database: instance
         });
         payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
@@ -146,7 +142,8 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetListAdoptions",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            healthCheck: '/health/status'
+            healthCheck: '/health/status',
+            database: instance
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
@@ -234,7 +231,8 @@ export class Services extends cdk.Stack {
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
             '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
-            '/petstore/rdsconnectionstring': `Server=${instance.dbInstanceEndpointAddress};Database=adoptions;User Id=${rdsUsername};Password=${rdsPassword}`,
+            '/petstore/rdssecretarn': `${instance.secret?.secretArn}`,
+            '/petstore/rdsendpoint': instance.dbInstanceEndpointAddress,
             '/petstore/stackname': stackName
         })));
 
