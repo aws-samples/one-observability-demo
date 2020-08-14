@@ -17,9 +17,13 @@ echo -----------------------------------------
 aws s3 rm s3://$CDK_S3_BUCKET_NAME --recursive   
 
 # Delete resources such as S3 buckets etc created by CDKToolkit
-echo DELETING THE BOOTSTRAP S3 BUCKET
-echo ----------------------------------
+
 aws cloudformation delete-stack --stack-name CDKToolkit
+echo DELETED THE BOOTSTRAP S3 BUCKET
+echo ----------------------------------
+
+echo STARTING SERVICES DEPLOYMENT
+echo -----------------------------
 
 # Get the main stack name
 STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
