@@ -23,6 +23,7 @@ import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
+import { RemovalPolicy } from '@aws-cdk/core';
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -53,7 +54,8 @@ export class Services extends cdk.Stack {
             sortKey: {
                 name: 'petid',
                 type: ddb.AttributeType.STRING
-            }
+            },
+            removalPolicy:  RemovalPolicy.DESTROY
         });
 
         // Seeds the petadoptions dynamodb table with all data required
