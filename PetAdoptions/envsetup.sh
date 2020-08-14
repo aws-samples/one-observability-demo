@@ -74,5 +74,5 @@ npm i -g aws-cdk --force
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo
 
-# Fetch usage tracker
+# Fetch usage tracker file
 aws s3api get-object --bucket one-observability-workshop-tracker --key lab_user.txt lab_user.txt --region us-east-1
