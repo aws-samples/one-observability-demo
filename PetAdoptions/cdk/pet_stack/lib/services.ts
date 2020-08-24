@@ -170,10 +170,50 @@ export class Services extends cdk.Stack {
                 version: KubernetesVersion.V1_16
             });
 
+            // Create OIDC Provider
+            const oidcProvider = new iam.OpenIdConnectProvider(this, 'eksoidcprovider', {
+                url: cluster.clusterOpenIdConnectIssuerUrl,
+                clientIds: [ 'sts.amazonaws.com' ],
+                thumbprints: [ cluster.clusterCertificateAuthorityData ]
+            });
+
+            // TODO: Customize Trust Policy for each Service account
+            const eksFederatedPrincipal = new iam.FederatedPrincipal(oidcProvider.openIdConnectProviderArn,{'StringEquals': cluster.openIdConnectProvider + ':aud: "sts.amazonaws.com"' },'sts:AssumeRoleWithWebIdentity');
+
+            // Create IAM roles for Service Accounts
+            // Cloudwatch Agent SA
+            const cwserviceaccount = new iam.Role(this, 'CWServiceAccount', {
+                assumedBy: eksFederatedPrincipal,
+                managedPolicies: [ 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
+                ],
+            });
+    
+            // X-Ray Agent SA
+            const xrayserviceaccount = new iam.Role(this, 'XRayServiceAccount', {
+                assumedBy: eksFederatedPrincipal,
+                managedPolicies: [ 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
+                ],
+            });
+
+            // FrontEnd SA (SSM, SQS, SNS)
+            const petstoreserviceaccount = new iam.Role(this, 'PetSiteServiceAccount', {
+                assumedBy: eksFederatedPrincipal,
+                managedPolicies: [ 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
+                ],
+            });
+
             sqlSeeder.node.addDependency(cluster);
 
             this.createOuputs(new Map(Object.entries({
-                'PetSiteECRImageURL': asset.imageUri
+                'PetSiteECRImageURL': asset.imageUri,
+                'CWServiceAccountArn': cwserviceaccount.roleArn,
+                'XRayServiceAccountArn': xrayserviceaccount.roleArn,
+                'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn
             })));
         }
         else {
