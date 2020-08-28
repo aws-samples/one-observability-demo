@@ -171,7 +171,8 @@ export class Services extends cdk.Stack {
             });
 
 
-            // TODO: Attach trust policy here instead of the bash file
+            // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
+            const oidc = cluster.openIdConnectProvider.openIdConnectProviderArn;
 
             // Create IAM roles for Service Accounts
             // Cloudwatch Agent SA
