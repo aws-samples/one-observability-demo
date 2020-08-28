@@ -7,4 +7,5 @@ import { Services } from '../lib/services';
 const stackName = "Services";
 const app = new cdk.App();
 
-new Services(app, stackName);
+const stack = new Services(app, stackName);
+cdk.Tag.add(stack, 'Workshop', 'true');
