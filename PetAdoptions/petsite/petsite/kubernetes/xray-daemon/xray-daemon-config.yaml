@@ -51,6 +51,7 @@ spec:
       labels:
         app: xray-daemon
     spec:
+      serviceAccountName: xray-daemon
       volumes:
       - name: config-volume
         configMap:
