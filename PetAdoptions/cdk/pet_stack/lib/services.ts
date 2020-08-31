@@ -180,7 +180,7 @@ export class Services extends cdk.Stack {
 //                assumedBy: eksFederatedPrincipal,
                 assumedBy: new iam.AccountRootPrincipal(),
                 managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'CWServiceAccount-CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
                 ],
             });
     
@@ -189,7 +189,7 @@ export class Services extends cdk.Stack {
 //                assumedBy: eksFederatedPrincipal,
                 assumedBy: new iam.AccountRootPrincipal(),
                 managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'XRayServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
                 ],
             });
 
@@ -198,9 +198,10 @@ export class Services extends cdk.Stack {
 //                assumedBy: eksFederatedPrincipal,
                   assumedBy: new iam.AccountRootPrincipal(),
               managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
                 ],
             });
 
