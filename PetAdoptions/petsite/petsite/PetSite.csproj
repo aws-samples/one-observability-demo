@@ -26,6 +26,7 @@
     <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="3.3.118.13" />
     <PackageReference Include="AWSSDK.SQS" Version="3.3.102.74" />
     <PackageReference Include="AWSSDK.XRay" Version="3.3.101.130" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.104.44" />
     <PackageReference Include="AWSXRayRecorder.Core" Version="2.6.2" />
     <PackageReference Include="AWSXRayRecorder.Handlers.AspNetCore" Version="2.6.2" />
     <PackageReference Include="AWSXRayRecorder.Handlers.AwsSdk" Version="2.7.2" />

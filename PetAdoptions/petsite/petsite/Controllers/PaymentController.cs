@@ -95,16 +95,28 @@ namespace PetSite.Controllers
 
         private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
         {
-            return await _httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}", null);
+            string paymentapiurl = _configuration["paymentapiurl"];
+            
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PAYMENT_API_URL")))
+            {
+                paymentapiurl = Environment.GetEnvironmentVariable("PAYMENT_API_URL");
+            }            
+            return await _httpClient.PostAsync($"{paymentapiurl}?petId={petId}&petType={pettype}", null);
         }
 
         private async Task<SendMessageResponse> PostMessageToSqs(string petId)
         {
             AWSSDKHandler.RegisterXRay<IAmazonSQS>();
+            string queueurl = _configuration["queueurl"];
+            
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("QUEUE_URL")))
+            {
+                queueurl = Environment.GetEnvironmentVariable("QUEUE_URL");
+            }                
             var sendMessageRequest = new SendMessageRequest()
             {
                 MessageBody = JsonSerializer.Serialize(petId),
-                QueueUrl = _configuration["queueurl"]
+                QueueUrl = queueurl
             };
             return await _sqsClient.SendMessageAsync(sendMessageRequest);
         }
@@ -112,9 +124,16 @@ namespace PetSite.Controllers
         private async Task<PublishResponse> SendNotification(string petId)
         {
             AWSSDKHandler.RegisterXRay<IAmazonService>();
-
+            
+            
+            string snsarn = _configuration["snsarn"];
+            
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SNS_ARN")))
+            {
+                snsarn = Environment.GetEnvironmentVariable("SNS_ARN");
+            }   
             var snsClient = new AmazonSimpleNotificationServiceClient();
-            return await snsClient.PublishAsync(topicArn: _configuration["snsarn"],
+            return await snsClient.PublishAsync(topicArn: snsarn,
                 message: $"PetId {petId} was adopted on {DateTime.Now}");
         }
     }
