@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo ---------------------------------------------------------------------------------------------
-echo This script deploys petsite service, xray daemon and the CloudWatch agent to the EKS cluster
+echo This script deploys petsite service, xray daemon and the CloudWatch namespace and service account to the EKS cluster
 echo ---------------------------------------------------------------------------------------------
 
 STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
