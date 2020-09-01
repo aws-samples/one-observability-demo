@@ -48,6 +48,21 @@ rm trust.json
 
 
 
+SEARCH_API_URL="$(aws ssm get-parameter --name "/petstore/searchapiurl" --query Parameter.Value --output text)"
+UPDATE_ADOPTION_STATUS_URL="$(aws ssm get-parameter --name "/petstore/updateadoptionstatusurl" --query Parameter.Value --output text)"
+PAYMENT_API_URL="$(aws ssm get-parameter --name "/petstore/paymentapiurl" --query Parameter.Value --output text)"
+QUEUE_URL="$(aws ssm get-parameter --name "/petstore/queueurl" --query Parameter.Value --output text)"
+SNS_ARN="$(aws ssm get-parameter --name "/petstore/snsarn" --query Parameter.Value --output text)"
+PET_LIST_ADOPTION_URL="$(aws ssm get-parameter --name "/petstore/petlistadoptionsurl" --query Parameter.Value --output text)"
+
+sed -i "s~{{SEARCH_API_URL}}~$SEARCH_API_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{UPDATE_ADOPTION_STATUS_URL}}~$UPDATE_ADOPTION_STATUS_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{PAYMENT_API_URL}}~$PAYMENT_API_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{QUEUE_URL}}~$QUEUE_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{SNS_ARN}}~$SNS_ARN~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{PET_LIST_ADOPTION_URL}}~$PET_LIST_ADOPTION_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+
+
 sed -i "s~{{ECR_IMAGE_URL}}~$PETSITE_IMAGE_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{PETSITE_SA_ROLE}}~$PETSITE_SA_ROLE~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{XRAY_SA_ROLE}}~$XRAY_SA_ROLE~" ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.yaml
