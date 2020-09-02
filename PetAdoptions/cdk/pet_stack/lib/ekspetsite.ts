@@ -3,7 +3,7 @@ import * as iam from '@aws-cdk/aws-iam';
 import * as eks from '@aws-cdk/aws-eks';
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 
-export class EKS_Petsite extends cdk.Stack {
+export class EKSPetsite extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         const clusterAdmin = new iam.Role(this, 'AdminRole', {

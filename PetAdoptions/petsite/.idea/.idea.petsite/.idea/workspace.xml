@@ -61,6 +61,7 @@
     <setting file="file://$PROJECT_DIR$/petsite/Controllers/AdoptionController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/petsite/Controllers/PetListAdoptionsController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/petsite/Controllers/HealthController.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/petsite/SystemsManagerConfigurationProviderWithReload.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/petsite/Controllers/PaymentController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/petsite/ViewModels/Pets.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
@@ -185,6 +186,7 @@
       <workItem from="1594347049562" duration="1560000" />
       <workItem from="1594390479191" duration="1121000" />
       <workItem from="1598364163293" duration="878000" />
+      <workItem from="1598987880910" duration="725000" />
     </task>
     <servers />
   </component>
@@ -219,6 +221,10 @@
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
   </component>
   <component name="WindowStateProjectService">
+    <state x="1338" y="716" width="763" height="566" key="#Notifications" timestamp="1598988023381">
+      <screen x="0" y="23" width="3440" height="1370" />
+    </state>
+    <state x="1338" y="716" width="763" height="566" key="#Notifications/0.23.3440.1370/-1920.-10.1920.1057@0.23.3440.1370" timestamp="1598988023381" />
     <state width="1678" height="391" key="GridCell.Tab.0.bottom" timestamp="1598467449021">
       <screen x="0" y="23" width="3440" height="1370" />
     </state>
