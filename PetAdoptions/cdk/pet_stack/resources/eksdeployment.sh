@@ -69,7 +69,11 @@ sed -i "s~{{PETSITE_SA_ROLE}}~$PETSITE_SA_ROLE~" ../../petsite/petsite/kubernete
 sed -i "s~{{XRAY_SA_ROLE}}~$XRAY_SA_ROLE~" ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.yaml
 
 sed -i "s~{{CLOUDWATCH_SA_ROLE}}~$CLOUDWATCH_SA_ROLE~" ./resources/prometheus-eks.yaml
-sed -i "s~{{CLOUDWATCH_SA_ROLE}}~$CLOUDWATCH_SA_ROLE~" ./resources/cloudwatch_serviceaccounts.yaml
+
+
+sed -i "s~{{region_name}}~$AWS_REGION~" ./resources/cwagent-fluentd-quickstart.yaml
+sed -i "s~{{cluster_name}}~PetSite~" ./resources/cwagent-fluentd-quickstart.yaml
+sed -i "s~{{CLOUDWATCH_SA_ROLE}}~$CLOUDWATCH_SA_ROLE~" ./resources/cwagent-fluentd-quickstart.yaml
 
 
 kubectl apply -f ../../petsite/petsite/kubernetes/deployment.yaml
@@ -78,9 +82,6 @@ kubectl apply -f ../../petsite/petsite/kubernetes/service.yaml
 
 kubectl apply -f ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.yaml
 
-# Pre-configure the Service account for cloudwatch agent
-kubectl apply -f ./resources/cloudwatch_serviceaccounts.yaml
-
 
 # Setup Container Insights
 # Removing this because we want the user to know how CWCI is being setup
@@ -88,16 +89,7 @@ kubectl apply -f ./resources/cloudwatch_serviceaccounts.yaml
 # Test code for EKS Container Insight (manually run on step 7.2)
 
 #STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
-#CLOUDWATCH_SA_ROLE=$(aws cloudformation describe-stacks  --stack-name $STACK_NAME | jq '.Stacks[0].Outputs[] | select(.OutputKey == "CWServiceAccountArn").OutputValue' -r)
-
-#kubectl create namespace amazon-cloudwatch
-#kubectl create sa cloudwatch-agent -n amazon-cloudwatch
-#kubectl annotate serviceaccount -n amazon-cloudwatch cloudwatch-agent eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
-
-#curl https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/quickstart/cwagent-fluentd-quickstart.yaml | sed "s/{{cluster_name}}/PetSite/;s/{{region_name}}/$AWS_REGION/" | kubectl apply -f -
-
-#kubectl annotate serviceaccount -n amazon-cloudwatch cloudwatch-agent eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
-
+kubectl apply -f ./resources/cwagent-fluentd-quickstart.yaml
 
 
 # Wait a little bit for ELB to be created
