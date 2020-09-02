@@ -89,7 +89,7 @@ kubectl apply -f ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config
 # Test code for EKS Container Insight (manually run on step 7.2)
 
 #STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
-kubectl apply -f ./resources/cwagent-fluentd-quickstart.yaml
+#kubectl apply -f ./resources/cwagent-fluentd-quickstart.yaml
 
 
 # Wait a little bit for ELB to be created
