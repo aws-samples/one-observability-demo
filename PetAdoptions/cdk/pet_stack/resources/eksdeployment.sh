@@ -67,6 +67,9 @@ sed -i "s~{{ECR_IMAGE_URL}}~$PETSITE_IMAGE_URL~" ../../petsite/petsite/kubernete
 sed -i "s~{{PETSITE_SA_ROLE}}~$PETSITE_SA_ROLE~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{XRAY_SA_ROLE}}~$XRAY_SA_ROLE~" ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.yaml
 
+sed -i "s~{{CLOUDWATCH_SA_ROLE}}~$CLOUDWATCH_SA_ROLE~" ./resources/prometheus-eks.yaml
+sed -i "s~{{CLOUDWATCH_SA_ROLE}}~$CLOUDWATCH_SA_ROLE~" ./resources/cloudwatch_serviceaccounts.yaml
+
 
 kubectl apply -f ../../petsite/petsite/kubernetes/deployment.yaml
 
@@ -75,12 +78,7 @@ kubectl apply -f ../../petsite/petsite/kubernetes/service.yaml
 kubectl apply -f ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.yaml
 
 # Pre-configure the Service account for cloudwatch agent
-kubectl create namespace amazon-cloudwatch
-kubectl create sa cloudwatch-agent -n amazon-cloudwatch
-kubectl annotate serviceaccount -n amazon-cloudwatch cloudwatch-agent eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
-
-kubectl create sa cwagent-prometheus -n amazon-cloudwatch
-kubectl annotate serviceaccount -n amazon-cloudwatch cwagent-prometheus eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
+kubectl apply -f ./resources/cloudwatch_serviceaccounts.yaml
 
 
 # Setup Container Insights
