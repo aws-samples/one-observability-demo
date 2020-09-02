@@ -79,6 +79,9 @@ kubectl create namespace amazon-cloudwatch
 kubectl create sa cloudwatch-agent -n amazon-cloudwatch
 kubectl annotate serviceaccount -n amazon-cloudwatch cloudwatch-agent eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
 
+kubectl create sa cwagent-prometheus -n amazon-cloudwatch
+kubectl annotate serviceaccount -n amazon-cloudwatch cwagent-prometheus eks.amazonaws.com/role-arn=${CLOUDWATCH_SA_ROLE}
+
 
 # Setup Container Insights
 # Removing this because we want the user to know how CWCI is being setup
