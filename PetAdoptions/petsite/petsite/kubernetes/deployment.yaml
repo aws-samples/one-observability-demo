@@ -45,4 +45,6 @@ spec:
             value: {{SNS_ARN}}
           - name: PET_LIST_ADOPTION_URL
             value: {{PET_LIST_ADOPTION_URL}}          
+          - name: CLEANUP_ADOPTIONS_URL
+            value: {{CLEANUP_ADOPTIONS_URL}}
             

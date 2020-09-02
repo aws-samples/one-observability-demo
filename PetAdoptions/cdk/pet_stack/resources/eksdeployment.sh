@@ -61,6 +61,7 @@ sed -i "s~{{PAYMENT_API_URL}}~$PAYMENT_API_URL~" ../../petsite/petsite/kubernete
 sed -i "s~{{QUEUE_URL}}~$QUEUE_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{SNS_ARN}}~$SNS_ARN~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{PET_LIST_ADOPTION_URL}}~$PET_LIST_ADOPTION_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
+sed -i "s~{{CLEANUP_ADOPTIONS_URL}}~$CLEANUP_ADOPTIONS_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
 
 
 sed -i "s~{{ECR_IMAGE_URL}}~$PETSITE_IMAGE_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
