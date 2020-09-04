@@ -22,7 +22,7 @@ aws cloudformation delete-stack --stack-name CDKToolkit
 echo DELETED THE BOOTSTRAP S3 BUCKET
 echo ----------------------------------
 
-echo STARTING SERVICES DEPLOYMENT
+echo STARTING SERVICES CLEANUP
 echo -----------------------------
 
 # Get the main stack name

@@ -5,8 +5,6 @@
       <e p=".dockerignore" t="Include" />
       <e p="packages" t="ExcludeRecursive" />
       <e p="petsite" t="IncludeRecursive">
-        <e p="._bundleconfig.json" t="Include" />
-        <e p="._compilerconfig.json" t="Include" />
         <e p="appsettings.Development.json" t="Include" />
         <e p="appsettings.json" t="Include" />
         <e p="bin" t="ExcludeRecursive" />
@@ -49,6 +47,7 @@
         </e>
         <e p="SearchParams.cs" t="Include" />
         <e p="Startup.cs" t="Include" />
+        <e p="SystemsManagerConfigurationProviderWithReload.cs" t="Include" />
         <e p="ViewModels" t="Include">
           <e p="Pets.cs" t="Include" />
         </e>
@@ -81,6 +80,7 @@
           <e p="css" t="Include">
             <e p="petstyles.css" t="Include" />
             <e p="site.css" t="Include" />
+            <e p="site.min.css" t="Include" />
           </e>
           <e p="favicon.ico" t="Include" />
           <e p="images" t="Include">
@@ -166,6 +166,6 @@
       <e p="petsite.sln" t="IncludeFlat" />
     </e>
     <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.1/extResources" t="IncludeRecursive" />
-    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.1/resharper-host/local/Transient/ReSharperHost/v201/SolutionCaches/_petsite.1033656977.00" t="ExcludeRecursive" />
+    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.1/resharper-host/local/Transient/ReSharperHost/v201/SolutionCaches/_petsite.-1065457750.00" t="ExcludeRecursive" />
   </component>
 </project>
