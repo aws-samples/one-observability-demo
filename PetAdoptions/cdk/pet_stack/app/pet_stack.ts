@@ -5,9 +5,8 @@ import * as cdk from '@aws-cdk/core';
 import { Services } from '../lib/services';
 //import { EKSPetsite } from '../lib/ekspetsite'
 
-
+const stackName = "Services";
 const app = new cdk.App();
 
-new Services(app, 'Services');
-
-//new EKSPetsite(app, 'EKSPetsite')
+const stack = new Services(app, stackName);
+cdk.Tag.add(stack, 'Workshop', 'true');
