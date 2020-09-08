@@ -57,6 +57,20 @@ export class Services extends cdk.Stack {
             },
             removalPolicy:  RemovalPolicy.DESTROY
         });
+        
+        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'ReadCapacityUnitsLimit-BasicAlarm', {
+          threshold: 240,
+          evaluationPeriods: 2,
+          period: cdk.Duration.minutes(1),
+          alarmName: `${dynamodb_petadoption.tableName}-ReadCapacityUnitsLimit-BasicAlarm`,
+        });
+        
+        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'WriteCapacityUnitsLimit-BasicAlarm', {
+          threshold: 240,
+          evaluationPeriods: 2,
+          period: cdk.Duration.minutes(1),
+          alarmName: `${dynamodb_petadoption.tableName}-WriteCapacityUnitsLimit-BasicAlarm`,
+        });
 
         // Seeds the petadoptions dynamodb table with all data required
         new ddbseeder.Seeder(this, "ddb_seeder_petadoption", {
