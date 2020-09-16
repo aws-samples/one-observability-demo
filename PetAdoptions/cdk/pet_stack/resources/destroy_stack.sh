@@ -28,6 +28,9 @@ echo -----------------------------
 # Get the main stack name
 STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
 
+# Delete the ECS Prometheus agent stack
+aws cloudformation delete-stack --stack-name CWProm-ECS-${PETSITE_ECS_CLUSTER}
+
 # Get rid of all resources
 cdk destroy $STACK_NAME
 
