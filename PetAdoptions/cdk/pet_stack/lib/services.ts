@@ -147,7 +147,7 @@ export class Services extends cdk.Stack {
             database: instance
         });
         payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
-        payForAdoptionService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
+        payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
@@ -162,7 +162,7 @@ export class Services extends cdk.Stack {
             database: instance
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
-        listAdoptionsService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
+        listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         const isEKS = this.node.tryGetContext('petsite_on_eks');
 
@@ -202,7 +202,7 @@ export class Services extends cdk.Stack {
                 memoryLimitMiB: 2048,
                 healthCheck: '/health/status'
             })
-            petSiteService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
+            petSiteService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
             this.createSsmParameters(new Map(Object.entries({
                 '/petstore/petsiteurl': `http://${petSiteService.service.loadBalancer.loadBalancerDnsName}`
@@ -220,7 +220,7 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status'
         })
-        searchService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
+        searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         // Traffic Generator task definition.
         const trafficGeneratorService = new TrafficGeneratorService(this, 'traffic-generator-service', {
@@ -230,7 +230,7 @@ export class Services extends cdk.Stack {
             disableXRay: true,
             disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
         })
-        trafficGeneratorService.taskDefinition.taskRole?.addToPolicy(readSSMParamsPolicy);
+        trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         //PetStatusUpdater Lambda Function and APIGW--------------------------------------
         const statusUpdaterService = new StatusUpdaterService(this, 'status-updater-service', {
