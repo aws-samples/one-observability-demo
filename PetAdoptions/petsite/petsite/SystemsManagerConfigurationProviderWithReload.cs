@@ -78,5 +78,35 @@ namespace PetSite
                 _lastAccessTime = DateTime.UtcNow;
             }
         }
+
+        /*Amazon.Extensions.Configuration.SystemsManager doesn't support AssumeRoleWithWebIdentity see issue here. As a temporary solution, environment variables where provided to override configurations read from Parameter store as those were empty. Long term solution needs to update class SystemsManagerConfigurationProviderWithReloadExtensions 
+        using a different base class or wait for the issue to be solved.
+        The workaround is to provide a way to inject the ParameterValues as environment variables*/
+                
+        private static Dictionary<string,string> ConfigurationMapping = {
+            { "searchapiurl", "SEARCH_API_URL"},
+            { "updateadoptionstatusurl", "UPDATE_ADOPTION_STATUS_URL"},
+            { "cleanupadoptionsurl", "CLEANUP_ADOPTIONS_URL"},
+            { "paymentapiurl", "PAYMENT_API_URL"},
+            { "queueurl", "QUEUE_URL"},
+            { "snsarn", "SNS_ARN"},
+            { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"}
+        };
+        
+        public static string GetConfiguration(string value)
+        {
+            string retVal = _configuration[value];
+
+            string envVar = ConfigurationMapping[value];
+            if (!string.IsNullOrEmpty(envVar))
+            {
+              if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar)))
+                {
+                    retVal = Environment.GetEnvironmentVariable(envVar);
+                }  
+            }
+            return retVal;
+  
+        }
     }
 }

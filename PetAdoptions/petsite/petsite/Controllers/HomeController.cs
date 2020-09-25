@@ -95,13 +95,8 @@ namespace PetSite.Controllers
                     PetSearchCount.Inc();
                     break;
             }
-            string searchapiurl = _configuration["searchapiurl"];
-            
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SEARCH_API_URL")))
-            {
-                searchapiurl = Environment.GetEnvironmentVariable("SEARCH_API_URL");
-            }
-
+            //string searchapiurl = _configuration["searchapiurl"];
+            searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("searchapiurl");
             return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
         }
 
@@ -116,12 +111,9 @@ namespace PetSite.Controllers
 
             var searchParams = new SearchParams();
             
-            string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
-            
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("UPDATE_ADOPTION_STATUS_URL")))
-            {
-                updateadoptionstatusurl = Environment.GetEnvironmentVariable("UPDATE_ADOPTION_STATUS_URL");
-            }            
+            //string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
+            string updateadoptionstatusurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("updateadoptionstatusurl");
+                  
 
             foreach (var pet in Pets.Where(item => item.availability == "no"))
             {
@@ -133,13 +125,9 @@ namespace PetSite.Controllers
                 await _httpClient.PutAsync(updateadoptionstatusurl, putData);
             }
             
-            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
+            //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
+            string cleanupadoptionsurl = _SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("cleanupadoptionsurl");
             
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CLEANUP_ADOPTIONS_URL")))
-            {
-                cleanupadoptionsurl = Environment.GetEnvironmentVariable("CLEANUP_ADOPTIONS_URL");
-            }               
-
             await _httpClient.PostAsync(cleanupadoptionsurl, null);
 
             return View();

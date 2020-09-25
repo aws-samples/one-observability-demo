@@ -26,12 +26,9 @@ namespace PetSite.Controllers
         {
             _configuration = configuration;
             
-            _searchApiurl = _configuration["searchapiurl"];
-            
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SEARCH_API_URL")))
-            {
-                _searchApiurl = Environment.GetEnvironmentVariable("SEARCH_API_URL");
-            }            
+            //_searchApiurl = _configuration["searchapiurl"];
+            _searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("searchapiurl");
+           
             AWSSDKHandler.RegisterXRayForAllServices();
         }
         // GET: Adoption

@@ -42,12 +42,10 @@ namespace PetSite.Controllers
 
             try
             {
-                string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
+                //string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
+                string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("petlistadoptionsurl");
                 
-                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PET_LIST_ADOPTION_URL")))
-                {
-                    petlistadoptionsurl = Environment.GetEnvironmentVariable("PET_LIST_ADOPTION_URL");
-                }                  
+        
                 result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
                 Pets = JsonSerializer.Deserialize<List<Pet>>(result);
             }
