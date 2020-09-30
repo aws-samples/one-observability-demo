@@ -1,13 +1,27 @@
 diff --git cdk/pet_stack/lib/services.ts cdk/pet_stack/lib/services.ts
-index 539aebe..6a764bb 100644
+index d469bbd..dc4a15a 100644
 --- cdk/pet_stack/lib/services.ts
 +++ cdk/pet_stack/lib/services.ts
-@@ -54,7 +54,8 @@ export class Services extends cdk.Stack {
-             sortKey: {
+@@ -55,21 +55,8 @@ export class Services extends cdk.Stack {
                  name: 'petid',
                  type: ddb.AttributeType.STRING
--            }
-+            },
+             },
+-            removalPolicy:  RemovalPolicy.DESTROY
+-        });
+-        
+-        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'ReadCapacityUnitsLimit-BasicAlarm', {
+-          threshold: 240,
+-          evaluationPeriods: 2,
+-          period: cdk.Duration.minutes(1),
+-          alarmName: `${dynamodb_petadoption.tableName}-ReadCapacityUnitsLimit-BasicAlarm`,
+-        });
+-        
+-        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'WriteCapacityUnitsLimit-BasicAlarm', {
+-          threshold: 240,
+-          evaluationPeriods: 2,
+-          period: cdk.Duration.minutes(1),
+-          alarmName: `${dynamodb_petadoption.tableName}-WriteCapacityUnitsLimit-BasicAlarm`,
++            removalPolicy:  RemovalPolicy.DESTROY,
 +            billingMode: ddb.BillingMode.PAY_PER_REQUEST
          });
  

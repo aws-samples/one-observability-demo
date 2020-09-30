@@ -92,10 +92,10 @@ kubectl apply -f ../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config
 #kubectl apply -f ./resources/cwagent-fluentd-quickstart.yaml
 
 
-# Wait a little bit for ELB to be created
+# Wait a little bit for the ELB to be created
 sleep 5 
 
-# GET address of the ELB
+# Get the ELB URL
 ELB=$(kubectl get service service-petsite -o json | jq -r '.status.loadBalancer.ingress[].hostname')
 ELB="http://"$ELB
 

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <UserSecretsId>a80ee246-1735-4630-bd6a-0fd3d01d8e35</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
@@ -20,18 +20,17 @@
 
   <ItemGroup>
     <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="1.2.0" />
-    <PackageReference Include="AWSSDK.Core" Version="3.3.104.38" />
+    <PackageReference Include="AWSSDK.Core" Version="3.5.1.5" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.3.101" />
-    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="3.3.101.134" />
-    <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="3.3.118.13" />
-    <PackageReference Include="AWSSDK.SQS" Version="3.3.102.74" />
-    <PackageReference Include="AWSSDK.XRay" Version="3.3.101.130" />
-    <PackageReference Include="AWSSDK.SecurityToken" Version="3.3.104.44" />
-    <PackageReference Include="AWSXRayRecorder.Core" Version="2.6.2" />
-    <PackageReference Include="AWSXRayRecorder.Handlers.AspNetCore" Version="2.6.2" />
-    <PackageReference Include="AWSXRayRecorder.Handlers.AwsSdk" Version="2.7.2" />
-    <PackageReference Include="AWSXRayRecorder.Handlers.System.Net" Version="2.6.2" />
-    <PackageReference Include="BuildBundlerMinifier" Version="3.2.435" />
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="3.5.0.7" />
+    <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="3.5.1.6" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.5.0.7" />
+    <PackageReference Include="AWSSDK.XRay" Version="3.5.1.6" />
+    <PackageReference Include="AWSXRayRecorder.Core" Version="2.9.0" />
+    <PackageReference Include="AWSXRayRecorder.Handlers.AspNetCore" Version="2.7.1" />
+    <PackageReference Include="AWSXRayRecorder.Handlers.AwsSdk" Version="2.8.1" />
+    <PackageReference Include="AWSXRayRecorder.Handlers.System.Net" Version="2.7.1" />
+    <PackageReference Include="BuildBundlerMinifier" Version="3.2.449" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="3.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="3.0.0">
       <PrivateAssets>all</PrivateAssets>
@@ -40,9 +39,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="3.0.0" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.9.5" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="3.0.0" />
-    <PackageReference Include="prometheus-net" Version="3.5.0" />
-    <PackageReference Include="prometheus-net.AspNetCore" Version="3.5.0" />
-    <PackageReference Include="prometheus-net.DotNetRuntime" Version="3.3.1" />
+    <PackageReference Include="prometheus-net" Version="3.6.0" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="3.6.0" />
+    <PackageReference Include="prometheus-net.DotNetRuntime" Version="3.4.0" />
   </ItemGroup>
 
   <ItemGroup>
