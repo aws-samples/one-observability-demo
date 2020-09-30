@@ -93,9 +93,9 @@ namespace PetSite
             { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"}
         };
         
-        public string GetConfiguration(string value)
+        public static string GetConfiguration(IConfiguration _configuration, string value)
         {
-            string retVal = this[value];
+            string retVal = _configuration[value];
 
             string envVar = ConfigurationMapping[value];
             if (!string.IsNullOrEmpty(envVar))

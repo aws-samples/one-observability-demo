@@ -25,7 +25,7 @@ namespace PetSite.Controllers
         private static HttpClient _httpClient;
         private static Variety _variety = new Variety();
 
-        private SystemsManagerConfigurationProviderWithReloadExtensions _configuration;
+        private IConfiguration _configuration;
 
         //Prometheus metric to count the number of searches performed
         private static readonly Counter PetSearchCount =
@@ -49,7 +49,7 @@ namespace PetSite.Controllers
         public HomeController(ILogger<HomeController> logger, IConfiguration configuration)
         {
             AWSXRayRecorder.RegisterLogger(LoggingOptions.Console);
-            _configuration = (SystemsManagerConfigurationProviderWithReloadExtensions)configuration;
+            _configuration = configuration;
             AWSSDKHandler.RegisterXRayForAllServices();
 
             _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
@@ -96,7 +96,7 @@ namespace PetSite.Controllers
                     break;
             }
             //string searchapiurl = _configuration["searchapiurl"];
-            string searchapiurl = _configuration.GetConfiguration("searchapiurl");
+            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
             return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
         }
 
@@ -112,7 +112,7 @@ namespace PetSite.Controllers
             var searchParams = new SearchParams();
             
             //string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
-            string updateadoptionstatusurl = _configuration.GetConfiguration("updateadoptionstatusurl");
+            string updateadoptionstatusurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"updateadoptionstatusurl");
                   
 
             foreach (var pet in Pets.Where(item => item.availability == "no"))
@@ -126,7 +126,7 @@ namespace PetSite.Controllers
             }
             
             //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
-            string cleanupadoptionsurl = _configuration.GetConfiguration("cleanupadoptionsurl");
+            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
             
             await _httpClient.PostAsync(cleanupadoptionsurl, null);
 
