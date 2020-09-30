@@ -106,8 +106,8 @@ namespace PetSite.Controllers
         {
             AWSSDKHandler.RegisterXRay<IAmazonSQS>();
             //string queueurl = _configuration["queueurl"];
-            string queueurl = _configuration.GetConfiguration("queueurl");
-            
+            string queueurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"queueurl");           
+           
             var sendMessageRequest = new SendMessageRequest()
             {
                 MessageBody = JsonSerializer.Serialize(petId),
