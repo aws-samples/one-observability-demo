@@ -18,16 +18,16 @@ namespace PetSite.Controllers
     {
         private static readonly HttpClient HttpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
         private static Variety _variety = new Variety();
-        private static IConfiguration _configuration;
+        private static SystemsManagerConfigurationProviderWithReloadExtensions _configuration;
 
         private static string _searchApiurl;
 
         public AdoptionController(IConfiguration configuration)
         {
-            _configuration = configuration;
+            _configuration = (SystemsManagerConfigurationProviderWithReloadExtensions)configuration;
             
             //_searchApiurl = _configuration["searchapiurl"];
-            _searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("searchapiurl");
+            _searchApiurl = _configuration.GetConfiguration("searchapiurl");
            
             AWSSDKHandler.RegisterXRayForAllServices();
         }

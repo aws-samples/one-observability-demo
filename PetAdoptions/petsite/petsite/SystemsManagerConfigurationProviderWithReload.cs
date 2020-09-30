@@ -83,7 +83,7 @@ namespace PetSite
         using a different base class or wait for the issue to be solved.
         The workaround is to provide a way to inject the ParameterValues as environment variables*/
                 
-        private static Dictionary<string,string> ConfigurationMapping = {
+        private static Dictionary<string,string> ConfigurationMapping = new Dictionary<string, string> {
             { "searchapiurl", "SEARCH_API_URL"},
             { "updateadoptionstatusurl", "UPDATE_ADOPTION_STATUS_URL"},
             { "cleanupadoptionsurl", "CLEANUP_ADOPTIONS_URL"},
@@ -93,9 +93,9 @@ namespace PetSite
             { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"}
         };
         
-        public static string GetConfiguration(string value)
+        public string GetConfiguration(string value)
         {
-            string retVal = _configuration[value];
+            string retVal = this[value];
 
             string envVar = ConfigurationMapping[value];
             if (!string.IsNullOrEmpty(envVar))

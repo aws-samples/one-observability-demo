@@ -28,7 +28,7 @@ namespace PetSite.Controllers
             new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
 
         private static AmazonSQSClient _sqsClient;
-        private static IConfiguration _configuration;
+        private static SystemsManagerConfigurationProviderWithReloadExtensions _configuration;
 
         //Prometheus metric to count the number of Pets adopted
         private static readonly Counter PetAdoptionCount =
@@ -37,7 +37,7 @@ namespace PetSite.Controllers
         public PaymentController(IConfiguration configuration)
         {
             AWSSDKHandler.RegisterXRayForAllServices();
-            _configuration = configuration;
+            _configuration = (SystemsManagerConfigurationProviderWithReloadExtensions)configuration;
 
             _sqsClient = new AmazonSQSClient(Amazon.Util.EC2InstanceMetadata.Region);
         }
@@ -96,7 +96,7 @@ namespace PetSite.Controllers
         private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
         {
             //string paymentapiurl = _configuration["paymentapiurl"];
-            string paymentapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("paymentapiurl");
+            string paymentapiurl = _configuration.GetConfiguration("paymentapiurl");
             
           
             return await _httpClient.PostAsync($"{paymentapiurl}?petId={petId}&petType={pettype}", null);
@@ -106,7 +106,7 @@ namespace PetSite.Controllers
         {
             AWSSDKHandler.RegisterXRay<IAmazonSQS>();
             //string queueurl = _configuration["queueurl"];
-            string queueurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("queueurl");
+            string queueurl = _configuration.GetConfiguration("queueurl");
             
             var sendMessageRequest = new SendMessageRequest()
             {
@@ -122,7 +122,7 @@ namespace PetSite.Controllers
             
             
             //string snsarn = _configuration["snsarn"];
-            string snsarn = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("snsarn");
+            string snsarn = _configuration.GetConfiguration("snsarn");
             
 
             var snsClient = new AmazonSimpleNotificationServiceClient();

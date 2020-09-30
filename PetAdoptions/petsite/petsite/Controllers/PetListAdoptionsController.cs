@@ -19,11 +19,11 @@ namespace PetSite.Controllers
     public class PetListAdoptionsController : Controller
     {
         private static HttpClient _httpClient;
-        private IConfiguration _configuration;
+        private SystemsManagerConfigurationProviderWithReloadExtensions _configuration;
 
         public PetListAdoptionsController(IConfiguration configuration)
         {
-            _configuration = configuration;
+            _configuration = (SystemsManagerConfigurationProviderWithReloadExtensions)configuration;
             AWSSDKHandler.RegisterXRayForAllServices();
 
             _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
@@ -43,7 +43,7 @@ namespace PetSite.Controllers
             try
             {
                 //string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
-                string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration("petlistadoptionsurl");
+                string petlistadoptionsurl = _configuration.GetConfiguration("petlistadoptionsurl");
                 
         
                 result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
