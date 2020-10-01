@@ -1,3 +1,12 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: {{PETSITE_SA_ROLE}}
+  name: petsite-sa
+  namespace: default
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +22,7 @@ spec:
       labels:
         app: petsite
     spec:
+      serviceAccountName: petsite-sa
       containers:
       - image: {{ECR_IMAGE_URL}}
         imagePullPolicy: Always
@@ -23,3 +33,18 @@ spec:
         env:
           - name: AWS_XRAY_DAEMON_ADDRESS
             value: xray-service.default:2000
+          - name: SEARCH_API_URL
+            value: {{SEARCH_API_URL}}
+          - name: UPDATE_ADOPTION_STATUS_URL
+            value: {{UPDATE_ADOPTION_STATUS_URL}}
+          - name: PAYMENT_API_URL
+            value: {{PAYMENT_API_URL}}
+          - name: QUEUE_URL
+            value: {{QUEUE_URL}}
+          - name: SNS_ARN
+            value: {{SNS_ARN}}
+          - name: PET_LIST_ADOPTION_URL
+            value: {{PET_LIST_ADOPTION_URL}}          
+          - name: CLEANUP_ADOPTIONS_URL
+            value: {{CLEANUP_ADOPTIONS_URL}}
+            

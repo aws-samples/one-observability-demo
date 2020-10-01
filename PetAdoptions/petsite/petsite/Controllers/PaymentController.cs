@@ -95,16 +95,23 @@ namespace PetSite.Controllers
 
         private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
         {
-            return await _httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}", null);
+            //string paymentapiurl = _configuration["paymentapiurl"];
+            string paymentapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"paymentapiurl");
+            
+          
+            return await _httpClient.PostAsync($"{paymentapiurl}?petId={petId}&petType={pettype}", null);
         }
 
         private async Task<SendMessageResponse> PostMessageToSqs(string petId)
         {
             AWSSDKHandler.RegisterXRay<IAmazonSQS>();
+            //string queueurl = _configuration["queueurl"];
+            string queueurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"queueurl");           
+           
             var sendMessageRequest = new SendMessageRequest()
             {
                 MessageBody = JsonSerializer.Serialize(petId),
-                QueueUrl = _configuration["queueurl"]
+                QueueUrl = queueurl
             };
             return await _sqsClient.SendMessageAsync(sendMessageRequest);
         }
@@ -112,9 +119,14 @@ namespace PetSite.Controllers
         private async Task<PublishResponse> SendNotification(string petId)
         {
             AWSSDKHandler.RegisterXRay<IAmazonService>();
+            
+            
+            //string snsarn = _configuration["snsarn"];
+            string snsarn = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"snsarn");
+            
 
             var snsClient = new AmazonSimpleNotificationServiceClient();
-            return await snsClient.PublishAsync(topicArn: _configuration["snsarn"],
+            return await snsClient.PublishAsync(topicArn: snsarn,
                 message: $"PetId {petId} was adopted on {DateTime.Now}");
         }
     }

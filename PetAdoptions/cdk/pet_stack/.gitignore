@@ -9,3 +9,6 @@ cdk.out
 # Parcel build directories
 .cache
 .build
+
+**/package-lock.json
+

@@ -42,7 +42,11 @@ namespace PetSite.Controllers
 
             try
             {
-                result = await _httpClient.GetStringAsync($"{_configuration["petlistadoptionsurl"]}");
+                //string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
+                string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petlistadoptionsurl");
+                
+        
+                result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
                 Pets = JsonSerializer.Deserialize<List<Pet>>(result);
             }
             catch (Exception e)

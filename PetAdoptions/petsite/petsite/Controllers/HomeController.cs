@@ -95,8 +95,9 @@ namespace PetSite.Controllers
                     PetSearchCount.Inc();
                     break;
             }
-
-            return await _httpClient.GetStringAsync($"{_configuration["searchapiurl"]}{searchUri}");
+            //string searchapiurl = _configuration["searchapiurl"];
+            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
+            return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
         }
 
         [HttpGet("housekeeping")]
@@ -109,6 +110,10 @@ namespace PetSite.Controllers
             var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
 
             var searchParams = new SearchParams();
+            
+            //string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
+            string updateadoptionstatusurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"updateadoptionstatusurl");
+                  
 
             foreach (var pet in Pets.Where(item => item.availability == "no"))
             {
@@ -117,10 +122,13 @@ namespace PetSite.Controllers
                 searchParams.petavailability = "yes";
 
                 StringContent putData = new StringContent(JsonSerializer.Serialize(searchParams));
-                await _httpClient.PutAsync(_configuration["updateadoptionstatusurl"], putData);
+                await _httpClient.PutAsync(updateadoptionstatusurl, putData);
             }
-
-            await _httpClient.PostAsync($"{_configuration["cleanupadoptionsurl"]}", null);
+            
+            //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
+            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
+            
+            await _httpClient.PostAsync(cleanupadoptionsurl, null);
 
             return View();
         }
@@ -130,6 +138,7 @@ namespace PetSite.Controllers
         {
             Console.WriteLine(
                 $"AWS_XRAY_DAEMON_ADDRESS:- {Environment.GetEnvironmentVariable("AWS_XRAY_DAEMON_ADDRESS")}");
+                
 
             AWSXRayRecorder.Instance.BeginSubsegment("Calling Search API");
 
@@ -137,6 +146,7 @@ namespace PetSite.Controllers
             AWSXRayRecorder.Instance.AddMetadata("PetId", petid);
             AWSXRayRecorder.Instance.AddMetadata("PetColor", selectedPetColor);
 
+            
             Console.WriteLine(
                 $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}]- Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
             

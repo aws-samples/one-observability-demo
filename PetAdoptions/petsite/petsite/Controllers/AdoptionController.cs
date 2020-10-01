@@ -25,7 +25,10 @@ namespace PetSite.Controllers
         public AdoptionController(IConfiguration configuration)
         {
             _configuration = configuration;
-            _searchApiurl = _configuration["searchapiurl"];
+            
+            //_searchApiurl = _configuration["searchapiurl"];
+            _searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
+           
             AWSSDKHandler.RegisterXRayForAllServices();
         }
         // GET: Adoption
