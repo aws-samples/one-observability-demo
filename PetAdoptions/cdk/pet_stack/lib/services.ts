@@ -104,9 +104,9 @@ export class Services extends cdk.Stack {
 
         const rdsUsername = this.node.tryGetContext('rdsusername');
         const instance = new rds.DatabaseInstance(this, 'Instance', {
-            engine: rds.DatabaseInstanceEngine.SQL_SERVER_WEB,
+            engine: rds.DatabaseInstanceEngine.sqlServerWeb({version:rds.SqlServerEngineVersion.VER_15} ),
             instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
-            masterUsername: rdsUsername,
+            credentials:{username:rdsUsername},
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             deletionProtection: false,
             vpc: theVPC,

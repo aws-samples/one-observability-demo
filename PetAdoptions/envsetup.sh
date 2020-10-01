@@ -71,6 +71,9 @@ npm install -g npm
 # Upgrade CDK version
 npm i -g aws-cdk --force
 
+npm update -g aws-cdk
+
+
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo
 
