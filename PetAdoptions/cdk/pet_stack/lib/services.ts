@@ -21,6 +21,7 @@ import { PetSiteService } from './services/pet-site-service'
 import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
+import {PetAdoptionsStepFn} from './services/stepfn'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 import { RemovalPolicy } from '@aws-cdk/core';
@@ -184,49 +185,10 @@ export class Services extends cdk.Stack {
                 version: KubernetesVersion.V1_16
             });
 
-
-            // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
-            const oidc = cluster.openIdConnectProvider.openIdConnectProviderArn;
-
-            // Create IAM roles for Service Accounts
-            // Cloudwatch Agent SA
-            const cwserviceaccount = new iam.Role(this, 'CWServiceAccount', {
-//                assumedBy: eksFederatedPrincipal,
-                assumedBy: new iam.AccountRootPrincipal(),
-                managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'CWServiceAccount-CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
-                ],
-            });
-    
-            // X-Ray Agent SA
-            const xrayserviceaccount = new iam.Role(this, 'XRayServiceAccount', {
-//                assumedBy: eksFederatedPrincipal,
-                assumedBy: new iam.AccountRootPrincipal(),
-                managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'XRayServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
-                ],
-            });
-
-            // FrontEnd SA (SSM, SQS, SNS)
-            const petstoreserviceaccount = new iam.Role(this, 'PetSiteServiceAccount', {
-//                assumedBy: eksFederatedPrincipal,
-                  assumedBy: new iam.AccountRootPrincipal(),
-              managedPolicies: [ 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
-                ],
-            });
-
             sqlSeeder.node.addDependency(cluster);
 
             this.createOuputs(new Map(Object.entries({
-                'PetSiteECRImageURL': asset.imageUri,
-                'CWServiceAccountArn': cwserviceaccount.roleArn,
-                'XRayServiceAccountArn': xrayserviceaccount.roleArn,
-                'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
-                'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl
+                'PetSiteECRImageURL': asset.imageUri
             })));
         }
         else {
@@ -276,7 +238,10 @@ export class Services extends cdk.Stack {
             tableName: dynamodb_petadoption.tableName
         });
 
+        const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
+
         this.createSsmParameters(new Map(Object.entries({
+            '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
             '/petstore/updateadoptionstatusurl': statusUpdaterService.api.url,
             '/petstore/queueurl': sqsQueue.queueUrl,
             '/petstore/snsarn': topic_petadoption.topicArn,
