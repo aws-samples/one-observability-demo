@@ -110,7 +110,7 @@ namespace PetSite.Controllers
 
         private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
         {
-            return await _httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}",
+            return await _httpClient.PostAsync($"{SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"paymentapiurl")}?petId={petId}&petType={pettype}",
                 null);
         }
 
@@ -121,7 +121,7 @@ namespace PetSite.Controllers
             return await _sqsClient.SendMessageAsync(new SendMessageRequest()
             {
                 MessageBody = JsonSerializer.Serialize($"{petId}-{petType}"),
-                QueueUrl = _configuration["queueurl"]
+                QueueUrl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"queueurl")
             });
         }
 
@@ -134,7 +134,7 @@ namespace PetSite.Controllers
             {
                 input = JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType}),
                 name = $"{petType}-{petId}-{Guid.NewGuid()}",
-                stateMachineArn = _configuration["petadoptionsstepfnarn"]
+                stateMachineArn = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnarn")
             };
             
             var content = new StringContent(
@@ -142,17 +142,17 @@ namespace PetSite.Controllers
                 Encoding.UTF8,
                 "application/json");
 
-            return await _httpClient.PostAsync(_configuration["petadoptionsstepfnurl"], content);
+            return await _httpClient.PostAsync(SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnurl"), content);
             
             */
-           // Console.WriteLine($"STEPLOG -ARN - {_configuration["petadoptionsstepfnarn"]}");
+           // Console.WriteLine($"STEPLOG -ARN - {SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnarn")}");
             //Console.WriteLine($"STEPLOG - SERIALIZE - {JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType})}");
             AWSSDKHandler.RegisterXRay<IAmazonStepFunctions>();
             return await new AmazonStepFunctionsClient().StartExecutionAsync(new StartExecutionRequest()
             {
                 Input = JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType}),
                 Name = $"{petType}-{petId}-{Guid.NewGuid()}",
-                StateMachineArn = _configuration["petadoptionsstepfnarn"]
+                StateMachineArn = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnarn")
             });
         }
 
