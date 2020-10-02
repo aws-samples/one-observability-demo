@@ -217,9 +217,19 @@ export class Services extends cdk.Stack {
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
                 ],
             });
+
+            const startStepFnExecutionPolicy = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: [
+                  'states:StartExecution'
+                ],
+                resources: ['*']
+              });
+
+            petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
 
             sqlSeeder.node.addDependency(cluster);
 
