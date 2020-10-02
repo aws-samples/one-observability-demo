@@ -90,7 +90,8 @@ namespace PetSite
             { "paymentapiurl", "PAYMENT_API_URL"},
             { "queueurl", "QUEUE_URL"},
             { "snsarn", "SNS_ARN"},
-            { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"}
+            { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"},
+            { "petadoptionsstepfnarn", "PET_ADOPTION_STEPFN_URL"}
         };
         
         public static string GetConfiguration(IConfiguration _configuration, string value)
