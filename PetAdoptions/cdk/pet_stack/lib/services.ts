@@ -128,7 +128,8 @@ export class Services extends cdk.Stack {
             actions: [
                 'ssm:GetParametersByPath',
                 'ssm:GetParameters',
-                'ssm:GetParameter'
+                'ssm:GetParameter',
+                'ec2:DescribeVpcs'
             ],
             resources: ['*']
         });
