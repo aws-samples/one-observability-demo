@@ -33,6 +33,7 @@
     "@aws-cdk/aws-elasticbeanstalk": "1.65.0",
     "@aws-cdk/aws-iam": "1.65.0",
     "@aws-cdk/aws-lambda": "1.65.0",
+    "@aws-cdk/aws-lambda-python": "^1.65.0",
     "@aws-cdk/aws-logs": "1.65.0",
     "@aws-cdk/aws-rds": "1.65.0",
     "@aws-cdk/aws-s3": "1.65.0",
@@ -42,15 +43,16 @@
     "@aws-cdk/aws-sns-subscriptions": "1.65.0",
     "@aws-cdk/aws-sqs": "1.65.0",
     "@aws-cdk/aws-ssm": "1.65.0",
+    "@aws-cdk/aws-stepfunctions-tasks": "^1.65.0",
+    "@aws-cdk/cloud-assembly-schema": "1.58.0",
     "@aws-cdk/core": "1.65.0",
     "@aws-cdk/custom-resources": "1.65.0",
-    "@aws-cdk/cloud-assembly-schema": "1.58.0",
+    "@aws-cdk/cx-api": "1.65.0",
     "@types/js-yaml": "3.12.5",
     "aws-cdk-dynamodb-seeder": "1.56.0",
-    "@aws-cdk/cx-api": "1.65.0",
     "cdk-sqlserver-seeder": "^0.2.3",
-    "js-yaml": "3.14.0",
     "jest": "^26.4.2",
+    "js-yaml": "3.14.0",
     "source-map-support": "^0.5.19"
   }
 }
