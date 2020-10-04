@@ -47,6 +47,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
         .when(sfn.Condition.numberLessThan('$.Payload.body.price', 55), priceLessThan55_Step)
         .otherwise(priceEquals55_Step));
 
+
     this.stepFn = new sfn.StateMachine(this, 'StateMachine', {
       definition,
       tracingEnabled: true,

@@ -288,10 +288,10 @@ export class Services extends cdk.Stack {
             tableName: dynamodb_petadoption.tableName
         });
 
-        //const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
+        const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
 
         this.createSsmParameters(new Map(Object.entries({
-        //    '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
+            '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
             '/petstore/updateadoptionstatusurl': statusUpdaterService.api.url,
             '/petstore/queueurl': sqsQueue.queueUrl,
             '/petstore/snsarn': topic_petadoption.topicArn,
