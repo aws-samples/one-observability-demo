@@ -90,7 +90,7 @@ namespace PetSite.Controllers
                 {
                    // Console.WriteLine($"STEPLOG- PETTYPE- {pettype}");
                     //   AWSXRayRecorder.Instance.BeginSubsegment("Start Step Function");
-                  //  var stepFunctionResult = StartStepFunctionExecution(petId, pettype).Result;
+                    var stepFunctionResult = StartStepFunctionExecution(petId, pettype).Result;
                     //Console.WriteLine($"STEPLOG - RESPONSE - {stepFunctionResult.HttpStatusCode}");
                     //    AWSXRayRecorder.Instance.EndSubsegment();
                 }
