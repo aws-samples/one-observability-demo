@@ -23,20 +23,25 @@ export class PetAdoptionsStepFn extends cdk.Construct {
         iam.ManagedPolicy.fromManagedPolicyArn(this, 'first', 'arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess'),
         iam.ManagedPolicy.fromManagedPolicyArn(this, 'second', 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'),
         iam.ManagedPolicy.fromManagedPolicyArn(this, 'third', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess'),
-        iam.ManagedPolicy.fromManagedPolicyArn(this, 'fourth', 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+        iam.ManagedPolicy.fromManagedPolicyArn(this, 'fourth', 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'),
+        iam.ManagedPolicy.fromManagedPolicyArn(this, 'fifth', 'arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy')
       ]
     });
+    
+    var layerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION +":580247275435:layer:LambdaInsightsExtension:2";
+//    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
+    var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LayerFromArn`, layerArn);
 
     const readDynamoDB_Step = new tasks.LambdaInvoke(this, 'ReadDynamoDB', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_readDDB',lambdaRole)
+      lambdaFunction: this.createStepFnLambda('lambda_step_readDDB',lambdaRole,layer)
     });
 
     const priceGreaterThan55_Step = new tasks.LambdaInvoke(this, 'PriceGreaterThan55', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_priceGreaterThan55',lambdaRole)
+      lambdaFunction: this.createStepFnLambda('lambda_step_priceGreaterThan55',lambdaRole, layer)
     });
 
     const priceLessThan55_Step = new tasks.LambdaInvoke(this, 'PriceLessThan55', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_priceLessThan55',lambdaRole)
+      lambdaFunction: this.createStepFnLambda('lambda_step_priceLessThan55',lambdaRole, layer)
     });
 
     const priceEquals55_Step = new sfn.Succeed(this, 'PriceIs55');
@@ -62,13 +67,14 @@ export class PetAdoptionsStepFn extends cdk.Construct {
     
   }
 
-  private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role) {
+  private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayer: lambda.ILayerVersion) {
     return new pythonlambda.PythonFunction(this, lambdaFileName, {
       entry: '../pet_stack/resources/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_8,
       role: lambdaRole,
+      layers: [lambdalayer],
       tracing: Tracing.ACTIVE
     });
   }

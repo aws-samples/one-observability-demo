@@ -18,9 +18,14 @@ export class StatusUpdaterService extends cdk.Construct {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
           iam.ManagedPolicy.fromManagedPolicyArn(this, 'first', 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'),
-          iam.ManagedPolicy.fromManagedPolicyArn(this, 'second', 'arn:aws:iam::aws:policy/AWSLambdaFullAccess')
+          iam.ManagedPolicy.fromManagedPolicyArn(this, 'second', 'arn:aws:iam::aws:policy/AWSLambdaFullAccess'),
+          iam.ManagedPolicy.fromManagedPolicyArn(this, 'fifth', 'arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy')
       ]
     });
+    
+    var layerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION +":580247275435:layer:LambdaInsightsExtension:2";
+//    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
+    var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LayerFromArn`, layerArn);
 
     const lambdaFunction = new lambda.Function(this, 'lambdafn', {
         runtime: lambda.Runtime.NODEJS_12_X,    // execution environment
@@ -28,6 +33,7 @@ export class StatusUpdaterService extends cdk.Construct {
         handler: 'index.handler',
         tracing: lambda.Tracing.ACTIVE,
         role: lambdaRole,
+        layers: [layer],
         description: 'Update Pet availability status',
         environment: {
             "TABLE_NAME": props.tableName
