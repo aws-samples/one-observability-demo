@@ -54,6 +54,7 @@ PAYMENT_API_URL="$(aws ssm get-parameter --name "/petstore/paymentapiurl" --quer
 QUEUE_URL="$(aws ssm get-parameter --name "/petstore/queueurl" --query Parameter.Value --output text)"
 SNS_ARN="$(aws ssm get-parameter --name "/petstore/snsarn" --query Parameter.Value --output text)"
 PET_LIST_ADOPTION_URL="$(aws ssm get-parameter --name "/petstore/petlistadoptionsurl" --query Parameter.Value --output text)"
+PET_ADOPTION_STEPFN_URL="$(aws ssm get-parameter --name "/petstore/petadoptionsstepfnarn" --query Parameter.Value --output text)"
 
 sed -i "s~{{SEARCH_API_URL}}~$SEARCH_API_URL~" ../../petsite/petsite/kubernetes/deployment.yaml
 sed -i "s~{{UPDATE_ADOPTION_STATUS_URL}}~$UPDATE_ADOPTION_STATUS_URL~" ../../petsite/petsite/kubernetes/deployment.yaml

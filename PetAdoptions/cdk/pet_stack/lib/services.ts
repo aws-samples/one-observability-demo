@@ -21,6 +21,7 @@ import { PetSiteService } from './services/pet-site-service'
 import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
+import { PetAdoptionsStepFn } from './services/stepfn'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 import { RemovalPolicy } from '@aws-cdk/core';
@@ -104,9 +105,9 @@ export class Services extends cdk.Stack {
 
         const rdsUsername = this.node.tryGetContext('rdsusername');
         const instance = new rds.DatabaseInstance(this, 'Instance', {
-            engine: rds.DatabaseInstanceEngine.SQL_SERVER_WEB,
-            instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
-            masterUsername: rdsUsername,
+            engine: rds.DatabaseInstanceEngine.sqlServerWeb({version:rds.SqlServerEngineVersion.VER_15} ),
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+            credentials:{username:rdsUsername},
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             deletionProtection: false,
             vpc: theVPC,
@@ -127,7 +128,8 @@ export class Services extends cdk.Stack {
             actions: [
                 'ssm:GetParametersByPath',
                 'ssm:GetParameters',
-                'ssm:GetParameter'
+                'ssm:GetParameter',
+                'ec2:DescribeVpcs'
             ],
             resources: ['*']
         });
@@ -215,9 +217,19 @@ export class Services extends cdk.Stack {
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
-                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
+                    iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
                 ],
             });
+
+            const startStepFnExecutionPolicy = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                actions: [
+                  'states:StartExecution'
+                ],
+                resources: ['*']
+              });
+
+            petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
 
             sqlSeeder.node.addDependency(cluster);
 
@@ -276,7 +288,10 @@ export class Services extends cdk.Stack {
             tableName: dynamodb_petadoption.tableName
         });
 
+        const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
+
         this.createSsmParameters(new Map(Object.entries({
+            '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
             '/petstore/updateadoptionstatusurl': statusUpdaterService.api.url,
             '/petstore/queueurl': sqsQueue.queueUrl,
             '/petstore/snsarn': topic_petadoption.topicArn,

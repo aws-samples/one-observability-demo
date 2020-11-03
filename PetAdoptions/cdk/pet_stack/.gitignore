@@ -12,3 +12,4 @@ cdk.out
 
 **/package-lock.json
 
+cdk.context.json
