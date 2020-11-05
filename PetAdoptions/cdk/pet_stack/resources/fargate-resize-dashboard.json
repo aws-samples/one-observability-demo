@@ -1,0 +1,82 @@
+{
+    "widgets": [
+      {
+        "type": "log",
+        "x": 0,
+        "y": 15,
+        "width": 24,
+        "height": 9,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type=\"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats latest(TaskDefinitionFamily) as TaskDefFamily, latest(ClusterName) as Cluster, max(CpuReserved) as TaskCpuReserved, avg(CpuUtilized) as AvgCpuUtilized, avg(CpuUtilized) * 100 / TaskCpuReserved as AvgCpuUtilizedPerc, max(CpuUtilized) as PeakCpuUtilized, max(CpuUtilized) * 100 / TaskCpuReserved as PeakCpuUtilizedPerc, \nmax(MemoryReserved) as TaskMemReserved, avg(MemoryUtilized) as AvgMemUtilized, avg(MemoryUtilized) * 100 / TaskMemReserved as AvgMemUtilizedPerc, max(MemoryUtilized) as PeakMemUtilized, max(MemoryUtilized) * 100 / TaskMemReserved as PeakMemUtilizedPerc by TaskId\n| sort TaskDefFamily asc\n",
+          "stacked": false,
+          "title": "All Fargate Tasks Configuration and Consumption Details (CPU and Memory)",
+          "view": "table"
+        }
+      },
+      {
+        "type": "log",
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type=\"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats count_distinct(TaskId) as TotalCountFargateTasks by bin(30m)",
+          "stacked": true,
+          "title": "Total count of Fargate tasks",
+          "view": "timeSeries"
+        }
+      },
+      {
+        "type": "log",
+        "x": 0,
+        "y": 3,
+        "width": 15,
+        "height": 6,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type=\"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats latest(TaskDefinitionFamily) as TaskFamily, latest(ServiceName) as SvcName, (max(CpuReserved) - avg(CpuUtilized)) * 100 / max(CpuReserved) as AvgCpuWastePercentage by TaskId\n| sort AvgCpuWastePercentage desc\n| limit 10",
+          "stacked": false,
+          "title": "Top 10 Fargate Tasks with Optimization Opportunities (CPU)",
+          "view": "table"
+        }
+      },
+      {
+        "type": "log",
+        "x": 0,
+        "y": 9,
+        "width": 15,
+        "height": 6,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type=\"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats latest(TaskDefinitionFamily) as TaskFamily, latest(ServiceName) as SvcName, (max(MemoryReserved) - avg(MemoryUtilized)) * 100 / max(MemoryReserved) as AvgMemWastePercentage by TaskId\n| sort AvgMemWastePercentage desc\n| limit 10",
+          "stacked": false,
+          "title": "Top 10 Fargate Tasks with Optimization Opportunities (Memory)",
+          "view": "table"
+        }
+      },
+      {
+        "type": "log",
+        "x": 15,
+        "y": 3,
+        "width": 9,
+        "height": 6,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type = \"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats count_distinct(TaskId) as TotalTasks, avg(CpuReserved) * TotalTasks as TotalCPUReserved, avg(CpuUtilized) * TotalTasks as AvgCPUConsumed by bin(30m) \n",
+          "stacked": false,
+          "title": "CPU Reserved Vs Avg Usage (All Fargate Tasks)",
+          "view": "timeSeries"
+        }
+      },
+      {
+        "type": "log",
+        "x": 15,
+        "y": 9,
+        "width": 9,
+        "height": 6,
+        "properties": {
+          "query": "SOURCE '/aws/ecs/containerinsights/CLUSTERNAME/performance' | fields @message\n| filter Type = \"Task\"\n| filter @logStream like /FargateTelemetry/\n| stats count_distinct(TaskId) as TotalTasks, avg(MemoryReserved) * TotalTasks as TotalMemReserved, avg(MemoryUtilized) * TotalTasks as AvgMemConsumed by bin(30m) \n",
+          "stacked": false,
+          "title": "Memory Reserved Vs Avg Usage (All Fargate Tasks)",
+          "view": "timeSeries"
+        }
+      }
+    ]
+  }
