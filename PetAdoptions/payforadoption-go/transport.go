@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -34,6 +35,10 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 type errorer interface {
 	error() error
 }
+
+var (
+	ErrNotFound = errors.New("not found")
+)
 
 func decodeHealthCheckRequest(_ context.Context, r *http.Request) (request interface{}, err error) {
 	return nil, nil
