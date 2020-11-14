@@ -26,7 +26,8 @@ func main() {
 
 	var s Service
 	{
-		s = NewService(logger)
+		repo := NewRepository(nil, logger)
+		s = NewService(logger, repo)
 	}
 
 	var h http.Handler

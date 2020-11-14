@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -19,9 +20,11 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
 		httptransport.ServerErrorEncoder(encodeError),
+		httptransport.ServerFinalizer(loggingMiddleware),
 	}
 
-	// GET /health/status    service health check
+	// GET /health/status               service health check
+	// POST /adoption/complete          pay to adopt a pet
 
 	r.Methods("GET").Path("/health/status").Handler(httptransport.NewServer(
 		e.HealthCheckEndpoint,
@@ -29,6 +32,13 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		encodeResponse,
 		options...,
 	))
+	r.Methods("POST").Path("/adoption/complete").Handler(httptransport.NewServer(
+		e.CompleteAdoptionEndpoint,
+		decodeCompleteAdoptionRequest,
+		encodeResponse,
+		options...,
+	))
+
 	return r
 }
 
@@ -36,12 +46,23 @@ type errorer interface {
 	error() error
 }
 
+type completeAdoptionRequest struct {
+	PetId   string `json:"petid"`
+	PetType string `json:"pettype"`
+}
+
 var (
 	ErrNotFound = errors.New("not found")
 )
 
-func decodeHealthCheckRequest(_ context.Context, r *http.Request) (request interface{}, err error) {
+func decodeHealthCheckRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return nil, nil
+}
+
+func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req completeAdoptionRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	return req, err
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
@@ -71,4 +92,11 @@ func codeFrom(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+// log every request after request is treated and
+// before http response is returned to customer
+//TODO : use logger
+func loggingMiddleware(ctx context.Context, code int, r *http.Request) {
+	fmt.Println(r.Method, r.RequestURI, r.Proto, r.RemoteAddr, code)
 }
