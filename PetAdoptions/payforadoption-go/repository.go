@@ -34,17 +34,14 @@ func (r *repo) CreateTransaction(ctx context.Context, tx Transaction) error {
 	//logger := log.With(r.logger, "method", "CreateTransaction")
 
 	sql := `
-		INSERT INTO [dbo].[transactions] ([PetId], [Transaction_Id], [Adoption_Date])
-		VALUES ($1, $2, $3)
+		INSERT INTO dbo.transactions (PetId, Transaction_Id, Adoption_Date)
+		VALUES (@p1, @p2, @p3)
 	`
 
 	r.logger.Log("sql", sql)
-	r.logger.Log("tx", tx)
-	/*
-		_, err := repo.db.ExecContext(ctx, sql, tx.PetID, tx.ID, tx.AdoptionDate)
-		if err != nil {
-			return err
-		}
-	*/
+	_, err := r.db.ExecContext(ctx, sql, tx.PetID, tx.ID, tx.AdoptionDate)
+	if err != nil {
+		return err
+	}
 	return nil
 }
