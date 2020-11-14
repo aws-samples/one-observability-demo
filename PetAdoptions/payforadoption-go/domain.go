@@ -2,7 +2,9 @@ package main
 
 import "time"
 
-type Transaction struct {
-	ID, PetID    string
-	AdoptionDate time.Time
+type Adoption struct {
+	TransactionID string `json:"transactionid,omitempty"`
+	PetID         string `json:"petid,omitempty"`
+	PetType       string `json:"pettype,omitempty"`
+	AdoptionDate  time.Time
 }

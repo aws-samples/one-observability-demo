@@ -10,7 +10,7 @@ import (
 
 // Repository as an interface to define data store interactions
 type Repository interface {
-	CreateTransaction(ctx context.Context, tx Transaction) error
+	CreateTransaction(ctx context.Context, a Adoption) error
 }
 
 var RepoErr = errors.New("Unable to handle Repo Request")
@@ -30,7 +30,7 @@ func NewRepository(db *sql.DB, logger log.Logger) Repository {
 	}
 }
 
-func (r *repo) CreateTransaction(ctx context.Context, tx Transaction) error {
+func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 	//logger := log.With(r.logger, "method", "CreateTransaction")
 
 	sql := `
@@ -39,7 +39,7 @@ func (r *repo) CreateTransaction(ctx context.Context, tx Transaction) error {
 	`
 
 	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql, tx.PetID, tx.ID, tx.AdoptionDate)
+	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate)
 	if err != nil {
 		return err
 	}
