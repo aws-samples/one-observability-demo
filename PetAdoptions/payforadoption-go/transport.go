@@ -23,17 +23,13 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		httptransport.ServerFinalizer(loggingMiddleware),
 	}
 
-	// GET /health/status               service health check
-	// POST /adoption/complete          pay to adopt a pet
-	// DELETE /adoptions         pay to adopt a pet
-
 	r.Methods("GET").Path("/health/status").Handler(httptransport.NewServer(
 		e.HealthCheckEndpoint,
 		decodeEmptyRequest,
 		encodeEmptyResponse,
 		options...,
 	))
-	r.Methods("POST").Path("/adoption/complete").Handler(httptransport.NewServer(
+	r.Methods("POST").Path("/api/home/completeadoption").Handler(httptransport.NewServer(
 		e.CompleteAdoptionEndpoint,
 		decodeCompleteAdoptionRequest,
 		encodeResponse,
@@ -59,7 +55,8 @@ type completeAdoptionRequest struct {
 }
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound   = errors.New("not found")
+	ErrBadRequest = errors.New("Bad request parameters")
 )
 
 func decodeEmptyRequest(_ context.Context, r *http.Request) (interface{}, error) {
@@ -67,9 +64,15 @@ func decodeEmptyRequest(_ context.Context, r *http.Request) (interface{}, error)
 }
 
 func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var req completeAdoptionRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	return req, err
+
+	petId := r.URL.Query().Get("petId")
+	petType := r.URL.Query().Get("petType")
+
+	if petId == "" || petType == "" {
+		return nil, ErrBadRequest
+	}
+
+	return completeAdoptionRequest{petId, petType}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
