@@ -8,5 +8,5 @@ FROM alpine:latest
 WORKDIR /app
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /go/src/app/app .
-EXPOSE 8080
+EXPOSE 80
 CMD ["./app"]
