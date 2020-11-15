@@ -12,9 +12,9 @@ import (
 
 // links endpoints to transport
 type Service interface {
-	HealthCheck(ctx context.Context) (string, error)
+	HealthCheck(ctx context.Context) error
 	CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error)
-	CleanupAdoptions(ctx context.Context) (string, error)
+	CleanupAdoptions(ctx context.Context) error
 }
 
 // object that handles the logic and complies with interface
@@ -32,8 +32,8 @@ func NewService(logger log.Logger, rep Repository) Service {
 }
 
 // health check logic
-func (s service) HealthCheck(ctx context.Context) (string, error) {
-	return "alive", nil
+func (s service) HealthCheck(ctx context.Context) error {
+	return nil
 }
 
 // /api/completeadoption logic
@@ -61,8 +61,7 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 	return a, s.repository.UpdateAvailability(ctx, a)
 }
 
-// /api/completeadoption logic
-func (s service) CleanupAdoptions(ctx context.Context) (string, error) {
+func (s service) CleanupAdoptions(ctx context.Context) error {
 	logger := log.With(s.logger, "method", "CleanupAdoptions")
 
 	logger.Log(
@@ -71,8 +70,8 @@ func (s service) CleanupAdoptions(ctx context.Context) (string, error) {
 
 	if err := s.repository.DropTransactions(ctx); err != nil {
 		level.Error(logger).Log("err", err)
-		return "", err
+		return err
 	}
 
-	return "", nil
+	return nil
 }

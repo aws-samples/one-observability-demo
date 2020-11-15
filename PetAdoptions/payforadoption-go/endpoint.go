@@ -22,7 +22,7 @@ func MakeEndpoints(s Service) Endpoints {
 
 func makeHealthCheckEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		return s.HealthCheck(ctx)
+		return nil, s.HealthCheck(ctx)
 	}
 }
 
@@ -35,6 +35,6 @@ func makeCompleteAdoptionEndpoint(s Service) endpoint.Endpoint {
 
 func makeCleanupAdoptionsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		return s.CleanupAdoptions(ctx)
+		return nil, s.CleanupAdoptions(ctx)
 	}
 }
