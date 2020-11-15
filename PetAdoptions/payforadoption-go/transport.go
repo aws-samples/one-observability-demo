@@ -25,17 +25,24 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 
 	// GET /health/status               service health check
 	// POST /adoption/complete          pay to adopt a pet
+	// DELETE /adoptions         pay to adopt a pet
 
 	r.Methods("GET").Path("/health/status").Handler(httptransport.NewServer(
 		e.HealthCheckEndpoint,
-		decodeHealthCheckRequest,
-		encodeResponse,
+		decodeEmptyRequest,
+		encodeEmptyResponse,
 		options...,
 	))
 	r.Methods("POST").Path("/adoption/complete").Handler(httptransport.NewServer(
 		e.CompleteAdoptionEndpoint,
 		decodeCompleteAdoptionRequest,
 		encodeResponse,
+		options...,
+	))
+	r.Methods("POST").Path("/api/home/cleanupadoptions").Handler(httptransport.NewServer(
+		e.CleanupAdoptionsEndpoint,
+		decodeEmptyRequest,
+		encodeEmptyResponse,
 		options...,
 	))
 
@@ -55,7 +62,7 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
-func decodeHealthCheckRequest(_ context.Context, r *http.Request) (interface{}, error) {
+func decodeEmptyRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return nil, nil
 }
 
@@ -72,6 +79,14 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	return json.NewEncoder(w).Encode(response)
+}
+
+func encodeEmptyResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	if e, ok := response.(errorer); ok && e.error() != nil {
+		encodeError(ctx, e.error(), w)
+		return nil
+	}
+	return nil
 }
 
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {
