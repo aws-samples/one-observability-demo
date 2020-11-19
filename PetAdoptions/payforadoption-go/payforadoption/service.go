@@ -19,15 +19,17 @@ type Service interface {
 
 // object that handles the logic and complies with interface
 type service struct {
-	logger     log.Logger
-	repository Repository
+	logger            log.Logger
+	repository        Repository
+	updateAdoptionURL string
 }
 
 //inject dependencies into core logic
-func NewService(logger log.Logger, rep Repository) Service {
+func NewService(logger log.Logger, rep Repository, updateAdoptionURL string) Service {
 	return &service{
-		logger:     logger,
-		repository: rep,
+		logger:            logger,
+		repository:        rep,
+		updateAdoptionURL: updateAdoptionURL,
 	}
 }
 
@@ -58,7 +60,7 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		return Adoption{}, err
 	}
 
-	return a, s.repository.UpdateAvailability(ctx, a)
+	return a, s.repository.UpdateAvailability(ctx, a, s.updateAdoptionURL)
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {

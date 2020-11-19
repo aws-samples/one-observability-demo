@@ -17,7 +17,7 @@ import (
 type Repository interface {
 	CreateTransaction(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
-	UpdateAvailability(ctx context.Context, a Adoption) error
+	UpdateAvailability(ctx context.Context, a Adoption, updateAdoptionURL string) error
 }
 
 var RepoErr = errors.New("Unable to handle Repo Request")
@@ -39,7 +39,6 @@ func NewRepository(db *sql.DB, logger log.Logger) Repository {
 
 func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 
-	//1-5fb01507-14352fbe45891b8e368bca6f
 	sql := `
 		INSERT INTO dbo.transactions (PetId, Transaction_Id, Adoption_Date)
 		VALUES (@p1, @p2, @p3)
@@ -65,10 +64,8 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 	return nil
 }
 
-func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
+func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptionURL string) error {
 	logger := log.With(r.logger, "method", "UpdateAvailability")
-
-	updateAdoptionURL := "https://s0b8q2ju3b.execute-api.eu-west-1.amazonaws.com/prod/"
 
 	errs := make(chan error)
 	var wg sync.WaitGroup
