@@ -2,13 +2,19 @@ package payforadoption
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gofrs/uuid"
 )
+
+type Adoption struct {
+	TransactionID string `json:"transactionid,omitempty"`
+	PetID         string `json:"petid,omitempty"`
+	PetType       string `json:"pettype,omitempty"`
+	AdoptionDate  time.Time
+}
 
 // links endpoints to transport
 type Service interface {
@@ -40,7 +46,6 @@ func (s service) HealthCheck(ctx context.Context) error {
 
 // /api/completeadoption logic
 func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error) {
-	logger := log.With(s.logger, "method", "CompleteAdoption")
 
 	uuid, _ := uuid.NewV4()
 	a := Adoption{
@@ -50,12 +55,8 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		AdoptionDate:  time.Now(),
 	}
 
-	logger.Log(
-		"traceId", "xray Trace to retrieve",
-		"transaction", fmt.Sprintf("%#v", a),
-	)
-
 	if err := s.repository.CreateTransaction(ctx, a); err != nil {
+		logger := log.With(s.logger, "method", "CompleteAdoption")
 		level.Error(logger).Log("err", err)
 		return Adoption{}, err
 	}
@@ -64,13 +65,9 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {
-	logger := log.With(s.logger, "method", "CleanupAdoptions")
-
-	logger.Log(
-		"traceId", "xray Trace to retrieve",
-	)
 
 	if err := s.repository.DropTransactions(ctx); err != nil {
+		logger := log.With(s.logger, "method", "CleanupAdoptions")
 		level.Error(logger).Log("err", err)
 		return err
 	}

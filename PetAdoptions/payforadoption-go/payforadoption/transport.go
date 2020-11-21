@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
@@ -29,18 +30,31 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		encodeEmptyResponse,
 		options...,
 	))
-	r.Methods("POST").Path("/api/home/completeadoption").Handler(httptransport.NewServer(
-		e.CompleteAdoptionEndpoint,
-		decodeCompleteAdoptionRequest,
-		encodeResponse,
-		options...,
-	))
-	r.Methods("POST").Path("/api/home/cleanupadoptions").Handler(httptransport.NewServer(
-		e.CleanupAdoptionsEndpoint,
-		decodeEmptyRequest,
-		encodeEmptyResponse,
-		options...,
-	))
+
+	// using xray as wrapper for http.Handler
+	r.Methods("POST").Path("/api/home/completeadoption").Handler(
+		xray.Handler(
+			xray.NewFixedSegmentNamer("payforadoption"),
+			httptransport.NewServer(
+				e.CompleteAdoptionEndpoint,
+				decodeCompleteAdoptionRequest,
+				encodeResponse,
+				options...,
+			),
+		),
+	)
+	// using xray as wrapper for http.Handler
+	r.Methods("POST").Path("/api/home/cleanupadoptions").Handler(
+		xray.Handler(
+			xray.NewFixedSegmentNamer("payforadoption"),
+			httptransport.NewServer(
+				e.CleanupAdoptionsEndpoint,
+				decodeEmptyRequest,
+				encodeEmptyResponse,
+				options...,
+			),
+		),
+	)
 
 	return r
 }
@@ -107,6 +121,8 @@ func codeFrom(err error) int {
 	switch err {
 	case ErrNotFound:
 		return http.StatusNotFound
+	case ErrBadRequest:
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}

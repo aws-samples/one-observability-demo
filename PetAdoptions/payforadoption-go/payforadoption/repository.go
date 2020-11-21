@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -26,8 +27,6 @@ var RepoErr = errors.New("Unable to handle Repo Request")
 type repo struct {
 	db     *sql.DB
 	logger log.Logger
-	// awsclient awsclient
-	//sdk
 }
 
 func NewRepository(db *sql.DB, logger log.Logger) Repository {
@@ -71,14 +70,16 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptio
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	// using xray as a wrapper for http client
+	client := xray.Client(&http.Client{})
+
 	go func() {
 
 		defer wg.Done()
-		client := &http.Client{}
 
 		body := &completeAdoptionRequest{a.PetID, a.PetType}
 		req, _ := sling.New().Put(updateAdoptionURL).BodyJSON(body).Request()
-		resp, err := client.Do(req)
+		resp, err := client.Do(req.WithContext(ctx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
@@ -96,7 +97,8 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptio
 	}()
 
 	go func() {
-		_, err := http.Get("https://amazon.com")
+		req, _ := http.NewRequest("GET", "https://amazon.com", nil)
+		_, err := client.Do(req.WithContext(ctx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
