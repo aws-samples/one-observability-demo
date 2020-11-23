@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-xray-sdk-go/awsplugins/ecs"
 	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -34,6 +35,17 @@ type dbConfig struct {
 type Config struct {
 	UpdateAdoptionURL string
 	RDSSecretArn      string
+}
+
+func init() {
+
+}
+
+func init() {
+	// conditionally load plugin
+	if os.Getenv("ENVIRONMENT") != "development" {
+		ecs.Init()
+	}
 }
 
 //

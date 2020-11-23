@@ -128,9 +128,6 @@ func codeFrom(err error) int {
 	}
 }
 
-// log every request after request is treated and
-// before http response is returned to customer
-//TODO : use logger
 func loggingMiddleware(ctx context.Context, code int, r *http.Request) {
 	fmt.Println(r.Method, r.RequestURI, r.Proto, r.RemoteAddr, code)
 }
