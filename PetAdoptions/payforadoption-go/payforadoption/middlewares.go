@@ -26,8 +26,8 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 
 		segment := xray.GetSegment(ctx)
 
-		xray.AddAnnotation(ctx, "petId", petId)
-		xray.AddAnnotation(ctx, "petType", petType)
+		xray.AddAnnotation(ctx, "PetId", petId)
+		xray.AddAnnotation(ctx, "PetType", petType)
 		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
 
 		mw.logger.Log(
