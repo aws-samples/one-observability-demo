@@ -16,7 +16,7 @@ export class ListAdoptionsService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petlistadoptions/petlistadoptions", {
+    return ecs.ContainerImage.fromAsset("../../petlistadoptions-go", {
       repositoryName: "pet-list-adoption"
     })
   }

@@ -31,7 +31,7 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
 
 		mw.logger.Log(
-			"method", "CompleteAdoption",
+			"method", "In CompleteAdoption",
 			"traceId", segment.TraceID,
 			"petId", petId,
 			"petType", petType,
@@ -49,7 +49,7 @@ func (mw *middleware) CleanupAdoptions(ctx context.Context) (err error) {
 		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
 
 		mw.logger.Log(
-			"method", "CleanupAdoptions",
+			"method", "In CleanupAdoptions",
 			"traceId", segment.TraceID,
 			"took", time.Since(begin),
 			"err", err)
