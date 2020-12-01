@@ -33,8 +33,8 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 		mw.logger.Log(
 			"method", "In CompleteAdoption",
 			"traceId", segment.TraceID,
-			"petId", petId,
-			"petType", petType,
+			"PetId", petId,
+			"PetType", petType,
 			"took", time.Since(begin),
 			"err", err)
 	}(time.Now())
