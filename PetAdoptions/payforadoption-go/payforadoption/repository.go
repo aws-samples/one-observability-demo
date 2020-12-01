@@ -65,6 +65,8 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 
 func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptionURL string) error {
 	logger := log.With(r.logger, "method", "UpdateAvailability")
+	subsegCtx, subseg := xray.BeginSubsegment(ctx, "UpdateAvailability")
+	defer subseg.Close(nil)
 
 	errs := make(chan error)
 	var wg sync.WaitGroup
@@ -74,12 +76,17 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptio
 	client := xray.Client(&http.Client{})
 
 	go func() {
-
 		defer wg.Done()
+
+		updateAdoptionStatusCtx, updateAdoptionStatusSeg := xray.BeginSubsegment(
+			subsegCtx,
+			"Update Adoption Status",
+		)
+		defer updateAdoptionStatusSeg.Close(nil)
 
 		body := &completeAdoptionRequest{a.PetID, a.PetType}
 		req, _ := sling.New().Put(updateAdoptionURL).BodyJSON(body).Request()
-		resp, err := client.Do(req.WithContext(ctx))
+		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
@@ -97,13 +104,20 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption, updateAdoptio
 	}()
 
 	go func() {
+		defer wg.Done()
+
+		availabilityCtx, availabilitySeg := xray.BeginSubsegment(
+			subsegCtx,
+			"Invoking Availability API",
+		)
+		defer availabilitySeg.Close(nil)
+
 		req, _ := http.NewRequest("GET", "https://amazon.com", nil)
-		_, err := client.Do(req.WithContext(ctx))
+		_, err := client.Do(req.WithContext(availabilityCtx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
 		}
-		wg.Done()
 	}()
 
 	go func() {

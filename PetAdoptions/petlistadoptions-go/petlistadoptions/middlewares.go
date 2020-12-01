@@ -22,7 +22,6 @@ func NewInstrumenting(logger log.Logger, s Service) Service {
 }
 
 func (mw *middleware) ListAdoptions(ctx context.Context) (ax []Adoption, err error) {
-	//func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType string) (a Adoption, err error) {
 	defer func(begin time.Time) {
 
 		segment := xray.GetSegment(ctx)
