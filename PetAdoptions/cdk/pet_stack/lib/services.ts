@@ -24,7 +24,7 @@ import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { RemovalPolicy } from '@aws-cdk/core';
+import { CfnJson, RemovalPolicy, Fn } from '@aws-cdk/core';
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -39,7 +39,12 @@ export class Services extends cdk.Stack {
 
         // Create SNS and an email topic to send notifications to
         const topic_petadoption = new sns.Topic(this, 'topic_petadoption');
-        topic_petadoption.addSubscription(new subs.EmailSubscription(this.node.tryGetContext('snstopic_email')));
+        var topic_email = this.node.tryGetContext('snstopic_email');
+        if (topic_email == undefined)
+        {
+            topic_email = "someone@example.com";
+        }
+        topic_petadoption.addSubscription(new subs.EmailSubscription(topic_email));
 
         // Creates an S3 bucket to store pet images
         const s3_observabilitypetadoptions = new s3.Bucket(this, 's3bucket_petadoption', {
@@ -88,9 +93,14 @@ export class Services extends cdk.Stack {
         });
 
 
+        var cidrRange = this.node.tryGetContext('vpc_cidr');
+        if (cidrRange == undefined)
+        {
+            cidrRange = "11.0.0.0/16";
+        }
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
-            cidr: this.node.tryGetContext('vpc_cidr'),
+            cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2
         });
@@ -103,7 +113,11 @@ export class Services extends cdk.Stack {
 
         rdssecuritygroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(1433), 'allow MSSQL access from the world');
 
-        const rdsUsername = this.node.tryGetContext('rdsusername');
+        var rdsUsername = this.node.tryGetContext('rdsusername');
+        if (rdsUsername == undefined)
+        {
+            rdsUsername = "petadmin"
+        }
         const instance = new rds.DatabaseInstance(this, 'Instance', {
             engine: rds.DatabaseInstanceEngine.sqlServerWeb({version:rds.SqlServerEngineVersion.VER_15} ),
             instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
@@ -166,7 +180,11 @@ export class Services extends cdk.Stack {
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
-        const isEKS = this.node.tryGetContext('petsite_on_eks');
+        var isEKS = 'true';
+        if (this.node.tryGetContext('petsite_on_eks') != undefined)
+        {
+            isEKS = this.node.tryGetContext('petsite_on_eks');
+        }
 
         // Check if PetSite needs to be deployed on an EKS cluster
         if (isEKS === 'true') {
@@ -183,12 +201,50 @@ export class Services extends cdk.Stack {
                 kubectlEnabled: true,
                 mastersRole: clusterAdmin,
                 vpc: theVPC,
-                version: KubernetesVersion.V1_16
-            });
-
+                version: KubernetesVersion.V1_17
+            });          
 
             // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
             const oidc = cluster.openIdConnectProvider.openIdConnectProviderArn;
+            // ClusterID is not available for creating the proper conditions https://github.com/aws/aws-cdk/issues/10347
+            const clusterId = Fn.select(4, Fn.split('/', cluster.clusterOpenIdConnectIssuerUrl)) // Remove https:// from the URL as workaround to get ClusterID
+
+            // cat > trust.json << EOF
+            // {
+            //   "Version": "2012-10-17",
+            //   "Statement": [
+            //     {
+            //       "Effect": "Allow",
+            //       "Principal": {
+            //         "Federated": "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
+            //       },
+            //       "Action": "sts:AssumeRoleWithWebIdentity",
+            //       "Condition": {
+            //         "StringEquals": {
+            //           "${OIDC_PROVIDER}:aud": "sts.amazonaws.com"
+            //         }
+            //       }
+            //     }
+            //   ]
+            // }
+            // EOF
+
+            const cw_federatedPrincipal = new iam.FederatedPrincipal(
+                cluster.openIdConnectProvider.openIdConnectProviderArn,
+                {
+                    StringEquals: new CfnJson(this, "CW_FederatedPrincipalCondition", {
+                        value: {
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
+                            [`${clusterId}:sub` ]: "system:serviceaccount:amazon-cloudwatch:cloudwatch-agent",
+                        }
+                    })
+                }
+            ); 
+            const cw_trustRelationship = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                principals: [ cw_federatedPrincipal ],
+                actions: ["sts:AssumeRoleWithWebIdentity"]
+            });       
 
             // Create IAM roles for Service Accounts
             // Cloudwatch Agent SA
@@ -199,6 +255,24 @@ export class Services extends cdk.Stack {
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'CWServiceAccount-CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
                 ],
             });
+            cwserviceaccount.assumeRolePolicy?.addStatements(cw_trustRelationship);
+
+            const xray_federatedPrincipal = new iam.FederatedPrincipal(
+                cluster.openIdConnectProvider.openIdConnectProviderArn,
+                {
+                    StringEquals: new CfnJson(this, "Xray_FederatedPrincipalCondition", {
+                        value: {
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
+                            [`${clusterId}:sub` ]: "system:serviceaccount:default:xray-daemon",
+                        }
+                    })
+                }
+            ); 
+            const xray_trustRelationship = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                principals: [ xray_federatedPrincipal ],
+                actions: ["sts:AssumeRoleWithWebIdentity"]
+            });                
     
             // X-Ray Agent SA
             const xrayserviceaccount = new iam.Role(this, 'XRayServiceAccount', {
@@ -208,7 +282,24 @@ export class Services extends cdk.Stack {
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'XRayServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
                 ],
             });
+            xrayserviceaccount.assumeRolePolicy?.addStatements(xray_trustRelationship);
 
+            const app_federatedPrincipal = new iam.FederatedPrincipal(
+                cluster.openIdConnectProvider.openIdConnectProviderArn,
+                {
+                    StringEquals: new CfnJson(this, "App_FederatedPrincipalCondition", {
+                        value: {
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
+                            [`${clusterId}:sub` ]: "system:serviceaccount:default:petsite-sa",
+                        }
+                    })
+                }
+            ); 
+            const app_trustRelationship = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                principals: [ app_federatedPrincipal ],
+                actions: ["sts:AssumeRoleWithWebIdentity"]
+            }) 
             // FrontEnd SA (SSM, SQS, SNS)
             const petstoreserviceaccount = new iam.Role(this, 'PetSiteServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
@@ -220,6 +311,8 @@ export class Services extends cdk.Stack {
                     iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
                 ],
             });
+            petstoreserviceaccount.assumeRolePolicy?.addStatements(app_trustRelationship);
+
 
             const startStepFnExecutionPolicy = new iam.PolicyStatement({
                 effect: iam.Effect.ALLOW,
