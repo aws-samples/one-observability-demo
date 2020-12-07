@@ -25,6 +25,7 @@ import { PetAdoptionsStepFn } from './services/stepfn'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 import { CfnJson, RemovalPolicy, Fn } from '@aws-cdk/core';
+import { readFileSync } from 'fs';
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -323,6 +324,22 @@ export class Services extends cdk.Stack {
               });
 
             petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
+            
+            // Fix for EKS Dashboard access
+
+            const dashboardRoleYaml = JSON.parse(readFileSync("./resources/dashboard.json","utf8"));
+
+            const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
+            if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
+                const role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
+                cluster.awsAuth.addRoleMapping(role,{groups:["dashboard-view"]});
+            }
+            
+            const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
+                cluster: cluster,
+                manifest: [dashboardRoleYaml]
+            });
+            
 
             sqlSeeder.node.addDependency(cluster);
 
