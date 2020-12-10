@@ -14,6 +14,27 @@
           }
         },
         {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "service-petsite",
+            "namespace": "default"
+          },
+          "spec": {
+            "ports": [
+              {
+                "port": 80,
+                "targetPort": 80,
+                "protocol": "TCP"
+              }
+            ],
+            "type": "LoadBalancer",
+            "selector": {
+              "app": "petsite"
+            }
+          }
+        },
+        {
           "apiVersion": "apps/v1",
           "kind": "Deployment",
           "metadata": {

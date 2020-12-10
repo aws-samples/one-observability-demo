@@ -263,7 +263,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "CW_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -290,7 +290,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "Xray_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -316,7 +316,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "App_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -369,8 +369,8 @@ export class Services extends cdk.Stack {
             var deploymentJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/deployment.json","utf8"));
             
             deploymentJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-            deploymentJson.items[1].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Imagee", { value : `${asset.imageUri}` });
-            deploymentJson.items[1].spec.template.spec.containers[0].env = [
+            deploymentJson.items[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${asset.imageUri}` });
+            deploymentJson.items[2].spec.template.spec.containers[0].env = [
                   {
                     "name": "AWS_XRAY_DAEMON_ADDRESS",
                     "value": "xray-service.default:2000"
