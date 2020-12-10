@@ -1,0 +1,142 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "annotations": {
+              "eks.amazonaws.com/role-arn": "XRAY_SA_ROLE"
+            },
+            "labels": {
+              "app": "xray-daemon"
+            },
+            "name": "xray-daemon",
+            "namespace": "default"
+          }
+        },
+        {
+          "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+          "kind": "ClusterRoleBinding",
+          "metadata": {
+            "name": "xray-daemon",
+            "labels": {
+              "app": "xray-daemon"
+            }
+          },
+          "roleRef": {
+            "apiGroup": "rbac.authorization.k8s.io",
+            "kind": "ClusterRole",
+            "name": "cluster-admin"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "xray-daemon",
+              "namespace": "default"
+            }
+          ]
+        },
+        {
+          "apiVersion": "apps/v1",
+          "kind": "DaemonSet",
+          "metadata": {
+            "name": "xray-daemon"
+          },
+          "spec": {
+            "updateStrategy": {
+              "type": "RollingUpdate"
+            },
+            "selector": {
+              "matchLabels": {
+                "app": "xray-daemon"
+              }
+            },
+            "template": {
+              "metadata": {
+                "labels": {
+                  "app": "xray-daemon"
+                }
+              },
+              "spec": {
+                "serviceAccountName": "xray-daemon",
+                "volumes": [
+                  {
+                    "name": "config-volume",
+                    "configMap": {
+                      "name": "xray-config"
+                    }
+                  }
+                ],
+                "hostNetwork": true,
+                "containers": [
+                  {
+                    "name": "xray-daemon",
+                    "image": "amazon/aws-xray-daemon",
+                    "imagePullPolicy": "Always",
+                    "command": [
+                      "/usr/bin/xray",
+                      "-c",
+                      "/aws/xray/config.yaml"
+                    ],
+                    "resources": {
+                      "limits": {
+                        "memory": "24Mi"
+                      }
+                    },
+                    "ports": [
+                      {
+                        "name": "xray-ingest",
+                        "containerPort": 2000,
+                        "hostPort": 2000,
+                        "protocol": "UDP"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "config-volume",
+                        "mountPath": "/aws/xray",
+                        "readOnly": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "ConfigMap",
+          "metadata": {
+            "name": "xray-config",
+            "namespace": "default"
+          },
+          "data": {
+            "config.yaml": "TotalBufferSizeMB: 24\nSocket:\n  UDPAddress: \"0.0.0.0:2000\"\n  TCPAddress: \"0.0.0.0:2000\"\nVersion: 2"
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "Service",
+          "metadata": {
+            "name": "xray-service"
+          },
+          "spec": {
+            "selector": {
+              "app": "xray-daemon"
+            },
+            "clusterIP": "None",
+            "ports": [
+              {
+                "name": "incoming",
+                "port": 2000,
+                "protocol": "UDP"
+              }
+            ]
+          }
+        }        
+        
+    ]
+}

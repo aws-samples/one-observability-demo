@@ -180,6 +180,34 @@ export class Services extends cdk.Stack {
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+        
+        // PetSearch service definitions-----------------------------------------------------------------------
+        const searchService = new SearchService(this, 'search-service', {
+            cluster: new ecs.Cluster(this, "PetSearch", {
+                vpc: theVPC,
+                containerInsights: true
+            }),
+            logGroupName: "/ecs/PetSearch",
+            cpu: 1024,
+            memoryLimitMiB: 2048,
+            healthCheck: '/health/status'
+        })
+        searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+
+        // Traffic Generator task definition.
+        const trafficGeneratorService = new TrafficGeneratorService(this, 'traffic-generator-service', {
+            logGroupName: "/ecs/PetTrafficGenerator",
+            cpu: 256,
+            memoryLimitMiB: 512,
+            disableXRay: true,
+            disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
+        })
+        trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
+        
+        //PetStatusUpdater Lambda Function and APIGW--------------------------------------
+        const statusUpdaterService = new StatusUpdaterService(this, 'status-updater-service', {
+            tableName: dynamodb_petadoption.tableName
+        });        
 
         var isEKS = 'true';
         if (this.node.tryGetContext('petsite_on_eks') != undefined)
@@ -235,8 +263,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "CW_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
-                            [`${clusterId}:sub` ]: "system:serviceaccount:amazon-cloudwatch:cloudwatch-agent",
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -263,8 +290,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "Xray_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
-                            [`${clusterId}:sub` ]: "system:serviceaccount:default:xray-daemon",
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -290,8 +316,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "App_FederatedPrincipalCondition", {
                         value: {
-                            [`${clusterId}:aud` ]: "sts.amazonaws.com",
-                            [`${clusterId}:sub` ]: "system:serviceaccount:default:petsite-sa",
+                            [`${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -327,7 +352,7 @@ export class Services extends cdk.Stack {
             
             // Fix for EKS Dashboard access
 
-            const dashboardRoleYaml = JSON.parse(readFileSync("./resources/dashboard.json","utf8"));
+            const dashboardRoleJson = JSON.parse(readFileSync("./resources/dashboard.json","utf8"));
 
             const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
             if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
@@ -337,8 +362,104 @@ export class Services extends cdk.Stack {
             
             const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
                 cluster: cluster,
-                manifest: [dashboardRoleYaml]
+                manifest: [dashboardRoleJson]
             });
+            
+            
+            var deploymentJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/deployment.json","utf8"));
+            
+            deploymentJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
+            deploymentJson.items[1].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Imagee", { value : `${asset.imageUri}` });
+            deploymentJson.items[1].spec.template.spec.containers[0].env = [
+                  {
+                    "name": "AWS_XRAY_DAEMON_ADDRESS",
+                    "value": "xray-service.default:2000"
+                  },
+                  {
+                    "name": "SEARCH_API_URL",
+                    "value": new CfnJson(this, "deployment_EnvSearch", { value: `http://${searchService.service.loadBalancer.loadBalancerDnsName}/api/search?`})
+                  },
+                  {
+                    "name": "UPDATE_ADOPTION_STATUS_URL",
+                    "value": new CfnJson(this, "deployment_EnvUpdate", { value: `${statusUpdaterService.api.url}`})
+                  },
+                  {
+                    "name": "PAYMENT_API_URL",
+                    "value": new CfnJson(this, "deployment_EnvApi", { value: `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`})
+                  },
+                  {
+                    "name": "QUEUE_URL",
+                    "value": new CfnJson(this, "deployment_EnvQueue", { value: `${sqsQueue.queueUrl}` })
+                  },
+                  {
+                    "name": "SNS_ARN",
+                    "value": new CfnJson(this, "deployment_EnvSns", { value: `topic_petadoption.topicArn` })
+                  },
+                  {
+                    "name": "PET_LIST_ADOPTION_URL",
+                    "value": new CfnJson(this, "deployment_EnvPetlist", { value: `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/` })
+                  },
+                  {
+                    "name": "CLEANUP_ADOPTIONS_URL",
+                    "value":  new CfnJson(this, "deployment_EnvAdopt", { value: `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions` })
+                  }
+            ];
+            
+
+            const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
+                cluster: cluster,
+                manifest: [deploymentJson]
+            });
+            
+            var xRayJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.json","utf8"));
+            
+            xRayJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });            
+            
+            const xrayManifest = new eks.KubernetesManifest(this,"xraydeployment",{
+                cluster: cluster,
+                manifest: [xRayJson]
+            });            
+            
+            var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
+            
+            prometheusJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
+            
+            const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
+                cluster: cluster,
+                manifest: [prometheusJson]
+            });        
+            
+            const region = process.env.CDK_DEFAULT_REGION ;
+            
+            var fluentdJson = JSON.parse(readFileSync("./resources/cwagent-fluentd-quickstart.json","utf8"));
+            fluentdJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
+            fluentdJson.items[2].data = {
+                "cluster.name" : "Petsite",
+                "logs.region" : process.env.CDK_DEFAULT_REGION
+            };
+            
+
+            fluentdJson.items[3].data["cwagentconfig.json"] = JSON.stringify({
+                agent: {
+                    region: process.env.CDK_DEFAULT_REGION   },
+                logs: {  
+                    metrics_collected: {
+                        kubernetes: {
+                            cluster_name: "Petsite",
+                            metrics_collection_interval: 60
+                        }
+                    },
+                    force_flush_interval: 5
+                    
+                    }
+                
+                });
+            
+            const fuentdManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
+                cluster: cluster,
+                manifest: [fluentdJson]
+            });       
+            
             
 
             sqlSeeder.node.addDependency(cluster);
@@ -370,33 +491,9 @@ export class Services extends cdk.Stack {
             })));
         }
 
-        // PetSearch service definitions-----------------------------------------------------------------------
-        const searchService = new SearchService(this, 'search-service', {
-            cluster: new ecs.Cluster(this, "PetSearch", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
-            logGroupName: "/ecs/PetSearch",
-            cpu: 1024,
-            memoryLimitMiB: 2048,
-            healthCheck: '/health/status'
-        })
-        searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
-        // Traffic Generator task definition.
-        const trafficGeneratorService = new TrafficGeneratorService(this, 'traffic-generator-service', {
-            logGroupName: "/ecs/PetTrafficGenerator",
-            cpu: 256,
-            memoryLimitMiB: 512,
-            disableXRay: true,
-            disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
-        })
-        trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
-        //PetStatusUpdater Lambda Function and APIGW--------------------------------------
-        const statusUpdaterService = new StatusUpdaterService(this, 'status-updater-service', {
-            tableName: dynamodb_petadoption.tableName
-        });
+
 
         const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
 
