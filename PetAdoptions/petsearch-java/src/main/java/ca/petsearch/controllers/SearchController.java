@@ -86,11 +86,19 @@ public class SearchController {
 
         try {
 
+
             GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/s3bucketname").withWithDecryption(false);
+
+
             GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
             String s3BucketName = parameterResult.getParameter().getValue();
 
             String key = getKey(petType, image);
+
+            if ((int) (Math.random() * 10) == 4) {
+                // Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions
+                s3Client.createBucket(s3BucketName);
+            }
 
             GeneratePresignedUrlRequest generatePresignedUrlRequest =
                     new GeneratePresignedUrlRequest(s3BucketName, key)
@@ -138,11 +146,6 @@ public class SearchController {
 
     }
 
-    @GetMapping("/api/test")
-    public String mytest() {
-        subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
-        return "hello";
-    }
 
     @GetMapping("/api/search")
     public List<Pet> search(
@@ -166,12 +169,12 @@ public class SearchController {
                 expressionAttributeNames.put("#pt", "pettype");
                 expressionAttributeValues.put(":pettype", new AttributeValue().withS(petType));
             }
-            if(petColor != null && !petColor.trim().isEmpty()){
+            if (petColor != null && !petColor.trim().isEmpty()) {
                 filterExpression = filterExpression + " and " + "#pc = :petcolor";
                 expressionAttributeNames.put("#pc", "petcolor");
                 expressionAttributeValues.put(":petcolor", new AttributeValue().withS(petColor));
             }
-            if(petId != null && !petId.trim().isEmpty()) {
+            if (petId != null && !petId.trim().isEmpty()) {
                 filterExpression = filterExpression + " and " + "#pi = :petid";
                 expressionAttributeNames.put("#pi", "petid");
                 expressionAttributeValues.put(":petid", new AttributeValue().withS(petId));
