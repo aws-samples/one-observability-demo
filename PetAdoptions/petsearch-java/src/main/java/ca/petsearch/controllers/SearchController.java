@@ -39,14 +39,15 @@ public class SearchController {
 
     static {
 
-        ddbClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_WEST_2).build();
+        ddbClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
+
         s3Client = AmazonS3ClientBuilder
                 .standard()
-                .withRegion(Regions.US_WEST_2)
+                .withRegion(Regions.US_EAST_2)
                 .withForceGlobalBucketAccessEnabled(true)
                 .withRequestHandlers(new TracingHandler(AWSXRay.getGlobalRecorder()))
                 .build();
-        ssmClient = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_WEST_2).build();
+        ssmClient = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
 
         OpenTelemetrySdk.getTracerProvider()
                 .addSpanProcessor(BatchSpanProcessor.newBuilder(
@@ -59,11 +60,11 @@ public class SearchController {
         // System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
     }
 
-    private String getKey(String petType, String petId){
+    private String getKey(String petType, String petId) {
 
         String folderName;
 
-        switch(petType){
+        switch (petType) {
             case "bunny":
                 folderName = "bunnies";
                 break;
@@ -79,13 +80,13 @@ public class SearchController {
 
     }
 
-    private String getPetUrl(String petType, String image){
+    private String getPetUrl(String petType, String image) {
 
         String urlString;
 
-        try{
+        try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("s3bucketname").withWithDecryption(false);
+            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/s3bucketname").withWithDecryption(false);
             GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
             String s3BucketName = parameterResult.getParameter().getValue();
 
@@ -98,10 +99,10 @@ public class SearchController {
 
             urlString = s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
-        } catch (AmazonS3Exception e){
+        } catch (AmazonS3Exception e) {
             subsegment.addException(e);
             throw e;
-        } catch (Exception e){
+        } catch (Exception e) {
             subsegment.addException(e);
             throw e;
         }
@@ -109,11 +110,11 @@ public class SearchController {
         return urlString;
     }
 
-    private List<Pet> buildPets(List<Map<String, AttributeValue>> items){
+    private List<Pet> buildPets(List<Map<String, AttributeValue>> items) {
 
         List<Pet> result = new ArrayList<>();
 
-        for(Map<String, AttributeValue> item: items){
+        for (Map<String, AttributeValue> item : items) {
 
             String petId = item.get("petid").toString();
             String availability = item.get("availability").toString();
@@ -129,7 +130,7 @@ public class SearchController {
 
         }
 
-        AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
+        // AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
 
         // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
 
@@ -137,61 +138,79 @@ public class SearchController {
 
     }
 
+    @GetMapping("/api/test")
+    public String mytest() {
+        subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
+        return "hello";
+    }
+
     @GetMapping("/api/search")
     public List<Pet> search(
-            @RequestParam(name="pettype", defaultValue="", required = false) String petType,
-            @RequestParam(name="petcolor", defaultValue="", required = false) String petColor,
-            @RequestParam(name="petid", defaultValue="", required = false) String petId
+            @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
+            @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
+            @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
-
-        subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
 
         try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("dynamodbtablename").withWithDecryption(false);
+            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/dynamodbtablename").withWithDecryption(false);
             GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
             String dynamoDBTableName = parameterResult.getParameter().getValue();
+            String filterExpression = "";
 
             Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
+            Map<String, String> expressionAttributeNames = new HashMap<>();
 
-            if(petType != null && !petType.trim().isEmpty()){
+            if (petType != null && !petType.trim().isEmpty()) {
+                filterExpression = "#pt = :pettype";
+                expressionAttributeNames.put("#pt", "pettype");
                 expressionAttributeValues.put(":pettype", new AttributeValue().withS(petType));
             }
             if(petColor != null && !petColor.trim().isEmpty()){
+                filterExpression = filterExpression + " and " + "#pc = :petcolor";
+                expressionAttributeNames.put("#pc", "petcolor");
                 expressionAttributeValues.put(":petcolor", new AttributeValue().withS(petColor));
             }
             if(petId != null && !petId.trim().isEmpty()) {
+                filterExpression = filterExpression + " and " + "#pi = :petid";
+                expressionAttributeNames.put("#pi", "petid");
                 expressionAttributeValues.put(":petid", new AttributeValue().withS(petId));
             }
 
             ScanRequest scanRequest = new ScanRequest()
                     .withTableName(dynamoDBTableName)
+                    .withFilterExpression(filterExpression)
+                    .withExpressionAttributeNames(expressionAttributeNames)
                     .withExpressionAttributeValues(expressionAttributeValues);
 
-            if(petType != null && !petType.trim().isEmpty() && petType.equals("bunny")){
+            if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
                 TimeUnit.MILLISECONDS.sleep(3000);
             }
 
-            AWSXRay.getCurrentSubsegment()
-                    .putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
-
+            try {
+                AWSXRay.getCurrentSubsegment()
+                        .putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
+            } catch (Exception xx) {
+            }
             // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
 
             ScanResult result = ddbClient.scan(scanRequest);
             List<Map<String, AttributeValue>> resultItems = new ArrayList<>();
 
-            for (Map<String, AttributeValue> item : result.getItems()){
+            for (Map<String, AttributeValue> item : result.getItems()) {
                 resultItems.add(item);
             }
-
-            AWSXRay.endSubsegment();
+            try {
+                AWSXRay.endSubsegment();
+            } catch (Exception xxx) {
+            }
             return buildPets(resultItems);
 
-        } catch(Exception e) {
-            subsegment.addException(e);
+        } catch (Exception e) {
+            //subsegment.addException(e);
             throw e;
         } finally {
-            AWSXRay.endSubsegment();
+            //AWSXRay.endSubsegment();
         }
 
     }
