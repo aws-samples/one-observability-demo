@@ -217,6 +217,7 @@ export class Services extends cdk.Stack {
 
         // Check if PetSite needs to be deployed on an EKS cluster
         if (isEKS === 'true') {
+            const region = process.env.AWS_REGION ;
             const asset = new DockerImageAsset(this, 'petsiteecrimage', {
                 directory: path.join('../../petsite/', 'petsite')
             });
@@ -263,7 +264,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "CW_FederatedPrincipalCondition", {
                         value: {
-                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.${region}.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -290,7 +291,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "Xray_FederatedPrincipalCondition", {
                         value: {
-                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.${region}amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -316,7 +317,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "App_FederatedPrincipalCondition", {
                         value: {
-                            [`oidc.eks.us-east-2.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.${region}.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -429,19 +430,19 @@ export class Services extends cdk.Stack {
                 manifest: [prometheusJson]
             });        
             
-            const region = process.env.CDK_DEFAULT_REGION ;
+
             
             var fluentdJson = JSON.parse(readFileSync("./resources/cwagent-fluentd-quickstart.json","utf8"));
             fluentdJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
             fluentdJson.items[2].data = {
                 "cluster.name" : "Petsite",
-                "logs.region" : process.env.CDK_DEFAULT_REGION
+                "logs.region" : region
             };
             
 
             fluentdJson.items[3].data["cwagentconfig.json"] = JSON.stringify({
                 agent: {
-                    region: process.env.CDK_DEFAULT_REGION   },
+                    region: region  },
                 logs: {  
                     metrics_collected: {
                         kubernetes: {
