@@ -423,7 +423,16 @@ export class Services extends cdk.Stack {
             deploymentManifest.node.addDependency(xrayManifest);
             
 
-            
+            const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
+               cluster: cluster,
+               chart: "aws-load-balancer-controller",
+               repository: "https://aws.github.io/eks-charts",
+               values: [
+                    "clusterName=PetSite",
+                    "serviceAccount.create=false",
+                    
+                   ]
+            });
             
             var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
             
