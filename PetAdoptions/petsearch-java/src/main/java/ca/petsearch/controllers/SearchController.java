@@ -95,7 +95,9 @@ public class SearchController {
 
             String key = getKey(petType, image);
 
-            if ((int) (Math.random() * 10) == 4) {
+            int random = (int)Math.random() * 10;
+
+            if (random == 4) {
                 // Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions
                 s3Client.createBucket(s3BucketName);
             }
