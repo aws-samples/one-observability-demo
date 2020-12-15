@@ -367,6 +367,15 @@ export class Services extends cdk.Stack {
             });
             
             
+            var xRayJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.json","utf8"));
+            
+            xRayJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });            
+            
+            const xrayManifest = new eks.KubernetesManifest(this,"xraydeployment",{
+                cluster: cluster,
+                manifest: [xRayJson]
+            });            
+            
             var deploymentJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/deployment.json","utf8"));
             
             deploymentJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
@@ -411,15 +420,10 @@ export class Services extends cdk.Stack {
                 cluster: cluster,
                 manifest: [deploymentJson]
             });
+            deploymentManifest.node.addDependency(xrayManifest);
             
-            var xRayJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/xray-daemon/xray-daemon-config.json","utf8"));
+
             
-            xRayJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });            
-            
-            const xrayManifest = new eks.KubernetesManifest(this,"xraydeployment",{
-                cluster: cluster,
-                manifest: [xRayJson]
-            });            
             
             var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
             
