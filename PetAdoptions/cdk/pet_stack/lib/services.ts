@@ -12,6 +12,7 @@ import * as s3seeder from '@aws-cdk/aws-s3-deployment'
 import * as rds from '@aws-cdk/aws-rds';
 import * as ssm from '@aws-cdk/aws-ssm';
 import * as eks from '@aws-cdk/aws-eks';
+import * as yaml from 'js-yaml';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
 import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
@@ -300,7 +301,7 @@ export class Services extends cdk.Stack {
                 effect: iam.Effect.ALLOW,
                 principals: [ xray_federatedPrincipal ],
                 actions: ["sts:AssumeRoleWithWebIdentity"]
-            });                
+            });                         
     
             // X-Ray Agent SA
             const xrayserviceaccount = new iam.Role(this, 'XRayServiceAccount', {
@@ -311,6 +312,33 @@ export class Services extends cdk.Stack {
                 ],
             });
             xrayserviceaccount.assumeRolePolicy?.addStatements(xray_trustRelationship);
+
+            const loadbalancer_federatedPrincipal = new iam.FederatedPrincipal(
+                cluster.openIdConnectProvider.openIdConnectProviderArn,
+                {
+                    StringEquals: new CfnJson(this, "LB_FederatedPrincipalCondition", {
+                        value: {
+                            [`oidc.eks.${region}amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                        }
+                    })
+                }
+            ); 
+            const loadBalancer_trustRelationship = new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                principals: [ loadbalancer_federatedPrincipal ],
+                actions: ["sts:AssumeRoleWithWebIdentity"]
+            });    
+
+            const loadBalancerPolicyDoc = JSON.parse(readFileSync("./resources/load_balancer/iam_policy.json","utf8"));
+            const loadBalancerPolicy = new iam.Policy(this,'LoadBalancerSAPolicy', loadBalancerPolicyDoc);    
+            const loadBalancerserviceaccount = new iam.Role(this, 'LoadBalancerServiceAccount', {
+//                assumedBy: eksFederatedPrincipal,
+                assumedBy: new iam.AccountRootPrincipal(),
+            });
+            loadBalancerPolicy.attachToRole(loadBalancerserviceaccount);
+            
+            loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
+                      
 
             const app_federatedPrincipal = new iam.FederatedPrincipal(
                 cluster.openIdConnectProvider.openIdConnectProviderArn,
@@ -353,7 +381,7 @@ export class Services extends cdk.Stack {
             
             // Fix for EKS Dashboard access
 
-            const dashboardRoleJson = JSON.parse(readFileSync("./resources/dashboard.json","utf8"));
+            const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
 
             const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
             if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
@@ -363,7 +391,7 @@ export class Services extends cdk.Stack {
             
             const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
                 cluster: cluster,
-                manifest: [dashboardRoleJson]
+                manifest: dashboardRoleYaml
             });
             
             
@@ -421,17 +449,25 @@ export class Services extends cdk.Stack {
                 manifest: [deploymentJson]
             });
             deploymentManifest.node.addDependency(xrayManifest);
-            
 
+            var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
+            loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
+            
+            const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
+            const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
+                cluster: cluster,
+                manifest: loadBalancerCRDYaml
+            });        
+            
             const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
                cluster: cluster,
                chart: "aws-load-balancer-controller",
                repository: "https://aws.github.io/eks-charts",
-               values: [
-                    "clusterName=PetSite",
-                    "serviceAccount.create=false",
-                    
-                   ]
+               values: {
+                "clusterName":"PetSite",
+                "serviceAccount.create":"false",
+                "serviceAccount.name":"alb-ingress-controller"
+               }
             });
             
             var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
