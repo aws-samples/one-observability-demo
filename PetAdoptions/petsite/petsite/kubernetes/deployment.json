@@ -24,11 +24,13 @@
             "ports": [
               {
                 "port": 80,
+                "nodePort": 30300,
                 "targetPort": 80,
-                "protocol": "TCP"
+                "protocol":"TCP"
+
               }
             ],
-            "type": "LoadBalancer",
+            "type": "NodePort",
             "selector": {
               "app": "petsite"
             }
@@ -105,6 +107,21 @@
                 ]
               }
             }
+          }
+        },
+        {
+          "apiVersion": "elbv2.k8s.aws/v1beta1",
+          "kind": "TargetGroupBinding",
+          "metadata": {
+            "name": "petsite-tgb"
+          },
+          "spec": {
+            "serviceRef": {
+              "name": "service-petsite",
+              "port": 80
+            },
+            "targetGroupARN": "<arn-to-targetGroup>",
+            "targetType": "ip"
           }
         }
       ]

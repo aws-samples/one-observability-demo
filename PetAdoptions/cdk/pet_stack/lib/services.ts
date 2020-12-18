@@ -13,6 +13,7 @@ import * as rds from '@aws-cdk/aws-rds';
 import * as ssm from '@aws-cdk/aws-ssm';
 import * as eks from '@aws-cdk/aws-eks';
 import * as yaml from 'js-yaml';
+import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
 import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
@@ -223,6 +224,34 @@ export class Services extends cdk.Stack {
                 directory: path.join('../../petsite/', 'petsite')
             });
 
+            const albSG = new ec2.SecurityGroup(this,'ALBSecurityGrouo',{
+                vpc: theVPC,
+                securityGroupName: 'ALBSecurityGroup',
+                allowAllOutbound: true
+            });
+            albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.allTraffic());
+
+            // Create ALB and Target Groups
+            const alb = new elbv2.ApplicationLoadBalancer(this, 'PetSiteLoadBalancer', {
+                vpc: theVPC,
+                internetFacing: true,
+                securityGroup: albSG
+            });
+
+            const targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetSiteTargetGroup', {
+                port: 80,
+                protocol: elbv2.ApplicationProtocol.HTTP,
+                vpc: theVPC,
+                targetType: elbv2.TargetType.IP
+                
+            });
+
+            const listener = alb.addListener('Listener', {
+                port: 80,
+                open: true,
+                defaultTargetGroups: [targetGroup],
+            });          
+
             const clusterAdmin = new iam.Role(this, 'AdminRole', {
                 assumedBy: new iam.AccountRootPrincipal()
             });
@@ -233,7 +262,11 @@ export class Services extends cdk.Stack {
                 mastersRole: clusterAdmin,
                 vpc: theVPC,
                 version: KubernetesVersion.V1_17
-            });          
+            });         
+            
+            const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
+            clusterSG.addIngressRule(albSG,ec2.Port.allTraffic(),'Allow traffic from the ALB');
+            
 
             // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
             const oidc = cluster.openIdConnectProvider.openIdConnectProviderArn;
@@ -318,7 +351,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "LB_FederatedPrincipalCondition", {
                         value: {
-                            [`oidc.eks.${region}amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.${region}.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
@@ -329,13 +362,13 @@ export class Services extends cdk.Stack {
                 actions: ["sts:AssumeRoleWithWebIdentity"]
             });    
 
-            const loadBalancerPolicyDoc = JSON.parse(readFileSync("./resources/load_balancer/iam_policy.json","utf8"));
-            const loadBalancerPolicy = new iam.Policy(this,'LoadBalancerSAPolicy', loadBalancerPolicyDoc);    
+            const loadBalancerPolicyDoc = iam.PolicyDocument.fromJson(JSON.parse(readFileSync("./resources/load_balancer/iam_policy.json","utf8")));
+            const loadBalancerPolicy = new iam.ManagedPolicy(this,'LoadBalancerSAPolicy', { document: loadBalancerPolicyDoc });    
             const loadBalancerserviceaccount = new iam.Role(this, 'LoadBalancerServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
                 assumedBy: new iam.AccountRootPrincipal(),
+                managedPolicies: [loadBalancerPolicy]
             });
-            loadBalancerPolicy.attachToRole(loadBalancerserviceaccount);
             
             loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
                       
@@ -403,6 +436,37 @@ export class Services extends cdk.Stack {
                 cluster: cluster,
                 manifest: [xRayJson]
             });            
+
+            var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
+            loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
+
+            const loadBalancerServiceAccount = new eks.KubernetesManifest(this, "loadBalancerServiceAccount",{
+                cluster: cluster,
+                manifest: loadBalancerServiceAccountYaml
+            });
+            
+            const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
+            const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
+                cluster: cluster,
+                manifest: loadBalancerCRDYaml
+            });        
+            
+            const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
+               cluster: cluster,
+               chart: "aws-load-balancer-controller",
+               repository: "https://aws.github.io/eks-charts",
+               namespace: "kube-system",
+               values: {
+                clusterName:"PetSite",
+                serviceAccount:{
+                    create: false,
+                    name: "alb-ingress-controller"
+                },
+                wait: true
+               }
+            });
+            awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);  
+            awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);         
             
             var deploymentJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/deployment.json","utf8"));
             
@@ -442,6 +506,7 @@ export class Services extends cdk.Stack {
                     "value":  new CfnJson(this, "deployment_EnvAdopt", { value: `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions` })
                   }
             ];
+            deploymentJson.items[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroup.targetGroupArn}`});
             
 
             const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
@@ -449,26 +514,9 @@ export class Services extends cdk.Stack {
                 manifest: [deploymentJson]
             });
             deploymentManifest.node.addDependency(xrayManifest);
+            deploymentManifest.node.addDependency(awsLoadBalancerManifest);
 
-            var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
-            loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
-            
-            const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
-            const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
-                cluster: cluster,
-                manifest: loadBalancerCRDYaml
-            });        
-            
-            const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
-               cluster: cluster,
-               chart: "aws-load-balancer-controller",
-               repository: "https://aws.github.io/eks-charts",
-               values: {
-                "clusterName":"PetSite",
-                "serviceAccount.create":"false",
-                "serviceAccount.name":"alb-ingress-controller"
-               }
-            });
+
             
             var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
             
@@ -505,7 +553,7 @@ export class Services extends cdk.Stack {
                 
                 });
             
-            const fuentdManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
+            const fluentdManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
                 cluster: cluster,
                 manifest: [fluentdJson]
             });       
@@ -514,12 +562,17 @@ export class Services extends cdk.Stack {
 
             sqlSeeder.node.addDependency(cluster);
 
+            this.createSsmParameters(new Map(Object.entries({
+                '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`
+            })));
+
             this.createOuputs(new Map(Object.entries({
                 'PetSiteECRImageURL': asset.imageUri,
                 'CWServiceAccountArn': cwserviceaccount.roleArn,
                 'XRayServiceAccountArn': xrayserviceaccount.roleArn,
                 'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
-                'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl
+                'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
+                'PetSiteUrl': `http://${alb.loadBalancerDnsName}` 
             })));
         }
         else {
