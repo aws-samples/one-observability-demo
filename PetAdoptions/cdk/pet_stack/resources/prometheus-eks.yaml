@@ -434,14 +434,14 @@ metadata:
   namespace: amazon-cloudwatch
 
 ---
-# create cwagent service account and role binding
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cwagent-prometheus
-  namespace: amazon-cloudwatch
-  annotations:
-    eks.amazonaws.com/role-arn: {{CLOUDWATCH_SA_ROLE}}
+# create cwagent service account and role binding (moved to CDK)
+#apiVersion: v1
+#kind: ServiceAccount
+#metadata:
+#  name: cwagent-prometheus
+#  namespace: amazon-cloudwatch
+#  annotations:
+#    eks.amazonaws.com/role-arn: {{CLOUDWATCH_SA_ROLE}}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1

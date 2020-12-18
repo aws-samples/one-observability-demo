@@ -1,0 +1,51 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+        {
+          "apiVersion": "v1",
+          "kind": "Namespace",
+          "metadata": {
+            "name": "amazon-cloudwatch",
+            "labels": {
+              "name": "amazon-cloudwatch"
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "kind": "ServiceAccount",
+          "metadata": {
+            "name": "cloudwatch-agent",
+            "namespace": "amazon-cloudwatch",
+            "annotations": {
+              "eks.amazonaws.com/role-arn": "CLOUDWATCH_SA_ROLE"
+            }
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "data": {
+            "cluster.name": "CLUSTER_NAME",
+            "logs.region": "AWS_REGION"
+          },
+          "kind": "ConfigMap",
+          "metadata": {
+            "name": "cluster-info",
+            "namespace": "amazon-cloudwatch"
+          }
+        },
+        {
+          "apiVersion": "v1",
+          "data": {
+            "cwagentconfig.json": "{\"agent\": {  \"region\": \"{{region_name}}\"  },  \"logs\": {    \"metrics_collected\": {      \"kubernetes\": {        \"cluster_name\": \"{{cluster_name}}\",        \"metrics_collection_interval\": 60}},\"force_flush_interval\": 5}}"
+          },
+          "kind": "ConfigMap",
+          "metadata": {
+            "name": "cwagentconfig",
+            "namespace": "amazon-cloudwatch"
+          }
+        }
+        
+    ]
+}
