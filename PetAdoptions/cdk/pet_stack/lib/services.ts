@@ -325,7 +325,7 @@ export class Services extends cdk.Stack {
                 {
                     StringEquals: new CfnJson(this, "Xray_FederatedPrincipalCondition", {
                         value: {
-                            [`oidc.eks.${region}amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
+                            [`oidc.eks.${region}.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
                         }
                     })
                 }
