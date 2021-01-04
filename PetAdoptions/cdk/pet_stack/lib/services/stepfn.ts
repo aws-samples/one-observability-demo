@@ -33,7 +33,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
 
     var adotlayer = new lambda.LayerVersion(this, 'ADOTLayer', {
-      code: new lambda.AssetCode('../../resources/aws-distro-for-opentelemetry-python-38-preview.zip')
+      code: new lambda.AssetCode('./resources/aws-distro-for-opentelemetry-python-38-preview.zip')
     });
 
     var layers: lambda.ILayerVersion[] = [layer, adotlayer]
@@ -77,7 +77,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       layers: lambdalayers,
       tracing: Tracing.ACTIVE
     });
-    pythonFn.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/python/aot-instrument")
+    pythonFn.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/python/adot-instrument")
     return pythonFn;
   }
 }
