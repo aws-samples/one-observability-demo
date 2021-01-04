@@ -68,7 +68,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
   }
 
   private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayers: lambda.ILayerVersion[]) {
-    return new pythonlambda.PythonFunction(this, lambdaFileName, {
+    var pythonFn = new pythonlambda.PythonFunction(this, lambdaFileName, {
       entry: '../pet_stack/resources/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
@@ -77,5 +77,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       layers: lambdalayers,
       tracing: Tracing.ACTIVE
     });
+    pythonFn.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/python/aot-instrument")
+    return pythonFn;
   }
 }
