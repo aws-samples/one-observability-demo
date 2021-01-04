@@ -27,21 +27,27 @@ export class PetAdoptionsStepFn extends cdk.Construct {
         iam.ManagedPolicy.fromManagedPolicyArn(this, 'fifth', 'arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy')
       ]
     });
-    
-    var layerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION +":580247275435:layer:LambdaInsightsExtension:2";
-//    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
-    var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LayerFromArn`, layerArn);
+
+    var layerArn = "arn:aws:lambda:" + process.env.CDK_DEFAULT_REGION + ":580247275435:layer:LambdaInsightsExtension:2";
+    //    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
+    var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
+
+    var adotlayer = new lambda.LayerVersion(this, 'ADOTLayer', {
+      code: new lambda.AssetCode('../../resources/aws-distro-for-opentelemetry-python-38-preview.zip')
+    });
+
+    var layers: lambda.ILayerVersion[] = [layer, adotlayer]
 
     const readDynamoDB_Step = new tasks.LambdaInvoke(this, 'ReadDynamoDB', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_readDDB',lambdaRole,layer)
+      lambdaFunction: this.createStepFnLambda('lambda_step_readDDB', lambdaRole, layers)
     });
 
     const priceGreaterThan55_Step = new tasks.LambdaInvoke(this, 'PriceGreaterThan55', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_priceGreaterThan55',lambdaRole, layer)
+      lambdaFunction: this.createStepFnLambda('lambda_step_priceGreaterThan55', lambdaRole, layers)
     });
 
     const priceLessThan55_Step = new tasks.LambdaInvoke(this, 'PriceLessThan55', {
-      lambdaFunction: this.createStepFnLambda('lambda_step_priceLessThan55',lambdaRole, layer)
+      lambdaFunction: this.createStepFnLambda('lambda_step_priceLessThan55', lambdaRole, layers)
     });
 
     const priceEquals55_Step = new sfn.Succeed(this, 'PriceIs55');
@@ -59,22 +65,16 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       timeout: Duration.minutes(5)
     });
 
-    // var stepFnAPI = new apigw.AwsIntegration({
-    //   service: 'Step Functions',
-    //   integrationHttpMethod: 'POST',
-    //   action: 'StartExecution'
-    // });
-    
   }
 
-  private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayer: lambda.ILayerVersion) {
+  private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayers: lambda.ILayerVersion[]) {
     return new pythonlambda.PythonFunction(this, lambdaFileName, {
       entry: '../pet_stack/resources/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_8,
       role: lambdaRole,
-      layers: [lambdalayer],
+      layers: lambdalayers,
       tracing: Tracing.ACTIVE
     });
   }
