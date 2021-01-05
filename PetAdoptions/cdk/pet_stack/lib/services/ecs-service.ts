@@ -55,7 +55,7 @@ export abstract class EcsService extends cdk.Construct {
         "log_key": "log",
         "log_group_name": props.logGroupName,
         "auto_create_group": "false",
-        "log_stream_prefix": "app-"
+        "log_stream_name": "$(ecs_task_id)"
       }
     });
 
