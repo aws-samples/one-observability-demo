@@ -29,12 +29,17 @@ func (mw *middleware) ListAdoptions(ctx context.Context) (ax []Adoption, err err
 		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
 		xray.AddMetadata(ctx, "resultCount", len(ax))
 
-		mw.logger.Log(
-			"method", "ListAdoptions",
-			"traceId", segment.TraceID,
-			"resultCount", len(ax),
-			"took", time.Since(begin),
-			"err", err)
+		//TODO add container id in logs from detector
+
+		if segment != nil {
+			mw.logger.Log(
+				"method", "ListAdoptions",
+				"traceId", segment.TraceID,
+				"resultCount", len(ax),
+				"took", time.Since(begin),
+				"err", err)
+		}
+
 	}(time.Now())
 
 	return mw.Service.ListAdoptions(ctx)

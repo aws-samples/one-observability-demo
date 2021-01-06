@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	//otelhttp "go.opentelemetry.io/contrib/instrumentation/net/http"
 )
 
 // Repository as an interface to define data store interactions
@@ -53,9 +53,12 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 
 	sql := `SELECT TOP 25 PetId, Transaction_Id, Adoption_Date FROM dbo.transactions`
 
-	logger.Log("sql", sql)
-	rows, err := r.db.QueryContext(ctx, sql)
+	// TODO: implement when sql context propagation is implemented
+	// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
+	//rows, err := r.db.QueryContext(ctx, sql)
+	rows, err := r.db.Query(sql)
 	if err != nil {
+		logger.Log("error", err)
 		return nil, err
 	}
 
@@ -94,7 +97,12 @@ func searchForPet(ctx context.Context, logger log.Logger, wg *sync.WaitGroup, qu
 	logger = log.With(logger, "method", "searchForPet", "petid", t.PetID)
 	defer wg.Done()
 
-	client := xray.Client(&http.Client{})
+	// http context propagation not yet released with v0.15 and not retro-compatible
+	// https://github.com/open-telemetry/opentelemetry-go-contrib/pull/496
+	// TODO: implement when released
+	//client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+
+	client := http.Client{}
 
 	url := fmt.Sprintf("%spetid=%s", petSearchURL, t.PetID)
 

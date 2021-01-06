@@ -20,7 +20,7 @@ func MakeEndpoints(s Service) Endpoints {
 
 func makeHealthCheckEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		return nil, s.HealthCheck(ctx)
+		return s.HealthCheck(ctx)
 	}
 }
 
