@@ -86,7 +86,8 @@ func main() {
 		var err error
 		var connStr string
 
-		connStr, err = getRDSConnectionString(cfg.RDSSecretArn)
+		withPassword := true
+		connStr, err = getRDSConnectionString(cfg.RDSSecretArn, withPassword)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
@@ -105,7 +106,9 @@ func main() {
 
 	var s petlistadoptions.Service
 	{
-		repo := petlistadoptions.NewRepository(db, logger)
+
+		safeConnStr, _ := getRDSConnectionString(cfg.RDSSecretArn, false)
+		repo := petlistadoptions.NewRepository(db, logger, safeConnStr)
 		s = petlistadoptions.NewService(logger, repo, cfg.PetSearchURL)
 		s = petlistadoptions.NewInstrumenting(logger, s)
 	}

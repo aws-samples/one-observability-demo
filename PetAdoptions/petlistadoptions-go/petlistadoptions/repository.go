@@ -11,7 +11,9 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	//otelhttp "go.opentelemetry.io/contrib/instrumentation/net/http"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/label"
 )
 
 // Repository as an interface to define data store interactions
@@ -21,14 +23,16 @@ type Repository interface {
 
 //repo as an implementation of Repository with dependency injection
 type repo struct {
-	db     *sql.DB
-	logger log.Logger
+	db          *sql.DB
+	logger      log.Logger
+	safeConnStr string
 }
 
-func NewRepository(db *sql.DB, logger log.Logger) Repository {
+func NewRepository(db *sql.DB, logger log.Logger, safeConnStr string) Repository {
 	return &repo{
-		db:     db,
-		logger: log.With(logger, "repo", "sql"),
+		db:          db,
+		logger:      log.With(logger, "repo", "sql"),
+		safeConnStr: safeConnStr,
 	}
 }
 
@@ -51,16 +55,28 @@ type pet struct {
 func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]Adoption, error) {
 	logger := log.With(r.logger, "method", "GetTopTransactions")
 
+	tracer := otel.GetTracerProvider().Tracer("petlistadoptions")
+	_, span := tracer.Start(ctx, "mssql query")
+
 	sql := `SELECT TOP 25 PetId, Transaction_Id, Adoption_Date FROM dbo.transactions`
 
-	// TODO: implement when sql context propagation is implemented
+	// TODO: implement native sql instrumentation when issue is closed.
 	// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
 	//rows, err := r.db.QueryContext(ctx, sql)
+
+	//span := trace.SpanFromContext(ctx)
+
+	span.SetAttributes(
+		label.String("sql", sql),
+		label.String("url", r.safeConnStr),
+	)
+
 	rows, err := r.db.Query(sql)
 	if err != nil {
 		logger.Log("error", err)
 		return nil, err
 	}
+	span.End()
 
 	var wg sync.WaitGroup
 	adoptions := make(chan Adoption)

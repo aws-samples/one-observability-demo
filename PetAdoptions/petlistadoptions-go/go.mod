@@ -11,6 +11,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.15.1
 	go.opentelemetry.io/contrib/instrumentation/net/http v0.11.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.15.1
 	go.opentelemetry.io/contrib/propagators/aws v0.15.1
 	go.opentelemetry.io/otel v0.15.0
 	go.opentelemetry.io/otel/exporters/otlp v0.15.0
