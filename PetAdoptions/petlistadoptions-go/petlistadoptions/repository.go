@@ -97,17 +97,12 @@ func searchForPet(ctx context.Context, logger log.Logger, wg *sync.WaitGroup, qu
 	logger = log.With(logger, "method", "searchForPet", "petid", t.PetID)
 	defer wg.Done()
 
-	// http context propagation not yet released with v0.15 and not retro-compatible
-	// https://github.com/open-telemetry/opentelemetry-go-contrib/pull/496
-	// TODO: implement when released
-	//client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
-
-	client := http.Client{}
-
 	url := fmt.Sprintf("%spetid=%s", petSearchURL, t.PetID)
 
-	req, _ := http.NewRequest("GET", url, nil)
-	resp, err := client.Do(req.WithContext(ctx))
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	resp, err := client.Do(req)
 	if err != nil {
 		level.Error(logger).Log("err", err)
 		return
