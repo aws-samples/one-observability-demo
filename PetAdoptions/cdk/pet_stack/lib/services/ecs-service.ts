@@ -14,7 +14,8 @@ export interface EcsServiceProps {
   healthCheck?: string,
 
   disableService?: boolean,
-  disableXRay?: boolean
+  disableXRay?: boolean,
+  enableOtel?: boolean,
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -82,6 +83,10 @@ export abstract class EcsService extends cdk.Construct {
       containerPort: 80,
       protocol: ecs.Protocol.TCP
     });
+    
+    if (props.enableOtel){
+      this.addOtelCollectorContainer(this.taskDefinition, logging);
+    }
 
     this.taskDefinition.addFirelensLogRouter('firelensrouter', {
       firelensConfig: {
@@ -93,7 +98,7 @@ export abstract class EcsService extends cdk.Construct {
     if (!props.disableXRay) {
       this.addXRayContainer(this.taskDefinition, logging);
     }
-
+    
     if (!props.disableService) {
       this.service = new ecs_patterns.ApplicationLoadBalancedFargateService(this, "ecs-service", {
         cluster: props.cluster,
@@ -122,6 +127,15 @@ export abstract class EcsService extends cdk.Construct {
     }).addPortMappings({
       containerPort: 2000,
       protocol: ecs.Protocol.UDP
+    });
+  }
+  
+  private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
+    taskDefinition.addContainer('aws-otel-collector', {
+        image: ecs.ContainerImage.fromRegistry('amazon/aws-otel-collector'),
+        memoryLimitMiB: 256,
+        cpu: 256,
+        logging
     });
   }
 }

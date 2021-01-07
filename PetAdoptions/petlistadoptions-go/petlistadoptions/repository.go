@@ -64,8 +64,6 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 	// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
 	//rows, err := r.db.QueryContext(ctx, sql)
 
-	//span := trace.SpanFromContext(ctx)
-
 	span.SetAttributes(
 		label.String("sql", sql),
 		label.String("url", r.safeConnStr),
