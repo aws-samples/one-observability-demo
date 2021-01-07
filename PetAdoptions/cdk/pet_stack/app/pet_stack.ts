@@ -13,4 +13,5 @@ const stack = new Services(app, stackName, {
     account: process.env.CDK_DEFAULT_ACCOUNT, 
     region: process.env.CDK_DEFAULT_REGION 
 }});
-cdk.Tag.add(stack, 'Workshop', 'true');
+
+cdk.Tags.of(stack).add('Workshop','true')
