@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/go-kit/kit/log"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type middleware struct {
@@ -24,22 +25,26 @@ func NewInstrumenting(logger log.Logger, s Service) Service {
 func (mw *middleware) ListAdoptions(ctx context.Context) (ax []Adoption, err error) {
 	defer func(begin time.Time) {
 
-		segment := xray.GetSegment(ctx)
+		span := trace.SpanFromContext(ctx)
 
-		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
-		xray.AddMetadata(ctx, "resultCount", len(ax))
-
-		//TODO add container id in logs from detector
-
-		if segment != nil {
-			mw.logger.Log(
-				"method", "ListAdoptions",
-				"traceId", segment.TraceID,
-				"resultCount", len(ax),
-				"took", time.Since(begin),
-				"err", err)
+		if span == nil {
+			return
 		}
 
+		span.SetAttributes(
+			label.Float64("timeTakenSeconds", time.Since(begin).Seconds()),
+			label.Int("resultCount", len(ax)),
+		)
+
+		spanCtx := span.SpanContext()
+
+		mw.logger.Log(
+			"method", "ListAdoptions",
+			"traceId", spanCtx.TraceID,
+			"SpanID", spanCtx.SpanID,
+			"resultCount", len(ax),
+			"took", time.Since(begin),
+			"err", err)
 	}(time.Now())
 
 	return mw.Service.ListAdoptions(ctx)
