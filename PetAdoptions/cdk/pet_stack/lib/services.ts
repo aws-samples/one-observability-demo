@@ -178,8 +178,7 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
-            enableOtel: true,
-            disableXRay: true,
+            instrumentation: 'otel',
             database: instance
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
@@ -203,7 +202,7 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetTrafficGenerator",
             cpu: 256,
             memoryLimitMiB: 512,
-            disableXRay: true,
+            instrumentation: 'none',
             disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       

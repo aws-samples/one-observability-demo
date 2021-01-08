@@ -14,8 +14,7 @@ export interface EcsServiceProps {
   healthCheck?: string,
 
   disableService?: boolean,
-  disableXRay?: boolean,
-  enableOtel?: boolean,
+  instrumentation?: string,
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -83,10 +82,6 @@ export abstract class EcsService extends cdk.Construct {
       containerPort: 80,
       protocol: ecs.Protocol.TCP
     });
-    
-    if (props.enableOtel){
-      this.addOtelCollectorContainer(this.taskDefinition, logging);
-    }
 
     this.taskDefinition.addFirelensLogRouter('firelensrouter', {
       firelensConfig: {
@@ -94,11 +89,36 @@ export abstract class EcsService extends cdk.Construct {
       },
       image: ecs.ContainerImage.fromRegistry('amazon/aws-for-fluent-bit:2.10.0')
     })
-
-    if (!props.disableXRay) {
-      this.addXRayContainer(this.taskDefinition, logging);
-    }
     
+    // sidecar for instrumentation collecting
+    switch(props.instrumentation) {
+      
+      // we don't add any sidecar if instrumentation is none
+      case "none": {
+        break;
+      }
+      
+      // This collector would be used for both traces collected using
+      // open telemetry or X-Ray
+      case "otel": {
+        this.addOtelCollectorContainer(this.taskDefinition, logging);
+        break;
+      }
+      
+      // Default X-Ray traces collector
+      case "xray": {
+        this.addXRayContainer(this.taskDefinition, logging);
+        break;
+      }
+      
+      // Default X-Ray traces collector
+      // enabled by default
+      default: {
+        this.addXRayContainer(this.taskDefinition, logging);
+        break;
+      }
+    }
+
     if (!props.disableService) {
       this.service = new ecs_patterns.ApplicationLoadBalancedFargateService(this, "ecs-service", {
         cluster: props.cluster,
