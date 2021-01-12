@@ -5,7 +5,7 @@ import { EcsService, EcsServiceProps } from './ecs-service'
 
 export interface PayForAdoptionServiceProps extends EcsServiceProps {
   database: rds.DatabaseInstance
-} 
+}
 
 export class PayForAdoptionService extends EcsService {
 
@@ -16,7 +16,7 @@ export class PayForAdoptionService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../payforadoption/PayForAdoption", {
+    return ecs.ContainerImage.fromAsset("../../payforadoption-go", {
       repositoryName: "pet-pay-for-adoption"
     })
   }
