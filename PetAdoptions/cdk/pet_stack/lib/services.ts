@@ -82,12 +82,13 @@ export class Services extends cdk.Stack {
         });
 
         // Seeds the petadoptions dynamodb table with all data required
-        new ddbseeder.Seeder(this, "ddb_seeder_petadoption", {
+        const ddb_seeder = new ddbseeder.Seeder(this, "ddb_seeder_petadoption", {
             table: dynamodb_petadoption,
             setup: require("../resources/seed-data.json"),
             teardown: require("../resources/delete-seed-data.json"),
             refreshOnUpdate: true  // runs setup and teardown on every update, default false
         });
+        ddb_seeder.node.addDependency(dynamodb_petadoption);
 
         // Seeds the S3 bucket with pet images
         new s3seeder.BucketDeployment(this, "s3seeder_petadoption", {
@@ -530,15 +531,10 @@ export class Services extends cdk.Stack {
             
 
             
-            var fluentdJson = JSON.parse(readFileSync("./resources/cwagent-fluentd-quickstart.json","utf8"));
-            fluentdJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
-            fluentdJson.items[2].data = {
-                "cluster.name" : "Petsite",
-                "logs.region" : region
-            };
-            
+            var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
+            fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });       
 
-            fluentdJson.items[3].data["cwagentconfig.json"] = JSON.stringify({
+            fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
                 agent: {
                     region: region  },
                 logs: {  
@@ -552,11 +548,16 @@ export class Services extends cdk.Stack {
                     
                     }
                 
-                });
+                });   
+
+            fluentbitYaml[6].data["cluster.name"] = "Petsite";
+            fluentbitYaml[6].data["logs.region"] = region;   
+            fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
+     
             
-            const fluentdManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
+            const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
                 cluster: cluster,
-                manifest: [fluentdJson]
+                manifest: fluentbitYaml
             });       
             
             
