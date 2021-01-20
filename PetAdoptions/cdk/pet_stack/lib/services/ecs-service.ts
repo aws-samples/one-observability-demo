@@ -15,6 +15,8 @@ export interface EcsServiceProps {
 
   disableService?: boolean,
   instrumentation?: string,
+  
+  repositoryURI: string,
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -74,7 +76,7 @@ export abstract class EcsService extends cdk.Construct {
     this.taskDefinition.taskRole?.addManagedPolicy(iam.ManagedPolicy.fromManagedPolicyArn(this, 'AWSXrayWriteOnlyAccess', 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess'));
 
     this.taskDefinition.addContainer('container', {
-      image: this.createContainerImage(),
+      image: this.createContainerImage(props.repositoryURI),
       memoryLimitMiB: 512,
       cpu: 256,
       logging: firelenslogging
@@ -135,8 +137,8 @@ export abstract class EcsService extends cdk.Construct {
       }
     }
   }
-
-  abstract createContainerImage(): ecs.ContainerImage;
+  
+  abstract createContainerImage(repositoryURI: string) : ecs.ContainerImage;
 
   private addXRayContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('xraydaemon', {
