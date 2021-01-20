@@ -21,9 +21,7 @@ export class PetSiteService extends EcsService {
     this.taskDefinition.taskRole?.addToPrincipalPolicy(startStepFnExecutionPolicy);
   }
 
-  createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petsite/petsite", {
-      repositoryName: "pet-site"
-    })
+  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-site:latest`)
   }
 }
