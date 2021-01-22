@@ -44,7 +44,7 @@ func main() {
 		logger = log.With(logger, "caller", log.DefaultCaller)
 	}
 
-	var cfg Config
+	var cfg payforadoption.Config
 	{
 		var err error
 		cfg, err = fetchConfig()
@@ -76,8 +76,8 @@ func main() {
 
 	var s payforadoption.Service
 	{
-		repo := payforadoption.NewRepository(db, logger)
-		s = payforadoption.NewService(logger, repo, cfg.UpdateAdoptionURL)
+		repo := payforadoption.NewRepository(db, cfg, logger)
+		s = payforadoption.NewService(logger, repo)
 		s = payforadoption.NewInstrumenting(logger, s)
 	}
 
