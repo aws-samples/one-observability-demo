@@ -151,6 +151,18 @@ export class Services extends cdk.Stack {
             ],
             resources: ['*']
         });
+        
+        
+        const ddbSeedPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'dynamodb:BatchWriteItem',
+                'dynamodb:ListTables',
+                "dynamodb:Scan",
+                "dynamodb:Query"
+            ],
+            resources: ['*']
+        });
 
         const rdsAccessPolicy = iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonRDSFullAccess', 'arn:aws:iam::aws:policy/AmazonRDSFullAccess');
         
@@ -171,6 +183,7 @@ export class Services extends cdk.Stack {
         });
         payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+        payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
 
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
