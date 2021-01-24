@@ -3,6 +3,7 @@ package ca.petsearch.controllers;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
@@ -39,7 +40,10 @@ public class SearchController {
 
     static {
 
+
+
         ddbClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
+
 
         s3Client = AmazonS3ClientBuilder
                 .standard()
@@ -86,9 +90,7 @@ public class SearchController {
 
         try {
 
-
             GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/s3bucketname").withWithDecryption(false);
-
 
             GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
             String s3BucketName = parameterResult.getParameter().getValue();
