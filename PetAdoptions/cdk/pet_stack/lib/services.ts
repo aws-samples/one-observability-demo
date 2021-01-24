@@ -82,12 +82,13 @@ export class Services extends cdk.Stack {
         });
 
         // Seeds the petadoptions dynamodb table with all data required
-        new ddbseeder.Seeder(this, "ddb_seeder_petadoption", {
+        const ddb_seeder = new ddbseeder.Seeder(this, "ddb_seeder_petadoption", {
             table: dynamodb_petadoption,
             setup: require("../resources/seed-data.json"),
             teardown: require("../resources/delete-seed-data.json"),
             refreshOnUpdate: true  // runs setup and teardown on every update, default false
         });
+        ddb_seeder.node.addDependency(dynamodb_petadoption);
 
         // Seeds the S3 bucket with pet images
         new s3seeder.BucketDeployment(this, "s3seeder_petadoption", {
@@ -150,8 +151,22 @@ export class Services extends cdk.Stack {
             ],
             resources: ['*']
         });
+        
+        
+        const ddbSeedPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'dynamodb:BatchWriteItem',
+                'dynamodb:ListTables',
+                "dynamodb:Scan",
+                "dynamodb:Query"
+            ],
+            resources: ['*']
+        });
 
         const rdsAccessPolicy = iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonRDSFullAccess', 'arn:aws:iam::aws:policy/AmazonRDSFullAccess');
+        
+        const repositoryURI = "public.ecr.aws/t6p7v1e8";
 
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
@@ -163,10 +178,12 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
+            repositoryURI: repositoryURI,
             database: instance
         });
         payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+        payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
 
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
@@ -178,6 +195,8 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
+            instrumentation: 'otel',
+            repositoryURI: repositoryURI,
             database: instance
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
@@ -192,6 +211,7 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
+            repositoryURI: repositoryURI,
             healthCheck: '/health/status'
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -201,7 +221,8 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetTrafficGenerator",
             cpu: 256,
             memoryLimitMiB: 512,
-            disableXRay: true,
+            instrumentation: 'none',
+            repositoryURI: repositoryURI,
             disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
@@ -220,9 +241,8 @@ export class Services extends cdk.Stack {
         // Check if PetSite needs to be deployed on an EKS cluster
         if (isEKS === 'true') {
             const region = process.env.AWS_REGION ;
-            const asset = new DockerImageAsset(this, 'petsiteecrimage', {
-                directory: path.join('../../petsite/', 'petsite')
-            });
+            
+            const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
 
             const albSG = new ec2.SecurityGroup(this,'ALBSecurityGrouo',{
                 vpc: theVPC,
@@ -471,7 +491,7 @@ export class Services extends cdk.Stack {
             var deploymentJson = JSON.parse(readFileSync("../../petsite/petsite/kubernetes/deployment.json","utf8"));
             
             deploymentJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-            deploymentJson.items[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${asset.imageUri}` });
+            deploymentJson.items[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
             deploymentJson.items[2].spec.template.spec.containers[0].env = [
                   {
                     "name": "AWS_XRAY_DAEMON_ADDRESS",
@@ -529,15 +549,10 @@ export class Services extends cdk.Stack {
             
 
             
-            var fluentdJson = JSON.parse(readFileSync("./resources/cwagent-fluentd-quickstart.json","utf8"));
-            fluentdJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
-            fluentdJson.items[2].data = {
-                "cluster.name" : "Petsite",
-                "logs.region" : region
-            };
-            
+            var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
+            fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });       
 
-            fluentdJson.items[3].data["cwagentconfig.json"] = JSON.stringify({
+            fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
                 agent: {
                     region: region  },
                 logs: {  
@@ -551,11 +566,16 @@ export class Services extends cdk.Stack {
                     
                     }
                 
-                });
+                });   
+
+            fluentbitYaml[6].data["cluster.name"] = "Petsite";
+            fluentbitYaml[6].data["logs.region"] = region;   
+            fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
+     
             
-            const fluentdManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
+            const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
                 cluster: cluster,
-                manifest: [fluentdJson]
+                manifest: fluentbitYaml
             });       
             
             
@@ -567,7 +587,7 @@ export class Services extends cdk.Stack {
             })));
 
             this.createOuputs(new Map(Object.entries({
-                'PetSiteECRImageURL': asset.imageUri,
+                'PetSiteECRImageURL': petSiteECRImageURL,
                 'CWServiceAccountArn': cwserviceaccount.roleArn,
                 'XRayServiceAccountArn': xrayserviceaccount.roleArn,
                 'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
@@ -585,6 +605,7 @@ export class Services extends cdk.Stack {
                 logGroupName: "/ecs/PetSite",
                 cpu: 1024,
                 memoryLimitMiB: 2048,
+                repositoryURI: repositoryURI,
                 healthCheck: '/health/status'
             })
             petSiteService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
