@@ -62,14 +62,18 @@ namespace trafficgenerator
 
         private async Task ThrowSomeTrafficIn()
         {
+            Console.WriteLine("Synchronous Housekeeping call");
             // Performs housekeeping. Basically, reset the application data and gets ready for the execution cycle
             _httpClient.GetAsync(
                 $"{_petSiteUrl}/housekeeping/").Wait();
             
-            
+            Console.WriteLine("Starting Async LoadPetData");
+
             await LoadPetData();
+
+            Console.WriteLine($"Total number of pets - {_allPets.Count}");
             Random random = new Random();
-            var loadSize = random.Next(5, _allPets.Count);
+            var loadSize = random.Next(0, _allPets.Count);
 
          //   Console.WriteLine($"PetSite URL: {_petSiteUrl}");
 
