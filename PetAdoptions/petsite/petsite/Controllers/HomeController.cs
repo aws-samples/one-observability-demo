@@ -74,11 +74,11 @@ namespace PetSite.Controllers
 
         private async Task<string> GetPetDetails(string pettype, string petcolor, string petid)
         {
-            string searchUri = string.Empty;
+            var searchUri = string.Empty;
 
-            if (!String.IsNullOrEmpty(pettype) && pettype != "all") searchUri = $"pettype={pettype}";
-            if (!String.IsNullOrEmpty(petcolor) && petcolor != "all") searchUri = $"&{searchUri}&petcolor={petcolor}";
-            if (!String.IsNullOrEmpty(petid) && petid != "all") searchUri = $"&{searchUri}&petid={petid}";
+            if (!string.IsNullOrEmpty(pettype) && pettype != "all") searchUri = $"pettype={pettype}";
+            if (!string.IsNullOrEmpty(petcolor) && petcolor != "all") searchUri = $"&{searchUri}&petcolor={petcolor}";
+            if (!string.IsNullOrEmpty(petid) && petid != "all") searchUri = $"&{searchUri}&petid={petid}";
 
             switch (pettype)
             {
@@ -95,8 +95,8 @@ namespace PetSite.Controllers
                     PetSearchCount.Inc();
                     break;
             }
-            //string searchapiurl = _configuration["searchapiurl"];
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
+
+            var searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
             return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
         }
 
@@ -106,9 +106,10 @@ namespace PetSite.Controllers
              Console.WriteLine(
                 $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - In Housekeeping, trying to reset the app.");
                 
+            /* This section isn't needed anymore as we moved this functionality to payforadoptions' cleanup endpoint
             var result = await GetPetDetails(null, null, null);
             var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
-
+            
             var searchParams = new SearchParams();
             
             //string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
@@ -123,7 +124,7 @@ namespace PetSite.Controllers
 
                 StringContent putData = new StringContent(JsonSerializer.Serialize(searchParams));
                 await _httpClient.PutAsync(updateadoptionstatusurl, putData);
-            }
+            }*/
             
             //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
