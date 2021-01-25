@@ -63,8 +63,8 @@ namespace trafficgenerator
         private async Task ThrowSomeTrafficIn()
         {
             // Performs housekeeping. Basically, reset the application data and gets ready for the execution cycle
-            await _httpClient.GetAsync(
-                $"{_petSiteUrl}/housekeeping/");
+            _httpClient.GetAsync(
+                $"{_petSiteUrl}/housekeeping/").Wait();
             
             
             await LoadPetData();
