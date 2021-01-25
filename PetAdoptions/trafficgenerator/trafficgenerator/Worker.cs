@@ -62,6 +62,11 @@ namespace trafficgenerator
 
         private async Task ThrowSomeTrafficIn()
         {
+            // Performs housekeeping. Basically, reset the application data and gets ready for the execution cycle
+            await _httpClient.GetAsync(
+                $"{_petSiteUrl}/housekeeping/");
+            
+            
             await LoadPetData();
             Random random = new Random();
             var loadSize = random.Next(5, _allPets.Count);
@@ -99,9 +104,7 @@ namespace trafficgenerator
                     $"{_petSiteUrl}/PetListAdoptions");
             }
 
-            // Performs housekeeping. Basically, reset the application data and gets ready for next execution cycle
-            await _httpClient.GetAsync(
-                $"{_petSiteUrl}/housekeeping/");
+
         }
     }
 }
