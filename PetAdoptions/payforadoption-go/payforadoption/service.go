@@ -73,7 +73,7 @@ func (s service) CleanupAdoptions(ctx context.Context) error {
 		return err
 	}
 
-	return nil
+	return s.TriggerSeeding(ctx)
 }
 
 func (s service) TriggerSeeding(ctx context.Context) error {
