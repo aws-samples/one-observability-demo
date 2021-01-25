@@ -8,5 +8,6 @@ FROM alpine:latest
 WORKDIR /app
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /go/src/app/app .
+COPY --from=builder /go/src/app/seed.json .
 EXPOSE 80
 CMD ["./app"]
