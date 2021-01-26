@@ -22,7 +22,7 @@ type Adoption struct {
 
 // links endpoints to transport
 type Service interface {
-	HealthCheck(ctx context.Context) error
+	HealthCheck(ctx context.Context) (string, error)
 	ListAdoptions(ctx context.Context) ([]Adoption, error)
 }
 
@@ -42,8 +42,8 @@ func NewService(logger log.Logger, rep Repository, petSearchURL string) Service 
 	}
 }
 
-func (s service) HealthCheck(ctx context.Context) error {
-	return nil
+func (s service) HealthCheck(ctx context.Context) (string, error) {
+	return "alive", nil
 }
 
 func (s service) ListAdoptions(ctx context.Context) ([]Adoption, error) {
