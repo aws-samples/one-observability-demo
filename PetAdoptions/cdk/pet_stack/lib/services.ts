@@ -16,7 +16,6 @@ import * as yaml from 'js-yaml';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
 import * as cloud9 from '@aws-cdk/aws-cloud9';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
-import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
 import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -30,9 +29,8 @@ import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
 import { CfnJson, CfnParameter, RemovalPolicy, Fn } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
-import { SSL_OP_NO_TLSv1_2 } from 'constants';
-import { Grant } from '@aws-cdk/aws-iam';
-import { GraphWidget } from '@aws-cdk/aws-cloudwatch';
+import 'ts-replace-all'
+
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -251,6 +249,7 @@ export class Services extends cdk.Stack {
         {
             c9env = new cloud9.Ec2Environment(this,"Cloud9Env", {
                 vpc: theVPC,
+                ec2EnvironmentName: "observabilityworkshop",
                 instanceType: new ec2.InstanceType("t2.micro"),
                 subnetSelection: {
                     subnetType: ec2.SubnetType.PUBLIC
@@ -325,6 +324,7 @@ export class Services extends cdk.Stack {
             
             const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
             clusterSG.addIngressRule(albSG,ec2.Port.allTraffic(),'Allow traffic from the ALB');
+            clusterSG.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock),ec2.Port.tcp(443),'Allow local access to k8s api');
             
 
             // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
@@ -488,7 +488,7 @@ export class Services extends cdk.Stack {
                 cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
 
                 if (c9role!=undefined)
-                    cluster.awsAuth.addRoleMapping(c9role,{groups:["system:master"]});
+                    cluster.awsAuth.addRoleMapping(c9role,{groups:["system:masters"]});
 
                 if (c9env!=undefined)
                     cluster.node.addDependency(c9env)
@@ -611,7 +611,7 @@ export class Services extends cdk.Stack {
                 logs: {  
                     metrics_collected: {
                         kubernetes: {
-                            cluster_name: "Petsite",
+                            cluster_name: "PetSite",
                             metrics_collection_interval: 60
                         }
                     },
@@ -621,7 +621,7 @@ export class Services extends cdk.Stack {
                 
                 });   
 
-            fluentbitYaml[6].data["cluster.name"] = "Petsite";
+            fluentbitYaml[6].data["cluster.name"] = "PetSite";
             fluentbitYaml[6].data["logs.region"] = region;   
             fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
      
@@ -632,12 +632,12 @@ export class Services extends cdk.Stack {
             });       
             
             var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
-            dashboardBody = dashboardBody.replace("{{YOUR_CLUSTER_NAME}}","Petsite");
-            dashboardBody = dashboardBody.replace("{{YOUR_AWS_REGION}}",region);
+            dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
+            dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
 
 
             const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
-                dashboardName: "EKS FluentBit Dashboard",
+                dashboardName: "EKS_FluentBit_Dashboard",
                 dashboardBody: dashboardBody
             });
 
