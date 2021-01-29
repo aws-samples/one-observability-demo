@@ -14,6 +14,8 @@ import * as ssm from '@aws-cdk/aws-ssm';
 import * as eks from '@aws-cdk/aws-eks';
 import * as yaml from 'js-yaml';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
+import * as cloud9 from '@aws-cdk/aws-cloud9';
+import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
 import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
@@ -26,12 +28,21 @@ import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
 import path = require('path');
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { CfnJson, RemovalPolicy, Fn } from '@aws-cdk/core';
+import { CfnJson, CfnParameter, RemovalPolicy, Fn } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
+import { SSL_OP_NO_TLSv1_2 } from 'constants';
+import { Grant } from '@aws-cdk/aws-iam';
+import { GraphWidget } from '@aws-cdk/aws-cloudwatch';
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
+
+        var isEventEngine = 'true';
+        if (this.node.tryGetContext('is_event_engine') != undefined)
+        {
+            isEventEngine = this.node.tryGetContext('is_event_engine');
+        }
 
         const stackName = id;
 
@@ -230,7 +241,33 @@ export class Services extends cdk.Stack {
         //PetStatusUpdater Lambda Function and APIGW--------------------------------------
         const statusUpdaterService = new StatusUpdaterService(this, 'status-updater-service', {
             tableName: dynamodb_petadoption.tableName
-        });        
+        });   
+        
+        var c9role = undefined
+        var c9InstanceProfile = undefined
+        var c9env = undefined
+
+        if (isEventEngine === 'true')
+        {
+            c9env = new cloud9.Ec2Environment(this,"Cloud9Env", {
+                vpc: theVPC,
+                instanceType: new ec2.InstanceType("t2.micro"),
+                subnetSelection: {
+                    subnetType: ec2.SubnetType.PUBLIC
+                }
+            });
+
+             c9role = new iam.Role(this,'cloud9InstanceRole', {
+                assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
+                roleName: "observabilityworkshop-admin"
+            });
+
+            c9InstanceProfile = new iam.CfnInstanceProfile(this,'cloud9InstanceProfile', {
+                roles: [c9role.roleName],
+                instanceProfileName: "observabilityworkshop-profile"
+            })
+        }
 
         var isEKS = 'true';
         if (this.node.tryGetContext('petsite_on_eks') != undefined)
@@ -240,7 +277,9 @@ export class Services extends cdk.Stack {
 
         // Check if PetSite needs to be deployed on an EKS cluster
         if (isEKS === 'true') {
-            const region = process.env.AWS_REGION ;
+
+            const stack = cdk.Stack.of(this);
+            const region = stack.region;
             
             const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
 
@@ -437,9 +476,23 @@ export class Services extends cdk.Stack {
             const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
 
             const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
+            var role;
             if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
-                const role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
+                role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
                 cluster.awsAuth.addRoleMapping(role,{groups:["dashboard-view"]});
+            }
+
+            if (isEventEngine === 'true')
+            {
+                const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
+                cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
+
+                if (c9role!=undefined)
+                    cluster.awsAuth.addRoleMapping(c9role,{groups:["system:master"]});
+
+                if (c9env!=undefined)
+                    cluster.node.addDependency(c9env)
+
             }
             
             const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
@@ -578,7 +631,16 @@ export class Services extends cdk.Stack {
                 manifest: fluentbitYaml
             });       
             
-            
+            var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
+            dashboardBody = dashboardBody.replace("{{YOUR_CLUSTER_NAME}}","Petsite");
+            dashboardBody = dashboardBody.replace("{{YOUR_AWS_REGION}}",region);
+
+
+            const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
+                dashboardName: "EKS FluentBit Dashboard",
+                dashboardBody: dashboardBody
+            });
+
 
             sqlSeeder.node.addDependency(cluster);
 
