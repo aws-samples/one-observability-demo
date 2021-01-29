@@ -17,23 +17,26 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	//"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	otelxray "go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlphttp"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func init() {
 	// Create new OTLP Exporter struct
-	exporter, err := otlp.NewExporter(
-		context.Background(),
-		otlp.WithInsecure(),
-		otlp.WithAddress("0.0.0.0:55680"),
+	ctx := context.Background()
+
+	exporter, _ := otlp.NewExporter(
+		ctx,
+		otlphttp.NewDriver(
+			otlphttp.WithInsecure(),
+			otlphttp.WithEndpoint("0.0.0.0:55681"),
+		),
 	)
-	if err != nil {
-		// Handle error here...
-		// TODO: logger
-	}
+
 	// AlwaysSample() returns a Sampler that samples every trace.
 	// Be careful about using this sampler in a production application with
 	// significant traffic: a new trace will be started and exported for every request.
@@ -45,12 +48,25 @@ func init() {
 	// AWS X-Ray traceID format
 	idg := otelxray.NewIDGenerator()
 
+	// Implement when issue is closed
+	// https://github.com/aws-observability/aws-otel-go/issues/16
+
+	/*
+		ecsResourceDetector := new(ecs.ResourceDetector)
+		resource, err := ecsResourceDetector.Detect(ctx)
+
+		if err != nil {
+			fmt.Println("ECS Resource detection error:", err)
+		}
+	*/
+
 	// Create a new TraceProvider struct passing in the config, the exporter
 	// and the ID Generator we want to use for our tracing
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(cfg),
 		sdktrace.WithSyncer(exporter),
 		sdktrace.WithIDGenerator(idg),
+		//sdktrace.WithResource(resource),
 	)
 	// Set the traceprovider and the propagator we want to use
 	otel.SetTracerProvider(tp)
