@@ -4,16 +4,6 @@
   "items": [
         {
           "apiVersion": "v1",
-          "kind": "Namespace",
-          "metadata": {
-            "name": "amazon-cloudwatch",
-            "labels": {
-              "name": "amazon-cloudwatch"
-            }
-          }
-        },
-        {
-          "apiVersion": "v1",
           "kind": "ServiceAccount",
           "metadata": {
             "name": "cwagent-prometheus",
