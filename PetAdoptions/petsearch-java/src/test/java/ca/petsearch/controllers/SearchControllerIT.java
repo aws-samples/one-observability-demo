@@ -3,6 +3,7 @@ package ca.petsearch.controllers;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
+import com.amazonaws.xray.AWSXRay;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ public class SearchControllerIT {
                 "--provisioned-throughput", "ReadCapacityUnits=5,WriteCapacityUnits=5");
 
         localStack.execInContainer("awslocal", "s3", "mb", "s3://" + BUCKET_NAME);
+
+        AWSXRay.beginSegment("AmazonDynamoDBv2");
+
     }
 
     @BeforeEach

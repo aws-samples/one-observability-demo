@@ -1,3 +1,7 @@
+spring:
+  application:
+    name: petstore
+
 cloud:
   aws:
     region:
