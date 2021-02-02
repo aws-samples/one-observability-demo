@@ -1,27 +1,31 @@
 plugins {
-    id 'org.springframework.boot' version '2.3.2.RELEASE'
-    id 'io.spring.dependency-management' version '1.0.8.RELEASE'
+    id 'org.springframework.boot' version '2.3.8.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
 }
 
 group = 'org.example'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '1.8'
+sourceCompatibility = '15'
 
 repositories {
     mavenCentral()
     jcenter()
 }
 
+ext {
+    set('springCloudVersion', "Finchley.SR1")
+    set('testContainerVersion', '1.13.0')
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    testImplementation('org.springframework.boot:spring-boot-starter-test') {
-        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
-    }
-    implementation platform('com.amazonaws:aws-java-sdk-bom:1.11.913')
+    implementation 'org.springframework.cloud:spring-cloud-starter-aws'
+
+    //implementation platform('com.amazonaws:aws-java-sdk-bom:1.11.913')
     implementation platform('com.amazonaws:aws-xray-recorder-sdk-bom:2.4.0')
-    implementation 'com.amazonaws:aws-java-sdk-core'
-    implementation 'com.amazonaws:aws-java-sdk-s3'
+    //implementation 'com.amazonaws:aws-java-sdk-core'
+    //implementation 'com.amazonaws:aws-java-sdk-s3'
     implementation 'com.amazonaws:aws-java-sdk-dynamodb'
     implementation 'com.amazonaws:aws-java-sdk-ssm'
     implementation 'com.amazonaws:aws-xray-recorder-sdk-core'
@@ -29,6 +33,18 @@ dependencies {
     implementation 'io.opentelemetry:opentelemetry-sdk:0.8.0'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-otlp-exporter-starter:0.8.0'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-aws-sdk-2.2:0.8.0'
+
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation "org.testcontainers:localstack:${testContainerVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
 }
 
 test {

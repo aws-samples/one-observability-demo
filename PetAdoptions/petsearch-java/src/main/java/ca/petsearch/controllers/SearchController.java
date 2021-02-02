@@ -1,67 +1,38 @@
 package ca.petsearch.controllers;
 
 import com.amazonaws.HttpMethod;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ScanRequest;
-import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.model.*;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
-import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
-import com.amazonaws.xray.handlers.TracingHandler;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.exporters.otlp.OtlpGrpcSpanExporter;
+import com.amazonaws.xray.entities.Subsegment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amazonaws.xray.AWSXRay;
-import com.amazonaws.xray.entities.Subsegment;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @RestController
 public class SearchController {
+    public static final String BUCKET_NAME = "/petstore/s3bucketname";
+    public static final String DYNAMODB_TABLENAME = "/petstore/dynamodbtablename";
 
-    private static AmazonDynamoDB ddbClient;
-    private static AmazonS3 s3Client;
-    private static AWSSimpleSystemsManagement ssmClient;
-    private static Subsegment subsegment;
+    private final AmazonS3 s3Client;
+    private final AmazonDynamoDB ddbClient;
+    private final AWSSimpleSystemsManagement ssmClient;
+    private Subsegment subsegment;
 
-    static {
-
-
-
-        ddbClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
-
-
-        s3Client = AmazonS3ClientBuilder
-                .standard()
-                .withRegion(Regions.US_EAST_2)
-                .withForceGlobalBucketAccessEnabled(true)
-                .withRequestHandlers(new TracingHandler(AWSXRay.getGlobalRecorder()))
-                .build();
-        ssmClient = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
-
-        OpenTelemetrySdk.getTracerProvider()
-                .addSpanProcessor(BatchSpanProcessor.newBuilder(
-                        OtlpGrpcSpanExporter.newBuilder()
-                                .readSystemProperties()
-                                .readEnvironmentVariables()
-                                .build())
-                        .build());
-
-        // System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient) {
+        this.s3Client = s3Client;
+        this.ddbClient = ddbClient;
+        this.ssmClient = ssmClient;
     }
 
     private String getKey(String petType, String petId) {
@@ -90,10 +61,7 @@ public class SearchController {
 
         try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/s3bucketname").withWithDecryption(false);
-
-            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
-            String s3BucketName = parameterResult.getParameter().getValue();
+            String s3BucketName = getSSMParameter(BUCKET_NAME);
 
             String key = getKey(petType, image);
 
@@ -120,6 +88,13 @@ public class SearchController {
         }
 
         return urlString;
+    }
+
+    private String getSSMParameter(String bucketName) {
+        GetParameterRequest parameterRequest = new GetParameterRequest().withName(bucketName).withWithDecryption(false);
+
+        GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
+        return parameterResult.getParameter().getValue();
     }
 
     private List<Pet> buildPets(List<Map<String, AttributeValue>> items) {
@@ -160,35 +135,32 @@ public class SearchController {
 
         try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/dynamodbtablename").withWithDecryption(false);
-            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
-            String dynamoDBTableName = parameterResult.getParameter().getValue();
-            String filterExpression = "";
-
-            Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
-            Map<String, String> expressionAttributeNames = new HashMap<>();
-
-            if (petType != null && !petType.trim().isEmpty()) {
-                filterExpression = "#pt = :pettype";
-                expressionAttributeNames.put("#pt", "pettype");
-                expressionAttributeValues.put(":pettype", new AttributeValue().withS(petType));
-            }
-            if (petColor != null && !petColor.trim().isEmpty()) {
-                filterExpression = filterExpression + " and " + "#pc = :petcolor";
-                expressionAttributeNames.put("#pc", "petcolor");
-                expressionAttributeValues.put(":petcolor", new AttributeValue().withS(petColor));
-            }
-            if (petId != null && !petId.trim().isEmpty()) {
-                filterExpression = filterExpression + " and " + "#pi = :petid";
-                expressionAttributeNames.put("#pi", "petid");
-                expressionAttributeValues.put(":petid", new AttributeValue().withS(petId));
-            }
+            String dynamoDBTableName = getSSMParameter(DYNAMODB_TABLENAME);
 
             ScanRequest scanRequest = new ScanRequest()
-                    .withTableName(dynamoDBTableName)
-                    .withFilterExpression(filterExpression)
-                    .withExpressionAttributeNames(expressionAttributeNames)
-                    .withExpressionAttributeValues(expressionAttributeValues);
+                    .withTableName(dynamoDBTableName);
+
+
+            if (petType != null && !petType.trim().isEmpty()) {
+                scanRequest.addScanFilterEntry("pettype",
+                        new Condition()
+                                .withComparisonOperator(ComparisonOperator.EQ)
+                                .withAttributeValueList(new AttributeValue().withS(petType)));
+            }
+
+            if (petColor != null && !petColor.trim().isEmpty()) {
+                scanRequest.addScanFilterEntry("petcolor",
+                        new Condition()
+                                .withComparisonOperator(ComparisonOperator.EQ)
+                                .withAttributeValueList(new AttributeValue().withS(petColor)));
+            }
+
+            if (petId != null && !petId.trim().isEmpty()) {
+                scanRequest.addScanFilterEntry("petid",
+                        new Condition()
+                                .withComparisonOperator(ComparisonOperator.EQ)
+                                .withAttributeValueList(new AttributeValue().withS(petId)));
+            }
 
             if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
                 TimeUnit.MILLISECONDS.sleep(3000);
