@@ -477,6 +477,41 @@ data:
         regex: 'jvm_gc_collection_seconds.*'
         action: drop
 
+    - job_name: 'PetSite'
+      sample_limit: 10000
+      metrics_path: /metrics
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__address__]
+        action: keep
+        regex: '.*:80$'
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
+        target_label: Namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_container_name
+        target_label: container_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_controller_name
+        target_label: pod_controller_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_controller_kind
+        target_label: pod_controller_kind
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_phase
+        target_label: pod_phase
+
 kind: ConfigMap
 metadata:
   name: prometheus-config
