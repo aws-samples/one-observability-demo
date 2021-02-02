@@ -314,12 +314,16 @@ export class Services extends cdk.Stack {
                 assumedBy: new iam.AccountRootPrincipal()
             });
 
+            clusterAdmin.addToPrincipalPolicy(new iam.PolicyStatement({
+                actions: ["ec2:Describe*"],
+                resources: ['*']
+            }));
+
             const cluster = new eks.Cluster(this, 'petsite', {
                 clusterName: 'PetSite',
-                kubectlEnabled: true,
                 mastersRole: clusterAdmin,
                 vpc: theVPC,
-                version: KubernetesVersion.V1_17
+                version: KubernetesVersion.V1_18
             });         
             
             const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
@@ -590,18 +594,10 @@ export class Services extends cdk.Stack {
             deploymentManifest.node.addDependency(awsLoadBalancerManifest);
 
 
-            
-            var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
-            
-            prometheusJson.items[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
-            
-            const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
-                cluster: cluster,
-                manifest: [prometheusJson]
-            });        
+  
             
 
-            
+            // NOTE: amazon-cloudwatch namespace is created here!!           
             var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
             fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });       
 
@@ -629,7 +625,18 @@ export class Services extends cdk.Stack {
             const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
                 cluster: cluster,
                 manifest: fluentbitYaml
-            });       
+            });  
+
+            var prometheusYaml = yaml.safeLoadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
+            
+            prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
+            
+            const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
+                cluster: cluster,
+                manifest: prometheusYaml
+            });
+
+            prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency                      
             
             var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
             dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
