@@ -627,13 +627,13 @@ export class Services extends cdk.Stack {
                 manifest: fluentbitYaml
             });  
 
-            var prometheusJson = JSON.parse(readFileSync("./resources/prometheus-eks.json","utf8"));
+            var prometheusYaml = yaml.safeLoadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
             
-            prometheusJson.items[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
+            prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
             
             const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
                 cluster: cluster,
-                manifest: [prometheusJson]
+                manifest: prometheusYaml
             });
 
             prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency                      
