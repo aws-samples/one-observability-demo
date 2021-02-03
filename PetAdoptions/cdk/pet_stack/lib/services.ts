@@ -24,16 +24,17 @@ import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { CfnJson, RemovalPolicy, Fn } from '@aws-cdk/core';
+import { CfnJson, RemovalPolicy, Fn, FileSystem } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
+import console = require('console');
 
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        var isEventEngine = 'true';
+        var isEventEngine = 'false';
         if (this.node.tryGetContext('is_event_engine') != undefined)
         {
             isEventEngine = this.node.tryGetContext('is_event_engine');
@@ -440,9 +441,8 @@ export class Services extends cdk.Stack {
         const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
 
         const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
-        var role;
         if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
-            role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
+            const role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
             cluster.awsAuth.addRoleMapping(role,{groups:["dashboard-view"]});
         }
 
@@ -452,10 +452,22 @@ export class Services extends cdk.Stack {
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
 
             if (c9role!=undefined)
-                cluster.awsAuth.addRoleMapping(c9role,{groups:["system:masters"]});
+                cluster.awsAuth.addMastersRole(c9role)
 
             if (c9env!=undefined)
                 cluster.node.addDependency(c9env)
+
+        }
+        else
+        {
+            const eksAdminArn = this.node.tryGetContext('admin_role');
+            if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
+                const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
+                cluster.awsAuth.addMastersRole(role)
+            }
+            else {
+                console.log("\x1b[41m\x1b[37m WARNING - No role was specified for EKS cluster master. Kubectl will not be available!")
+            }
 
         }
         
@@ -505,19 +517,7 @@ export class Services extends cdk.Stack {
         awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);  
         awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);         
         
-        var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
-        
-        deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-        deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
-        deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroup.targetGroupArn}`});
-        
 
-        const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
-            cluster: cluster,
-            manifest: deploymentYaml
-        });
-        deploymentManifest.node.addDependency(xrayManifest);
-        deploymentManifest.node.addDependency(awsLoadBalancerManifest);
 
         // NOTE: amazon-cloudwatch namespace is created here!!           
         var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
@@ -558,12 +558,29 @@ export class Services extends cdk.Stack {
             manifest: prometheusYaml
         });
 
-        prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency                      
+        prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency             
+        
+        var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
+        
+        deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
+        deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
+        deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroup.targetGroupArn}`});
+        
+
+        const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
+            cluster: cluster,
+            manifest: deploymentYaml
+        });
+        deploymentManifest.node.addDependency(xrayManifest);
+        deploymentManifest.node.addDependency(awsLoadBalancerManifest);
+        deploymentManifest.node.addDependency(targetGroup);
+        deploymentManifest.node.addDependency(fluentbitManifest);
+        deploymentManifest.node.addDependency(prometheusManifest);
+               
         
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
-
 
         const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
             dashboardName: "EKS_FluentBit_Dashboard",
