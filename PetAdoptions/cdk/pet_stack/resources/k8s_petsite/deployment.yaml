@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: "{{PETSITE_SA_ROLE}}"
+  name: petsite-sa
+  namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-petsite
+  namespace: default
+spec:
+  ports:
+  - port: 80
+    nodePort: 30300
+    targetPort: 80
+    protocol: TCP
+  type: NodePort
+  selector:
+    app: petsite
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petsite-deployment
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: petsite
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: petsite
+    spec:
+      serviceAccountName: petsite-sa
+      containers:
+      - image: "{{ECR_IMAGE_URL}}"
+        imagePullPolicy: Always
+        name: petsite
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        env:
+        - name: AWS_XRAY_DAEMON_ADDRESS
+          value: xray-service.default:2000
+        - name: SEARCH_API_URL
+          value: "{{SEARCH_API_URL}}"
+        - name: UPDATE_ADOPTION_STATUS_URL
+          value: "{{UPDATE_ADOPTION_STATUS_URL}}"
+        - name: PAYMENT_API_URL
+          value: "{{PAYMENT_API_URL}}"
+        - name: QUEUE_URL
+          value: "{{QUEUE_URL}}"
+        - name: SNS_ARN
+          value: "{{SNS_ARN}}"
+        - name: PET_LIST_ADOPTION_URL
+          value: "{{PET_LIST_ADOPTION_URL}}"
+        - name: CLEANUP_ADOPTIONS_URL
+          value: "{{CLEANUP_ADOPTIONS_URL}}"
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: petsite-tgb
+spec:
+  serviceRef:
+    name: service-petsite
+    port: 80
+  targetGroupARN: "<arn-to-targetGroup>"
+  targetType: ip
