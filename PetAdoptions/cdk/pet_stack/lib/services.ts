@@ -605,8 +605,6 @@ export class Services extends cdk.Stack {
         });
 
 
-        sqlSeeder.node.addDependency(cluster);
-
         this.createOuputs(new Map(Object.entries({
             'PetSiteECRImageURL': petSiteECRImageURL,
             'CWServiceAccountArn': cwserviceaccount.roleArn,
