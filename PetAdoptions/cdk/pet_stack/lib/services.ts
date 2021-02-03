@@ -509,40 +509,6 @@ export class Services extends cdk.Stack {
         
         deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
         deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
-        deploymentYaml[2].spec.template.spec.containers[0].env = [
-                {
-                "name": "AWS_XRAY_DAEMON_ADDRESS",
-                "value": "xray-service.default:2000"
-                },
-                {
-                "name": "SEARCH_API_URL",
-                "value": new CfnJson(this, "deployment_EnvSearch", { value: `http://${searchService.service.loadBalancer.loadBalancerDnsName}/api/search?`})
-                },
-                {
-                "name": "UPDATE_ADOPTION_STATUS_URL",
-                "value": new CfnJson(this, "deployment_EnvUpdate", { value: `${statusUpdaterService.api.url}`})
-                },
-                {
-                "name": "PAYMENT_API_URL",
-                "value": new CfnJson(this, "deployment_EnvApi", { value: `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`})
-                },
-                {
-                "name": "QUEUE_URL",
-                "value": new CfnJson(this, "deployment_EnvQueue", { value: `${sqsQueue.queueUrl}` })
-                },
-                {
-                "name": "SNS_ARN",
-                "value": new CfnJson(this, "deployment_EnvSns", { value: `topic_petadoption.topicArn` })
-                },
-                {
-                "name": "PET_LIST_ADOPTION_URL",
-                "value": new CfnJson(this, "deployment_EnvPetlist", { value: `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/` })
-                },
-                {
-                "name": "CLEANUP_ADOPTIONS_URL",
-                "value":  new CfnJson(this, "deployment_EnvAdopt", { value: `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions` })
-                }
-        ];
         deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroup.targetGroupArn}`});
         
 
