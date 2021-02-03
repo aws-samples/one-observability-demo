@@ -10,7 +10,6 @@ import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
 import com.amazonaws.xray.entities.Subsegment;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,7 +27,6 @@ public class SearchController {
     private final AmazonS3 s3Client;
     private final AmazonDynamoDB ddbClient;
     private final AWSSimpleSystemsManagement ssmClient;
-    private Subsegment subsegment;
 
     public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient) {
         this.s3Client = s3Client;
@@ -58,6 +56,8 @@ public class SearchController {
 
     private String getPetUrl(String petType, String image) {
 
+
+        Subsegment subsegment = AWSXRay.beginSubsegment("Get Pet URL");
         String urlString;
 
         try {
@@ -118,9 +118,7 @@ public class SearchController {
 
         }
 
-        // AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
-
-        // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
+        AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
 
         return result;
 
@@ -134,6 +132,7 @@ public class SearchController {
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
 
+        Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
         try {
 
             String dynamoDBTableName = getSSMParameter(DYNAMODB_TABLENAME);
@@ -163,16 +162,13 @@ public class SearchController {
                                 .withAttributeValueList(new AttributeValue().withS(petId)));
             }
 
+            // This line is intentional. Delays searches
             if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
                 TimeUnit.MILLISECONDS.sleep(3000);
             }
 
-            try {
-                AWSXRay.getCurrentSubsegment()
-                        .putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
-            } catch (Exception xx) {
-            }
-            // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
+
+            subsegment.putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
 
             ScanResult result = ddbClient.scan(scanRequest);
             List<Map<String, AttributeValue>> resultItems = new ArrayList<>();
@@ -187,10 +183,10 @@ public class SearchController {
             return buildPets(resultItems);
 
         } catch (Exception e) {
-            //subsegment.addException(e);
+            subsegment.addException(e);
             throw e;
         } finally {
-            //AWSXRay.endSubsegment();
+            AWSXRay.endSubsegment();
         }
 
     }

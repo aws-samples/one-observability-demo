@@ -16,30 +16,32 @@ repositories {
 ext {
     set('springCloudVersion', "Hoxton.SR3")
     set('testContainerVersion', '1.13.0')
+    set('opentelemetryVersion', '0.13.1')
 }
 
 dependencies {
-    compile 'org.springframework.boot:spring-boot-starter-web'
-    compile 'org.springframework.cloud:spring-cloud-starter-aws'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.cloud:spring-cloud-starter-aws'
+    implementation 'org.springframework.cloud:spring-cloud-aws-autoconfigure'
 
-    compile 'com.amazonaws:aws-java-sdk-core'
-    compile 'com.amazonaws:aws-java-sdk-s3'
-    compile 'com.amazonaws:aws-java-sdk-dynamodb'
-    compile 'com.amazonaws:aws-java-sdk-ssm'
-    compile 'com.amazonaws:aws-java-sdk-xray'
-    compile 'com.amazonaws:aws-xray-recorder-sdk-core'
-    compile 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk'
-    compile 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk-instrumentor'
+    implementation 'com.amazonaws:aws-java-sdk-core'
+    implementation 'com.amazonaws:aws-java-sdk-s3'
+    implementation 'com.amazonaws:aws-java-sdk-dynamodb'
+    implementation 'com.amazonaws:aws-java-sdk-ssm'
+    implementation 'com.amazonaws:aws-java-sdk-xray'
+    implementation 'com.amazonaws:aws-xray-recorder-sdk-core'
+    implementation 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk'
+    implementation 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk-instrumentor'
 
-    compile 'io.opentelemetry:opentelemetry-sdk:0.8.0'
-    compile 'io.opentelemetry.instrumentation:opentelemetry-otlp-exporter-starter:0.8.0'
-    compile 'io.opentelemetry.instrumentation:opentelemetry-aws-sdk-2.2:0.8.0'
+    implementation "io.opentelemetry:opentelemetry-sdk:${opentelemetryVersion}"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-otlp-exporter-starter:${opentelemetryVersion}"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-aws-sdk-2.2:${opentelemetryVersion}"
 
-    testCompile('org.springframework.boot:spring-boot-starter-test') {
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
-    testCompile "org.testcontainers:localstack:${testContainerVersion}"
-    testCompile "org.testcontainers:junit-jupiter:${testContainerVersion}"
+    testImplementation "org.testcontainers:localstack:${testContainerVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
 }
 
 dependencyManagement {
