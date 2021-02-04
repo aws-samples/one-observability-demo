@@ -53,5 +53,8 @@ dependencyManagement {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+
 }

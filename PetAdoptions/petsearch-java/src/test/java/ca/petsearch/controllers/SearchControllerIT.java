@@ -6,6 +6,7 @@ import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
 import com.amazonaws.xray.AWSXRay;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,7 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(AWSTestConfig.class)
+@Tag("integration")
 public class SearchControllerIT {
 
     private static final String BUCKET_NAME = "petsearch";
