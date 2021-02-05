@@ -462,9 +462,6 @@ export class Services extends cdk.Stack {
                 const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
                 cluster.awsAuth.addMastersRole(role)
             }
-            else {
-                console.log("\x1b[41m\x1b[37m WARNING - No role was specified for EKS cluster master. Kubectl will not be available!")
-            }
 
         }
         
