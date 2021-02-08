@@ -129,9 +129,7 @@ public class SearchController {
                 "petid", petId).entrySet().parallelStream()
                 .filter(e -> !isEmptyParameter(e))
                 .map(this::entryToCondition)
-                .reduce(new ScanRequest().withTableName(getSSMParameter(DYNAMODB_TABLENAME)),
-                        (scanResult, element) -> scanResult.addScanFilterEntry(element.getKey(), element.getValue()),
-                        this::joinScanResult))
+                .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult))
                 .getItems().stream().map(this::mapToPet).collect(Collectors.toList());
 
         } catch (Exception e) {
@@ -141,6 +139,14 @@ public class SearchController {
             AWSXRay.endSubsegment();
         }
 
+    }
+
+    private ScanRequest addScanFilter(ScanRequest scanResult, Map.Entry<String, Condition> element) {
+        return scanResult.addScanFilterEntry(element.getKey(), element.getValue());
+    }
+
+    private ScanRequest emptyScanRequest() {
+        return new ScanRequest().withTableName(getSSMParameter(DYNAMODB_TABLENAME));
     }
 
     private ScanRequest joinScanResult(ScanRequest scanRequest1, ScanRequest scanRequest2) {
