@@ -12,6 +12,8 @@ kind: Service
 metadata:
   name: service-petsite
   namespace: default
+  annotations:
+    scrape: "true"
 spec:
   ports:
   - port: 80
