@@ -184,12 +184,14 @@ export class Services extends cdk.Stack {
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
 
+
+        const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {
+            vpc: theVPC,
+            containerInsights: true
+        });
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
-            cluster: new ecs.Cluster(this, "PetListAdoptions", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
+            cluster: ecsPetListAdoptionCluster,
             logGroupName: "/ecs/PetListAdoptions",
             cpu: 1024,
             memoryLimitMiB: 2048,
@@ -217,12 +219,12 @@ export class Services extends cdk.Stack {
 
         // Traffic Generator task definition.
         const trafficGeneratorService = new TrafficGeneratorService(this, 'traffic-generator-service', {
+            cluster: ecsPetListAdoptionCluster,
             logGroupName: "/ecs/PetTrafficGenerator",
             cpu: 256,
             memoryLimitMiB: 512,
             instrumentation: 'none',
             repositoryURI: repositoryURI,
-            disableService: true // Only creates a task definition. Doesn't deploy a service or start a task. That's left to the user.     
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
         
@@ -250,6 +252,7 @@ export class Services extends cdk.Stack {
             internetFacing: true,
             securityGroup: albSG
         });
+        trafficGeneratorService.node.addDependency(alb);
 
         const targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetSiteTargetGroup', {
             port: 80,
@@ -455,14 +458,11 @@ export class Services extends cdk.Stack {
                 cluster.node.addDependency(c9env)
 
         }
-        else
-        {
-            const eksAdminArn = this.node.tryGetContext('admin_role');
-            if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
-                const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
-                cluster.awsAuth.addMastersRole(role)
-            }
 
+        const eksAdminArn = this.node.tryGetContext('admin_role');
+        if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
+            const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
+            cluster.awsAuth.addMastersRole(role)
         }
         
         const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
