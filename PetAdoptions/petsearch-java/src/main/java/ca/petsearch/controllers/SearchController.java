@@ -18,6 +18,7 @@ import com.amazonaws.xray.AWSXRay;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @RestController
 public class SearchController {
@@ -66,7 +67,7 @@ public class SearchController {
 
             String key = getKey(petType, image);
 
-            int random = (int)Math.random() * 10;
+            int random = (int) Math.random() * 10;
 
             if (random == 4) {
                 // Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions
@@ -98,30 +99,17 @@ public class SearchController {
         return parameterResult.getParameter().getValue();
     }
 
-    private List<Pet> buildPets(List<Map<String, AttributeValue>> items) {
+    private Pet mapToPet(Map<String, AttributeValue> item) {
+        String petId = item.get("petid").toString();
+        String availability = item.get("availability").toString();
+        String cutenessRate = item.get("cuteness_rate").toString();
+        String petColor = item.get("petcolor").toString();
+        String petType = item.get("pettype").toString();
+        String price = item.get("price").toString();
+        String petUrl = getPetUrl(petType, item.get("image").toString());
 
-        List<Pet> result = new ArrayList<>();
-
-        for (Map<String, AttributeValue> item : items) {
-
-            String petId = item.get("petid").toString();
-            String availability = item.get("availability").toString();
-            String cutenessRate = item.get("cuteness_rate").toString();
-            String petColor = item.get("petcolor").toString();
-            String petType = item.get("pettype").toString();
-            String price = item.get("price").toString();
-            String petUrl = getPetUrl(petType, item.get("image").toString());
-
-            Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
-
-            result.add(currentPet);
-
-        }
-
-        AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
-
-        return result;
-
+        Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
+        return currentPet;
     }
 
 
@@ -130,57 +118,21 @@ public class SearchController {
             @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
-    ) throws InterruptedException {
+    ) {
 
         Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
+
         try {
 
-            String dynamoDBTableName = getSSMParameter(DYNAMODB_TABLENAME);
-
-            ScanRequest scanRequest = new ScanRequest()
-                    .withTableName(dynamoDBTableName);
-
-
-            if (petType != null && !petType.trim().isEmpty()) {
-                scanRequest.addScanFilterEntry("pettype",
-                        new Condition()
-                                .withComparisonOperator(ComparisonOperator.EQ)
-                                .withAttributeValueList(new AttributeValue().withS(petType)));
-            }
-
-            if (petColor != null && !petColor.trim().isEmpty()) {
-                scanRequest.addScanFilterEntry("petcolor",
-                        new Condition()
-                                .withComparisonOperator(ComparisonOperator.EQ)
-                                .withAttributeValueList(new AttributeValue().withS(petColor)));
-            }
-
-            if (petId != null && !petId.trim().isEmpty()) {
-                scanRequest.addScanFilterEntry("petid",
-                        new Condition()
-                                .withComparisonOperator(ComparisonOperator.EQ)
-                                .withAttributeValueList(new AttributeValue().withS(petId)));
-            }
-
-            // This line is intentional. Delays searches
-            if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
-                TimeUnit.MILLISECONDS.sleep(3000);
-            }
-
-
-            subsegment.putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
-
-            ScanResult result = ddbClient.scan(scanRequest);
-            List<Map<String, AttributeValue>> resultItems = new ArrayList<>();
-
-            for (Map<String, AttributeValue> item : result.getItems()) {
-                resultItems.add(item);
-            }
-            try {
-                AWSXRay.endSubsegment();
-            } catch (Exception xxx) {
-            }
-            return buildPets(resultItems);
+        return ddbClient.scan(Map.of("pettype", petType,
+                "petcolor", petColor,
+                "petid", petId).entrySet().parallelStream()
+                .filter(e -> !isEmptyParameter(e))
+                .map(this::entryToCondition)
+                .reduce(new ScanRequest().withTableName(getSSMParameter(DYNAMODB_TABLENAME)),
+                        (scanResult, element) -> scanResult.addScanFilterEntry(element.getKey(), element.getValue()),
+                        this::joinScanResult))
+                .getItems().stream().map(this::mapToPet).collect(Collectors.toList());
 
         } catch (Exception e) {
             subsegment.addException(e);
@@ -189,6 +141,24 @@ public class SearchController {
             AWSXRay.endSubsegment();
         }
 
+    }
+
+    private ScanRequest joinScanResult(ScanRequest scanRequest1, ScanRequest scanRequest2) {
+        Map<String, Condition> merged = new HashMap<>();
+        merged.putAll(scanRequest1.getScanFilter() != null ? scanRequest1.getScanFilter() : Collections.emptyMap());
+        merged.putAll(scanRequest2.getScanFilter() != null ? scanRequest2.getScanFilter() : Collections.emptyMap());
+
+        return scanRequest1.withScanFilter(merged);
+    }
+
+    private Map.Entry<String, Condition> entryToCondition(Map.Entry<String, String> e) {
+        return Map.entry(e.getKey(), new Condition()
+                .withComparisonOperator(ComparisonOperator.EQ)
+                .withAttributeValueList(new AttributeValue().withS(e.getValue())));
+    }
+
+    private boolean isEmptyParameter(Map.Entry<String, String> e) {
+        return e.getValue() == null || e.getValue().isEmpty();
     }
 
 }
