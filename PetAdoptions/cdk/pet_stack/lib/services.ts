@@ -231,32 +231,6 @@ export class Services extends cdk.Stack {
             tableName: dynamodb_petadoption.tableName
         });   
         
-        var c9role = undefined
-        var c9InstanceProfile = undefined
-        var c9env = undefined
-
-        if (isEventEngine === 'true')
-        {
-            c9env = new cloud9.Ec2Environment(this,"Cloud9Env", {
-                vpc: theVPC,
-                ec2EnvironmentName: "observabilityworkshop",
-                instanceType: new ec2.InstanceType("t2.micro"),
-                subnetSelection: {
-                    subnetType: ec2.SubnetType.PUBLIC
-                }
-            });
-
-             c9role = new iam.Role(this,'cloud9InstanceRole', {
-                assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
-                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
-                roleName: "observabilityworkshop-admin"
-            });
-
-            c9InstanceProfile = new iam.CfnInstanceProfile(this,'cloud9InstanceProfile', {
-                roles: [c9role.roleName],
-                instanceProfileName: "observabilityworkshop-profile"
-            })
-        }
 
         const stack = cdk.Stack.of(this);
         const region = stack.region;
@@ -448,6 +422,29 @@ export class Services extends cdk.Stack {
 
         if (isEventEngine === 'true')
         {
+            var c9role = undefined
+            var c9InstanceProfile = undefined
+            var c9env = undefined
+    
+
+            c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
+                ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
+                instanceType: "t2.micro",
+                name: "observabilityworkshop",
+                subnetId: theVPC.publicSubnets[0].subnetId
+            });
+
+            c9role = new iam.Role(this,'cloud9InstanceRole', {
+                assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
+                roleName: "observabilityworkshop-admin"
+            });
+
+            c9InstanceProfile = new iam.CfnInstanceProfile(this,'cloud9InstanceProfile', {
+                roles: [c9role.roleName],
+                instanceProfileName: "observabilityworkshop-profile"
+            })
+            
             const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
 
@@ -464,9 +461,6 @@ export class Services extends cdk.Stack {
             if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
                 const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
                 cluster.awsAuth.addMastersRole(role)
-            }
-            else {
-                console.log("\x1b[41m\x1b[37m WARNING - No role was specified for EKS cluster master. Kubectl will not be available!")
             }
 
         }
