@@ -6,7 +6,7 @@ COPY ./src ./src
 COPY ./settings.gradle ./settings.gradle
 
 ENV GRADLE_OPTS "-Dorg.gradle.daemon=false"
-RUN gradle build
+RUN gradle build -DexcludeTags='integration'
 RUN wget https://github.com/aws-observability/aws-otel-java-instrumentation/releases/download/v0.12.1-aws.1/aws-opentelemetry-agent.jar
 
 FROM amazoncorretto:15-alpine

@@ -35,13 +35,15 @@ public class SearchController {
         this.ssmClient = ssmClient;
     }
 
-    private String getKey(String petType, String petId) {
+    private String getKey(String petType, String petId) throws InterruptedException {
 
         String folderName;
 
         switch (petType) {
             case "bunny":
                 folderName = "bunnies";
+                // This line is intentional. Delays searches
+                TimeUnit.MILLISECONDS.sleep(3000);
                 break;
             case "puppy":
                 folderName = "puppies";
@@ -84,9 +86,9 @@ public class SearchController {
         } catch (AmazonS3Exception e) {
             subsegment.addException(e);
             throw e;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             subsegment.addException(e);
-            throw e;
+            throw new RuntimeException(e);
         }
 
         return urlString;
@@ -124,13 +126,15 @@ public class SearchController {
 
         try {
 
-        return ddbClient.scan(Map.of("pettype", petType,
-                "petcolor", petColor,
-                "petid", petId).entrySet().parallelStream()
-                .filter(e -> !isEmptyParameter(e))
-                .map(this::entryToCondition)
-                .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult))
-                .getItems().stream().map(this::mapToPet).collect(Collectors.toList());
+            return ddbClient.scan(
+                    Map.of("pettype", petType,
+                            "petcolor", petColor,
+                            "petid", petId).entrySet().stream()
+                            .filter(e -> !isEmptyParameter(e))
+                            .map(this::entryToCondition)
+                            .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult))
+                    .getItems().stream().map(this::mapToPet)
+                    .collect(Collectors.toList());
 
         } catch (Exception e) {
             subsegment.addException(e);
