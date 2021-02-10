@@ -139,6 +139,9 @@ export abstract class EcsService extends cdk.Construct {
       containerPort: 2000,
       protocol: ecs.Protocol.UDP
     }, {
+      containerPort: 55680,
+      protocol: ecs.Protocol.TCP
+    }, {
       containerPort: 55681,
       protocol: ecs.Protocol.TCP
     }, {
