@@ -13,3 +13,5 @@ cdk.out
 **/package-lock.json
 
 cdk.context.json
+
+**/.DS_Store

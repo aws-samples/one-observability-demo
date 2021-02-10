@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Repository as an interface to define data store interactions
@@ -56,7 +57,7 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 	logger := log.With(r.logger, "method", "GetTopTransactions")
 
 	tracer := otel.GetTracerProvider().Tracer("petlistadoptions")
-	_, span := tracer.Start(ctx, "mssql query")
+	_, span := tracer.Start(ctx, "MSSQL Query", trace.WithSpanKind(trace.SpanKindClient))
 
 	sql := `SELECT TOP 25 PetId, Transaction_Id, Adoption_Date FROM dbo.transactions`
 

@@ -1,10 +1,56 @@
 # create amazon-cloudwatch namespace
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: amazon-cloudwatch
+#   labels:
+#     name: amazon-cloudwatch
+
+# ---
+#create cwagent service account and role binding
 apiVersion: v1
-kind: Namespace
+kind: ServiceAccount
 metadata:
-  name: amazon-cloudwatch
-  labels:
-    name: amazon-cloudwatch
+  name: cwagent-prometheus
+  namespace: amazon-cloudwatch
+  annotations:
+    eks.amazonaws.com/role-arn: {{cw_sa_role}}  
+    
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cwagent-prometheus-role
+rules:
+  - apiGroups: [""]
+    resources:
+    - nodes
+    - nodes/proxy
+    - services
+    - endpoints
+    - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups:
+    - extensions
+    resources:
+    - ingresses
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cwagent-prometheus-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: cwagent-prometheus
+    namespace: amazon-cloudwatch
+roleRef:
+  kind: ClusterRole
+  name: cwagent-prometheus-role
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 # create configmap for prometheus cwagent config
@@ -18,17 +64,15 @@ data:
           "prometheus": {
             "prometheus_config_path": "/etc/prometheusconfig/prometheus.yaml",
             "emf_processor": {
-              "metric_declaration_dedup": true,
               "metric_declaration": [
                 {
                   "source_labels": ["Service"],
                   "label_matcher": ".*nginx.*",
                   "dimensions": [["Service","Namespace","ClusterName"]],
                   "metric_selectors": [
-                    "^nginx_ingress_controller_requests$",
+                    "^nginx_ingress_controller_(requests|success)$",
                     "^nginx_ingress_controller_nginx_process_connections$",
                     "^nginx_ingress_controller_nginx_process_connections_total$",
-                    "^nginx_ingress_controller_success$",
                     "^nginx_ingress_controller_nginx_process_resident_memory_bytes$",
                     "^nginx_ingress_controller_nginx_process_cpu_seconds_total$",
                     "^nginx_ingress_controller_config_last_reload_successful$"
@@ -42,7 +86,7 @@ data:
                 },
                 {
                   "source_labels": ["Service", "frontend"],
-                  "label_matcher": ".*haproxy-ingress-controller.*;(httpfront-shared-frontend|httpfront-default-backend|httpsfront)",
+                  "label_matcher": ".*haproxy-ingress-.*metrics;(httpfront-shared-frontend|httpfront-default-backend|httpsfront|_front_http)",
                   "dimensions": [["Service","Namespace","ClusterName","frontend","code"]],
                   "metric_selectors": [
                     "^haproxy_frontend_http_responses_total$"
@@ -50,7 +94,7 @@ data:
                 },
                 {
                   "source_labels": ["Service", "backend"],
-                  "label_matcher": ".*haproxy-ingress-controller.*;(httpback-shared-backend|httpback-default-backend|httpsback-shared-backend)",
+                  "label_matcher": ".*haproxy-ingress-.*metrics;(httpback-shared-backend|httpback-default-backend|httpsback-shared-backend|_default_backend)",
                   "dimensions": [["Service","Namespace","ClusterName","backend","code"]],
                   "metric_selectors": [
                     "^haproxy_backend_http_responses_total$"
@@ -58,20 +102,16 @@ data:
                 },
                 {
                   "source_labels": ["Service"],
-                  "label_matcher": ".*haproxy-ingress-controller.*",
+                  "label_matcher": ".*haproxy-ingress-.*metrics",
                   "dimensions": [["Service","Namespace","ClusterName"]],
                   "metric_selectors": [
                     "^haproxy_backend_up$",
-                    "^haproxy_backend_bytes_in_total$",
-                    "^haproxy_backend_bytes_out_total$",
-
+                    "^haproxy_backend_status$",
+                    "^haproxy_backend_bytes_(in|out)_total$",
                     "^haproxy_backend_connections_total$",
                     "^haproxy_backend_connection_errors_total$",
                     "^haproxy_backend_current_sessions$",
-
-
-                    "^haproxy_frontend_bytes_out_total$",
-                    "^haproxy_frontend_bytes_in_total$",
+                    "^haproxy_frontend_bytes_(in|out)_total$",
                     "^haproxy_frontend_connections_total$",
                     "^haproxy_frontend_http_requests_total$",
                     "^haproxy_frontend_request_errors_total$",
@@ -84,14 +124,10 @@ data:
                   "label_matcher": ".*memcached.*",
                   "dimensions": [["Service","Namespace","ClusterName"]],
                   "metric_selectors": [
-                    "^memcached_current_bytes$",
+                    "^memcached_current_(bytes|items|connections)$",
+                    "^memcached_items_(reclaimed|evicted)_total$",
+                    "^memcached_(written|read)_bytes_total$",
                     "^memcached_limit_bytes$",
-                    "^memcached_items_evicted_total$",
-                    "^memcached_items_reclaimed_total$",
-                    "^memcached_current_items$",
-                    "^memcached_read_bytes_total$",
-                    "^memcached_written_bytes_total$",
-                    "^memcached_current_connections$",
                     "^memcached_commands_total$"
                   ]
                 },
@@ -116,33 +152,17 @@ data:
                   "label_matcher": "^envoy$",
                   "dimensions": [["ClusterName","Namespace"]],
                   "metric_selectors": [
-                    "^envoy_http_downstream_rq_total$",
-                    "^envoy_http_downstream_rq_xx$",
-                    "^envoy_cluster_upstream_cx_rx_bytes_total$",
-                    "^envoy_cluster_upstream_cx_tx_bytes_total$",
-                    "^envoy_cluster_membership_healthy$",
-                    "^envoy_cluster_membership_total$",
-                    "^envoy_server_memory_heap_size$",
-                    "^envoy_server_memory_allocated$",
-                    "^envoy_cluster_upstream_cx_connect_timeout$",
-                    "^envoy_cluster_upstream_rq_pending_failure_eject$",
-                    "^envoy_cluster_upstream_rq_pending_overflow$",
-                    "^envoy_cluster_upstream_rq_timeout$",
-                    "^envoy_cluster_upstream_rq_per_try_timeout$",
-                    "^envoy_cluster_upstream_rq_rx_reset$",
-                    "^envoy_cluster_upstream_cx_destroy_local_with_active_rq$",
+                    "^envoy_http_downstream_rq_(total|xx)$",
+                    "^envoy_cluster_upstream_cx_(r|t)x_bytes_total$",
+                    "^envoy_cluster_membership_(healthy|total)$",
+                    "^envoy_server_memory_(allocated|heap_size)$",
+                    "^envoy_cluster_upstream_cx_(connect_timeout|destroy_local_with_active_rq)$",
+                    "^envoy_cluster_upstream_rq_(pending_failure_eject|pending_overflow|timeout|per_try_timeout|rx_reset|maintenance_mode)$",
                     "^envoy_http_downstream_cx_destroy_remote_active_rq$",
-                    "^envoy_cluster_upstream_rq_maintenance_mode$",
-                    "^envoy_cluster_upstream_flow_control_paused_reading_total$",
-                    "^envoy_cluster_upstream_flow_control_resumed_reading_total$",
-                    "^envoy_cluster_upstream_flow_control_backed_up_total$",
-                    "^envoy_cluster_upstream_flow_control_drained_total$",
+                    "^envoy_cluster_upstream_flow_control_(paused_reading_total|resumed_reading_total|backed_up_total|drained_total)$",
                     "^envoy_cluster_upstream_rq_retry$",
-                    "^envoy_cluster_upstream_rq_retry_success$",
-                    "^envoy_cluster_upstream_rq_retry_overflow$",
-                    "^envoy_server_live$",
-                    "^envoy_server_uptime$",
-                    "^envoy_server_version$"
+                    "^envoy_cluster_upstream_rq_retry_(success|overflow)$",
+                    "^envoy_server_(version|uptime|live)$"
                   ]
                 },
                 {
@@ -154,30 +174,29 @@ data:
                   ]
                 },
                 {
+                  "source_labels": ["container_name"],
+                  "label_matcher": "^fluent-bit.*$",
+                  "dimensions": [["ClusterName","Namespace","NodeName"]],
+                  "metric_selectors": [
+                    "^fluentbit_output_errors_total$",
+                    "^fluentbit_input_bytes_total$",
+                    "^fluentbit_output_proc_bytes_total$",
+                    "^fluentbit_input_records_total$",
+                    "^fluentbit_output_proc_records_total$",
+                    "^fluentbit_output_retries_(total|failed_total)$"
+                  ]
+                },
+                {
                   "source_labels": ["job"],
                   "label_matcher": "^kubernetes-pod-jmx$",
                   "dimensions": [["ClusterName","Namespace"]],
                   "metric_selectors": [
-                    "^jvm_threads_current$",
-                    "^jvm_threads_daemon$",
+                    "^jvm_threads_(current|daemon)$",
                     "^jvm_classes_loaded$",
-                    "^java_lang_operatingsystem_freephysicalmemorysize$",
-                    "^java_lang_operatingsystem_totalphysicalmemorysize$",
-                    "^java_lang_operatingsystem_freeswapspacesize$",
-                    "^java_lang_operatingsystem_totalswapspacesize$",
-                    "^java_lang_operatingsystem_systemcpuload$",
-                    "^java_lang_operatingsystem_processcpuload$",
-                    "^java_lang_operatingsystem_availableprocessors$",
-                    "^java_lang_operatingsystem_openfiledescriptorcount$",
-                    "^catalina_manager_activesessions$",
-                    "^catalina_manager_rejectedsessions$",
-                    "^jvm_gc_collection_seconds_sum$",
-                    "^jvm_gc_collection_seconds_count$",
-                    "^catalina_globalrequestprocessor_bytesreceived$",
-                    "^catalina_globalrequestprocessor_bytessent$",
-                    "^catalina_globalrequestprocessor_requestcount$",
-                    "^catalina_globalrequestprocessor_errorcount$",
-                    "^catalina_globalrequestprocessor_processingtime$"
+                    "^java_lang_operatingsystem_(freephysicalmemorysize|totalphysicalmemorysize|freeswapspacesize|totalswapspacesize|systemcpuload|processcpuload|availableprocessors|openfiledescriptorcount)$",
+                    "^catalina_manager_(rejectedsessions|activesessions)$",
+                    "^jvm_gc_collection_seconds_(count|sum)$",
+                    "^catalina_globalrequestprocessor_(bytesreceived|bytessent|requestcount|errorcount|processingtime)$"
                   ]
                 },
                 {
@@ -308,6 +327,50 @@ data:
         - __meta_kubernetes_pod_phase
         target_label: pod_phase
 
+    - job_name: 'kubernetes-pod-fluentbit-plugin'
+      sample_limit: 10000
+      metrics_path: /api/v1/metrics/prometheus
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_container_name]
+        action: keep
+        regex: '^fluent-bit.*$'
+      - source_labels: [__address__]
+        action: replace
+        regex: ([^:]+)(?::\d+)?
+        replacement: ${1}:2020
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
+        target_label: Namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_container_name
+        target_label: container_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_controller_name
+        target_label: pod_controller_name
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_controller_kind
+        target_label: pod_controller_kind
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_phase
+        target_label: pod_phase
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_node_name
+        target_label: NodeName
+
     - job_name: kubernetes-service-endpoints
       sample_limit: 10000
       kubernetes_sd_configs:
@@ -356,6 +419,24 @@ data:
         source_labels:
         - __meta_kubernetes_pod_container_name
         target_label: container_name
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_gc_duration_seconds.*'
+        action: drop
+      - source_labels: [__name__, proxy]
+        regex: "haproxy_frontend.+;(.+)"
+        target_label: frontend
+        replacement: "$1"
+      - source_labels: [__name__, proxy]
+        regex: "haproxy_server.+;(.+)"
+        target_label: backend
+        replacement: "$1"
+      - source_labels: [__name__, proxy]
+        regex: "haproxy_backend.+;(.+)"
+        target_label: backend
+        replacement: "$1"
+      - regex: proxy
+        action: labeldrop
 
     - job_name: 'kubernetes-pod-jmx'
       sample_limit: 10000
@@ -391,6 +472,10 @@ data:
         source_labels:
         - __meta_kubernetes_pod_phase
         target_label: pod_phase
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'jvm_gc_collection_seconds.*'
+        action: drop
 
     - job_name: 'PetSite'
       sample_limit: 10000
@@ -427,56 +512,10 @@ data:
         - __meta_kubernetes_pod_phase
         target_label: pod_phase
 
-
 kind: ConfigMap
 metadata:
   name: prometheus-config
   namespace: amazon-cloudwatch
-
----
-# create cwagent service account and role binding (moved to CDK)
-#apiVersion: v1
-#kind: ServiceAccount
-#metadata:
-#  name: cwagent-prometheus
-#  namespace: amazon-cloudwatch
-#  annotations:
-#    eks.amazonaws.com/role-arn: {{CLOUDWATCH_SA_ROLE}}
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: cwagent-prometheus-role
-rules:
-  - apiGroups: [""]
-    resources:
-    - nodes
-    - nodes/proxy
-    - services
-    - endpoints
-    - pods
-    verbs: ["get", "list", "watch"]
-  - apiGroups:
-    - extensions
-    resources:
-    - ingresses
-    verbs: ["get", "list", "watch"]
-  - nonResourceURLs: ["/metrics"]
-    verbs: ["get"]
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: cwagent-prometheus-role-binding
-subjects:
-  - kind: ServiceAccount
-    name: cwagent-prometheus
-    namespace: amazon-cloudwatch
-roleRef:
-  kind: ClusterRole
-  name: cwagent-prometheus-role
-  apiGroup: rbac.authorization.k8s.io
 
 ---
 # Deployment
@@ -497,7 +536,7 @@ spec:
     spec:
       containers:
         - name: cloudwatch-agent
-          image: amazon/cloudwatch-agent:1.243835.0-prometheus-beta
+          image: amazon/cloudwatch-agent:1.247347.3b250378
           imagePullPolicy: Always
           resources:
             limits:
@@ -509,7 +548,7 @@ spec:
           # Please don't change below envs
           env:
             - name: CI_VERSION
-              value: "k8s/1.1.0-prometheus-beta"
+              value: "k8s/1.3.3"
           # Please don't change the mountPath
           volumeMounts:
             - name: prometheus-cwagentconfig
