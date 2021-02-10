@@ -10,8 +10,6 @@ RUN gradle build -DexcludeTags='integration'
 RUN wget https://github.com/aws-observability/aws-otel-java-instrumentation/releases/download/v0.12.1-aws.1/aws-opentelemetry-agent.jar
 
 FROM amazoncorretto:15-alpine
-RUN addgroup -S petstore && adduser -S petstore -G petstore
-USER petstore:petstore
 WORKDIR /app
 ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar

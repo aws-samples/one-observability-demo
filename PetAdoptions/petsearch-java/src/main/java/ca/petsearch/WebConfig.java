@@ -1,5 +1,11 @@
 package ca.petsearch;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.xray.AWSXRay;
 import com.amazonaws.xray.AWSXRayRecorderBuilder;
 import com.amazonaws.xray.javax.servlet.AWSXRayServletFilter;
@@ -16,7 +22,7 @@ public class WebConfig {
 
     static {
         AWSXRayRecorderBuilder builder = AWSXRayRecorderBuilder.standard()
-                .withPlugin(new ECSPlugin()).withPlugin(new EKSPlugin());
+                .withPlugin(new ECSPlugin());
 
         builder.withSamplingStrategy(new DefaultSamplingStrategy());
 
@@ -26,6 +32,24 @@ public class WebConfig {
     @Bean
     public Filter tracingFilter() {
         return new AWSXRayServletFilter("petstore");
+    }
+
+    @Bean
+    public AmazonS3 amazonS3() {
+        return AmazonS3ClientBuilder.standard()
+                .build();
+    }
+
+    @Bean
+    public AmazonDynamoDB amazonDynamoDB() {
+        return AmazonDynamoDBClientBuilder.standard()
+                .build();
+    }
+
+    @Bean
+    public AWSSimpleSystemsManagement awsSimpleSystemsManagement() {
+        return AWSSimpleSystemsManagementClientBuilder.standard()
+                .build();
     }
 
 }

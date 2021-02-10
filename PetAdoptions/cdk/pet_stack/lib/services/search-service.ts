@@ -13,7 +13,7 @@ export class SearchService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petsearch/petsearch", {
+    return ecs.ContainerImage.fromAsset("../../petsearch-java", {
       repositoryName: "pet-search"
     })
   }
