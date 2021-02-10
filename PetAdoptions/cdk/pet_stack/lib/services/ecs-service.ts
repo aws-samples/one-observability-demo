@@ -134,7 +134,7 @@ export abstract class EcsService extends cdk.Construct {
       image: ecs.ContainerImage.fromRegistry('amazon/aws-otel-collector'),
       memoryLimitMiB: 512,
       cpu: 256,
-      command: ['--config=/etc/ecs/container-insights/otel-task-metrics-config.yaml'],
+      command: ['--config=/etc/ecs/ecs-default-config.yaml'],
       logging
     });
   }

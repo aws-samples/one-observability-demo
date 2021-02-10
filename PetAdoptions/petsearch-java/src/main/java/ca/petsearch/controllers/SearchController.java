@@ -40,8 +40,6 @@ public class SearchController {
         switch (petType) {
             case "bunny":
                 folderName = "bunnies";
-                // This line is intentional. Delays searches
-                TimeUnit.MILLISECONDS.sleep(3000);
                 break;
             case "puppy":
                 folderName = "puppies";
@@ -121,10 +119,14 @@ public class SearchController {
             @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
-    ) {
+    ) throws InterruptedException {
 
         //Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
 
+        // This line is intentional. Delays searches
+        if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
+            TimeUnit.MILLISECONDS.sleep(3000);
+        }
         try {
 
             return ddbClient.scan(
