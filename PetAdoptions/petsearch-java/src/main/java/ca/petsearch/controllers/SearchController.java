@@ -9,12 +9,9 @@ import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
-import com.amazonaws.xray.entities.Subsegment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.amazonaws.xray.AWSXRay;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -60,7 +57,7 @@ public class SearchController {
     private String getPetUrl(String petType, String image) {
 
 
-        Subsegment subsegment = AWSXRay.beginSubsegment("Get Pet URL");
+        //Subsegment subsegment = AWSXRay.beginSubsegment("Get Pet URL");
         String urlString;
 
         try {
@@ -84,10 +81,10 @@ public class SearchController {
             urlString = s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
         } catch (AmazonS3Exception e) {
-            subsegment.addException(e);
+            //subsegment.addException(e);
             throw e;
         } catch (Throwable e) {
-            subsegment.addException(e);
+            //subsegment.addException(e);
             throw new RuntimeException(e);
         }
 
@@ -122,7 +119,7 @@ public class SearchController {
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) {
 
-        Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
+        //Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
 
         try {
 
@@ -137,10 +134,10 @@ public class SearchController {
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
-            subsegment.addException(e);
+            //subsegment.addException(e);
             throw e;
         } finally {
-            AWSXRay.endSubsegment();
+            //AWSXRay.endSubsegment();
         }
 
     }

@@ -135,18 +135,6 @@ export abstract class EcsService extends cdk.Construct {
       memoryLimitMiB: 512,
       cpu: 256,
       logging
-    }).addPortMappings({
-      containerPort: 2000,
-      protocol: ecs.Protocol.UDP
-    }, {
-      containerPort: 55680,
-      protocol: ecs.Protocol.TCP
-    }, {
-      containerPort: 55681,
-      protocol: ecs.Protocol.TCP
-    }, {
-      containerPort: 8888,
-      protocol: ecs.Protocol.TCP
     });
   }
 }
