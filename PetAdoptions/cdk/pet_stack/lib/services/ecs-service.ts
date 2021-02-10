@@ -93,7 +93,9 @@ export abstract class EcsService extends cdk.Construct {
 
     if (!props.disableXRay) {
       this.addXRayContainer(this.taskDefinition, logging);
-    } else if (props.enableOpenTelemetry) {
+    }
+
+    if (props.enableOpenTelemetry) {
       this.addOpenTelemetryContainer(this.taskDefinition, logging);
     }
     
@@ -136,8 +138,8 @@ export abstract class EcsService extends cdk.Construct {
       cpu: 256,
       logging
     }).addPortMappings({
-      containerPort: 2000,
-      protocol: ecs.Protocol.UDP
+      containerPort: 55681,
+      protocol: ecs.Protocol.TCP
     });
   }
 }
