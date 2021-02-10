@@ -270,7 +270,8 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
-            enableOpenTelemetry: true
+            enableOpenTelemetry: true,
+            disableXRay: true
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 

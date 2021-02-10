@@ -93,9 +93,7 @@ export abstract class EcsService extends cdk.Construct {
 
     if (!props.disableXRay) {
       this.addXRayContainer(this.taskDefinition, logging);
-    }
-
-    if (props.enableOpenTelemetry) {
+    } else if (props.enableOpenTelemetry) {
       this.addOpenTelemetryContainer(this.taskDefinition, logging);
     }
     
