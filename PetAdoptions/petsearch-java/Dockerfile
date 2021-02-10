@@ -15,8 +15,11 @@ ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
 COPY --from=build /app/aws-opentelemetry-agent.jar ./aws-opentelemetry-agent.jar
 
-ENV JAVA_OPTS "-javaagent:/app/aws-opentelemetry-agent.jar -Dotel.imr.export.interval=1000"
 ENV HOME=/petstore
-ENV OTEL_RESOURCE_ATTRIBUTES=service.name=PetSearch,service.namespace=Observability
+
+ENV JAVA_TOOL_OPTIONS "-javaagent:/app/aws-opentelemetry-agent.jar"
+ENV OTEL_RESOURCE_ATTRIBUTES "service.name=PetSearch"
+ENV OTEL_IMR_EXPORT_INTERVAL "5000"
+ENV OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:55680"
 
 ENTRYPOINT ["java","-jar","/app/app.jar"]
