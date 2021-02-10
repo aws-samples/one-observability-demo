@@ -25,6 +25,7 @@ public class SearchController {
     private final AmazonS3 s3Client;
     private final AmazonDynamoDB ddbClient;
     private final AWSSimpleSystemsManagement ssmClient;
+    private Map<String, String> paramCache = new HashMap<>();
 
     public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient) {
         this.s3Client = s3Client;
@@ -91,11 +92,14 @@ public class SearchController {
         return urlString;
     }
 
-    private String getSSMParameter(String bucketName) {
-        GetParameterRequest parameterRequest = new GetParameterRequest().withName(bucketName).withWithDecryption(false);
+    private String getSSMParameter(String paramName) {
+        if (!paramCache.containsKey(paramName)) {
+            GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName).withWithDecryption(false);
 
-        GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
-        return parameterResult.getParameter().getValue();
+            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
+            paramCache.put(paramName, parameterResult.getParameter().getValue());
+        }
+        return paramCache.get(paramName);
     }
 
     private Pet mapToPet(Map<String, AttributeValue> item) {
