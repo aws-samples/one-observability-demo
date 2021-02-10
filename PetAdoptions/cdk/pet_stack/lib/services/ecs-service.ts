@@ -14,7 +14,8 @@ export interface EcsServiceProps {
   healthCheck?: string,
 
   disableService?: boolean,
-  disableXRay?: boolean
+  disableXRay?: boolean,
+  enableOpenTelemetry?: boolean
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -33,6 +34,24 @@ export abstract class EcsService extends cdk.Construct {
         "xray:PutTelemetryRecords"
     ]
   });
+
+  private static AWSOpenTelemetryPolicy = new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    resources: ['*'],
+    actions: [
+      'logs:PutLogEvents',
+      'logs:CreateLogGroup',
+      'logs:CreateLogStream',
+      'logs:DescribeLogStreams',
+      'logs:DescribeLogGroups',
+      'xray:PutTraceSegments',
+      'xray:PutTelemetryRecords',
+      'xray:GetSamplingRules',
+      'xray:GetSamplingTargets',
+      'xray:GetSamplingStatisticSummaries',
+      'ssm:GetParameters'
+    ]
+  })
 
   public readonly taskDefinition: ecs.TaskDefinition;
   public readonly service: ecs_patterns.ApplicationLoadBalancedServiceBase;
@@ -75,6 +94,10 @@ export abstract class EcsService extends cdk.Construct {
     if (!props.disableXRay) {
       this.addXRayContainer(this.taskDefinition, logging);
     }
+
+    if (props.enableOpenTelemetry) {
+      this.addOpenTelemetryContainer(this.taskDefinition, logging);
+    }
     
     if (!props.disableService) {
       this.service = new ecs_patterns.ApplicationLoadBalancedFargateService(this, "ecs-service", {
@@ -104,6 +127,19 @@ export abstract class EcsService extends cdk.Construct {
     }).addPortMappings({
         containerPort: 2000,
         protocol: ecs.Protocol.UDP
+    });
+  }
+
+  private addOpenTelemetryContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
+    taskDefinition.addToExecutionRolePolicy(EcsService.AWSOpenTelemetryPolicy);
+    taskDefinition.addContainer('aws-otel-collector', {
+      image: ecs.ContainerImage.fromRegistry('amazon/aws-otel-collector'),
+      memoryLimitMiB: 512,
+      cpu: 256,
+      logging
+    }).addPortMappings({
+      containerPort: 2000,
+      protocol: ecs.Protocol.UDP
     });
   }
 }

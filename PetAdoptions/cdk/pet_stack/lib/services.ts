@@ -269,7 +269,8 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            healthCheck: '/health/status'
+            healthCheck: '/health/status',
+            enableOpenTelemetry: true
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
