@@ -102,13 +102,13 @@ public class SearchController {
     }
 
     private Pet mapToPet(Map<String, AttributeValue> item) {
-        String petId = item.get("petid").toString();
-        String availability = item.get("availability").toString();
-        String cutenessRate = item.get("cuteness_rate").toString();
-        String petColor = item.get("petcolor").toString();
-        String petType = item.get("pettype").toString();
-        String price = item.get("price").toString();
-        String petUrl = getPetUrl(petType, item.get("image").toString());
+        String petId = item.get("petid").getS();
+        String availability = item.get("availability").getS();
+        String cutenessRate = item.get("cuteness_rate").getS();
+        String petColor = item.get("petcolor").getS();
+        String petType = item.get("pettype").getS();
+        String price = item.get("price").getS();
+        String petUrl = getPetUrl(petType, item.get("image").getS());
 
         Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
         return currentPet;

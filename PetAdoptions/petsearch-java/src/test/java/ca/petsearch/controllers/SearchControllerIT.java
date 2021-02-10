@@ -114,7 +114,10 @@ public class SearchControllerIT {
     @Test
     public void testSearchNoFilters() {
         assertThat(this.restTemplate.getForObject("http://localhost:" + port + "/api/search",
-                String.class)).contains("petid", "availability", "petcolor", "peturl", kittenId, bunnyId, puppyId);
+                String.class))
+                .contains("petid", "availability", "petcolor", "peturl", kittenId, bunnyId, puppyId)
+                .doesNotContain("{S:")
+        ;
     }
 
     @Test
