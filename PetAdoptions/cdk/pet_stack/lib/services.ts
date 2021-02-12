@@ -487,6 +487,14 @@ export class Services extends cdk.Stack {
             cluster: cluster,
             manifest: loadBalancerServiceAccountYaml
         });
+
+        const waitForLBServiceAccount = new eks.KubernetesObjectValue(this,'LBServiceAccount',{
+            cluster: cluster,
+            objectName: "alb-ingress-controller",
+            objectType: "serviceaccount",
+            objectNamespace: "kube-system",
+            jsonPath: "@"
+        });       
         
         const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
@@ -494,6 +502,7 @@ export class Services extends cdk.Stack {
             manifest: loadBalancerCRDYaml
         });        
         
+
         const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
             cluster: cluster,
             chart: "aws-load-balancer-controller",
@@ -509,8 +518,16 @@ export class Services extends cdk.Stack {
             }
         });
         awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);  
-        awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);         
+        awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);     
+        awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);    
         
+        const waitForLBService = new eks.KubernetesObjectValue(this,'LBWebhookService',{
+            cluster: cluster,
+            objectName: "aws-load-balancer-webhook-service",
+            objectType: "service",
+            objectNamespace: "kube-system",
+            jsonPath: ".spec.clusterIP"
+        });
 
 
         // NOTE: amazon-cloudwatch namespace is created here!!           
@@ -570,6 +587,7 @@ export class Services extends cdk.Stack {
         deploymentManifest.node.addDependency(targetGroup);
         deploymentManifest.node.addDependency(fluentbitManifest);
         deploymentManifest.node.addDependency(prometheusManifest);
+        deploymentManifest.node.addDependency(waitForLBService);
                
         
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
