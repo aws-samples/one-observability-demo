@@ -1,70 +1,39 @@
 package ca.petsearch.controllers;
 
 import com.amazonaws.HttpMethod;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ScanRequest;
-import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.model.*;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
-import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
-import com.amazonaws.xray.handlers.TracingHandler;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.exporters.otlp.OtlpGrpcSpanExporter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.amazonaws.xray.AWSXRay;
-import com.amazonaws.xray.entities.Subsegment;
-
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @RestController
 public class SearchController {
+    public static final String BUCKET_NAME = "/petstore/s3bucketname";
+    public static final String DYNAMODB_TABLENAME = "/petstore/dynamodbtablename";
 
-    private static AmazonDynamoDB ddbClient;
-    private static AmazonS3 s3Client;
-    private static AWSSimpleSystemsManagement ssmClient;
-    private static Subsegment subsegment;
+    private final AmazonS3 s3Client;
+    private final AmazonDynamoDB ddbClient;
+    private final AWSSimpleSystemsManagement ssmClient;
+    private Map<String, String> paramCache = new HashMap<>();
 
-    static {
-
-
-
-        ddbClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
-
-
-        s3Client = AmazonS3ClientBuilder
-                .standard()
-                .withRegion(Regions.US_EAST_2)
-                .withForceGlobalBucketAccessEnabled(true)
-                .withRequestHandlers(new TracingHandler(AWSXRay.getGlobalRecorder()))
-                .build();
-        ssmClient = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
-
-        OpenTelemetrySdk.getTracerProvider()
-                .addSpanProcessor(BatchSpanProcessor.newBuilder(
-                        OtlpGrpcSpanExporter.newBuilder()
-                                .readSystemProperties()
-                                .readEnvironmentVariables()
-                                .build())
-                        .build());
-
-        // System.setProperty(SDKGlobalConfiguration.ENABLE_S3_SIGV4_SYSTEM_PROPERTY, "true");
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient) {
+        this.s3Client = s3Client;
+        this.ddbClient = ddbClient;
+        this.ssmClient = ssmClient;
     }
 
-    private String getKey(String petType, String petId) {
+    private String getKey(String petType, String petId) throws InterruptedException {
 
         String folderName;
 
@@ -86,18 +55,17 @@ public class SearchController {
 
     private String getPetUrl(String petType, String image) {
 
+
+        //Subsegment subsegment = AWSXRay.beginSubsegment("Get Pet URL");
         String urlString;
 
         try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/s3bucketname").withWithDecryption(false);
-
-            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
-            String s3BucketName = parameterResult.getParameter().getValue();
+            String s3BucketName = getSSMParameter(BUCKET_NAME);
 
             String key = getKey(petType, image);
 
-            int random = (int)Math.random() * 10;
+            int random = (int) Math.random() * 10;
 
             if (random == 4) {
                 // Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions
@@ -112,42 +80,37 @@ public class SearchController {
             urlString = s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
         } catch (AmazonS3Exception e) {
-            subsegment.addException(e);
+            //subsegment.addException(e);
             throw e;
-        } catch (Exception e) {
-            subsegment.addException(e);
-            throw e;
+        } catch (Throwable e) {
+            //subsegment.addException(e);
+            throw new RuntimeException(e);
         }
 
         return urlString;
     }
 
-    private List<Pet> buildPets(List<Map<String, AttributeValue>> items) {
+    private String getSSMParameter(String paramName) {
+        if (!paramCache.containsKey(paramName)) {
+            GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName).withWithDecryption(false);
 
-        List<Pet> result = new ArrayList<>();
-
-        for (Map<String, AttributeValue> item : items) {
-
-            String petId = item.get("petid").toString();
-            String availability = item.get("availability").toString();
-            String cutenessRate = item.get("cuteness_rate").toString();
-            String petColor = item.get("petcolor").toString();
-            String petType = item.get("pettype").toString();
-            String price = item.get("price").toString();
-            String petUrl = getPetUrl(petType, item.get("image").toString());
-
-            Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
-
-            result.add(currentPet);
-
+            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
+            paramCache.put(paramName, parameterResult.getParameter().getValue());
         }
+        return paramCache.get(paramName);
+    }
 
-        // AWSXRay.getCurrentSubsegment().putMetadata("Pets", result);
+    private Pet mapToPet(Map<String, AttributeValue> item) {
+        String petId = item.get("petid").getS();
+        String availability = item.get("availability").getS();
+        String cutenessRate = item.get("cuteness_rate").getS();
+        String petColor = item.get("petcolor").getS();
+        String petType = item.get("pettype").getS();
+        String price = item.get("price").getS();
+        String petUrl = getPetUrl(petType, item.get("image").getS());
 
-        // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
-
-        return result;
-
+        Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
+        return currentPet;
     }
 
 
@@ -158,60 +121,23 @@ public class SearchController {
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
 
+        //Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
+
+        // This line is intentional. Delays searches
+        if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
+            TimeUnit.MILLISECONDS.sleep(3000);
+        }
         try {
 
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName("/petstore/dynamodbtablename").withWithDecryption(false);
-            GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
-            String dynamoDBTableName = parameterResult.getParameter().getValue();
-            String filterExpression = "";
-
-            Map<String, AttributeValue> expressionAttributeValues = new HashMap<>();
-            Map<String, String> expressionAttributeNames = new HashMap<>();
-
-            if (petType != null && !petType.trim().isEmpty()) {
-                filterExpression = "#pt = :pettype";
-                expressionAttributeNames.put("#pt", "pettype");
-                expressionAttributeValues.put(":pettype", new AttributeValue().withS(petType));
-            }
-            if (petColor != null && !petColor.trim().isEmpty()) {
-                filterExpression = filterExpression + " and " + "#pc = :petcolor";
-                expressionAttributeNames.put("#pc", "petcolor");
-                expressionAttributeValues.put(":petcolor", new AttributeValue().withS(petColor));
-            }
-            if (petId != null && !petId.trim().isEmpty()) {
-                filterExpression = filterExpression + " and " + "#pi = :petid";
-                expressionAttributeNames.put("#pi", "petid");
-                expressionAttributeValues.put(":petid", new AttributeValue().withS(petId));
-            }
-
-            ScanRequest scanRequest = new ScanRequest()
-                    .withTableName(dynamoDBTableName)
-                    .withFilterExpression(filterExpression)
-                    .withExpressionAttributeNames(expressionAttributeNames)
-                    .withExpressionAttributeValues(expressionAttributeValues);
-
-            if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
-                TimeUnit.MILLISECONDS.sleep(3000);
-            }
-
-            try {
-                AWSXRay.getCurrentSubsegment()
-                        .putAnnotation("Query", String.format("petcolor:%s-pettype:%s-petid:%s", petColor, petType, petId));
-            } catch (Exception xx) {
-            }
-            // System.out.println(AWSXRay.getCurrentSubsegment().getTraceId());
-
-            ScanResult result = ddbClient.scan(scanRequest);
-            List<Map<String, AttributeValue>> resultItems = new ArrayList<>();
-
-            for (Map<String, AttributeValue> item : result.getItems()) {
-                resultItems.add(item);
-            }
-            try {
-                AWSXRay.endSubsegment();
-            } catch (Exception xxx) {
-            }
-            return buildPets(resultItems);
+            return ddbClient.scan(
+                    Map.of("pettype", petType,
+                            "petcolor", petColor,
+                            "petid", petId).entrySet().stream()
+                            .filter(e -> !isEmptyParameter(e))
+                            .map(this::entryToCondition)
+                            .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult))
+                    .getItems().stream().map(this::mapToPet)
+                    .collect(Collectors.toList());
 
         } catch (Exception e) {
             //subsegment.addException(e);
@@ -220,6 +146,32 @@ public class SearchController {
             //AWSXRay.endSubsegment();
         }
 
+    }
+
+    private ScanRequest addScanFilter(ScanRequest scanResult, Map.Entry<String, Condition> element) {
+        return scanResult.addScanFilterEntry(element.getKey(), element.getValue());
+    }
+
+    private ScanRequest emptyScanRequest() {
+        return new ScanRequest().withTableName(getSSMParameter(DYNAMODB_TABLENAME));
+    }
+
+    private ScanRequest joinScanResult(ScanRequest scanRequest1, ScanRequest scanRequest2) {
+        Map<String, Condition> merged = new HashMap<>();
+        merged.putAll(scanRequest1.getScanFilter() != null ? scanRequest1.getScanFilter() : Collections.emptyMap());
+        merged.putAll(scanRequest2.getScanFilter() != null ? scanRequest2.getScanFilter() : Collections.emptyMap());
+
+        return scanRequest1.withScanFilter(merged);
+    }
+
+    private Map.Entry<String, Condition> entryToCondition(Map.Entry<String, String> e) {
+        return Map.entry(e.getKey(), new Condition()
+                .withComparisonOperator(ComparisonOperator.EQ)
+                .withAttributeValueList(new AttributeValue().withS(e.getValue())));
+    }
+
+    private boolean isEmptyParameter(Map.Entry<String, String> e) {
+        return e.getValue() == null || e.getValue().isEmpty();
     }
 
 }

@@ -21,21 +21,22 @@ type Service interface {
 	HealthCheck(ctx context.Context) error
 	CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error)
 	CleanupAdoptions(ctx context.Context) error
+	TriggerSeeding(ctx context.Context) error
 }
 
 // object that handles the logic and complies with interface
 type service struct {
-	logger            log.Logger
-	repository        Repository
-	updateAdoptionURL string
+	logger               log.Logger
+	repository           Repository
+	updateAdoptionURL    string
+	ddbSeedingLambdaName string
 }
 
 //inject dependencies into core logic
-func NewService(logger log.Logger, rep Repository, updateAdoptionURL string) Service {
+func NewService(logger log.Logger, rep Repository) Service {
 	return &service{
-		logger:            logger,
-		repository:        rep,
-		updateAdoptionURL: updateAdoptionURL,
+		logger:     logger,
+		repository: rep,
 	}
 }
 
@@ -61,13 +62,24 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		return Adoption{}, err
 	}
 
-	return a, s.repository.UpdateAvailability(ctx, a, s.updateAdoptionURL)
+	return a, s.repository.UpdateAvailability(ctx, a)
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {
 
 	if err := s.repository.DropTransactions(ctx); err != nil {
 		logger := log.With(s.logger, "method", "CleanupAdoptions")
+		level.Error(logger).Log("err", err)
+		return err
+	}
+
+	return s.TriggerSeeding(ctx)
+}
+
+func (s service) TriggerSeeding(ctx context.Context) error {
+
+	if err := s.repository.TriggerSeeding(ctx); err != nil {
+		logger := log.With(s.logger, "method", "TriggerSeeding")
 		level.Error(logger).Log("err", err)
 		return err
 	}

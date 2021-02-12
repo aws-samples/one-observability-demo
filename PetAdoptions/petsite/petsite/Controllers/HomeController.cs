@@ -106,7 +106,7 @@ namespace PetSite.Controllers
              Console.WriteLine(
                 $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - In Housekeeping, trying to reset the app.");
                 
-            var result = await GetPetDetails(null, null, null);
+            /*var result = await GetPetDetails(null, null, null);
             var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
 
             var searchParams = new SearchParams();
@@ -123,7 +123,7 @@ namespace PetSite.Controllers
 
                 StringContent putData = new StringContent(JsonSerializer.Serialize(searchParams));
                 await _httpClient.PutAsync(updateadoptionstatusurl, putData);
-            }
+            }*/
             
             //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
