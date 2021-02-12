@@ -9,9 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Repository as an interface to define data store interactions
@@ -21,14 +24,16 @@ type Repository interface {
 
 //repo as an implementation of Repository with dependency injection
 type repo struct {
-	db     *sql.DB
-	logger log.Logger
+	db          *sql.DB
+	logger      log.Logger
+	safeConnStr string
 }
 
-func NewRepository(db *sql.DB, logger log.Logger) Repository {
+func NewRepository(db *sql.DB, logger log.Logger, safeConnStr string) Repository {
 	return &repo{
-		db:     db,
-		logger: log.With(logger, "repo", "sql"),
+		db:          db,
+		logger:      log.With(logger, "repo", "sql"),
+		safeConnStr: safeConnStr,
 	}
 }
 
@@ -51,13 +56,26 @@ type pet struct {
 func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]Adoption, error) {
 	logger := log.With(r.logger, "method", "GetTopTransactions")
 
+	tracer := otel.GetTracerProvider().Tracer("petlistadoptions")
+	_, span := tracer.Start(ctx, "MSSQL Query", trace.WithSpanKind(trace.SpanKindClient))
+
 	sql := `SELECT TOP 25 PetId, Transaction_Id, Adoption_Date FROM dbo.transactions`
 
-	logger.Log("sql", sql)
-	rows, err := r.db.QueryContext(ctx, sql)
+	// TODO: implement native sql instrumentation when issue is closed.
+	// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
+	//rows, err := r.db.QueryContext(ctx, sql)
+
+	span.SetAttributes(
+		label.String("sql", sql),
+		label.String("url", r.safeConnStr),
+	)
+
+	rows, err := r.db.Query(sql)
 	if err != nil {
+		logger.Log("error", err)
 		return nil, err
 	}
+	span.End()
 
 	var wg sync.WaitGroup
 	adoptions := make(chan Adoption)
@@ -94,12 +112,12 @@ func searchForPet(ctx context.Context, logger log.Logger, wg *sync.WaitGroup, qu
 	logger = log.With(logger, "method", "searchForPet", "petid", t.PetID)
 	defer wg.Done()
 
-	client := xray.Client(&http.Client{})
-
 	url := fmt.Sprintf("%spetid=%s", petSearchURL, t.PetID)
 
-	req, _ := http.NewRequest("GET", url, nil)
-	resp, err := client.Do(req.WithContext(ctx))
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	resp, err := client.Do(req)
 	if err != nil {
 		level.Error(logger).Log("err", err)
 		return

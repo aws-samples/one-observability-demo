@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"petadoptions/payforadoption"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -21,30 +22,26 @@ type dbConfig struct {
 }
 
 // config is injected as environment variable
-type Config struct {
-	UpdateAdoptionURL string
-	RDSSecretArn      string
-}
 
-func fetchConfig() (Config, error) {
+func fetchConfig() (payforadoption.Config, error) {
 
 	// fetch from env
-	viper.SetEnvPrefix("app")
 	viper.AutomaticEnv() // Bind automatically all env vars that have the same prefix
 
-	cfg := Config{
+	cfg := payforadoption.Config{
 		UpdateAdoptionURL: viper.GetString("UPDATE_ADOPTION_URL"),
 		RDSSecretArn:      viper.GetString("RDS_SECRET_ARN"),
+		AWSRegion:         viper.GetString("AWS_REGION"),
 	}
 
 	if cfg.UpdateAdoptionURL == "" || cfg.RDSSecretArn == "" {
-		return fetchConfigFromParameterStore(os.Getenv("AWS_REGION"))
+		return fetchConfigFromParameterStore(cfg.AWSRegion)
 	}
 
 	return cfg, nil
 }
 
-func fetchConfigFromParameterStore(region string) (Config, error) {
+func fetchConfigFromParameterStore(region string) (payforadoption.Config, error) {
 	svc := ssm.New(session.New(&aws.Config{Region: aws.String(region)}))
 	xray.AWS(svc.Client)
 	ctx, seg := xray.BeginSegment(context.Background(), "payforadoption")
@@ -54,10 +51,13 @@ func fetchConfigFromParameterStore(region string) (Config, error) {
 		Names: []*string{
 			aws.String("/petstore/updateadoptionstatusurl"),
 			aws.String("/petstore/rdssecretarn"),
+			aws.String("/petstore/s3bucketname"),
+			aws.String("/petstore/dynamodbtablename"),
 		},
 	})
 
-	cfg := Config{}
+	cfg := payforadoption.Config{}
+	cfg.AWSRegion = region
 
 	if err != nil {
 		return cfg, err
@@ -65,10 +65,15 @@ func fetchConfigFromParameterStore(region string) (Config, error) {
 
 	for _, p := range res.Parameters {
 
-		if aws.StringValue(p.Name) == "/petstore/rdssecretarn" {
+		switch aws.StringValue(p.Name) {
+		case "/petstore/rdssecretarn":
 			cfg.RDSSecretArn = aws.StringValue(p.Value)
-		} else if aws.StringValue(p.Name) == "/petstore/updateadoptionstatusurl" {
+		case "/petstore/updateadoptionstatusurl":
 			cfg.UpdateAdoptionURL = aws.StringValue(p.Value)
+		case "/petstore/s3bucketname":
+			cfg.S3BucketName = aws.StringValue(p.Value)
+		case "/petstore/dynamodbtablename":
+			cfg.DynamoDBTable = aws.StringValue(p.Value)
 		}
 	}
 

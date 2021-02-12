@@ -16,3 +16,5 @@ cdk.context.json
 
 # IDE
 .idea
+
+**/.DS_Store

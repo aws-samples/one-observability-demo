@@ -10,6 +10,7 @@ type Endpoints struct {
 	HealthCheckEndpoint      endpoint.Endpoint
 	CompleteAdoptionEndpoint endpoint.Endpoint
 	CleanupAdoptionsEndpoint endpoint.Endpoint
+	TriggerSeedingEndpoint   endpoint.Endpoint
 }
 
 func MakeEndpoints(s Service) Endpoints {
@@ -17,6 +18,7 @@ func MakeEndpoints(s Service) Endpoints {
 		HealthCheckEndpoint:      makeHealthCheckEndpoint(s),
 		CompleteAdoptionEndpoint: makeCompleteAdoptionEndpoint(s),
 		CleanupAdoptionsEndpoint: makeCleanupAdoptionsEndpoint(s),
+		TriggerSeedingEndpoint:   makeTriggerSeedingEndpoint(s),
 	}
 }
 
@@ -36,5 +38,11 @@ func makeCompleteAdoptionEndpoint(s Service) endpoint.Endpoint {
 func makeCleanupAdoptionsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
 		return nil, s.CleanupAdoptions(ctx)
+	}
+}
+
+func makeTriggerSeedingEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, _ interface{}) (interface{}, error) {
+		return nil, s.TriggerSeeding(ctx)
 	}
 }

@@ -12,9 +12,7 @@ export class SearchService extends EcsService {
     this.taskDefinition.taskRole?.addManagedPolicy(iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonS3ReadOnlyAccess', 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'));
   }
 
-  createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petsearch-java", {
-      repositoryName: "pet-search"
-    })
+  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-search:latest`)
   }
 }
