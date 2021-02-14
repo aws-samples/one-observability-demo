@@ -63,3 +63,5 @@ git clone https://github.com/aws-samples/one-observability-demo
 
 # Fetch usage tracker file
 aws s3api get-object --bucket one-observability-workshop-tracker --key lab_user.txt lab_user.txt --region us-east-1
+
+cd workshopfiles/one-observability-demo/PetAdoptions/cdk/pet_stack
