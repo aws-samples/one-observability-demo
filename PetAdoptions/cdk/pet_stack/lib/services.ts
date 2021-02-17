@@ -530,6 +530,14 @@ export class Services extends cdk.Stack {
         });
 
 
+        const waitForWebhook = new eks.KubernetesObjectValue(this,'MutatingWebhookService',{
+            cluster: cluster,
+            objectName: "aws-load-balancer-webhook",
+            objectType: "MutatingWebhookConfiguration",
+            objectNamespace: "kube-system",
+            jsonPath: ".apiVersion"
+        });
+
         // NOTE: amazon-cloudwatch namespace is created here!!           
         var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
         fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });       
@@ -588,6 +596,7 @@ export class Services extends cdk.Stack {
         deploymentManifest.node.addDependency(fluentbitManifest);
         deploymentManifest.node.addDependency(prometheusManifest);
         deploymentManifest.node.addDependency(waitForLBService);
+        deploymentManifest.node.addDependency(waitForWebhook);
                
         
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
