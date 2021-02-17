@@ -130,10 +130,12 @@ public class SearchController {
         }
         try(Scope scope = span.makeCurrent()) {
 
-            return ddbClient.scan(
+            List<Pet> result = ddbClient.scan(
                     buildScanRequest(petType, petColor, petId))
                     .getItems().stream().map(this::mapToPet)
                     .collect(Collectors.toList());
+            metricEmitter.emitPetsReturnedMetric(result.size());
+            return result;
 
         } catch (Exception e) {
             span.recordException(e);
