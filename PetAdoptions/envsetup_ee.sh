@@ -51,11 +51,15 @@ curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.12/2020-11-02
 chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 echo "source <(kubectl completion bash)" >> ~/.bashrc
 
-
 # Install eksctl
 curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 sudo mv /tmp/eksctl /usr/local/bin
-# Fetch usage tracker file
+
+# Install helm
 curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
+# Download lab repository
+git clone https://github.com/aws-samples/one-observability-demo
+
+# Fetch usage tracker file
 aws s3api get-object --bucket one-observability-workshop-tracker --key lab_user.txt lab_user.txt --region us-east-1
