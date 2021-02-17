@@ -39,39 +39,34 @@ pip install --user --upgrade awscli
 curl -O "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" 
 unzip -o awscli-exe-linux-x86_64.zip
 sudo ./aws/install
+rm awscli-exe-linux-x86_64.zip
 
 
 # Install bash-completion
-sudo yum install bash-completion -y -q
+sudo yum -y install jq gettext bash-completion moreutils
 
 # Install kubectl 1.16.8
-curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.8/2020-04-16/bin/linux/amd64/kubectl
+curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.12/2020-11-02/bin/linux/amd64/kubectl
 chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 echo "source <(kubectl completion bash)" >> ~/.bashrc
-
-# Install Heptio Authenticator
-curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.8/2020-04-16/bin/linux/amd64/aws-iam-authenticator
-chmod +x ./aws-iam-authenticator && sudo mv aws-iam-authenticator /usr/local/bin/
 
 # Configure AWS CLI
 # availability_zone=$(curl http://169.254.169.254/latest/meta-data/placement/availability-zone)
 # export AWS_DEFAULT_REGION=${availability_zone}
 
 # Install eksctl
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 sudo mv /tmp/eksctl /usr/local/bin
 
 # Install docker compose
-sudo curl -L "https://github.com/docker/compose/releases/download/1.23.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo curl -L "https://github.com/docker/compose/releases/download/1.28.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
 # Upgrade npm
-npm install -g npm
+npm install npm
 
 # Upgrade CDK version
-npm i -g aws-cdk --force
-
-npm update -g aws-cdk
+npm i aws-cdk --force
 
 
 # Download lab repository
