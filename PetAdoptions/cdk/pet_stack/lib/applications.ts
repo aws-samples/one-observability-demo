@@ -66,7 +66,7 @@ export class Applications extends cdk.Stack {
 
     petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
     
-    const repositoryURI = "public.ecr.aws/t6p7v1e8";
+    const repositoryURI = "public.ecr.aws/one-observability-workshop";
     const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
     
     
