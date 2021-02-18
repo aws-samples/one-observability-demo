@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: petstore
+
+server:
+  port: 80
+
+cloud:
+  aws:
+    region:
+      static: eu-central-1
+      auto: false
+    stack:
+      auto: false
+    credentials:
+      instance-profile: false
+#    credentials:
+#      accessKey: ABC
+#      secretKey: XYZ
