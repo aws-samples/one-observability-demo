@@ -14,7 +14,7 @@ repositories {
 }
 
 ext {
-    set('springCloudVersion', "Hoxton.SR3")
+    set('springCloudVersion', "Hoxton.SR10")
     set('testContainerVersion', '1.13.0')
     set('opentelemetryVersion', '0.13.1')
 }
@@ -30,6 +30,7 @@ dependencies {
     implementation 'com.amazonaws:aws-java-sdk-ssm'
 
     implementation "io.opentelemetry:opentelemetry-sdk:${opentelemetryVersion}"
+    implementation "io.opentelemetry:opentelemetry-exporter-otlp:${opentelemetryVersion}"
     implementation "io.opentelemetry.instrumentation:opentelemetry-otlp-exporter-starter:${opentelemetryVersion}"
     implementation "io.opentelemetry.instrumentation:opentelemetry-aws-sdk-2.2:${opentelemetryVersion}"
 

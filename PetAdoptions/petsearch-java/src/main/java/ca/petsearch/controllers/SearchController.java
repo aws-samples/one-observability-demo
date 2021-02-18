@@ -1,14 +1,19 @@
 package ca.petsearch.controllers;
 
+import ca.petsearch.MetricEmitter;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.model.*;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
+import com.amazonaws.services.dynamodbv2.model.Condition;
+import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,12 +30,14 @@ public class SearchController {
     private final AmazonS3 s3Client;
     private final AmazonDynamoDB ddbClient;
     private final AWSSimpleSystemsManagement ssmClient;
+    private final MetricEmitter metricEmitter;
     private Map<String, String> paramCache = new HashMap<>();
 
-    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient) {
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter) {
         this.s3Client = s3Client;
         this.ddbClient = ddbClient;
         this.ssmClient = ssmClient;
+        this.metricEmitter = metricEmitter;
     }
 
     private String getKey(String petType, String petId) throws InterruptedException {
@@ -54,12 +61,9 @@ public class SearchController {
     }
 
     private String getPetUrl(String petType, String image) {
+        Span span = metricEmitter.spanBuilder("Get Pet URL").startSpan();
 
-
-        //Subsegment subsegment = AWSXRay.beginSubsegment("Get Pet URL");
-        String urlString;
-
-        try {
+        try(Scope scope = span.makeCurrent()) {
 
             String s3BucketName = getSSMParameter(BUCKET_NAME);
 
@@ -77,17 +81,15 @@ public class SearchController {
                             .withMethod(HttpMethod.GET)
                             .withExpiration(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)));
 
-            urlString = s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
+            return s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
-        } catch (AmazonS3Exception e) {
-            //subsegment.addException(e);
-            throw e;
+
         } catch (Throwable e) {
-            //subsegment.addException(e);
+            span.recordException(e);
             throw new RuntimeException(e);
+        } finally {
+            span.end();
         }
-
-        return urlString;
     }
 
     private String getSSMParameter(String paramName) {
@@ -120,32 +122,37 @@ public class SearchController {
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
-
-        //Subsegment subsegment = AWSXRay.beginSubsegment("Scanning DynamoDB Table");
+        Span span = metricEmitter.spanBuilder("Scanning DynamoDB Table").startSpan();
 
         // This line is intentional. Delays searches
         if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
             TimeUnit.MILLISECONDS.sleep(3000);
         }
-        try {
+        try(Scope scope = span.makeCurrent()) {
 
-            return ddbClient.scan(
-                    Map.of("pettype", petType,
-                            "petcolor", petColor,
-                            "petid", petId).entrySet().stream()
-                            .filter(e -> !isEmptyParameter(e))
-                            .map(this::entryToCondition)
-                            .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult))
+            List<Pet> result = ddbClient.scan(
+                    buildScanRequest(petType, petColor, petId))
                     .getItems().stream().map(this::mapToPet)
                     .collect(Collectors.toList());
+            metricEmitter.emitPetsReturnedMetric(result.size());
+            return result;
 
         } catch (Exception e) {
-            //subsegment.addException(e);
+            span.recordException(e);
             throw e;
         } finally {
-            //AWSXRay.endSubsegment();
+            span.end();
         }
 
+    }
+
+    private ScanRequest buildScanRequest(String petType, String petColor, String petId) {
+        return Map.of("pettype", petType,
+                "petcolor", petColor,
+                "petid", petId).entrySet().stream()
+                .filter(e -> !isEmptyParameter(e))
+                .map(this::entryToCondition)
+                .reduce(emptyScanRequest(), this::addScanFilter, this::joinScanResult);
     }
 
     private ScanRequest addScanFilter(ScanRequest scanResult, Map.Entry<String, Condition> element) {
@@ -165,6 +172,7 @@ public class SearchController {
     }
 
     private Map.Entry<String, Condition> entryToCondition(Map.Entry<String, String> e) {
+        Span.current().setAttribute(e.getKey(), e.getValue());
         return Map.entry(e.getKey(), new Condition()
                 .withComparisonOperator(ComparisonOperator.EQ)
                 .withAttributeValueList(new AttributeValue().withS(e.getValue())));

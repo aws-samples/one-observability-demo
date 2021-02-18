@@ -6,13 +6,16 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import javax.servlet.Filter;
+import java.util.Arrays;
+
 
 @Configuration
-public class WebConfig {
+public class WebConfig implements WebMvcConfigurer {
 
     @Bean
     public AmazonS3 amazonS3() {
@@ -30,6 +33,19 @@ public class WebConfig {
     public AWSSimpleSystemsManagement awsSimpleSystemsManagement() {
         return AWSSimpleSystemsManagementClientBuilder.standard()
                 .build();
+    }
+
+    @Bean
+    public MetricEmitter metricEmitter() {
+        return new MetricEmitter();
+    }
+
+    @Bean
+    public FilterRegistrationBean<ApplicationFilter> filterRegistrationBean() {
+        FilterRegistrationBean<ApplicationFilter> filterBean = new FilterRegistrationBean<>();
+        filterBean.setFilter(new ApplicationFilter(metricEmitter()));
+        filterBean.setUrlPatterns(Arrays.asList("/api/search"));
+        return filterBean;
     }
 
 }
