@@ -29,17 +29,10 @@ export abstract class EcsService extends cdk.Construct {
       "ecr:BatchCheckLayerAvailability",
       "ecr:GetDownloadUrlForLayer",
       "ecr:BatchGetImage",
-      'logs:CreateLogGroup',
-      'logs:DescribeLogGroups',
       "logs:CreateLogStream",
-      'logs:DescribeLogStreams',
       "logs:PutLogEvents",
       "xray:PutTraceSegments",
-      "xray:PutTelemetryRecords",
-      'xray:GetSamplingRules',
-      'xray:GetSamplingTargets',
-      'xray:GetSamplingStatisticSummaries',
-      'ssm:GetParameters'
+      "xray:PutTelemetryRecords"
     ]
   });
 
