@@ -563,6 +563,7 @@ export class Services extends cdk.Stack {
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
+            '/petstore/errormode1':"false"
         })));
 
         this.createOuputs(new Map(Object.entries({
