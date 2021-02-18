@@ -27,15 +27,17 @@ echo -----------------------------
 
 # Get the main stack name
 STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
+STACK_NAME_APP=$(aws ssm get-parameter --name '/eks/petsite/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
 
 # Delete the ECS Prometheus agent stack
 aws cloudformation delete-stack --stack-name CWProm-ECS-${PETSITE_ECS_CLUSTER}
 
 # Get rid of all resources
-cdk destroy $STACK_NAME
+cdk destroy $STACK_NAME_APP --force
+cdk destroy $STACK_NAME --force
 
 # Sometimes the SqlSeeder doesn't get deleted cleanly. This helps clean up the environment completely including Sqlseeder
-aws cloudformation delete-stack --stack-name $STACK_NAME
+aws cloudformation delete-stack --stack-name $STACK_NAME 
 
 aws cloudwatch delete-dashboards --dashboard-names "EKS_FluentBit_Dashboard"
 
