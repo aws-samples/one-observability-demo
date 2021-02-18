@@ -236,8 +236,6 @@ export class Services extends cdk.Stack {
 
         const stack = cdk.Stack.of(this);
         const region = stack.region;
-        
-        const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
 
         const albSG = new ec2.SecurityGroup(this,'ALBSecurityGrouo',{
             vpc: theVPC,
@@ -262,6 +260,11 @@ export class Services extends cdk.Stack {
             
         });
 
+        new ssm.StringParameter(this,"putParamTargetGroupArn",{
+            stringValue: targetGroup.targetGroupArn,
+            parameterName: '/eks/petsite/TargetGroupArn'
+          })
+
         const listener = alb.addListener('Listener', {
             port: 80,
             open: true,
@@ -272,10 +275,10 @@ export class Services extends cdk.Stack {
             assumedBy: new iam.AccountRootPrincipal()
         });
 
-        clusterAdmin.addToPrincipalPolicy(new iam.PolicyStatement({
-            actions: ["ec2:Describe*"],
-            resources: ['*']
-        }));
+        new ssm.StringParameter(this,"putParam",{
+            stringValue: clusterAdmin.roleArn,
+            parameterName: '/eks/petsite/EKSMasterRoleArn'
+          })
 
         const cluster = new eks.Cluster(this, 'petsite', {
             clusterName: 'PetSite',
@@ -289,8 +292,6 @@ export class Services extends cdk.Stack {
         clusterSG.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock),ec2.Port.tcp(443),'Allow local access to k8s api');
         
 
-        // TODO: Attach trust policy here instead of the bash file. The OIDC is not created unless is referenced (even if not used). This line will force the OIDC Provider registration
-        const oidc = cluster.openIdConnectProvider.openIdConnectProviderArn;
         // ClusterID is not available for creating the proper conditions https://github.com/aws/aws-cdk/issues/10347
         const clusterId = Fn.select(4, Fn.split('/', cluster.clusterOpenIdConnectIssuerUrl)) // Remove https:// from the URL as workaround to get ClusterID
 
@@ -371,47 +372,7 @@ export class Services extends cdk.Stack {
             managedPolicies: [loadBalancerPolicy]
         });
         
-        loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
-                    
-
-        const app_federatedPrincipal = new iam.FederatedPrincipal(
-            cluster.openIdConnectProvider.openIdConnectProviderArn,
-            {
-                StringEquals: new CfnJson(this, "App_FederatedPrincipalCondition", {
-                    value: {
-                        [`oidc.eks.${region}.amazonaws.com/id/${clusterId}:aud` ]: "sts.amazonaws.com"
-                    }
-                })
-            }
-        ); 
-        const app_trustRelationship = new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            principals: [ app_federatedPrincipal ],
-            actions: ["sts:AssumeRoleWithWebIdentity"]
-        }) 
-        // FrontEnd SA (SSM, SQS, SNS)
-        const petstoreserviceaccount = new iam.Role(this, 'PetSiteServiceAccount', {
-//                assumedBy: eksFederatedPrincipal,
-                assumedBy: new iam.AccountRootPrincipal(),
-            managedPolicies: [ 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
-            ],
-        });
-        petstoreserviceaccount.assumeRolePolicy?.addStatements(app_trustRelationship);
-
-
-        const startStepFnExecutionPolicy = new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            actions: [
-                'states:StartExecution'
-            ],
-            resources: ['*']
-            });
-
-        petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
+        loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);                
         
         // Fix for EKS Dashboard access
 
@@ -520,15 +481,6 @@ export class Services extends cdk.Stack {
         awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);  
         awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);     
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);    
-        
-        const waitForLBService = new eks.KubernetesObjectValue(this,'LBWebhookService',{
-            cluster: cluster,
-            objectName: "aws-load-balancer-webhook-service",
-            objectType: "service",
-            objectNamespace: "kube-system",
-            jsonPath: ".spec.clusterIP"
-        });
-
 
         // NOTE: amazon-cloudwatch namespace is created here!!           
         var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
@@ -571,24 +523,7 @@ export class Services extends cdk.Stack {
 
         prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency             
         
-        var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
-        
-        deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-        deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
-        deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroup.targetGroupArn}`});
-        
 
-        const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
-            cluster: cluster,
-            manifest: deploymentYaml
-        });
-        deploymentManifest.node.addDependency(xrayManifest);
-        deploymentManifest.node.addDependency(awsLoadBalancerManifest);
-        deploymentManifest.node.addDependency(targetGroup);
-        deploymentManifest.node.addDependency(fluentbitManifest);
-        deploymentManifest.node.addDependency(prometheusManifest);
-        deploymentManifest.node.addDependency(waitForLBService);
-               
         
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
@@ -601,11 +536,10 @@ export class Services extends cdk.Stack {
 
 
         this.createOuputs(new Map(Object.entries({
-            'PetSiteECRImageURL': petSiteECRImageURL,
             'CWServiceAccountArn': cwserviceaccount.roleArn,
             'XRayServiceAccountArn': xrayserviceaccount.roleArn,
-            'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
+            'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             'PetSiteUrl': `http://${alb.loadBalancerDnsName}` 
         })));
 
@@ -626,7 +560,10 @@ export class Services extends cdk.Stack {
             '/petstore/rdssecretarn': `${instance.secret?.secretArn}`,
             '/petstore/rdsendpoint': instance.dbInstanceEndpointAddress,
             '/petstore/stackname': stackName,
-            '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`
+            '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
+            '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
+            '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
+            '/petstore/errormode1':"false"
         })));
 
         this.createOuputs(new Map(Object.entries({
