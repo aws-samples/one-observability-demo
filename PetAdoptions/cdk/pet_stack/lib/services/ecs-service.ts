@@ -15,7 +15,7 @@ export interface EcsServiceProps {
 
   disableService?: boolean,
   instrumentation?: string,
-
+  
   repositoryURI: string,
 }
 
@@ -91,28 +91,28 @@ export abstract class EcsService extends cdk.Construct {
       },
       image: ecs.ContainerImage.fromRegistry('amazon/aws-for-fluent-bit:2.10.0')
     })
-
+    
     // sidecar for instrumentation collecting
     switch(props.instrumentation) {
-
+      
       // we don't add any sidecar if instrumentation is none
       case "none": {
         break;
       }
-
+      
       // This collector would be used for both traces collected using
       // open telemetry or X-Ray
       case "otel": {
         this.addOtelCollectorContainer(this.taskDefinition, logging);
         break;
       }
-
+      
       // Default X-Ray traces collector
       case "xray": {
         this.addXRayContainer(this.taskDefinition, logging);
         break;
       }
-
+      
       // Default X-Ray traces collector
       // enabled by default
       default: {
@@ -137,7 +137,7 @@ export abstract class EcsService extends cdk.Construct {
       }
     }
   }
-
+  
   abstract createContainerImage(repositoryURI: string) : ecs.ContainerImage;
 
   private addXRayContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
@@ -151,7 +151,7 @@ export abstract class EcsService extends cdk.Construct {
       protocol: ecs.Protocol.UDP
     });
   }
-
+  
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
         image: ecs.ContainerImage.fromRegistry('amazon/aws-otel-collector'),
