@@ -178,7 +178,8 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             repositoryURI: repositoryURI,
-            database: instance
+            database: instance,
+            desiredTaskCount : 2
         });
         payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -198,7 +199,8 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             instrumentation: 'otel',
             repositoryURI: repositoryURI,
-            database: instance
+            database: instance,
+            desiredTaskCount: 2
         });
         listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -213,7 +215,8 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             repositoryURI: repositoryURI,
-            healthCheck: '/health/status'
+            healthCheck: '/health/status',
+            desiredTaskCount: 2
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -225,6 +228,7 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 512,
             instrumentation: 'none',
             repositoryURI: repositoryURI,
+            desiredTaskCount: 1
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
         

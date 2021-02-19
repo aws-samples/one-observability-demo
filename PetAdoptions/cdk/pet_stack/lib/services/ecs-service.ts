@@ -17,6 +17,8 @@ export interface EcsServiceProps {
   instrumentation?: string,
   
   repositoryURI: string,
+
+  desiredTaskCount: number
 }
 
 export abstract class EcsService extends cdk.Construct {
