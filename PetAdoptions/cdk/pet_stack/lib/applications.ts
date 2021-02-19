@@ -10,6 +10,8 @@ export class Applications extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope,id,props);
 
+    const stackName = id;
+
     const roleArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getParamClusterAdmin', { parameterName: "/eks/petsite/EKSMasterRoleArn"}).stringValue;
     const targetGroupArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getParamTargetGroupArn', { parameterName: "/eks/petsite/TargetGroupArn"}).stringValue;
     const oidcProviderUrl = ssm.StringParameter.fromStringParameterAttributes(this, 'getOIDCProviderUrl', { parameterName: "/eks/petsite/OIDCProviderUrl"}).stringValue;
@@ -83,15 +85,27 @@ export class Applications extends cdk.Stack {
         manifest: deploymentYaml
     });
 
+
+    this.createSsmParameters(new Map(Object.entries({
+        '/eks/petsite/stackname': stackName
+    })));
+
     this.createOuputs(new Map(Object.entries({
         'PetSiteECRImageURL': petSiteECRImageURL,
         'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
     })));   
   }
 
-  private createOuputs(params: Map<string, string>) {
+  private createSsmParameters(params: Map<string, string>) {
+    params.forEach((value, key) => {
+        //const id = key.replace('/', '_');
+        new ssm.StringParameter(this, key, { parameterName: key, stringValue: value });
+    });
+    } 
+
+    private createOuputs(params: Map<string, string>) {
     params.forEach((value, key) => {
         new cdk.CfnOutput(this, key, { value: value })
     });
-} 
+    }
 }
