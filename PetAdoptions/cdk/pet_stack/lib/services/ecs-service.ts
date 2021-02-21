@@ -128,7 +128,7 @@ export abstract class EcsService extends cdk.Construct {
         cluster: props.cluster,
         taskDefinition: this.taskDefinition,
         publicLoadBalancer: true,
-        desiredCount: 2,
+        desiredCount: props.desiredTaskCount,
         listenerPort: 80
       })
 
