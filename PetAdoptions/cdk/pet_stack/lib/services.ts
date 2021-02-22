@@ -165,7 +165,7 @@ export class Services extends cdk.Stack {
 
         const rdsAccessPolicy = iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonRDSFullAccess', 'arn:aws:iam::aws:policy/AmazonRDSFullAccess');
         
-        const repositoryURI = "public.ecr.aws/t6p7v1e8";
+        const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
