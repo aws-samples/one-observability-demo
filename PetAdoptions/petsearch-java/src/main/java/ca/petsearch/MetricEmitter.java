@@ -4,7 +4,6 @@ import io.opentelemetry.api.common.Labels;
 import io.opentelemetry.api.metrics.*;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.api.trace.TracerProvider;
 
 public class MetricEmitter {
 
@@ -21,10 +20,10 @@ public class MetricEmitter {
 
     private Tracer tracer;
 
-    public MetricEmitter() {
+    public MetricEmitter(Tracer tracer) {
         Meter meter = GlobalMetricsProvider.getMeter("aws-otel", "1.0");
 
-        tracer = TracerProvider.getDefault().get("aws-otel", "1.0");
+        this.tracer = tracer;
 
         System.out.println("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
 
