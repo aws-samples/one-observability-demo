@@ -114,7 +114,7 @@ export class Services extends cdk.Stack {
             vpc: theVPC
         });
 
-        rdssecuritygroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(1433), 'allow MSSQL access from the world');
+        rdssecuritygroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(1433), 'Allow MSSQl access from within the VPC CIDR range');
 
         var rdsUsername = this.node.tryGetContext('rdsusername');
         if (rdsUsername == undefined)
@@ -165,7 +165,7 @@ export class Services extends cdk.Stack {
 
         const rdsAccessPolicy = iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonRDSFullAccess', 'arn:aws:iam::aws:policy/AmazonRDSFullAccess');
         
-        const repositoryURI = "public.ecr.aws/t6p7v1e8";
+        const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
@@ -178,9 +178,10 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             repositoryURI: repositoryURI,
-            database: instance
+            database: instance,
+            desiredTaskCount : 2
         });
-        payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
+        //payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
 
@@ -198,9 +199,10 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             instrumentation: 'otel',
             repositoryURI: repositoryURI,
-            database: instance
+            database: instance,
+            desiredTaskCount: 2
         });
-        listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
+       // listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         
         // PetSearch service definitions-----------------------------------------------------------------------
@@ -213,7 +215,8 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             repositoryURI: repositoryURI,
-            healthCheck: '/health/status'
+            healthCheck: '/health/status',
+            desiredTaskCount: 2
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -225,6 +228,7 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 512,
             instrumentation: 'none',
             repositoryURI: repositoryURI,
+            desiredTaskCount: 1
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
         
@@ -237,7 +241,7 @@ export class Services extends cdk.Stack {
         const stack = cdk.Stack.of(this);
         const region = stack.region;
 
-        const albSG = new ec2.SecurityGroup(this,'ALBSecurityGrouo',{
+        const albSG = new ec2.SecurityGroup(this,'ALBSecurityGroup',{
             vpc: theVPC,
             securityGroupName: 'ALBSecurityGroup',
             allowAllOutbound: true
