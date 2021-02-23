@@ -69,7 +69,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
 
   private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayers: lambda.ILayerVersion[]) {
     var pythonFn = new pythonlambda.PythonFunction(this, lambdaFileName, {
-      entry: '../pet_stack/resources/',
+      entry: './resources/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_8,
