@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/kit/log"
@@ -24,6 +25,7 @@ type Repository interface {
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
+	ErrorModeOn(ctx context.Context) bool
 }
 
 type Config struct {
@@ -201,4 +203,23 @@ func (r *repo) fetchSeedData() (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func (r *repo) ErrorModeOn(ctx context.Context) bool {
+
+	svc := ssm.New(session.New(&aws.Config{Region: aws.String(r.cfg.AWSRegion)}))
+
+	res, err := svc.GetParameterWithContext(ctx, &ssm.GetParameterInput{
+		Name: aws.String("/petstore/errormode1"),
+	})
+
+	if err != nil {
+		return false
+	}
+
+	if aws.StringValue(res.Parameter.Value) == "true" {
+		return true
+	}
+
+	return false
 }
