@@ -36,22 +36,24 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Bean
     public AmazonS3 amazonS3() {
-        return AmazonS3ClientBuilder.standard()
+        return withLocalEndpoint(AmazonS3ClientBuilder.standard())
                 .build();
     }
 
     @Bean
     public AmazonDynamoDB amazonDynamoDB() {
-        return endpoint.isEmpty() ? AmazonDynamoDBClientBuilder.standard()
-                .build() : AmazonDynamoDBClientBuilder.standard().withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))
+        return withLocalEndpoint(AmazonDynamoDBClientBuilder.standard())
                 .build();
     }
 
     @Bean
     public AWSSimpleSystemsManagement awsSimpleSystemsManagement() {
-        return endpoint.isEmpty() ? AWSSimpleSystemsManagementClientBuilder.standard()
-                .build() : AWSSimpleSystemsManagementClientBuilder.standard().withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))
+        return withLocalEndpoint(AWSSimpleSystemsManagementClientBuilder.standard())
                 .build();
+    }
+
+    private <Subclass extends AwsClientBuilder<Subclass, ?>> Subclass withLocalEndpoint(Subclass builder) {
+        return endpoint.isEmpty() ? builder : builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region));
     }
 
     @Bean
