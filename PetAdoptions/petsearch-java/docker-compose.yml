@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    environment:
+      - AWS_DEFAULT_REGION=eu-central-1
+      - EDGE_PORT=4566
+      - SERVICES=dynamodb,s3,ssm
+    ports:
+      - '4566:4566'
+    volumes:
+      - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  setup:
+    image: mesosphere/aws-cli
+    environment:
+      - AWS_ACCESS_KEY_ID=dummyaccess
+      - AWS_SECRET_ACCESS_KEY=dummysecret
+      - AWS_DEFAULT_REGION=eu-central-1
+    entrypoint: /bin/sh -c
+    command: >
+      "
+        sleep 10;
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://petsearch;
+        aws --endpoint-url=http://localstack:4566 ssm put-parameter --name /petstore/dynamodbtablename --type String --value petsearch;
+        aws --endpoint-url=http://localstack:4566 ssm put-parameter --name /petstore/s3bucketname --type String --value petsearch;
+        aws --endpoint-url=http://localstack:4566 dynamodb create-table --table-name petsearch --key-schema AttributeName=petid,KeyType=HASH --attribute-definitions AttributeName=petid,AttributeType=S --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5;
+      "
+    depends_on:
+      - localstack
+
+  collector:
+    image: public.ecr.aws/aws-observability/aws-otel-collector:latest
+    command: ["--config=/etc/ecs/ecs-default-config.yaml", "--log-level=INFO"]
+    environment:
+      - AWS_DEFAULT_REGION=eu-central-1
+      - AWS_ACCESS_KEY=dummyaccess
+      - AWS_SECRET_KEY=dummysecret
+      - AWS_REGION=eu-central-1
+    ports:
+      - "1777:1777"   # pprof extension
+      - "55679:55679" # zpages extension
+      - "13133"       # health_check
+      - "4317"
+
+  pet-search:
+    build: .
+    environment:
+      - AWS_REGION=eu-central-1
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:55680
+      - AWS_ACCESS_KEY=dummyaccess
+      - AWS_SECRET_KEY=dummysecret
+    ports:
+      - "8080:80"
+    depends_on:
+      - setup
+      - collector
+    entrypoint: /bin/sh -c
+    command: >
+      "
+        cat /etc/resolv.conf;
+        java -jar /app/app.jar \\
+          --cloud.aws.region.static="eu-central-1" \\
+          --spring.autoconfigure.exclude="org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration" \\
+          --aws.local.endpoint=http://localstack:4566
+      "
+
+
+
