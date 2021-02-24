@@ -27,6 +27,9 @@ services:
         aws --endpoint-url=http://localstack:4566 ssm put-parameter --name /petstore/dynamodbtablename --type String --value petsearch;
         aws --endpoint-url=http://localstack:4566 ssm put-parameter --name /petstore/s3bucketname --type String --value petsearch;
         aws --endpoint-url=http://localstack:4566 dynamodb create-table --table-name petsearch --key-schema AttributeName=petid,KeyType=HASH --attribute-definitions AttributeName=petid,AttributeType=S --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5;
+        aws --endpoint-url=http://localstack:4566 dynamodb put-item --table-name petsearch --item '{\"petid\":{\"S\":\"aaaa\"},\"pettype\":{\"S\":\"kitten\"},\"petcolor\":{\"S\":\"braun\"},\"availability\":{\"S\":\"now\"},\"cuteness_rate\":{\"S\":\"high\"},\"price\":{\"S\":\"200\"},\"image\":{\"S\":\"k1\"}}';
+        aws --endpoint-url=http://localstack:4566 dynamodb put-item --table-name petsearch --item '{\"petid\":{\"S\":\"bbbb\"},\"pettype\":{\"S\":\"bunny\"},\"petcolor\":{\"S\":\"black\"},\"availability\":{\"S\":\"now\"},\"cuteness_rate\":{\"S\":\"high\"},\"price\":{\"S\":\"150\"},\"image\":{\"S\":\"b1\"}}';
+        aws --endpoint-url=http://localstack:4566 dynamodb put-item --table-name petsearch --item '{\"petid\":{\"S\":\"cccc\"},\"pettype\":{\"S\":\"puppy\"},\"petcolor\":{\"S\":\"white\"},\"availability\":{\"S\":\"now\"},\"cuteness_rate\":{\"S\":\"high\"},\"price\":{\"S\":\"500\"},\"image\":{\"S\":\"p1\"}}';
       "
     depends_on:
       - localstack
@@ -60,7 +63,6 @@ services:
     entrypoint: /bin/sh -c
     command: >
       "
-        cat /etc/resolv.conf;
         java -jar /app/app.jar \\
           --cloud.aws.region.static="eu-central-1" \\
           --spring.autoconfigure.exclude="org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration" \\
