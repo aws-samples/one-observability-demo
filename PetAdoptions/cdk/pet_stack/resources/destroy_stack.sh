@@ -29,11 +29,16 @@ echo -----------------------------
 STACK_NAME=$(aws ssm get-parameter --name '/petstore/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
 STACK_NAME_APP=$(aws ssm get-parameter --name '/eks/petsite/stackname' --region $AWS_REGION | jq .Parameter.Value -r)
 
-# Delete the ECS Prometheus agent stack
-aws cloudformation delete-stack --stack-name CWProm-ECS-${PETSITE_ECS_CLUSTER}
+# Set default name in case Parameters are gone (partial deletion)
+if [ -z $STACK_NAME ]; then STACK_NAME="Services"; fi
+if [ -z $STACK_NAME_APP ]; then STACK_NAME_APP="Applications"; fi 
 
-# Get rid of all resources
-cdk destroy $STACK_NAME_APP --force
+# Fix for CDK teardown issues
+aws eks update-kubeconfig --name PetSite
+kubectl delete -f ./resources/load_balancer/crds.yaml
+
+# Get rid of all resources (Application first, then cluster or it will fail)
+cdk destroy $STACK_NAME_APP $STACK_NAME --force
 cdk destroy $STACK_NAME --force
 
 # Sometimes the SqlSeeder doesn't get deleted cleanly. This helps clean up the environment completely including Sqlseeder
