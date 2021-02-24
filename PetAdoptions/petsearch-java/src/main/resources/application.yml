@@ -4,10 +4,3 @@ spring:
 
 server:
   port: 80
-
-logging:
-  level:
-    com:
-      amazonaws:
-        util:
-          EC2MetadataUtils: error
