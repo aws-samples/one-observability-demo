@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/gorilla/mux"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
 
 func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	r := mux.NewRouter()
+
+	//Use open telementry instrumentation provided by gorilla
+	r.Use(otelmux.Middleware("petlistadoptions"))
+
 	e := MakeEndpoints(s)
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
@@ -27,22 +30,16 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	r.Methods("GET").Path("/health/status").Handler(httptransport.NewServer(
 		e.HealthCheckEndpoint,
 		decodeEmptyRequest,
-		encodeEmptyResponse,
+		encodeResponse,
 		options...,
 	))
 
-	// using xray as wrapper for http.Handler
-	r.Methods("GET").Path("/api/adoptionlist/").Handler(
-		xray.Handler(
-			xray.NewFixedSegmentNamer("petlistadoptions"),
-			httptransport.NewServer(
-				e.ListAdoptionsEndpoint,
-				decodeEmptyRequest,
-				encodeResponse,
-				options...,
-			),
-		),
-	)
+	r.Methods("GET").Path("/api/adoptionlist/").Handler(httptransport.NewServer(
+		e.ListAdoptionsEndpoint,
+		decodeEmptyRequest,
+		encodeResponse,
+		options...,
+	))
 
 	return r
 }

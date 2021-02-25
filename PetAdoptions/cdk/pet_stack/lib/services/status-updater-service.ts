@@ -29,7 +29,7 @@ export class StatusUpdaterService extends cdk.Construct {
 
     const lambdaFunction = new lambda.Function(this, 'lambdafn', {
         runtime: lambda.Runtime.NODEJS_12_X,    // execution environment
-        code: lambda.Code.fromAsset('../../petstatusupdater/function.zip'), 
+        code: lambda.Code.fromAsset('./resources/function.zip'), // Copy from Lambda folder or move here!!
         handler: 'index.handler',
         tracing: lambda.Tracing.ACTIVE,
         role: lambdaRole,

@@ -56,6 +56,14 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		),
 	)
 
+	// Trigger DDB seeding
+	r.Methods("POST").Path("/api/home/triggerseeding").Handler(httptransport.NewServer(
+		e.TriggerSeedingEndpoint,
+		decodeEmptyRequest,
+		encodeEmptyResponse,
+		options...,
+	))
+
 	return r
 }
 

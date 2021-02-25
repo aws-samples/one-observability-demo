@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Hosting;
 
 namespace trafficgenerator
 {
@@ -12,12 +13,17 @@ namespace trafficgenerator
     {
         public static void Main(string[] args)
         {
+            CreateWebBuilder(args).Build().RunAsync();
             CreateHostBuilder(args).Build().Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureServices((hostContext, services) => { services.AddHostedService<Worker>(); })
+                .ConfigureServices((hostContext, services) => 
+                { 
+                    services.AddHostedService<Worker>(); 
+
+                })
                 .ConfigureAppConfiguration((hostingContext, config) =>
                 {
                     var env = hostingContext.HostingEnvironment;
@@ -33,6 +39,16 @@ namespace trafficgenerator
                             configureSource.Optional = true;
                             configureSource.ReloadAfter = TimeSpan.FromMinutes(5);
                         });
+
+                    
                 });
+
+        public static IHostBuilder CreateWebBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(web => 
+                {
+                    web.UseStartup<Startup>();
+                });
+            
     }
 }
