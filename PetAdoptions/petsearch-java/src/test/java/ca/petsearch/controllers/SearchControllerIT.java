@@ -1,14 +1,27 @@
 package ca.petsearch.controllers;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
-import org.junit.jupiter.api.*;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -22,9 +35,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.*;
 
 @Testcontainers
+@ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(AWSTestConfig.class)
 @Tag("integration")
+@TestPropertySource(properties = {"AWS_REGION=us-east-2"})
 public class SearchControllerIT {
 
     private static final String BUCKET_NAME = "petsearch";
@@ -46,7 +60,7 @@ public class SearchControllerIT {
     private String bunnyId;
 
     @Container
-    static LocalStackContainer localStack = new LocalStackContainer("0.10.0")
+    public static LocalStackContainer localStack = new LocalStackContainer("0.10.0")
             .withServices(S3, DYNAMODB, SSM)
             .withEnv("DEFAULT_REGION", "us-east-2");
 
@@ -60,7 +74,6 @@ public class SearchControllerIT {
                 "--provisioned-throughput", "ReadCapacityUnits=5,WriteCapacityUnits=5");
 
         localStack.execInContainer("awslocal", "s3", "mb", "s3://" + BUCKET_NAME);
-
     }
 
     @BeforeEach
@@ -169,5 +182,37 @@ public class SearchControllerIT {
                 String.class))
                 .contains("petid", "availability", "petcolor", "peturl", puppyId)
                 .doesNotContain(kittenId, bunnyId);
+    }
+
+    @TestConfiguration
+    static class AWSTestConfig {
+
+        @Bean
+        @Primary
+        public AmazonS3 amazonS3() {
+            return AmazonS3ClientBuilder.standard()
+                    .withCredentials(localStack.getDefaultCredentialsProvider())
+                    .withEndpointConfiguration(localStack.getEndpointConfiguration(S3))
+                    .build();
+        }
+
+        @Bean
+        @Primary
+        public AmazonDynamoDB amazonDynamoDB() {
+            return AmazonDynamoDBClientBuilder.standard()
+                    .withCredentials(localStack.getDefaultCredentialsProvider())
+                    .withEndpointConfiguration(localStack.getEndpointConfiguration(DYNAMODB))
+                    .build();
+        }
+
+        @Bean
+        @Primary
+        public AWSSimpleSystemsManagement awsSimpleSystemsManagement() {
+            return AWSSimpleSystemsManagementClientBuilder.standard()
+                    .withCredentials(localStack.getDefaultCredentialsProvider())
+                    .withEndpointConfiguration(localStack.getEndpointConfiguration(SSM))
+                    .build();
+        }
+
     }
 }

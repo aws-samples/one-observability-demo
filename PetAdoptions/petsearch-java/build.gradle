@@ -16,7 +16,7 @@ repositories {
 ext {
     set('springCloudVersion', "Hoxton.SR10")
     set('testContainerVersion', '1.13.0')
-    set('opentelemetryVersion', '0.13.1')
+    set('opentelemetryVersion', '0.15.0')
 }
 
 dependencies {
@@ -28,11 +28,10 @@ dependencies {
     implementation 'com.amazonaws:aws-java-sdk-s3'
     implementation 'com.amazonaws:aws-java-sdk-dynamodb'
     implementation 'com.amazonaws:aws-java-sdk-ssm'
+    implementation 'com.amazonaws:aws-java-sdk-sqs'
 
-    implementation "io.opentelemetry:opentelemetry-sdk:${opentelemetryVersion}"
-    implementation "io.opentelemetry:opentelemetry-exporter-otlp:${opentelemetryVersion}"
-    implementation "io.opentelemetry.instrumentation:opentelemetry-otlp-exporter-starter:${opentelemetryVersion}"
-    implementation "io.opentelemetry.instrumentation:opentelemetry-aws-sdk-2.2:${opentelemetryVersion}"
+    implementation "io.opentelemetry:opentelemetry-api:${opentelemetryVersion}"
+    implementation "io.opentelemetry:opentelemetry-api-metrics:${opentelemetryVersion}-alpha"
 
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'

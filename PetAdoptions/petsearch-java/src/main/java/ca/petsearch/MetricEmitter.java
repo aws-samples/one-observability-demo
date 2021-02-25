@@ -4,9 +4,13 @@ import io.opentelemetry.api.common.Labels;
 import io.opentelemetry.api.metrics.*;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.api.trace.TracerProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 public class MetricEmitter {
+
+    private Logger logger = LoggerFactory.getLogger(MetricEmitter.class);
 
     static final String DIMENSION_API_NAME = "apiName";
     static final String DIMENSION_STATUS_CODE = "statusCode";
@@ -21,12 +25,12 @@ public class MetricEmitter {
 
     private Tracer tracer;
 
-    public MetricEmitter() {
+    public MetricEmitter(Tracer tracer) {
         Meter meter = GlobalMetricsProvider.getMeter("aws-otel", "1.0");
 
-        tracer = TracerProvider.getDefault().get("aws-otel", "1.0");
+        this.tracer = tracer;
 
-        System.out.println("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
+        logger.debug("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
 
         String latencyMetricName = API_LATENCY_METRIC;
         String apiBytesSentMetricName = API_COUNTER_METRIC;
@@ -70,7 +74,7 @@ public class MetricEmitter {
      * @param statusCode
      */
     public void emitReturnTimeMetric(Long returnTime, String apiName, String statusCode) {
-        System.out.println(
+        logger.debug(
                 "emit metric with return time " + returnTime + "ms, " + apiName + ", status code:" + statusCode);
         apiLatencyRecorder.record(
                 returnTime, Labels.of(DIMENSION_API_NAME, apiName, DIMENSION_STATUS_CODE, statusCode));
@@ -84,7 +88,7 @@ public class MetricEmitter {
      * @param statusCode
      */
     public void emitBytesSentMetric(int bytes, String apiName, String statusCode) {
-        System.out.println("emit metric with http request size " + bytes + " bytes, " + apiName);
+        logger.debug("emit metric with http request size " + bytes + " bytes, " + apiName);
         apiBytesSentCounter.add(
                 bytes, Labels.of(DIMENSION_API_NAME, apiName, DIMENSION_STATUS_CODE, statusCode));
     }
