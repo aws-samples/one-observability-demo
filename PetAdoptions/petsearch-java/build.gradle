@@ -28,6 +28,7 @@ dependencies {
     implementation 'com.amazonaws:aws-java-sdk-s3'
     implementation 'com.amazonaws:aws-java-sdk-dynamodb'
     implementation 'com.amazonaws:aws-java-sdk-ssm'
+    implementation 'com.amazonaws:aws-java-sdk-sqs'
 
     implementation "io.opentelemetry:opentelemetry-api:${opentelemetryVersion}"
     implementation "io.opentelemetry:opentelemetry-api-metrics:${opentelemetryVersion}-alpha"
