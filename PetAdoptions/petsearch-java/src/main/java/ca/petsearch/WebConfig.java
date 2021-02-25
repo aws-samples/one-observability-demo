@@ -7,8 +7,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.instrumentation.spring.autoconfigure.EnableOpenTelemetryTracing;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -17,12 +17,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 
-
 @Configuration
-@EnableOpenTelemetryTracing
 public class WebConfig implements WebMvcConfigurer {
-
-    private final Tracer tracer;
 
     @Value("${aws.local.endpoint:#{null}}")
     private String endpoint = "";
@@ -30,8 +26,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${cloud.aws.region.static:#{null}}")
     private String region = "";
 
-    public WebConfig(Tracer tracer) {
-        this.tracer = tracer;
+    @Bean
+    public Tracer tracer() {
+        return GlobalOpenTelemetry.get().getTracer("petsearch");
     }
 
     @Bean
@@ -57,14 +54,14 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public MetricEmitter metricEmitter() {
+    public MetricEmitter metricEmitter(Tracer tracer) {
         return new MetricEmitter(tracer);
     }
 
     @Bean
-    public FilterRegistrationBean<ApplicationFilter> filterRegistrationBean() {
+    public FilterRegistrationBean<ApplicationFilter> filterRegistrationBean(MetricEmitter metricEmitter) {
         FilterRegistrationBean<ApplicationFilter> filterBean = new FilterRegistrationBean<>();
-        filterBean.setFilter(new ApplicationFilter(metricEmitter()));
+        filterBean.setFilter(new ApplicationFilter(metricEmitter));
         filterBean.setUrlPatterns(Arrays.asList("/api/search"));
         return filterBean;
     }
