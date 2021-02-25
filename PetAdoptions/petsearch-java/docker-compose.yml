@@ -38,10 +38,10 @@ services:
     image: public.ecr.aws/aws-observability/aws-otel-collector:latest
     command: ["--config=/etc/ecs/ecs-default-config.yaml", "--log-level=INFO"]
     environment:
-      - AWS_DEFAULT_REGION=eu-central-1
-      - AWS_ACCESS_KEY=dummyaccess
-      - AWS_SECRET_KEY=dummysecret
-      - AWS_REGION=eu-central-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY
+      - AWS_SECRET_KEY
+      - AWS_REGION=us-east-1
     ports:
       - "1777:1777"   # pprof extension
       - "55679:55679" # zpages extension

@@ -12,7 +12,7 @@ FROM amazoncorretto:15-alpine
 WORKDIR /app
 
 ADD https://github.com/aws-observability/aws-otel-java-instrumentation/releases/download/v0.15.0-aws.1/aws-opentelemetry-agent.jar /app/aws-opentelemetry-agent.jar
-ENV JAVA_TOOL_OPTIONS "-javaagent:/app/aws-opentelemetry-agent.jar"
+ENV JAVA_TOOL_OPTIONS "-javaagent:/app/aws-opentelemetry-agent.jar -Dotel.javaagent.debug=true"
 
 ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
