@@ -62,7 +62,7 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: iamproxy-service-account
+  name: amp-iamproxy-service-account
   namespace: prometheus
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::$AWS_ACCOUNT_ID:role/EKS-AMP-ServiceAccount-Role
@@ -96,7 +96,7 @@ metadata:
   name: adotcol-admin-role-binding
 subjects:
   - kind: ServiceAccount
-    name: iamproxy-service-account
+    name: amp-iamproxy-service-account
     namespace: prometheus
 roleRef:
   kind: ClusterRole
@@ -140,7 +140,7 @@ spec:
         app: aws-adot
         component: adot-collector
     spec:
-      serviceAccountName: iamproxy-service-account
+      serviceAccountName: amp-iamproxy-service-account
       containers:
       - command:
           - "/awscollector"
