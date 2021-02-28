@@ -1,0 +1,53 @@
+## The following is a set of default values for prometheus server helm chart which enable remoteWrite to AMP
+## For the rest of prometheus helm chart values see: https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
+##
+serviceAccounts:
+  ## Disable alert manager roles
+  ##
+  server:
+        name: "amp-iamproxy-service-account"
+  alertmanager:
+    create: false
+
+  ## Disable pushgateway
+  ##
+  pushgateway:
+    create: false
+
+server:
+  ## Add sigv4 container to prometheus server
+  ##
+  sidecarContainers:
+    aws-sigv4-proxy-sidecar:
+      image: public.ecr.aws/aws-observability/aws-sigv4-proxy:1.0
+      ports:
+       - name: aws-sigv4-proxy
+         containerPort: 8005
+
+  ## Use a statefulset instead of a deployment for resiliency
+  ##
+  statefulSet:
+    enabled: true
+
+  ## Store blocks locally for short time period only
+  ##
+  retention: 1h
+  
+  ## Remote write to AMP using sigv4 sidecar container
+  ## See for details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write
+  ## 
+  remoteWrite:
+    - queue_config:
+        max_samples_per_send: 1000
+        max_shards: 200
+        capacity: 2500
+
+## Disable alert manager
+##
+alertmanager:
+  enabled: false
+
+## Disable pushgateway
+##
+pushgateway:
+  enabled: false
