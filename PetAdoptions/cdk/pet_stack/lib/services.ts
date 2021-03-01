@@ -216,7 +216,8 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             repositoryURI: repositoryURI,
             healthCheck: '/health/status',
-            desiredTaskCount: 2
+            desiredTaskCount: 2,
+            instrumentation: 'otel'
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
