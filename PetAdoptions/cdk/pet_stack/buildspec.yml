@@ -7,8 +7,8 @@ phases:
       - npm install aws-cdk -g
       - npm install
       - CDK_STACK=$(aws cloudformation list-stacks --query 'StackSummaries[?(StackName==`CDKToolkit` && StackStatus==`CREATE_COMPLETE`)].StackId' --output text)
-      - wget -O resources/aws-distro-for-opentelemetry-python-38-preview.zip https://github.com/aws-samples/one-observability-demo/raw/autodeploy/PetAdoptions/cdk/pet_stack/resources/aws-distro-for-opentelemetry-python-38-preview.zip 
-      - wget -O resources/function.zip https://github.com/aws-samples/one-observability-demo/raw/autodeploy/PetAdoptions/petstatusupdater/function.zip
+      - wget -O resources/aws-distro-for-opentelemetry-python-38-preview.zip https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/cdk/pet_stack/resources/aws-distro-for-opentelemetry-python-38-preview.zip
+      - wget -O resources/function.zip https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/petstatusupdater/function.zip
       - ls -al resources/*.zip
   build:
     commands:
