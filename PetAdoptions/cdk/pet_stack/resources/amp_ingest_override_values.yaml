@@ -1,177 +1,53 @@
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: adot-collector-conf
-  namespace: prometheus
-  labels:
-    app: aws-adot
-    component: adot-collector-conf
-data:
-  adot-collector-config: |
-    receivers:
-      prometheus:
-        config:
-          global:
-            scrape_interval: 15s
-            scrape_timeout: 10s
+## The following is a set of default values for prometheus server helm chart which enable remoteWrite to AMP
+## For the rest of prometheus helm chart values see: https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus/values.yaml
+##
+serviceAccounts:
+  ## Disable alert manager roles
+  ##
+  server:
+        name: "amp-iamproxy-service-account"
+  alertmanager:
+    create: false
 
-          scrape_configs:
-          - job_name: 'kubernetes-service-endpoints'
+  ## Disable pushgateway
+  ##
+  pushgateway:
+    create: false
 
-            kubernetes_sd_configs:
-            - role: endpoints
+server:
+  ## Add sigv4 container to prometheus server
+  ##
+  sidecarContainers:
+    aws-sigv4-proxy-sidecar:
+      image: public.ecr.aws/aws-observability/aws-sigv4-proxy:1.0
+      ports:
+       - name: aws-sigv4-proxy
+         containerPort: 8005
 
-            tls_config:
-              ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-              insecure_skip_verify: true
-            bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  ## Use a statefulset instead of a deployment for resiliency
+  ##
+  statefulSet:
+    enabled: true
 
-            relabel_configs:
-            - source_labels: [__meta_kubernetes_service_annotation_scrape]
-              action: keep
-              regex: true
+  ## Store blocks locally for short time period only
+  ##
+  retention: 1h
+  
+  ## Remote write to AMP using sigv4 sidecar container
+  ## See for details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write
+  ## 
+  remoteWrite:
+    - queue_config:
+        max_samples_per_send: 1000
+        max_shards: 200
+        capacity: 2500
 
-    exporters:
-      awsprometheusremotewrite:
-        # replace this with your endpoint
-        endpoint: "<AMP_REMOTE_WRITE_URL>"
-        # replace this with your region
-        aws_auth:
-          region: "us-east-1"
-          service: "aps"
-        namespace: "adot"
-      logging:
-        loglevel: debug
+## Disable alert manager
+##
+alertmanager:
+  enabled: false
 
-    extensions:
-      health_check:
-      pprof:
-        endpoint: :1888
-      zpages:
-        endpoint: :55679
-
-    service:
-      extensions: [pprof, zpages, health_check]
-      pipelines:
-        metrics:
-          receivers: [prometheus]
-          exporters: [logging, awsprometheusremotewrite]
----
-# create adot-col service account and role binding
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: amp-iamproxy-service-account
-  namespace: prometheus
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/EKS-AMP-ServiceAccount-Role
-
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: adotcol-admin-role
-rules:
-  - apiGroups: [""]
-    resources:
-    - nodes
-    - nodes/proxy
-    - services
-    - endpoints
-    - pods
-    verbs: ["get", "list", "watch"]
-  - apiGroups:
-    - extensions
-    resources:
-    - ingresses
-    verbs: ["get", "list", "watch"]
-  - nonResourceURLs: ["/metrics"]
-    verbs: ["get"]
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: adotcol-admin-role-binding
-subjects:
-  - kind: ServiceAccount
-    name: amp-iamproxy-service-account
-    namespace: prometheus
-roleRef:
-  kind: ClusterRole
-  name: adotcol-admin-role
-  apiGroup: rbac.authorization.k8s.io
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: adot-collector
-  namespace: prometheus
-  labels:
-    app: aws-adot
-    component: adot-collector
-spec:
-  ports:
-  - name: metrics # Default endpoint for querying metrics.
-    port: 8888
-  selector:
-    component: adot-collector
-  type: NodePort
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: adot-collector
-  namespace: prometheus
-  labels:
-    app: aws-adot
-    component: adot-collector
-spec:
-  selector:
-    matchLabels:
-      app: aws-adot
-      component: adot-collector
-  minReadySeconds: 5
-  template:
-    metadata:
-      labels:
-        app: aws-adot
-        component: adot-collector
-    spec:
-      serviceAccountName: amp-iamproxy-service-account
-      containers:
-      - command:
-          - "/awscollector"
-          - "--config=/conf/adot-collector-config.yaml"
-        image: public.ecr.aws/aws-observability/aws-otel-collector:latest
-        name: adot-collector
-        resources:
-          limits:
-            cpu: 1
-            memory: 2Gi
-          requests:
-            cpu: 200m
-            memory: 400Mi
-        ports:
-        - containerPort: 8888  # Default endpoint for querying metrics.
-        volumeMounts:
-        - name: adot-collector-config-vol
-          mountPath: /conf
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 13133 # Health Check extension default port.
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 13133 # Health Check extension default port.
-      volumes:
-        - configMap:
-            name: adot-collector-conf
-            items:
-              - key: adot-collector-config
-                path: adot-collector-config.yaml
-          name: adot-collector-config-vol
----
+## Disable pushgateway
+##
+pushgateway:
+  enabled: false
