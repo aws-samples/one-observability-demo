@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Cloud9 For Observability Workshop Aug,21,2020
+Description: Cloud9 For Observability Workshop
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
