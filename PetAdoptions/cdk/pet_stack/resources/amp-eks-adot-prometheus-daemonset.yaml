@@ -38,7 +38,7 @@ data:
         endpoint: "<AMP_REMOTE_WRITE_URL>"
         # replace this with your region
         aws_auth:
-          region: "us-east-1"
+          region: "<AWS_REGION>"
           service: "aps"
         namespace: "adot"
       logging:
@@ -65,7 +65,7 @@ metadata:
   name: amp-iamproxy-service-account
   namespace: prometheus
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/EKS-AMP-ServiceAccount-Role
+    eks.amazonaws.com/role-arn: arn:aws:iam::<AWS_ACCOUNT_ID>:role/amp-iamproxy-ingest-role
 
 ---
 kind: ClusterRole
