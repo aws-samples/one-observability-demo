@@ -123,7 +123,7 @@ export class Services extends cdk.Stack {
         }
         const instance = new rds.DatabaseInstance(this, 'Instance', {
             engine: rds.DatabaseInstanceEngine.sqlServerWeb({version:rds.SqlServerEngineVersion.VER_15} ),
-            instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
             credentials:{username:rdsUsername},
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             deletionProtection: false,
