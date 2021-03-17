@@ -17,6 +17,7 @@ import (
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	otelxray "go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp"
@@ -49,18 +50,13 @@ func init() {
 	// AWS X-Ray traceID format
 	idg := otelxray.NewIDGenerator()
 
-	// Implement when issue is closed
-	// https://github.com/aws-observability/aws-otel-go/issues/16
+	// ECS plugin on XRay service map
+	ecsResourceDetector := ecs.NewResourceDetector()
+	ecsResource, err := ecsResourceDetector.Detect(ctx)
 
-	/*
-		ecsResourceDetector := new(ecs.ResourceDetector)
-		ecsResource, err := ecsResourceDetector.Detect(ctx)
-
-
-
-		if err != nil {
-			fmt.Println("ECS Resource detection error:", err)
-		}
+	if err != nil {
+		fmt.Println("ECS Resource detection error:", err)
+	}
 	//*/
 
 	tracesNameResource, _ := resource.New(ctx,
@@ -70,14 +66,16 @@ func init() {
 		),
 	)
 
+	// merge custom reources together
+	ecsNamedResource := resource.Merge(ecsResource, tracesNameResource)
+
 	// Create a new TraceProvider struct passing in the config, the exporter
 	// and the ID Generator we want to use for our tracing
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(cfg),
 		sdktrace.WithSyncer(exporter),
 		sdktrace.WithIDGenerator(idg),
-		sdktrace.WithResource(tracesNameResource),
-		//sdktrace.WithResource(ecsResource),
+		sdktrace.WithResource(ecsNamedResource),
 	)
 	// Set the traceprovider and the propagator we want to use
 	otel.SetTracerProvider(tp)
