@@ -288,7 +288,7 @@ export class Services extends cdk.Stack {
             clusterName: 'PetSite',
             mastersRole: clusterAdmin,
             vpc: theVPC,
-            version: KubernetesVersion.V1_18
+            version: KubernetesVersion.V1_19
         });         
         
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
