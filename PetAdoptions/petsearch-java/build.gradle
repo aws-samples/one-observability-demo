@@ -38,6 +38,8 @@ dependencies {
     }
     testImplementation "org.testcontainers:localstack:${testContainerVersion}"
     testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
+    testImplementation group: 'io.vavr', name: 'vavr-test', version: '0.10.3'
+
 }
 
 dependencyManagement {

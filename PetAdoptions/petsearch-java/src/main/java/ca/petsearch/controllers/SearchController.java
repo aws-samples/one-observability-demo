@@ -1,6 +1,7 @@
 package ca.petsearch.controllers;
 
 import ca.petsearch.MetricEmitter;
+import ca.petsearch.RandomNumberGenerator;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -14,6 +15,8 @@ import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Scope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +29,9 @@ import java.util.stream.Collectors;
 public class SearchController {
     public static final String BUCKET_NAME = "/petstore/s3bucketname";
     public static final String DYNAMODB_TABLENAME = "/petstore/dynamodbtablename";
+    private final RandomNumberGenerator randomGenerator;
+
+    private Logger logger = LoggerFactory.getLogger(SearchController.class);
 
     private final AmazonS3 s3Client;
     private final AmazonDynamoDB ddbClient;
@@ -33,11 +39,12 @@ public class SearchController {
     private final MetricEmitter metricEmitter;
     private Map<String, String> paramCache = new HashMap<>();
 
-    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter) {
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter, RandomNumberGenerator randomGenerator) {
         this.s3Client = s3Client;
         this.ddbClient = ddbClient;
         this.ssmClient = ssmClient;
         this.metricEmitter = metricEmitter;
+        this.randomGenerator = randomGenerator;
     }
 
     private String getKey(String petType, String petId) throws InterruptedException {
@@ -69,10 +76,8 @@ public class SearchController {
 
             String key = getKey(petType, image);
 
-            int random = (int) Math.random() * 10;
-
-            if (random == 4) {
-                // Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions
+            if (randomGenerator.nextNonNegativeInt(10) == 4) {
+                logger.debug("Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions");
                 s3Client.createBucket(s3BucketName);
             }
 
@@ -83,13 +88,14 @@ public class SearchController {
 
             return s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
-
         } catch (Throwable e) {
+            logger.error("Error while acessing S3 bucket", e);
             span.recordException(e);
-            throw new RuntimeException(e);
         } finally {
             span.end();
         }
+
+        return "";
     }
 
     private String getSSMParameter(String paramName) {
@@ -126,6 +132,7 @@ public class SearchController {
 
         // This line is intentional. Delays searches
         if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
+            logger.debug("Delaying the response on purpose, to show on traces as an issue");
             TimeUnit.MILLISECONDS.sleep(3000);
         }
         try(Scope scope = span.makeCurrent()) {
@@ -139,6 +146,7 @@ public class SearchController {
 
         } catch (Exception e) {
             span.recordException(e);
+            logger.error("Error while searching, building the resulting body", e);
             throw e;
         } finally {
             span.end();
