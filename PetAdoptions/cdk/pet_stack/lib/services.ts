@@ -288,13 +288,26 @@ export class Services extends cdk.Stack {
             clusterName: 'PetSite',
             mastersRole: clusterAdmin,
             vpc: theVPC,
-            version: KubernetesVersion.V1_18
+            version: KubernetesVersion.V1_19
         });         
         
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
         clusterSG.addIngressRule(albSG,ec2.Port.allTraffic(),'Allow traffic from the ALB');
         clusterSG.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock),ec2.Port.tcp(443),'Allow local access to k8s api');
         
+
+        // Add SSM Permissions to the node role
+        cluster.defaultNodegroup?.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
+
+        // From https://github.com/aws-samples/ssm-agent-daemonset-installer
+        var ssmAgentSetup = yaml.safeLoadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
+                
+        const ssmAgentSetupManifest = new eks.KubernetesManifest(this,"ssmAgentdeployment",{
+            cluster: cluster,
+            manifest: ssmAgentSetup
+        });            
+
+ 
 
         // ClusterID is not available for creating the proper conditions https://github.com/aws/aws-cdk/issues/10347
         const clusterId = Fn.select(4, Fn.split('/', cluster.clusterOpenIdConnectIssuerUrl)) // Remove https:// from the URL as workaround to get ClusterID
