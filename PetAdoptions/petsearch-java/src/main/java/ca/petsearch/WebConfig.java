@@ -27,6 +27,11 @@ public class WebConfig implements WebMvcConfigurer {
     private String region = "";
 
     @Bean
+    public RandomNumberGenerator randomNumberGenerator() {
+        return new PseudoRandomNumberGenerator();
+    }
+
+    @Bean
     public Tracer tracer() {
         return GlobalOpenTelemetry.get().getTracer("petsearch");
     }

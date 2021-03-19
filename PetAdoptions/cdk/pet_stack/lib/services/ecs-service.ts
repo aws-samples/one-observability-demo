@@ -91,7 +91,7 @@ export abstract class EcsService extends cdk.Construct {
       firelensConfig: {
         type: ecs.FirelensLogRouterType.FLUENTBIT
       },
-      image: ecs.ContainerImage.fromRegistry('amazon/aws-for-fluent-bit:2.10.0')
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:2.10.1')
     })
     
     // sidecar for instrumentation collecting
@@ -144,7 +144,7 @@ export abstract class EcsService extends cdk.Construct {
 
   private addXRayContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('xraydaemon', {
-      image: ecs.ContainerImage.fromRegistry('amazon/aws-xray-daemon'),
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:latest'),
       memoryLimitMiB: 256,
       cpu: 256,
       logging
@@ -156,7 +156,7 @@ export abstract class EcsService extends cdk.Construct {
   
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
-        image: ecs.ContainerImage.fromRegistry('amazon/aws-otel-collector'),
+        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.7.0'),
         memoryLimitMiB: 256,
         cpu: 256,
         logging

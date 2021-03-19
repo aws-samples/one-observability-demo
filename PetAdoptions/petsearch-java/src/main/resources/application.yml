@@ -1,6 +1,12 @@
 spring:
   application:
     name: petstore
-
+  autoconfigure:
+    exclude: org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration
+cloud:
+  aws:
+    region:
+      static: eu-west-1
+      auto: false
 server:
   port: 80
