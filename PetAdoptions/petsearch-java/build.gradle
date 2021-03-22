@@ -16,7 +16,7 @@ repositories {
 ext {
     set('springCloudVersion', "Hoxton.SR10")
     set('testContainerVersion', '1.13.0')
-    set('opentelemetryVersion', '0.15.0')
+    set('opentelemetryVersion', '1.0.1')
 }
 
 dependencies {
@@ -38,6 +38,8 @@ dependencies {
     }
     testImplementation "org.testcontainers:localstack:${testContainerVersion}"
     testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
+    testImplementation group: 'io.vavr', name: 'vavr-test', version: '0.10.3'
+
 }
 
 dependencyManagement {
