@@ -204,7 +204,7 @@ export class Services extends cdk.Stack {
         });
        // listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
-        
+
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
             cluster: new ecs.Cluster(this, "PetSearch", {
@@ -217,7 +217,7 @@ export class Services extends cdk.Stack {
             repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
-            instrumentation: 'otel'
+            instrumentation: 'xray'
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
