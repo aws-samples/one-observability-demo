@@ -217,7 +217,7 @@ export class Services extends cdk.Stack {
             repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
-            instrumentation: 'otel'
+            instrumentation: 'xray'
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
