@@ -19,7 +19,7 @@ server:
   ##
   sidecarContainers:
     aws-sigv4-proxy-sidecar:
-      image: public.ecr.aws/aws-observability/aws-sigv4-proxy:1.0
+      image: public.ecr.aws/aws-observability/aws-sigv4-proxy:latest
       ports:
        - name: aws-sigv4-proxy
          containerPort: 8005
