@@ -81,7 +81,10 @@ export abstract class EcsService extends cdk.Construct {
       image: this.createContainerImage(props.repositoryURI),
       memoryLimitMiB: 512,
       cpu: 256,
-      logging: firelenslogging
+      logging: firelenslogging,
+      environment: { // clear text, not for sensitive data
+        AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
+      }
     }).addPortMappings({
       containerPort: 80,
       protocol: ecs.Protocol.TCP
