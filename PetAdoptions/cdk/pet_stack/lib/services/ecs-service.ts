@@ -18,7 +18,9 @@ export interface EcsServiceProps {
   
   repositoryURI: string,
 
-  desiredTaskCount: number
+  desiredTaskCount: number,
+
+  region: string
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -62,7 +64,7 @@ export abstract class EcsService extends cdk.Construct {
     const firelenslogging = new ecs.FireLensLogDriver({
       options: {
         "Name": "cloudwatch",
-        "region": process.env.AWS_REGION ?? "us-east-1",
+        "region": props.region,
         "log_key": "log",
         "log_group_name": props.logGroupName,
         "auto_create_group": "false",
@@ -90,7 +92,7 @@ export abstract class EcsService extends cdk.Construct {
       cpu: 256,
       logging: firelenslogging,
       environment: { // clear text, not for sensitive data
-        AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
+        AWS_REGION: props.region,
       }
     }).addPortMappings({
       containerPort: 80,
