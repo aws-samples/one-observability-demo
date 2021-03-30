@@ -40,7 +40,8 @@ export abstract class EcsService extends cdk.Construct {
       "xray:PutTelemetryRecords",
       "xray:GetSamplingRules",
       "xray:GetSamplingTargets",
-      "xray:GetSamplingStatisticSummaries"
+      "xray:GetSamplingStatisticSummaries",
+      'ssm:GetParameters'
     ]
   });
 
