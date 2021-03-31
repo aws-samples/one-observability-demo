@@ -13,6 +13,6 @@ export class SearchService extends EcsService {
   }
 
   createContainerImage(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-search:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-search-java:latest`)
   }
 }
