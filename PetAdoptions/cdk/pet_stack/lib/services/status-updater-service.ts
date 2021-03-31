@@ -31,6 +31,7 @@ export class StatusUpdaterService extends cdk.Construct {
         runtime: lambda.Runtime.NODEJS_12_X,    // execution environment
         code: lambda.Code.fromAsset('./resources/function.zip'), // Copy from Lambda folder or move here!!
         handler: 'index.handler',
+        memorySize: 128,
         tracing: lambda.Tracing.ACTIVE,
         role: lambdaRole,
         layers: [layer],
