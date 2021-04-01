@@ -167,6 +167,9 @@ export class Services extends cdk.Stack {
         
         const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
+        const stack = cdk.Stack.of(this);
+        const region = stack.region;
+
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
             cluster: new ecs.Cluster(this, "PayForAdoption", {
@@ -179,7 +182,8 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             repositoryURI: repositoryURI,
             database: instance,
-            desiredTaskCount : 2
+            desiredTaskCount : 2,
+            region: region
         });
         //payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -200,7 +204,8 @@ export class Services extends cdk.Stack {
             instrumentation: 'otel',
             repositoryURI: repositoryURI,
             database: instance,
-            desiredTaskCount: 2
+            desiredTaskCount: 2,
+            region: region
         });
        // listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -217,7 +222,8 @@ export class Services extends cdk.Stack {
             repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
-            instrumentation: 'xray'
+            instrumentation: 'otel',
+            region: region
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -229,7 +235,8 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 512,
             instrumentation: 'none',
             repositoryURI: repositoryURI,
-            desiredTaskCount: 1
+            desiredTaskCount: 1,
+            region: region
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
         
@@ -238,9 +245,6 @@ export class Services extends cdk.Stack {
             tableName: dynamodb_petadoption.tableName
         });   
         
-
-        const stack = cdk.Stack.of(this);
-        const region = stack.region;
 
         const albSG = new ec2.SecurityGroup(this,'ALBSecurityGroup',{
             vpc: theVPC,

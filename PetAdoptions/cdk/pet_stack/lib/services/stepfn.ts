@@ -72,6 +72,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       entry: './resources/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
+      memorySize: 128,
       runtime: lambda.Runtime.PYTHON_3_8,
       role: lambdaRole,
       layers: lambdalayers,
