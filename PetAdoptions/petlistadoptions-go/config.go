@@ -16,8 +16,8 @@ import (
 )
 
 type dbConfig struct {
-	Engine, Host, Username, Password string
-	Port                             int
+	Engine, Host, Username, Password, Dbname string
+	Port                                     int
 }
 
 // config is injected as environment variable
@@ -92,12 +92,6 @@ func getSecretValue(secretID, region string) (string, error) {
 	return aws.StringValue(res.SecretString), nil
 }
 
-/*
-func getDBConfig(secretid string, withPassword bool) (string, error) {
-
-}
-*/
-
 // Call aws secrets manager and return parsed sql server query str
 func getRDSConnectionString(secretid string, withPassword bool) (string, error) {
 	jsonstr, err := getSecretValue(secretid, os.Getenv("AWS_REGION"))
@@ -119,17 +113,17 @@ func getRDSConnectionString(secretid string, withPassword bool) (string, error) 
 
 	if withPassword {
 		u = &url.URL{
-			Scheme:   c.Engine,
-			User:     url.UserPassword(c.Username, c.Password),
-			Host:     fmt.Sprintf("%s:%d", c.Host, c.Port),
-			RawQuery: query.Encode(),
+			Scheme: c.Engine,
+			User:   url.UserPassword(c.Username, c.Password),
+			Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+			Path:   c.Dbname,
 		}
 	} else {
 		u = &url.URL{
-			Scheme:   c.Engine,
-			User:     url.UserPassword(c.Username, ""),
-			Host:     fmt.Sprintf("%s:%d", c.Host, c.Port),
-			RawQuery: query.Encode(),
+			Scheme: c.Engine,
+			User:   url.UserPassword(c.Username, ""),
+			Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+			Path:   c.Dbname,
 		}
 	}
 

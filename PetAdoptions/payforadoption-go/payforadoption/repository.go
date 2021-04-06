@@ -25,6 +25,7 @@ type Repository interface {
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
+	CreateSQLTable(ctx context.Context) error
 	ErrorModeOn(ctx context.Context) bool
 }
 
@@ -191,6 +192,11 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 	r.logger.Log("res", res, "err", err)
 
+	sqlErr := r.CreateSQLTable(ctx)
+	if sqlErr != nil {
+		return sqlErr
+	}
+
 	return nil
 
 }
@@ -223,4 +229,17 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 	}
 
 	return false
+}
+
+func (r *repo) CreateSQLTable(ctx context.Context) error {
+	sql := `CREATE TABLE IF NOT EXISTS transactions (
+		id SERIAL PRIMARY KEY,
+		pet_id VARCHAR,
+		adoption_date DATE,
+		transaction_id VARCHAR
+	);
+	`
+	_, err := r.db.ExecContext(ctx, sql)
+
+	return err
 }
