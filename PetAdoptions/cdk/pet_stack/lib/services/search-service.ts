@@ -17,7 +17,7 @@ export class SearchService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petsearch-java", {
+    return ecs.ContainerImage.fromAsset("./resources/microservices/petsearch-java", {
       repositoryName: "pet-search-java"
     })
   }

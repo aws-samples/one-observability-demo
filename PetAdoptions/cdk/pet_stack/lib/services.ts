@@ -209,7 +209,7 @@ export class Services extends cdk.Stack {
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            repositoryURI: repositoryURI,
+            //repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
             instrumentation: 'otel',
@@ -224,7 +224,7 @@ export class Services extends cdk.Stack {
             cpu: 256,
             memoryLimitMiB: 512,
             instrumentation: 'none',
-            repositoryURI: repositoryURI,
+            //repositoryURI: repositoryURI,
             desiredTaskCount: 1,
             region: region
         })

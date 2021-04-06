@@ -20,7 +20,7 @@ export class ListAdoptionsService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../petlistadoptions-go", {
+    return ecs.ContainerImage.fromAsset("./resources/microservices/petlistadoptions-go", {
       repositoryName: "pet-listadoptions"
     })
   }

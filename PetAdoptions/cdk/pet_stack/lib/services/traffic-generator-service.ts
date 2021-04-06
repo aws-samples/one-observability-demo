@@ -13,7 +13,7 @@ export class TrafficGeneratorService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../trafficgenerator/trafficgenerator", {
+    return ecs.ContainerImage.fromAsset("./resources/microservices/trafficgenerator/trafficgenerator", {
       repositoryName: "pet-trafficgenerator"
     })
   }

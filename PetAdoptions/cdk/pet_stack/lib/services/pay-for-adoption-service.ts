@@ -20,7 +20,7 @@ export class PayForAdoptionService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("../../payforadoption-go", {
+    return ecs.ContainerImage.fromAsset("./resources/microservices/payforadoption-go", {
       repositoryName: "pet-payforadoption"
     })
   }
