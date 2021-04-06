@@ -14,9 +14,9 @@ import (
 	"github.com/aws/aws-xray-sdk-go/awsplugins/ecs"
 	"github.com/aws/aws-xray-sdk-go/strategy/ctxmissing"
 	"github.com/aws/aws-xray-sdk-go/xray"
-	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	_ "github.com/lib/pq"
 )
 
 func init() {
@@ -66,7 +66,7 @@ func main() {
 		}
 
 		//xray as a wrapper for sql.Open
-		db, err = xray.SQLContext("sqlserver", connStr)
+		db, err = xray.SQLContext("postgres", connStr)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)

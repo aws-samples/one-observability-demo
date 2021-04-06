@@ -56,12 +56,13 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 
 	sql := `
-		INSERT INTO dbo.transactions (PetId, Transaction_Id, Adoption_Date)
-		VALUES (@p1, @p2, @p3)
+		INSERT INTO transactions (pet_id, transaction_id, adoption_date)
+		VALUES ($1, $2, $3)
 	`
 
 	r.logger.Log("sql", sql)
 	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate)
+
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 
 func (r *repo) DropTransactions(ctx context.Context) error {
 
-	sql := `DELETE FROM dbo.transactions`
+	sql := `DELETE FROM transactions`
 
 	r.logger.Log("sql", sql)
 	_, err := r.db.ExecContext(ctx, sql)
