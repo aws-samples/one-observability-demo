@@ -8,7 +8,13 @@ export class TrafficGeneratorService extends EcsService {
     super(scope, id, props);
   }
 
-  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+  containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
     return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-trafficgenerator:latest`)
+  }
+
+  createContainerImage() : ecs.ContainerImage {
+    return ecs.ContainerImage.fromAsset("../../trafficgenerator/trafficgenerator", {
+      repositoryName: "pet-trafficgenerator"
+    })
   }
 }

@@ -170,7 +170,8 @@ export class Services extends cdk.Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
-            repositoryURI: repositoryURI,
+            // build locally
+            //repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount : 2,
             region: region
@@ -191,7 +192,8 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             instrumentation: 'otel',
-            repositoryURI: repositoryURI,
+            // build locally
+            //repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount: 2,
             region: region

@@ -15,7 +15,13 @@ export class ListAdoptionsService extends EcsService {
     props.database.secret?.grantRead(this.taskDefinition.taskRole);
   }
 
-  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+  containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
     return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-listadoptions:latest`)
+  }
+
+  createContainerImage() : ecs.ContainerImage {
+    return ecs.ContainerImage.fromAsset("../../petlistadoptions-go", {
+      repositoryName: "pet-listadoptions"
+    })
   }
 }

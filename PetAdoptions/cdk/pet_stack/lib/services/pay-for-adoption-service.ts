@@ -15,7 +15,13 @@ export class PayForAdoptionService extends EcsService {
     props.database.secret?.grantRead(this.taskDefinition.taskRole);
   }
 
-  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+  containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
     return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-payforadoption:latest`)
+  }
+
+  createContainerImage() : ecs.ContainerImage {
+    return ecs.ContainerImage.fromAsset("../../payforadoption-go", {
+      repositoryName: "pet-payforadoption"
+    })
   }
 }
