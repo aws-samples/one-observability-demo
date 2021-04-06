@@ -16,7 +16,6 @@ import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
 import * as cloud9 from '@aws-cdk/aws-cloud9';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
 
-import { SqlServerSeeder } from 'cdk-sqlserver-seeder'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
 import { ListAdoptionsService } from './services/list-adoptions-service'
 import { SearchService } from './services/search-service'
@@ -24,10 +23,9 @@ import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
 import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { CfnJson, RemovalPolicy, Fn, FileSystem } from '@aws-cdk/core';
+import { CfnJson, RemovalPolicy, Fn, Duration } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
-import console = require('console');
 
 
 export class Services extends cdk.Stack {
@@ -73,14 +71,14 @@ export class Services extends cdk.Stack {
             },
             removalPolicy:  RemovalPolicy.DESTROY
         });
-        
+
         dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'ReadCapacityUnitsLimit-BasicAlarm', {
           threshold: 240,
           evaluationPeriods: 2,
           period: cdk.Duration.minutes(1),
           alarmName: `${dynamodb_petadoption.tableName}-ReadCapacityUnitsLimit-BasicAlarm`,
         });
-        
+
         dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'WriteCapacityUnitsLimit-BasicAlarm', {
           threshold: 240,
           evaluationPeriods: 2,
@@ -108,37 +106,31 @@ export class Services extends cdk.Stack {
             maxAzs: 2
         });
 
-        // Create RDS SQL Server DB instance
-
+        // Create RDS Aurora PG cluster
         const rdssecuritygroup = new ec2.SecurityGroup(this, 'petadoptionsrdsSG', {
             vpc: theVPC
         });
 
-        rdssecuritygroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(1433), 'Allow MSSQl access from within the VPC CIDR range');
+        rdssecuritygroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(5432), 'Allow Aurora PG access from within the VPC CIDR range');
 
         var rdsUsername = this.node.tryGetContext('rdsusername');
         if (rdsUsername == undefined)
         {
             rdsUsername = "petadmin"
         }
-        const instance = new rds.DatabaseInstance(this, 'Instance', {
-            engine: rds.DatabaseInstanceEngine.sqlServerWeb({version:rds.SqlServerEngineVersion.VER_15} ),
-            instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-            credentials:{username:rdsUsername},
-            removalPolicy: cdk.RemovalPolicy.DESTROY,
-            deletionProtection: false,
-            vpc: theVPC,
-            licenseModel: rds.LicenseModel.LICENSE_INCLUDED,
-            securityGroups: [rdssecuritygroup]
-        });
 
-        var sqlSeeder = new SqlServerSeeder(this, "sql-seeder", {
+        const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
+            engine: rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql10'),
             vpc: theVPC,
-            database: instance,
-            port: 1433,
-            createScriptPath: "resources/rds_sqlserver.sql",
-            memorySize: 512
-        })
+            securityGroups: [rdssecuritygroup],
+            defaultDatabaseName: 'adoptions',
+            scaling: {
+                autoPause: Duration.minutes(60),
+                minCapacity: rds.AuroraCapacityUnit.ACU_2,
+                maxCapacity: rds.AuroraCapacityUnit.ACU_8,
+            }
+        });
 
         const readSSMParamsPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
@@ -150,8 +142,8 @@ export class Services extends cdk.Stack {
             ],
             resources: ['*']
         });
-        
-        
+
+
         const ddbSeedPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: [
@@ -163,8 +155,6 @@ export class Services extends cdk.Stack {
             resources: ['*']
         });
 
-        const rdsAccessPolicy = iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonRDSFullAccess', 'arn:aws:iam::aws:policy/AmazonRDSFullAccess');
-        
         const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
         const stack = cdk.Stack.of(this);
@@ -181,11 +171,10 @@ export class Services extends cdk.Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             repositoryURI: repositoryURI,
-            database: instance,
+            database: auroraCluster,
             desiredTaskCount : 2,
             region: region
         });
-        //payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
 
@@ -203,11 +192,10 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             instrumentation: 'otel',
             repositoryURI: repositoryURI,
-            database: instance,
+            database: auroraCluster,
             desiredTaskCount: 2,
             region: region
         });
-       // listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         // PetSearch service definitions-----------------------------------------------------------------------
@@ -238,13 +226,13 @@ export class Services extends cdk.Stack {
             desiredTaskCount: 1,
             region: region
         })
-        trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
-        
+        trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+
         //PetStatusUpdater Lambda Function and APIGW--------------------------------------
         const statusUpdaterService = new StatusUpdaterService(this, 'status-updater-service', {
             tableName: dynamodb_petadoption.tableName
-        });   
-        
+        });
+
 
         const albSG = new ec2.SecurityGroup(this,'ALBSecurityGroup',{
             vpc: theVPC,
@@ -266,7 +254,7 @@ export class Services extends cdk.Stack {
             protocol: elbv2.ApplicationProtocol.HTTP,
             vpc: theVPC,
             targetType: elbv2.TargetType.IP
-            
+
         });
 
         new ssm.StringParameter(this,"putParamTargetGroupArn",{
@@ -278,7 +266,7 @@ export class Services extends cdk.Stack {
             port: 80,
             open: true,
             defaultTargetGroups: [targetGroup],
-        });          
+        });
 
         const clusterAdmin = new iam.Role(this, 'AdminRole', {
             assumedBy: new iam.AccountRootPrincipal()
@@ -294,25 +282,25 @@ export class Services extends cdk.Stack {
             mastersRole: clusterAdmin,
             vpc: theVPC,
             version: KubernetesVersion.V1_19
-        });         
-        
+        });
+
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
         clusterSG.addIngressRule(albSG,ec2.Port.allTraffic(),'Allow traffic from the ALB');
         clusterSG.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock),ec2.Port.tcp(443),'Allow local access to k8s api');
-        
+
 
         // Add SSM Permissions to the node role
         cluster.defaultNodegroup?.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
 
         // From https://github.com/aws-samples/ssm-agent-daemonset-installer
         var ssmAgentSetup = yaml.safeLoadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
-                
+
         const ssmAgentSetupManifest = new eks.KubernetesManifest(this,"ssmAgentdeployment",{
             cluster: cluster,
             manifest: ssmAgentSetup
-        });            
+        });
 
- 
+
 
         // ClusterID is not available for creating the proper conditions https://github.com/aws/aws-cdk/issues/10347
         const clusterId = Fn.select(4, Fn.split('/', cluster.clusterOpenIdConnectIssuerUrl)) // Remove https:// from the URL as workaround to get ClusterID
@@ -326,20 +314,20 @@ export class Services extends cdk.Stack {
                     }
                 })
             }
-        ); 
+        );
         const cw_trustRelationship = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             principals: [ cw_federatedPrincipal ],
             actions: ["sts:AssumeRoleWithWebIdentity"]
-        });       
+        });
 
         // Create IAM roles for Service Accounts
         // Cloudwatch Agent SA
         const cwserviceaccount = new iam.Role(this, 'CWServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
             assumedBy: new iam.AccountRootPrincipal(),
-            managedPolicies: [ 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'CWServiceAccount-CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy') 
+            managedPolicies: [
+                iam.ManagedPolicy.fromManagedPolicyArn(this, 'CWServiceAccount-CloudWatchAgentServerPolicy', 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy')
             ],
         });
         cwserviceaccount.assumeRolePolicy?.addStatements(cw_trustRelationship);
@@ -353,19 +341,19 @@ export class Services extends cdk.Stack {
                     }
                 })
             }
-        ); 
+        );
         const xray_trustRelationship = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             principals: [ xray_federatedPrincipal ],
             actions: ["sts:AssumeRoleWithWebIdentity"]
-        });                         
+        });
 
         // X-Ray Agent SA
         const xrayserviceaccount = new iam.Role(this, 'XRayServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
             assumedBy: new iam.AccountRootPrincipal(),
-            managedPolicies: [ 
-                iam.ManagedPolicy.fromManagedPolicyArn(this, 'XRayServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess') 
+            managedPolicies: [
+                iam.ManagedPolicy.fromManagedPolicyArn(this, 'XRayServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
             ],
         });
         xrayserviceaccount.assumeRolePolicy?.addStatements(xray_trustRelationship);
@@ -379,23 +367,23 @@ export class Services extends cdk.Stack {
                     }
                 })
             }
-        ); 
+        );
         const loadBalancer_trustRelationship = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             principals: [ loadbalancer_federatedPrincipal ],
             actions: ["sts:AssumeRoleWithWebIdentity"]
-        });    
+        });
 
         const loadBalancerPolicyDoc = iam.PolicyDocument.fromJson(JSON.parse(readFileSync("./resources/load_balancer/iam_policy.json","utf8")));
-        const loadBalancerPolicy = new iam.ManagedPolicy(this,'LoadBalancerSAPolicy', { document: loadBalancerPolicyDoc });    
+        const loadBalancerPolicy = new iam.ManagedPolicy(this,'LoadBalancerSAPolicy', { document: loadBalancerPolicyDoc });
         const loadBalancerserviceaccount = new iam.Role(this, 'LoadBalancerServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
             assumedBy: new iam.AccountRootPrincipal(),
             managedPolicies: [loadBalancerPolicy]
         });
-        
-        loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);                
-        
+
+        loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
+
         // Fix for EKS Dashboard access
 
         const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
@@ -411,7 +399,7 @@ export class Services extends cdk.Stack {
             var c9role = undefined
             var c9InstanceProfile = undefined
             var c9env = undefined
-    
+
 
             c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
                 ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
@@ -430,7 +418,7 @@ export class Services extends cdk.Stack {
                 roles: [c9role.roleName],
                 instanceProfileName: "observabilityworkshop-profile"
             })
-            
+
             const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
 
@@ -447,21 +435,21 @@ export class Services extends cdk.Stack {
             const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
             cluster.awsAuth.addMastersRole(role)
         }
-        
+
         const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
             cluster: cluster,
             manifest: dashboardRoleYaml
         });
-        
-        
+
+
         var xRayYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8"));
-        
-        xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });            
-        
+
+        xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });
+
         const xrayManifest = new eks.KubernetesManifest(this,"xraydeployment",{
             cluster: cluster,
             manifest: xRayYaml
-        });            
+        });
 
         var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
@@ -477,14 +465,14 @@ export class Services extends cdk.Stack {
             objectType: "serviceaccount",
             objectNamespace: "kube-system",
             jsonPath: "@"
-        });       
-        
+        });
+
         const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
             cluster: cluster,
             manifest: loadBalancerCRDYaml
-        });        
-        
+        });
+
 
         const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
             cluster: cluster,
@@ -500,18 +488,18 @@ export class Services extends cdk.Stack {
             wait: true
             }
         });
-        awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);  
-        awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);     
-        awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);    
+        awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);
+        awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);
+        awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
 
-        // NOTE: amazon-cloudwatch namespace is created here!!           
+        // NOTE: amazon-cloudwatch namespace is created here!!
         var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
-        fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });       
+        fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
 
         fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
             agent: {
                 region: region  },
-            logs: {  
+            logs: {
                 metrics_collected: {
                     kubernetes: {
                         cluster_name: "PetSite",
@@ -519,34 +507,34 @@ export class Services extends cdk.Stack {
                     }
                 },
                 force_flush_interval: 5
-                
+
                 }
-            
-            });   
+
+            });
 
         fluentbitYaml[6].data["cluster.name"] = "PetSite";
-        fluentbitYaml[6].data["logs.region"] = region;   
-        fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });     
-    
-        
+        fluentbitYaml[6].data["logs.region"] = region;
+        fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });
+
+
         const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
             cluster: cluster,
             manifest: fluentbitYaml
-        });  
+        });
 
         var prometheusYaml = yaml.safeLoadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
-        
-        prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });            
-        
+
+        prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
+
         const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
             cluster: cluster,
             manifest: prometheusYaml
         });
 
-        prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency             
-        
+        prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
 
-        
+
+
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
@@ -562,7 +550,7 @@ export class Services extends cdk.Stack {
             'XRayServiceAccountArn': xrayserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
-            'PetSiteUrl': `http://${alb.loadBalancerDnsName}` 
+            'PetSiteUrl': `http://${alb.loadBalancerDnsName}`
         })));
 
 
@@ -579,8 +567,8 @@ export class Services extends cdk.Stack {
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
             '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
-            '/petstore/rdssecretarn': `${instance.secret?.secretArn}`,
-            '/petstore/rdsendpoint': instance.dbInstanceEndpointAddress,
+            '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
+            '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
@@ -592,7 +580,7 @@ export class Services extends cdk.Stack {
             'QueueURL': sqsQueue.queueUrl,
             'UpdateAdoptionStatusurl': statusUpdaterService.api.url,
             'SNSTopicARN': topic_petadoption.topicArn,
-            'RDSServerName': instance.dbInstanceEndpointAddress
+            'RDSServerName': auroraCluster.clusterEndpoint.hostname
         })));
     }
 

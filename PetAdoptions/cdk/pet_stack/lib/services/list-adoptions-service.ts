@@ -4,8 +4,8 @@ import * as rds from '@aws-cdk/aws-rds';
 import { EcsService, EcsServiceProps } from './ecs-service'
 
 export interface ListAdoptionServiceProps extends EcsServiceProps {
-  database: rds.DatabaseInstance
-} 
+  database: rds.ServerlessCluster
+}
 
 export class ListAdoptionsService extends EcsService {
 
