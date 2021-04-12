@@ -15,11 +15,6 @@ serviceAccounts:
     create: false
 
 server:
-  image:
-    repository: quay.io/prometheus/prometheus
-    tag: v2.26.0
-    pullPolicy: IfNotPresent
-
   remoteWrite:
     -
       queue_config:
