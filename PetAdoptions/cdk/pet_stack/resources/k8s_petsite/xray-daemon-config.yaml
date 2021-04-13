@@ -61,7 +61,7 @@ spec:
         image: amazon/aws-xray-daemon
         imagePullPolicy: Always
         command:
-        - "/usr/bin/xray"
+        - "/xray"
         - "-c"
         - "/aws/xray/config.yaml"
         resources:
