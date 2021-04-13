@@ -58,7 +58,7 @@ spec:
       hostNetwork: true
       containers:
       - name: xray-daemon
-        image: amazon/aws-xray-daemon
+        image: public.ecr.aws/xray/aws-xray-daemon:latest
         imagePullPolicy: Always
         command:
         - "/xray"
@@ -89,6 +89,8 @@ data:
       UDPAddress: "0.0.0.0:2000"
       TCPAddress: "0.0.0.0:2000"
     Version: 2
+    Logging:
+      LogLevel: "info"
 ---
 apiVersion: v1
 kind: Service
