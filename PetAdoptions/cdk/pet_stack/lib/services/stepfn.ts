@@ -28,7 +28,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       ]
     });
 
-    var layerArn = "arn:aws:lambda:" + process.env.CDK_DEFAULT_REGION + ":580247275435:layer:LambdaInsightsExtension:2";
+    var layerArn = "arn:aws:lambda:" + process.env.CDK_DEFAULT_REGION + ":580247275435:layer:LambdaInsightsExtension:12";
     //    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
 
