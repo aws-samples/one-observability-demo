@@ -283,6 +283,8 @@ export class Services extends cdk.Stack {
             clusterName: 'PetSite',
             mastersRole: clusterAdmin,
             vpc: theVPC,
+            defaultCapacity: 2,
+            defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             version: KubernetesVersion.V1_19
         });
 
