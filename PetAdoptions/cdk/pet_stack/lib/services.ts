@@ -170,6 +170,12 @@ export class Services extends cdk.Stack {
         const stack = cdk.Stack.of(this);
         const region = stack.region;
 
+        const ecsServicesSecurityGroup = new ec2.SecurityGroup(this, 'ECSServicesSG', {
+            vpc: theVPC
+        });
+
+        ecsServicesSecurityGroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(80));
+
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
             cluster: new ecs.Cluster(this, "PayForAdoption", {
@@ -183,7 +189,8 @@ export class Services extends cdk.Stack {
             repositoryURI: repositoryURI,
             database: instance,
             desiredTaskCount : 2,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         });
         //payForAdoptionService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -205,7 +212,8 @@ export class Services extends cdk.Stack {
             repositoryURI: repositoryURI,
             database: instance,
             desiredTaskCount: 2,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         });
        // listAdoptionsService.taskDefinition.taskRole?.addManagedPolicy(rdsAccessPolicy);
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
@@ -223,7 +231,8 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             desiredTaskCount: 2,
             instrumentation: 'otel',
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -236,7 +245,8 @@ export class Services extends cdk.Stack {
             instrumentation: 'none',
             repositoryURI: repositoryURI,
             desiredTaskCount: 1,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);       
         
@@ -251,7 +261,7 @@ export class Services extends cdk.Stack {
             securityGroupName: 'ALBSecurityGroup',
             allowAllOutbound: true
         });
-        albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.allTraffic());
+        albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.tcp(80));
 
         // Create ALB and Target Groups
         const alb = new elbv2.ApplicationLoadBalancer(this, 'PetSiteLoadBalancer', {
@@ -417,12 +427,13 @@ export class Services extends cdk.Stack {
                 ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
-                subnetId: theVPC.publicSubnets[0].subnetId
+                subnetId: theVPC.privateSubnets[0].subnetId,
+                connectionType: 'CONNECT_SSM'
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
                 assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
-                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"), iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore")],
                 roleName: "observabilityworkshop-admin"
             });
 
