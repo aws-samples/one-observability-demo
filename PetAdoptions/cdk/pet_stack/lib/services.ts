@@ -422,13 +422,26 @@ export class Services extends cdk.Stack {
             var c9InstanceProfile = undefined
             var c9env = undefined
     
+            // Dynamically check if AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile exists
+            const c9SSMRole = new iam.Role(this,'AWSCloud9SSMAccessRole', {
+                path: '/service-role/',
+                roleName: 'AWSCloud9SSMAccessRole',
+                assumedBy: new iam.CompositePrincipal(new iam.ServicePrincipal("ec2.amazonaws.com"), new iam.ServicePrincipal("cloud9.amazonaws.com")),
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
+            });
+
+            new iam.CfnInstanceProfile(this, 'AWSCloud9SSMInstanceProfile', {
+                path: '/cloud9/',
+                roles: [c9SSMRole.roleName],
+                instanceProfileName: 'AWSCloud9SSMInstanceProfile'
+            });
 
             c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
                 ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
-                connectionType: 'CONNECT_SSM'
+                connectionType: 'CONNECT_SSM',
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
@@ -444,6 +457,8 @@ export class Services extends cdk.Stack {
             
             const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
+
+            cluster.awsAuth.addMastersRole(c9SSMRole);
 
             if (c9role!=undefined)
                 cluster.awsAuth.addMastersRole(c9role)
