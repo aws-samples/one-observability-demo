@@ -4,8 +4,8 @@ import * as rds from '@aws-cdk/aws-rds';
 import { EcsService, EcsServiceProps } from './ecs-service'
 
 export interface ListAdoptionServiceProps extends EcsServiceProps {
-  database: rds.DatabaseInstance
-} 
+  database: rds.ServerlessCluster
+}
 
 export class ListAdoptionsService extends EcsService {
 
@@ -15,7 +15,13 @@ export class ListAdoptionsService extends EcsService {
     props.database.secret?.grantRead(this.taskDefinition.taskRole);
   }
 
-  createContainerImage(repositoryURI: string) : ecs.ContainerImage {
+  containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
     return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-listadoptions:latest`)
+  }
+
+  createContainerImage() : ecs.ContainerImage {
+    return ecs.ContainerImage.fromAsset("./resources/microservices/petlistadoptions-go", {
+      repositoryName: "pet-listadoptions"
+    })
   }
 }
