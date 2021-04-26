@@ -16,7 +16,7 @@ export class Applications extends cdk.Stack {
     const targetGroupArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getParamTargetGroupArn', { parameterName: "/eks/petsite/TargetGroupArn"}).stringValue;
     const oidcProviderUrl = ssm.StringParameter.fromStringParameterAttributes(this, 'getOIDCProviderUrl', { parameterName: "/eks/petsite/OIDCProviderUrl"}).stringValue;
     const oidcProviderArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getOIDCProviderArn', { parameterName: "/eks/petsite/OIDCProviderArn"}).stringValue;
-    
+
     const cluster = eks.Cluster.fromClusterAttributes(this, 'MyCluster', {
       clusterName: 'PetSite',
       kubectlRoleArn: roleArn,
@@ -37,22 +37,22 @@ export class Applications extends cdk.Stack {
                 }
             })
         }
-    ); 
+    );
     const app_trustRelationship = new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         principals: [ app_federatedPrincipal ],
         actions: ["sts:AssumeRoleWithWebIdentity"]
-    }) 
+    })
 
-    
+
     // FrontEnd SA (SSM, SQS, SNS)
     const petstoreserviceaccount = new iam.Role(this, 'PetSiteServiceAccount', {
 //                assumedBy: eksFederatedPrincipal,
             assumedBy: new iam.AccountRootPrincipal(),
-        managedPolicies: [ 
-            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'), 
-            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'), 
-            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'), 
+        managedPolicies: [
+            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSSMFullAccess', 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'),
+            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSQSFullAccess', 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'),
+            iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AmazonSNSFullAccess', 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'),
             iam.ManagedPolicy.fromManagedPolicyArn(this, 'PetSiteServiceAccount-AWSXRayDaemonWriteAccess', 'arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess')
         ],
     });
@@ -67,18 +67,18 @@ export class Applications extends cdk.Stack {
         });
 
     petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
-    
+
     const repositoryURI = "public.ecr.aws/one-observability-workshop";
     const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
-    
-    
+
+
     var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
-    
-    
+
+
     deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
     deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
     deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroupArn}`});
-    
+
 
     const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
         cluster: cluster,
@@ -93,7 +93,7 @@ export class Applications extends cdk.Stack {
     this.createOuputs(new Map(Object.entries({
         'PetSiteECRImageURL': petSiteECRImageURL,
         'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
-    })));   
+    })));
   }
 
   private createSsmParameters(params: Map<string, string>) {
@@ -101,7 +101,7 @@ export class Applications extends cdk.Stack {
         //const id = key.replace('/', '_');
         new ssm.StringParameter(this, key, { parameterName: key, stringValue: value });
     });
-    } 
+    }
 
     private createOuputs(params: Map<string, string>) {
     params.forEach((value, key) => {

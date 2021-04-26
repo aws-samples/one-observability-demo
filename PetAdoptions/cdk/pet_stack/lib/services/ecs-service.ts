@@ -15,8 +15,8 @@ export interface EcsServiceProps {
 
   disableService?: boolean,
   instrumentation?: string,
-  
-  repositoryURI: string,
+
+  repositoryURI?: string,
 
   desiredTaskCount: number,
 
@@ -86,8 +86,12 @@ export abstract class EcsService extends cdk.Construct {
     this.taskDefinition.taskRole?.addManagedPolicy(iam.ManagedPolicy.fromManagedPolicyArn(this, 'AmazonECSTaskExecutionRolePolicy', 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'));
     this.taskDefinition.taskRole?.addManagedPolicy(iam.ManagedPolicy.fromManagedPolicyArn(this, 'AWSXrayWriteOnlyAccess', 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess'));
 
+    // Build locally the image only if the repository URI is not specified
+    // Can help speed up builds if we are not rebuilding anything
+    const image = props.repositoryURI? this.containerImageFromRepository(props.repositoryURI) : this.createContainerImage()
+
     this.taskDefinition.addContainer('container', {
-      image: this.createContainerImage(props.repositoryURI),
+      image: image,
       memoryLimitMiB: 512,
       cpu: 256,
       logging: firelenslogging,
@@ -105,28 +109,28 @@ export abstract class EcsService extends cdk.Construct {
       },
       image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:latest')
     })
-    
+
     // sidecar for instrumentation collecting
     switch(props.instrumentation) {
-      
+
       // we don't add any sidecar if instrumentation is none
       case "none": {
         break;
       }
-      
+
       // This collector would be used for both traces collected using
       // open telemetry or X-Ray
       case "otel": {
         this.addOtelCollectorContainer(this.taskDefinition, logging);
         break;
       }
-      
+
       // Default X-Ray traces collector
       case "xray": {
         this.addXRayContainer(this.taskDefinition, logging);
         break;
       }
-      
+
       // Default X-Ray traces collector
       // enabled by default
       default: {
@@ -151,8 +155,10 @@ export abstract class EcsService extends cdk.Construct {
       }
     }
   }
-  
-  abstract createContainerImage(repositoryURI: string) : ecs.ContainerImage;
+
+  abstract containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage;
+
+  abstract createContainerImage(): ecs.ContainerImage;
 
   private addXRayContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('xraydaemon', {
@@ -165,7 +171,7 @@ export abstract class EcsService extends cdk.Construct {
       protocol: ecs.Protocol.UDP
     });
   }
-  
+
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
         image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:latest'),

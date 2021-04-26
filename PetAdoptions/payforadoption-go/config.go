@@ -17,8 +17,8 @@ import (
 )
 
 type dbConfig struct {
-	Engine, Host, Username, Password string
-	Port                             int
+	Engine, Host, Username, Password, Dbname string
+	Port                                     int
 }
 
 // config is injected as environment variable
@@ -111,15 +111,11 @@ func getRDSConnectionString(secretid string) (string, error) {
 		return "", err
 	}
 
-	query := url.Values{}
-	// database should be in config
-	query.Set("database", "adoptions")
-
 	u := &url.URL{
-		Scheme:   c.Engine,
-		User:     url.UserPassword(c.Username, c.Password),
-		Host:     fmt.Sprintf("%s:%d", c.Host, c.Port),
-		RawQuery: query.Encode(),
+		Scheme: c.Engine,
+		User:   url.UserPassword(c.Username, c.Password),
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+		Path:   c.Dbname,
 	}
 
 	return u.String(), nil

@@ -81,14 +81,18 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {
+	logger := log.With(s.logger, "method", "CleanupAdoptions")
+
+	if err := s.TriggerSeeding(ctx); err != nil {
+		level.Error(logger).Log("err", err)
+	}
 
 	if err := s.repository.DropTransactions(ctx); err != nil {
-		logger := log.With(s.logger, "method", "CleanupAdoptions")
 		level.Error(logger).Log("err", err)
 		return err
 	}
 
-	return s.TriggerSeeding(ctx)
+	return nil
 }
 
 func (s service) TriggerSeeding(ctx context.Context) error {
