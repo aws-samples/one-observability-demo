@@ -442,6 +442,12 @@ export class Services extends cdk.Stack {
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
                 connectionType: 'CONNECT_SSM',
+                repositories: [
+                    {
+                        repositoryUrl: "https://git-codecommit." + region + ".amazonaws.com/v1/repos/event-source",
+                        pathComponent: "/pet_stack"
+                    }
+                ]
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
