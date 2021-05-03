@@ -429,6 +429,9 @@ export class Services extends cdk.Stack {
                 assumedBy: new iam.CompositePrincipal(new iam.ServicePrincipal("ec2.amazonaws.com"), new iam.ServicePrincipal("cloud9.amazonaws.com")),
                 managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
             });
+            
+            const c9SSMRoleNoPath = iam.Role.fromRoleArn(this,'c9SSMRoleNoPath', "arn:aws:iam::" + stack.account + ":role/AWSCloud9SSMAccessRole")
+            cluster.awsAuth.addMastersRole(c9SSMRoleNoPath);
 
             new iam.CfnInstanceProfile(this, 'AWSCloud9SSMInstanceProfile', {
                 path: '/cloud9/',
@@ -445,7 +448,7 @@ export class Services extends cdk.Stack {
                 repositories: [
                     {
                         repositoryUrl: "https://git-codecommit." + region + ".amazonaws.com/v1/repos/event-source",
-                        pathComponent: "/pet_stack"
+                        pathComponent: "/codecommit/pet_stack"
                     }
                 ]
             });
@@ -464,7 +467,7 @@ export class Services extends cdk.Stack {
             const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
 
-            cluster.awsAuth.addMastersRole(c9SSMRole);
+
 
             if (c9role!=undefined)
                 cluster.awsAuth.addMastersRole(c9role)
