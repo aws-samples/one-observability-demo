@@ -1,6 +1,7 @@
 #!/bin/bash -e
 CLUSTER_NAME=PetSite
-SERVICE_ACCOUNT_NAMESPACE=prometheus
+SERVICE_ACCOUNT_AMP_NAMESPACE=prometheus
+SERVICE_ACCOUNT_AMG_NAMESPACE=grafana
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
 OIDC_PROVIDER=$(aws eks describe-cluster --name $CLUSTER_NAME --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
 SERVICE_ACCOUNT_AMP_INGEST_NAME=amp-iamproxy-service-account
@@ -21,7 +22,19 @@ cat <<EOF > TrustPolicy.json
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "${OIDC_PROVIDER}:sub": "system:serviceaccount:${SERVICE_ACCOUNT_NAMESPACE}:${SERVICE_ACCOUNT_AMP_INGEST_NAME}"
+          "${OIDC_PROVIDER}:sub": "system:serviceaccount:${SERVICE_ACCOUNT_AMP_NAMESPACE}:${SERVICE_ACCOUNT_AMP_INGEST_NAME}"
+        }
+      }
+    },
+     {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "${OIDC_PROVIDER}:sub": "system:serviceaccount:${SERVICE_ACCOUNT_AMG_NAMESPACE}:${SERVICE_ACCOUNT_AMP_INGEST_NAME}"
         }
       }
     }
@@ -40,7 +53,8 @@ cat <<EOF > PermissionPolicyIngest.json
            "aps:RemoteWrite", 
            "aps:GetSeries", 
            "aps:GetLabels",
-           "aps:GetMetricMetadata"
+           "aps:GetMetricMetadata",
+           "aps:QueryMetrics"
         ], 
         "Resource": "*"
       }

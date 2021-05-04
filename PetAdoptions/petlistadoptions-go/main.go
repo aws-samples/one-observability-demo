@@ -12,11 +12,9 @@ import (
 
 	"petadoptions/petlistadoptions"
 
-	//"github.com/aws/aws-xray-sdk-go/xray"
-
-	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	otelxray "go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
@@ -57,7 +55,6 @@ func init() {
 	if err != nil {
 		fmt.Println("ECS Resource detection error:", err)
 	}
-	//*/
 
 	tracesNameResource, _ := resource.New(ctx,
 		resource.WithAttributes(
@@ -121,11 +118,12 @@ func main() {
 		// OTEL does not instrument yet database/sql, falling back to the native
 		// go sql interface
 		// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
-		db, err = sql.Open("sqlserver", connStr)
+		db, err = sql.Open("postgres", connStr)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
 		}
+
 		defer db.Close()
 	}
 

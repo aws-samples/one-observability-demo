@@ -57,10 +57,9 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 	logger := log.With(r.logger, "method", "GetTopTransactions")
 
 	tracer := otel.GetTracerProvider().Tracer("petlistadoptions")
-	_, span := tracer.Start(ctx, "MSSQL Query", trace.WithSpanKind(trace.SpanKindClient))
+	_, span := tracer.Start(ctx, "PGSQL Query", trace.WithSpanKind(trace.SpanKindClient))
 
-	sql := `SELECT TOP 25 PetId, Transaction_Id, Adoption_Date FROM dbo.transactions`
-
+	sql := `SELECT pet_id, transaction_id, adoption_date FROM transactions ORDER BY id DESC LIMIT 25`
 	// TODO: implement native sql instrumentation when issue is closed.
 	// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
 	//rows, err := r.db.QueryContext(ctx, sql)
@@ -144,6 +143,5 @@ func searchForPet(ctx context.Context, logger log.Logger, wg *sync.WaitGroup, qu
 			Price:         p.Price,
 			TransactionID: t.TransactionID,
 		}
-
 	}
 }
