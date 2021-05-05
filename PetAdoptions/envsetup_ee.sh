@@ -61,3 +61,5 @@ curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo
 
+# Clone CodeCommit pet_stack for EE
+git clone codecommit::us-east-1://event-source environment/codecommit/pet_stack
