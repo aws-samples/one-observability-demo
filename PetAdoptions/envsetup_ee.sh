@@ -60,8 +60,3 @@ curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 
 
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo
-
-export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')
-
-# Clone CodeCommit pet_stack for EE
-git clone codecommit::${AWS_REGION}://event-source environment/codecommit/pet_stack
