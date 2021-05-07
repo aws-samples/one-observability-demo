@@ -40,7 +40,8 @@ cat <<EOF > PermissionPolicyIngest.json
            "aps:RemoteWrite", 
            "aps:GetSeries", 
            "aps:GetLabels",
-           "aps:GetMetricMetadata"
+           "aps:GetMetricMetadata",
+           "aps:QueryMetrics",
         ], 
         "Resource": "*"
       }
