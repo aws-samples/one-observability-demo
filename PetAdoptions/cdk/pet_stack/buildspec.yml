@@ -9,9 +9,6 @@ phases:
       - CDK_STACK=$(aws cloudformation list-stacks --query 'StackSummaries[?(StackName==`CDKToolkit` && StackStatus==`CREATE_COMPLETE`)].StackId' --output text)
       - wget -O resources/aws-distro-for-opentelemetry-python-38-preview.zip https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/cdk/pet_stack/resources/aws-distro-for-opentelemetry-python-38-preview.zip
       - wget -O resources/function.zip https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/petstatusupdater/function.zip
-      - aws s3 cp "s3://${EE_ASSETS_BUCKET}/${EE_MICROSERVICES_ZIP}" resources/microservices.zip
-      - unzip resources/microservices.zip -d resources/microservices
-      - ls -al resources/*.zip
   build:
     commands:
       - if [ -z "$CDK_STACK" ] ; then cdk bootstrap ; else echo "Already bootstrapped" ; fi
