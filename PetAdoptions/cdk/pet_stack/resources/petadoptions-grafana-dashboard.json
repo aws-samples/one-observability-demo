@@ -23,7 +23,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -119,7 +119,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -215,7 +215,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -312,7 +312,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -422,7 +422,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
           "custom": {},
