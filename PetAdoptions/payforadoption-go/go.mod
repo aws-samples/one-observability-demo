@@ -15,5 +15,6 @@ require (
 	github.com/jackc/pgx v3.6.2+incompatible // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/lib/pq v1.10.0
+	github.com/prometheus/client_golang v1.3.0
 	github.com/spf13/viper v1.7.1
 )

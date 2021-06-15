@@ -12,5 +12,4 @@ zip -r ../assets/SourceCode.zip . -x "node_modules/**" "cdk.out/*" "out/*" "reso
 cp resources/aws-distro-for-opentelemetry-python-38-preview.zip ../assets/
 cp resources/function.zip ../assets/
 
-cd ../../
-zip -r cdk/assets/Microservices.zip . -x "cdk/**"
+cd -
