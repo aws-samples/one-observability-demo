@@ -13,6 +13,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
@@ -63,6 +64,8 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		encodeEmptyResponse,
 		options...,
 	))
+
+	r.Methods("GET").Path("/metrics").Handler(promhttp.Handler())
 
 	return r
 }
