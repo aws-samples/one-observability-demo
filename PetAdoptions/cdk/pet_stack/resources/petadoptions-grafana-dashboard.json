@@ -1,26 +1,43 @@
 {
   "annotations": {
-    "list": [{
-      "builtIn": 1,
-      "datasource": "-- Grafana --",
-      "enable": true,
-      "hide": true,
-      "iconColor": "rgba(0, 211, 255, 1)",
-      "name": "Annotations & Alerts",
-      "type": "dashboard"
-    }]
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
   "editable": true,
   "gnetId": null,
-  "graphTooltip": 0,
-  "id": 34,
+  "graphTooltip": 1,
+  "id": 37,
   "links": [],
-  "panels": [{
+  "panels": [
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 21,
+      "panels": [],
+      "title": "PetSite",
+      "type": "row"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "observability-workshop",
+      "datasource": null,
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -31,7 +48,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "hiddenSeries": false,
       "id": 10,
@@ -59,13 +76,15 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "expr": "(rate(adot_petsite_petadoptions_total[15m])/rate(adot_petsite_petsearches_total[15m]))* 100",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "expr": "(rate(adot_petsite_petadoptions_total[15m])/rate(adot_petsite_petsearches_total[15m]))* 100",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
@@ -84,7 +103,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -111,7 +131,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "observability-workshop",
+      "datasource": null,
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -122,7 +142,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "hiddenSeries": false,
       "id": 8,
@@ -150,13 +170,15 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "expr": "adot_petsite_petsearches_total",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "expr": "adot_petsite_petsearches_total",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
@@ -175,7 +197,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -202,7 +225,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "observability-workshop",
+      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "displayName": "Rate of Puppy searches"
@@ -215,7 +238,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 8
+        "y": 9
       },
       "hiddenSeries": false,
       "id": 6,
@@ -243,13 +266,15 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "expr": "(rate(adot_petsite_pet_puppy_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "expr": "(rate(adot_petsite_pet_puppy_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
@@ -268,7 +293,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -295,7 +321,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "observability-workshop",
+      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "displayName": "Rate of Bunny searches"
@@ -308,7 +334,7 @@
         "h": 7,
         "w": 7,
         "x": 8,
-        "y": 8
+        "y": 9
       },
       "hiddenSeries": false,
       "id": 2,
@@ -336,12 +362,14 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "expr": "(rate(adot_petsite_pet_bunny_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
-        "interval": "",
-        "legendFormat": "",
-        "refId": "B"
-      }],
+      "targets": [
+        {
+          "expr": "(rate(adot_petsite_pet_bunny_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "B"
+        }
+      ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
@@ -360,7 +388,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -387,7 +416,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "observability-workshop",
+      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "displayName": "Rate of Kitten searches"
@@ -400,7 +429,7 @@
         "h": 7,
         "w": 9,
         "x": 15,
-        "y": 8
+        "y": 9
       },
       "hiddenSeries": false,
       "id": 4,
@@ -428,13 +457,15 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "expr": "(rate(adot_petsite_pet_kitten_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "expr": "(rate(adot_petsite_pet_kitten_searches_total[15m])/rate(adot_petsite_petsearches_total[15m]))*100",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
@@ -453,7 +484,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -476,11 +508,25 @@
       }
     },
     {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 18,
+      "panels": [],
+      "title": "PetListAdoptions",
+      "type": "row"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "description": "Total request for health check and adoption list endpoints",
       "fieldConfig": {
         "defaults": {},
@@ -492,7 +538,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 17
       },
       "hiddenSeries": false,
       "id": 12,
@@ -520,16 +566,20 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "exemplar": true,
-        "expr": "rate(petlistadoptions_requests_total[5m])",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(petlistadoptions_requests_total[5m])",
+          "interval": "",
+          "legendFormat": "{{endpoint}}",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
+      "timeFrom": null,
       "timeRegions": [],
+      "timeShift": null,
       "title": "List adoptions requests rate",
       "tooltip": {
         "shared": true,
@@ -544,7 +594,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -571,7 +622,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "description": "",
       "fieldConfig": {
         "defaults": {},
@@ -583,7 +634,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 17
       },
       "hiddenSeries": false,
       "id": 14,
@@ -611,16 +662,20 @@
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
-      "targets": [{
-        "exemplar": true,
-        "expr": "histogram_quantile(0.95, sum(rate(petlistadoptions_requests_latency_seconds_bucket[5m])) by (le))",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile(0.95, sum(rate(petlistadoptions_requests_latency_seconds_bucket[5m])) by (le))",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
       "thresholds": [],
+      "timeFrom": null,
       "timeRegions": [],
+      "timeShift": null,
       "title": "List adoptions service p95",
       "tooltip": {
         "shared": true,
@@ -635,7 +690,8 @@
         "show": true,
         "values": []
       },
-      "yaxes": [{
+      "yaxes": [
+        {
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -658,101 +714,133 @@
       }
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "AMP-Datasource",
+      "datasource": "observability-workshop",
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "short"
         },
         "overrides": []
       },
-      "fill": 1,
-      "fillGradient": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 25
       },
-      "hiddenSeries": false,
       "id": 16,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
       "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.5.5",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [{
-        "exemplar": true,
-        "expr": "ecs_task_cpu_utilized",
-        "interval": "",
-        "legendFormat": "",
-        "queryType": "randomWalk",
-        "refId": "A"
-      }],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "List adoptions CPU utilized (ECS)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [{
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.5",
+      "targets": [
         {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
+          "exemplar": true,
+          "expr": "(ecs_task_cpu_usage_vcpu*100)/ ecs_task_cpu_reserved",
+          "interval": "",
+          "legendFormat": " {{aws_ecs_task_id}}",
+          "refId": "A"
         }
       ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "List adoptions CPU utilization percent",
+      "type": "stat"
+    },
+    {
+      "datasource": "observability-workshop",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.5",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "(ecs_task_memory_utilized*100)/ ecs_task_memory_reserved",
+          "interval": "",
+          "legendFormat": " {{aws_ecs_task_id}}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "List adoptions memory utilization percent",
+      "type": "stat"
     }
   ],
-  "refresh": false,
+  "refresh": "",
   "schemaVersion": 27,
   "style": "dark",
   "tags": [],
@@ -760,12 +848,12 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "PetAdoptions Dashboard",
-  "uid": "bei9ZiEMz",
-  "version": 9
+  "uid": "_vwidtR7z",
+  "version": 3
 }
