@@ -60,4 +60,3 @@ curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 
 
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo
-

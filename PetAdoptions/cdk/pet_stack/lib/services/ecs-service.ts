@@ -3,6 +3,7 @@ import * as iam from '@aws-cdk/aws-iam';
 import * as ecs from '@aws-cdk/aws-ecs';
 import * as logs from '@aws-cdk/aws-logs';
 import * as ecs_patterns from '@aws-cdk/aws-ecs-patterns';
+import * as ec2 from '@aws-cdk/aws-ec2';
 
 export interface EcsServiceProps {
   cluster?: ecs.Cluster,
@@ -20,7 +21,9 @@ export interface EcsServiceProps {
 
   desiredTaskCount: number,
 
-  region: string
+  region: string,
+
+  securityGroup: ec2.SecurityGroup
 }
 
 export abstract class EcsService extends cdk.Construct {
@@ -145,7 +148,9 @@ export abstract class EcsService extends cdk.Construct {
         taskDefinition: this.taskDefinition,
         publicLoadBalancer: true,
         desiredCount: props.desiredTaskCount,
-        listenerPort: 80
+        listenerPort: 80,
+        securityGroups: [props.securityGroup]
+
       })
 
       if (props.healthCheck) {
