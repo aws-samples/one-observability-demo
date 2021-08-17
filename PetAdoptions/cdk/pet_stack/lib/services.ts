@@ -160,6 +160,12 @@ export class Services extends cdk.Stack {
         const stack = cdk.Stack.of(this);
         const region = stack.region;
 
+        const ecsServicesSecurityGroup = new ec2.SecurityGroup(this, 'ECSServicesSG', {
+            vpc: theVPC
+        });
+
+        ecsServicesSecurityGroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(80));
+
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
             cluster: new ecs.Cluster(this, "PayForAdoption", {
@@ -174,7 +180,8 @@ export class Services extends cdk.Stack {
             //repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount : 2,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         });
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
@@ -196,7 +203,8 @@ export class Services extends cdk.Stack {
             //repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount: 2,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         });
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -213,7 +221,8 @@ export class Services extends cdk.Stack {
             healthCheck: '/health/status',
             desiredTaskCount: 2,
             instrumentation: 'otel',
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -226,7 +235,8 @@ export class Services extends cdk.Stack {
             instrumentation: 'none',
             //repositoryURI: repositoryURI,
             desiredTaskCount: 1,
-            region: region
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
         })
         trafficGeneratorService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
@@ -241,7 +251,7 @@ export class Services extends cdk.Stack {
             securityGroupName: 'ALBSecurityGroup',
             allowAllOutbound: true
         });
-        albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.allTraffic());
+        albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.tcp(80));
 
         // Create ALB and Target Groups
         const alb = new elbv2.ApplicationLoadBalancer(this, 'PetSiteLoadBalancer', {
@@ -403,18 +413,41 @@ export class Services extends cdk.Stack {
             var c9role = undefined
             var c9InstanceProfile = undefined
             var c9env = undefined
+    
+            // Dynamically check if AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile exists
+            const c9SSMRole = new iam.Role(this,'AWSCloud9SSMAccessRole', {
+                path: '/service-role/',
+                roleName: 'AWSCloud9SSMAccessRole',
+                assumedBy: new iam.CompositePrincipal(new iam.ServicePrincipal("ec2.amazonaws.com"), new iam.ServicePrincipal("cloud9.amazonaws.com")),
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
+            });
+            
+            const c9SSMRoleNoPath = iam.Role.fromRoleArn(this,'c9SSMRoleNoPath', "arn:aws:iam::" + stack.account + ":role/AWSCloud9SSMAccessRole")
+            cluster.awsAuth.addMastersRole(c9SSMRoleNoPath);
 
+            new iam.CfnInstanceProfile(this, 'AWSCloud9SSMInstanceProfile', {
+                path: '/cloud9/',
+                roles: [c9SSMRole.roleName],
+                instanceProfileName: 'AWSCloud9SSMInstanceProfile'
+            });
 
             c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
                 ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
-                subnetId: theVPC.publicSubnets[0].subnetId
+                subnetId: theVPC.privateSubnets[0].subnetId,
+                connectionType: 'CONNECT_SSM',
+                repositories: [
+                    {
+                        repositoryUrl: "https://git-codecommit." + region + ".amazonaws.com/v1/repos/event-source",
+                        pathComponent: "/codecommit/pet_stack"
+                    }
+                ]
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
                 assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
-                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")],
+                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"), iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore")],
                 roleName: "observabilityworkshop-admin"
             });
 
@@ -425,6 +458,8 @@ export class Services extends cdk.Stack {
 
             const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
+
+
 
             if (c9role!=undefined)
                 cluster.awsAuth.addMastersRole(c9role)
