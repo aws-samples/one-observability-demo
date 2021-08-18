@@ -1,6 +1,6 @@
 package ca.petsearch;
 
-import io.opentelemetry.api.metrics.GlobalMetricsProvider;
+import io.opentelemetry.api.metrics.GlobalMeterProvider;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.LongValueRecorder;
 import io.opentelemetry.api.metrics.Meter;
@@ -28,7 +28,7 @@ public class MetricEmitter {
     private Tracer tracer;
 
     public MetricEmitter(Tracer tracer) {
-        Meter meter = GlobalMetricsProvider.getMeter("aws-otel", "1.0");
+        Meter meter = GlobalMeterProvider.getMeter("aws-otel", "1.0");
 
         this.tracer = tracer;
 
