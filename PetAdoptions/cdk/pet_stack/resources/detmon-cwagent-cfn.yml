@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  This template deploys a VPC, with a private subnet accessing internet via the NAT Gateway. It deploys 2 EC2
+  instances(Linux and Windows) for CloudWatch agent installation
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: observability-workshop
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.192.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.192.10.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: 10.192.20.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)          
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1      
+  InstanceSecurityGroup1:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: ingress-sg
+      GroupDescription: Security group with for the instance
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  InstanceSecurityGroup2:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: ingress-sg2
+      GroupDescription: Security group with for the instance
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3389'
+          ToPort: '3389'
+          CidrIp: 0.0.0.0/0		  
+  InstanceLinux:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: >-
+        {{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}
+      SubnetId: !Ref PrivateSubnet1
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-Linux'
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup1
+  InstanceWindows:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: >-
+        {{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2016-English-Full-Base}}
+      SubnetId: !Ref PrivateSubnet1
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-Windows'
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup2
+  CloudWatchAgentAdminPolicy:
+   Type: 'AWS::IAM::ManagedPolicy'
+   Properties:
+    PolicyDocument:
+      Version: 2012-10-17
+      Statement:
+        - Sid: CloudWatchParameterPermissions
+          Effect: Allow
+          Action:
+            - 'cloudwatch:PutMetricData'
+            - 'ec2:DescribeTags'
+            - 'logs:PutLogEvents'
+            - 'logs:DescribeLogStreams'
+            - 'logs:DescribeLogGroups'
+            - 'logs:CreateLogStream'
+            - 'logs:CreateLogGroup'
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - 'ssm:GetParameter'
+            - 'ssm:PutParameter'
+          Resource: 'arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*'
+  AmazonSSMManagedInstanceCore:
+   Type: 'AWS::IAM::ManagedPolicy'
+   Properties:
+    PolicyDocument:
+      Version: 2012-10-17
+      Statement:
+        - Sid: SSMAgent
+          Effect: Allow
+          Action:
+            - 'ssm:DescribeAssociation'
+            - 'ssm:GetDeployablePatchSnapshotForInstance'
+            - 'ssm:GetDocument'
+            - 'ssm:DescribeDocument'
+            - 'ssm:GetManifest'
+            - 'ssm:GetParameter'
+            - 'ssm:GetParameters'
+            - 'ssm:ListAssociations'
+            - 'ssm:ListInstanceAssociations'
+            - 'ssm:PutInventory'
+            - 'ssm:PutComplianceItems'
+            - 'ssm:PutConfigurePackageResult'
+            - 'ssm:UpdateAssociationStatus'
+            - 'ssm:UpdateInstanceAssociationStatus'
+            - 'ssm:UpdateInstanceInformation'
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - 'ssmmessages:CreateControlChannel'
+            - 'ssmmessages:CreateDataChannel'
+            - 'ssmmessages:OpenControlChannel'
+            - 'ssmmessages:OpenDataChannel'
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - 'ec2messages:AcknowledgeMessage'
+            - 'ec2messages:DeleteMessage'
+            - 'ec2messages:FailMessage'
+            - 'ec2messages:GetEndpoint'
+            - 'ec2messages:GetMessages'
+            - 'ec2messages:SendReply'
+          Resource: '*'
+  RootRole:
+   Type: 'AWS::IAM::Role'
+   Properties:
+    AssumeRolePolicyDocument:
+      Version: 2012-10-17
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - ec2.amazonaws.com
+          Action:
+            - 'sts:AssumeRole'
+    Path: /
+    ManagedPolicyArns:
+      - !Ref CloudWatchAgentAdminPolicy
+      - !Ref AmazonSSMManagedInstanceCore
+  InstanceProfile:
+   Type: 'AWS::IAM::InstanceProfile'
+   Properties:
+    Path: /
+    Roles:
+      - !Ref RootRole
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+  PublicSubnet1:
+    Description: A reference to the public subnet
+    Value: !Ref PublicSubnet1
+  InstanceSecurityGroup1:
+    Description: Security group linux
+    Value: !Ref InstanceSecurityGroup1
+  InstanceSecurityGroup2:
+    Description: Security group Windows
+    Value: !Ref InstanceSecurityGroup2		
+  InstanceLinux:
+    Description: EC2 instance for agent installation
+    Value: !Ref InstanceLinux
+  InstanceWindows:
+    Description: EC2 instance for agent installation
+    Value: !Ref InstanceWindows
+  InstanceRole:
+    Description: Instance role
+    Value: !Ref RootRole
