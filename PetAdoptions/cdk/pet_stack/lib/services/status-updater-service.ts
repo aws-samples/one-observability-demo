@@ -1,6 +1,7 @@
 import * as cdk from '@aws-cdk/core';
 import * as iam from '@aws-cdk/aws-iam';
 import * as lambda from '@aws-cdk/aws-lambda';
+import * as nodejslambda from '@aws-cdk/aws-lambda-nodejs';
 import * as apigw from '@aws-cdk/aws-apigateway';
 
 export interface StatusUpdaterServiceProps {
@@ -28,10 +29,11 @@ export class StatusUpdaterService extends cdk.Construct {
 //    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LayerFromArn`, layerArn);
 
-    const lambdaFunction = new lambda.Function(this, 'lambdafn', {
+    const lambdaFunction = new nodejslambda.NodejsFunction(this, 'lambdafn', {
         runtime: lambda.Runtime.NODEJS_12_X,    // execution environment
-        code: lambda.Code.fromAsset('./resources/function.zip'), // Copy from Lambda folder or move here!!
-        handler: 'index.handler',
+        entry: '../../petstatusupdater/index.js',
+        depsLockFilePath: '../../petstatusupdater/package-lock.json',
+        handler: 'handler',
         memorySize: 128,
         tracing: lambda.Tracing.ACTIVE,
         role: lambdaRole,
@@ -39,6 +41,14 @@ export class StatusUpdaterService extends cdk.Construct {
         description: 'Update Pet availability status',
         environment: {
             "TABLE_NAME": props.tableName
+        },
+        bundling: {
+          externalModules: [
+            'aws-sdk'
+          ],
+          nodeModules: [
+             'aws-xray-sdk'
+          ]
         }
     });
 
