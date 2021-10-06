@@ -32,9 +32,9 @@ export class PetAdoptionsStepFn extends cdk.Construct {
     //    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
 
-    var adotlayer = new lambda.LayerVersion(this, 'ADOTLayer', {
-      code: new lambda.AssetCode('./resources/aws-distro-for-opentelemetry-python-38-preview.zip')
-    });
+    
+    var adotLayerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION + ":901920570463:layer:aws-otel-python38-ver-1-5-0:2"
+    var adotlayer = lambda.LayerVersion.fromLayerVersionArn(this,'otelPythonLambdaLayer',adotLayerArn);
 
     var layers: lambda.ILayerVersion[] = [layer, adotlayer]
 
@@ -69,7 +69,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
 
   private createStepFnLambda(lambdaFileName: string, lambdaRole: iam.Role, lambdalayers: lambda.ILayerVersion[]) {
     var pythonFn = new pythonlambda.PythonFunction(this, lambdaFileName, {
-      entry: './resources/',
+      entry: './resources/stepfn_lambdas/',
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
       memorySize: 128,
@@ -78,7 +78,7 @@ export class PetAdoptionsStepFn extends cdk.Construct {
       layers: lambdalayers,
       tracing: Tracing.ACTIVE
     });
-    pythonFn.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/python/adot-instrument")
+    pythonFn.addEnvironment("AWS_LAMBDA_EXEC_WRAPPER", "/opt/otel-instrument")
     return pythonFn;
   }
 }
