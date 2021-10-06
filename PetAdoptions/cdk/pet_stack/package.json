@@ -51,6 +51,7 @@
     "@aws-cdk/core": "1.98.0",
     "@aws-cdk/custom-resources": "1.98.0",
     "@aws-cdk/cx-api": "1.98.0",
+    "@aws-cdk/aws-lambda-nodejs": "1.98.0",
     "@types/js-yaml": "3.12.5",
     "aws-cdk-dynamodb-seeder": "1.56.0",
     "cdk-sqlserver-seeder": "^0.2.3",
