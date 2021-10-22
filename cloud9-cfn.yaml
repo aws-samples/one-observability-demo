@@ -1,429 +1,676 @@
----
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Cloud9 For Observability Workshop
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - Label:
-          default: Cloud9 instance
-        Parameters:
-          - VpcCIDR
-          - PublicSubnet1CIDR
-          - PrivateSubnet1CIDR
-          - C9InstanceType
-          - C9StopTime
-          - BootstrapScriptS3Uri
-      - Label:
-          default: Assets configuration
-        Parameters:
-          - OutputBucketName
-          - QSS3BucketName
-          - QSS3KeyPrefix
-    ParameterLabels:
-      VpcCIDR:
-        default: Default IP range for VPC
-      PublicSubnet1CIDR:
-        default: Range IP for public subnet
-      PrivateSubnet1CIDR:
-        default: Range IP for private subnet
-      C9InstanceType:
-        default: Cloud9 instance type
-      C9StopTime:
-        default: Stop time
-      BootstrapScriptS3Uri:
-        default: Bootstrap script S3 URI
-      OutputBucketName:
-        default: Output S3 bucket name
-      QSS3BucketName:
-        default: Quick Start S3 bucket name
-      QSS3KeyPrefix:
-        default: Quick Start S3 key prefix
+Description:  Cloud9 For Observability Workshop
+
 Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "observability"
+
   VpcCIDR:
-    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(3[0-2]|[1-2][0-9]|[0-9]))$|(^Auto$)
-    Description: Please enter the IP range for this VPC
+    Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
     Default: 10.10.0.0/16
+
   PublicSubnet1CIDR:
-    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
-    Description: Please enter the IP range for the public subnet
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.10.10.0/24
-  PrivateSubnet1CIDR:
-    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
-    Description: Please enter the IP range for the private subnet
+
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
     Type: String
     Default: 10.10.20.0/24
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.10.30.0/24
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: 10.10.40.0/24
+
   C9InstanceType:
-    Description:
-      The instance type of the new Amazon EC2 instance that AWS Cloud9
-      will launch for the development environment.
+    Description: Example Cloud9 instance type
     Type: String
-    Default: t2.medium
-  C9StopTime:
-    Description:
-      The number of minutes until the running instance is shut down after
-      the environment has last been used.
+    Default: t3.medium
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - t3.small
+      - t3.medium
+    ConstraintDescription: Must be a valid Cloud9 instance type
+  C9EnvType: 
+    Description: Environment type.
+    Default: self
+    Type: String
+    AllowedValues: 
+      - self
+      - 3rdParty
+      - jam
+      - event-engine
+    ConstraintDescription: must specify self or 3rdParty.
+  OwnerArn: 
+    Type: String
+    Description: The Arn of the Cloud9 Owner to be set if 3rdParty deployment.
+    Default: ""
+  C9InstanceVolumeSize: 
     Type: Number
-    Default: 240
-  BootstrapScriptS3Uri:
-    Description: S3 URI to a shell script that will be executed on the Cloud9 instance. If left blank, no custom bootstrap will be run.
-    Type: String
-    Default: 's3://ee-assets-prod-us-east-1/modules/2a60741f901644fa9b5b924e9b4ab918/v1/scripts/bootstrap.sh'
-  OutputBucketName:
-    Description:
-      'OPTIONAL: Bucket name where the zip file output should be placed.
-      If left blank, a bucket name will be automatically generated.'
-    Type: String
-    Default: ''
-  QSS3BucketName:
-    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
-    ConstraintDescription:
-      Quick Start bucket name can include numbers, lowercase
-      letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen
-      (-).
-    Default: ee-assets-prod-us-east-1
-    Description:
-      S3 bucket name for the Quick Start assets. This string can include
-      numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start
-      or end with a hyphen (-).
-    Type: String
-  QSS3KeyPrefix:
-    AllowedPattern: ^[0-9a-zA-Z-/.]*$
-    ConstraintDescription:
-      Quick Start key prefix can include numbers, lowercase letters,
-      uppercase letters, hyphens (-), dots(.) and forward slash (/).
-    Default: modules/2a60741f901644fa9b5b924e9b4ab918/v1/
-    Description:
-      S3 key prefix for the Quick Start assets. Quick Start key prefix
-      can include numbers, lowercase letters, uppercase letters, hyphens (-), dots(.) and
-      forward slash (/).
-    Type: String
-Conditions:
-  UsingDefaultBucket: !Equals [!Ref QSS3BucketName, 'aws-quickstart']
-  CreateZipsBucket: !Equals [!Ref 'OutputBucketName', '']
-  DoCustomBootstrap: !Not [!Equals [!Ref 'BootstrapScriptS3Uri', '']]
+    Description: The Size in GB of the Cloud9 Instance Volume. 
+    Default: 30
+
+Conditions: 
+  Create3rdPartyResources: !Equals [ !Ref C9EnvType, 3rdParty ]
+#  CreateJamResources: !Equals [ !Ref C9EnvType, jam ]
+  CreateEventEngineResources: !Equals [ !Ref C9EnvType, event-engine ]
+
 Resources:
   VPC:
-    Type: 'AWS::EC2::VPC'
+    Type: AWS::EC2::VPC
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: "No need for Flow logs in this workshop"    
     Properties:
       CidrBlock: !Ref VpcCIDR
-      EnableDnsSupport: 'true'
-      EnableDnsHostnames: 'true'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
   InternetGateway:
-    Type: 'AWS::EC2::InternetGateway'
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
   InternetGatewayAttachment:
-    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
+
   PublicSubnet1:
-    Type: 'AWS::EC2::Subnet'
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       CidrBlock: !Ref PublicSubnet1CIDR
-      MapPublicIpOnLaunch: true
-  PrivateSubnet1:
-    Type: 'AWS::EC2::Subnet'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
       CidrBlock: !Ref PrivateSubnet1CIDR
       MapPublicIpOnLaunch: false
-  PublicRouteTable:
-    Type: 'AWS::EC2::RouteTable'
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway2EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+      SubnetId: !Ref PublicSubnet2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
   DefaultPublicRoute:
-    Type: 'AWS::EC2::Route'
+    Type: AWS::EC2::Route
     DependsOn: InternetGatewayAttachment
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
+
   PublicSubnet1RouteTableAssociation:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet1
-  LambdaZipsBucket:
-    Condition: CreateZipsBucket
-    Type: AWS::S3::Bucket
-    Properties: {}
-  Cloud9Env:
-    Type: AWS::Cloud9::EnvironmentEC2
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      Name: observabilityworkshop
-      Description: 'IDE Workshop'
-      AutomaticStopTimeMinutes: !Ref C9StopTime
-      InstanceType: !Ref C9InstanceType
-      SubnetId: !Ref PublicSubnet1
-  Cloud9Role:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+
+  DefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  NoIngressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W5
+            reason: "Outbound access to the world is needed to download dependencies in C9"    
+    Properties:
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "HTTP Outbound traffic"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "HTTPS Outbound traffic"
+
+  # CloudEnv:
+  #   Type: AWS::Cloud9::EnvironmentEC2
+  #   Properties: 
+  #     ConnectionType: CONNECT_SSM
+  #     Description: Jam Cloud9 Environment
+  #     InstanceType: t2.micro
+  #     Name: jam-cloudenv
+  #     OwnerArn: !Join 
+  #       - ''
+  #       - - 'arn:aws:iam::'
+  #         - !Ref 'AWS::AccountId'
+  #         - ':assumed-role/TeamRole/MasterKey'
+  #     SubnetId: !Ref PrivateSubnet1
+
+
+################## PERMISSIONS AND ROLES #################
+  C9Role:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W43
+            reason: "C9 Instance will be used to deploy Infrastructure in the workshop"
+          - id: W28
+            reason: "Needed in order to check the proper role is attached to the instance before running CDK"
+
+
     Properties:
-      RoleName: 'observabilityworkshop-admin'
+      RoleName: observabilityworkshop-admin
+      Tags:
+        - Key: Environment
+          Value: !Sub ${EnvironmentName}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+            - ssm.amazonaws.com
+          Action:
+          - sts:AssumeRole
+
+
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-      Path: /
-  Cloud9InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: 'observabilityworkshop-profile'
-      Roles: [!Ref Cloud9Role]
-  CopyZipsRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /
+      - arn:aws:iam::aws:policy/AdministratorAccess
+      Path: "/"
+
       Policies:
-        - PolicyName: lambda-copier
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: s3:GetObject
-                Resource: !Sub
-                  - arn:${AWS::Partition}:s3:::${S3Bucket}/${QSS3KeyPrefix}*
-                  - S3Bucket:
-                      !If [
-                        UsingDefaultBucket,
-                        !Sub '${QSS3BucketName}-${AWS::Region}',
-                        !Ref QSS3BucketName,
-                      ]
-              - Effect: Allow
-                Action: ['s3:PutObject', 's3:DeleteObject']
-                Resource:
-                  'Fn::Sub':
-                    - 'arn:aws:s3:::${ZipsBucket}/${QSS3KeyPrefix}*'
-                    - ZipsBucket:
-                        !If [
-                          CreateZipsBucket,
-                          Ref: LambdaZipsBucket,
-                          Ref: OutputBucketName,
-                        ]
-  CopyZipsFunction:
+      - PolicyName:
+          Fn::Join:
+          - ''
+          - - C9InstanceDenyPolicy-
+            - Ref: AWS::Region
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Deny
+            Action:
+            - cloud9:UpdateEnvironment
+            Resource: "*"
+
+  C9LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "Describe Action doesn't support any resource condition"    
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName:
+          Fn::Join:
+          - ''
+          - - C9LambdaPolicy-
+            - Ref: AWS::Region
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - cloudformation:DescribeStacks
+            - cloudformation:DescribeStackEvents
+            - cloudformation:DescribeStackResource
+            - cloudformation:DescribeStackResources
+            Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*"
+          - Effect: Allow
+            Action:
+            - ec2:AssociateIamInstanceProfile
+            - ec2:ModifyInstanceAttribute
+            - ec2:ReplaceIamInstanceProfileAssociation
+            Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+          - Effect: Allow
+            Action:
+            - ec2:DescribeInstances
+            - ec2:DescribeIamInstanceProfileAssociations
+            Resource: "*"         
+          - Effect: Allow
+            Action:
+            - iam:ListInstanceProfiles
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/*
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource: 
+              Fn::GetAtt:
+                - C9Role
+                - Arn
+################## LAMBDA BOOTSTRAP FUNCTION ################
+
+  C9BootstrapInstanceLambda:
+    Type: Custom::C9BootstrapInstanceLambda
+    DependsOn:
+    - C9LambdaExecutionRole
+    Properties:
+      Tags:
+        - Key: Environment
+          Value: !Sub ${EnvironmentName}
+      ServiceToken:
+        Fn::GetAtt:
+        - C9BootstrapInstanceLambdaFunction
+        - Arn
+      REGION:
+        Ref: AWS::Region
+      StackName:
+        Ref: AWS::StackName
+      EnvironmentId:
+        Ref: C9Instance
+      LabIdeInstanceProfileName:
+        Ref: C9InstanceProfile
+      LabIdeInstanceProfileArn:
+        Fn::GetAtt:
+        - C9InstanceProfile
+        - Arn
+
+  C9BootstrapInstanceLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Copies objects from a source S3 bucket to a destination
-      Handler: index.handler
+      Tags:
+        - Key: Environment
+          Value: AWS Example
+      Handler: index.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - C9LambdaExecutionRole
+        - Arn
       Runtime: python3.6
-      Role: !GetAtt CopyZipsRole.Arn
-      Timeout: 240
+      MemorySize: 256
+      Timeout: 600
       Code:
         ZipFile: |
-          import json
-          import logging
-          import threading
+          from __future__ import print_function
           import boto3
+          import json
+          import os
+          import time
+          import traceback
           import cfnresponse
+          import logging
 
+          logger = logging.getLogger(__name__)
+          logger.setLevel(logging.INFO)
+          
+          def lambda_handler(event, context):
+              logger.info('event: {}'.format(event))
+              logger.info('context: {}'.format(context))
+              responseData = {}
+          
+              if event['RequestType'] == 'Create':
+                  try:
+                      # Open AWS clients
+                      ec2 = boto3.client('ec2')
+          
+                      # Get the InstanceId of the Cloud9 IDE
+                      instance = ec2.describe_instances(Filters=[{'Name': 'tag:Name','Values': ['aws-cloud9-observabilityworkshop'+'-'+event['ResourceProperties']['EnvironmentId']]}])['Reservations'][0]['Instances'][0]
+                      logger.info('instance: {}'.format(instance))
+          
+                      # Create the IamInstanceProfile request object
+                      iam_instance_profile = {
+                          'Arn': event['ResourceProperties']['LabIdeInstanceProfileArn'],
+                          'Name': event['ResourceProperties']['LabIdeInstanceProfileName']
+                      }
+                      logger.info('iam_instance_profile: {}'.format(iam_instance_profile))
+          
+                      # Wait for Instance to become ready before adding Role
+                      instance_state = instance['State']['Name']
+                      logger.info('instance_state: {}'.format(instance_state))
+                      while instance_state != 'running':
+                          time.sleep(5)
+                          instance_state = ec2.describe_instances(InstanceIds=[instance['InstanceId']])
+                          logger.info('instance_state: {}'.format(instance_state))
+          
+                      # attach instance profile
+                      response = ec2.associate_iam_instance_profile(IamInstanceProfile=iam_instance_profile, InstanceId=instance['InstanceId'])
+                      logger.info('response - associate_iam_instance_profile: {}'.format(response))
+                      #r_ec2 = boto3.resource('ec2')
+  
+                      responseData = {'Success': 'Started bootstrapping for instance: '+instance['InstanceId']}
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
+                      
+                  except Exception as e:
+                      logger.error(e, exc_info=True)
+                      # responseData = {'Error': traceback.format_exc(e)}
+                      responseData = {'Error':'There was a problem associating IAM profile to the Cloud9 Instance'}
+                      cfnresponse.send(event, context, cfnresponse.FAILED, responseData, 'CustomResourcePhysicalID')
 
-          def copy_objects(source_bucket, dest_bucket, prefix, objects):
-              s3 = boto3.client('s3')
-              for o in objects:
-                  key = prefix + o
-                  copy_source = {
-                      'Bucket': source_bucket,
-                      'Key': key
-                  }
-                  print('copy_source: %s' % copy_source)
-                  print('dest_bucket = %s'%dest_bucket)
-                  print('key = %s' %key)
-                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
-                        Key=key)
-
-
-          def delete_objects(bucket, prefix, objects):
-              s3 = boto3.client('s3')
-              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
-              s3.delete_objects(Bucket=bucket, Delete=objects)
-
-
-          def timeout(event, context):
-              logging.error('Execution is about to time out, sending failure response to CloudFormation')
-              cfnresponse.send(event, context, cfnresponse.FAILED, {}, None)
-
-
-          def handler(event, context):
-              # make sure we send a failure to CloudFormation if the function
-              # is going to timeout
-              timer = threading.Timer((context.get_remaining_time_in_millis()
-                        / 1000.00) - 0.5, timeout, args=[event, context])
-              timer.start()
-
-              print('Received event: %s' % json.dumps(event))
-              status = cfnresponse.SUCCESS
-              try:
-                  source_bucket = event['ResourceProperties']['SourceBucket']
-                  dest_bucket = event['ResourceProperties']['DestBucket']
-                  prefix = event['ResourceProperties']['Prefix']
-                  objects = event['ResourceProperties']['Objects']
-                  if event['RequestType'] == 'Delete':
-                      delete_objects(dest_bucket, prefix, objects)
-                  else:
-                      copy_objects(source_bucket, dest_bucket, prefix, objects)
-              except Exception as e:
-                  logging.error('Exception: %s' % e, exc_info=True)
-                  status = cfnresponse.FAILED
-              finally:
-                  timer.cancel()
-                  cfnresponse.send(event, context, status, {}, None)
-  CopyZips:
-    Type: Custom::CopyZips
+              else:
+                responseData = {'Success': 'Update or delete event'}
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
+################## SSM BOOTSRAP HANDLER ###############
+  C9OutputBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "Access Logs aren't needed for this bucket"
+    DeletionPolicy: Delete
     Properties:
-      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
-      DestBucket:
-        !If [CreateZipsBucket, Ref: LambdaZipsBucket, Ref: OutputBucketName]
-      SourceBucket:
-        !If [
-          UsingDefaultBucket,
-          !Sub '${QSS3BucketName}-${AWS::Region}',
-          !Ref QSS3BucketName,
-        ]
-      Prefix: !Ref QSS3KeyPrefix
-      Objects:
-        - functions/packages/c9bootstrap/lambda.zip
-        - functions/packages/c9InstanceProfile/lambda.zip
-        - functions/packages/c9DiskResize/lambda.zip
-  C9SetupRole:
-    Type: AWS::IAM::Role
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  C9OutputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
     Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+      Bucket: !Ref C9OutputBucket
+      PolicyDocument:
+        Version: 2012-10-17
         Statement:
-          - Effect: Allow
+          - Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref C9OutputBucket
+                - /*
             Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /
-      Policies:
-        - PolicyName: lambda-AttachRoleC9
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:DescribeStackResources
-                  - ec2:AssociateIamInstanceProfile
-                  - ec2:AuthorizeSecurityGroupIngress
-                  - ec2:DescribeInstances
-                  - ec2:DescribeInstanceStatus
-                  - ec2:DescribeInstanceAttribute
-                  - ec2:DescribeIamInstanceProfileAssociations
-                  - ec2:DescribeVolumes
-                  - ec2:DesctibeVolumeAttribute
-                  - ec2:DescribeVolumesModifications
-                  - ec2:DescribeVolumeStatus
-                  - ec2:StartInstances
-                  - ec2:StopInstances
-                  - ssm:DescribeInstanceInformation
-                  - ec2:ModifyVolume
-                  - ec2:ReplaceIamInstanceProfileAssociation
-                  - ec2:ReportInstanceStatus
-                  - ssm:SendCommand
-                  - ssm:GetCommandInvocation
-                  - s3:GetObject
-                Resource: '*'
-              - Effect: Allow
-                Action: iam:PassRole
-                Resource: !GetAtt 'Cloud9Role.Arn'
-              - Effect: Allow
-                Action: ['lambda:AddPermission', 'lambda:RemovePermission']
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  [
-                    'events:PutRule',
-                    'events:DeleteRule',
-                    'events:PutTargets',
-                    'events:RemoveTargets',
-                  ]
-                Resource: '*'
-  C9InstanceProfileLambda:
-    DependsOn: CopyZips
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Runs custom setup actions on Cloud9 environment
-      Handler: lambda_function.handler
-      Runtime: python3.6
-      Role: !GetAtt 'C9SetupRole.Arn'
-      Timeout: 900
-      Code:
-        S3Bucket:
-          !If [CreateZipsBucket, Ref: LambdaZipsBucket, Ref: OutputBucketName]
-        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/c9InstanceProfile/lambda.zip'
+              AWS: 
+                Fn::GetAtt:
+                - C9LambdaExecutionRole
+                - Arn
+
+
+  C9SSMDocument: 
+    Type: AWS::SSM::Document
+    Properties: 
+      Tags:
+        - Key: Environment
+          Value: !Sub ${EnvironmentName}
+      DocumentType: Command
+      Content: 
+        schemaVersion: '2.2'
+        description: Bootstrap Cloud9 Instance
+        mainSteps:
+        - action: aws:runShellScript
+          name: C9bootstrap
+          inputs:
+            runCommand:
+            - "#!/bin/bash"
+            - date
+            - echo LANG=en_US.utf-8 >> /etc/environment
+            - echo LC_ALL=en_US.UTF-8 >> /etc/environment
+            - . /home/ec2-user/.bashrc
+            - yum -y remove aws-cli; yum -y install sqlite telnet jq strace tree gcc glibc-static python3 python3-pip gettext bash-completion
+            - echo '=== CONFIGURE default python version ==='
+            - PATH=$PATH:/usr/bin
+            - alternatives --set python /usr/bin/python3.6
+            - echo '=== INSTALL and CONFIGURE default software components ==='
+            - sudo -H -u ec2-user bash -c "pip install --user -U boto boto3 botocore awscli aws-sam-cli"
+            - echo '=== Resizing the Instance volume'
+            - !Sub SIZE=${C9InstanceVolumeSize}
+            - !Sub REGION=${AWS::Region}
+            - |
+              INSTANCEID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+              VOLUMEID=$(aws ec2 describe-instances \
+                --instance-id $INSTANCEID \
+                --query "Reservations[0].Instances[0].BlockDeviceMappings[0].Ebs.VolumeId" \
+                --output text --region $REGION)
+              aws ec2 modify-volume --volume-id $VOLUMEID --size $SIZE --region $REGION
+              while [ \
+                "$(aws ec2 describe-volumes-modifications \
+                  --volume-id $VOLUMEID \
+                  --filters Name=modification-state,Values="optimizing","completed" \
+                  --query "length(VolumesModifications)"\
+                  --output text --region $REGION)" != "1" ]; do
+              sleep 1
+              done
+              if [ $(readlink -f /dev/xvda) = "/dev/xvda" ]
+              then
+                sudo growpart /dev/xvda 1
+                STR=$(cat /etc/os-release)
+                SUB="VERSION_ID=\"2\""
+                if [[ "$STR" == *"$SUB"* ]]
+                then
+                  sudo xfs_growfs -d /
+                else
+                  sudo resize2fs /dev/xvda1
+                fi
+              else
+                sudo growpart /dev/nvme0n1 1
+                STR=$(cat /etc/os-release)
+                SUB="VERSION_ID=\"2\""
+                if [[ "$STR" == *"$SUB"* ]]
+                then
+                  sudo xfs_growfs -d /
+                else
+                  sudo resize2fs /dev/nvme0n1p1
+                fi
+              fi
+            - echo "Bootstrap completed with return code $?"
+  
+  C9BootstrapAssociation: 
+    Type: AWS::SSM::Association
+    Properties: 
+      Name: !Ref C9SSMDocument
+      OutputLocation: 
+        S3Location:
+          OutputS3BucketName: !Ref C9OutputBucket
+          OutputS3KeyPrefix: bootstrapoutput
+      Targets:
+        - Key: tag:SSMBootstrap
+          Values:
+          - Active
+
+################## INSTANCE #####################
   C9InstanceProfile:
-    Type: Custom::C9InstanceProfileLambda
+    Type: AWS::IAM::InstanceProfile
     Properties:
-      ServiceToken: !GetAtt 'C9InstanceProfileLambda.Arn'
-      InstanceProfile: !Ref Cloud9InstanceProfile
-      Cloud9Environment: !Ref Cloud9Env
-  C9DiskResizeLambda:
-    DependsOn: CopyZips
-    Type: AWS::Lambda::Function
+      Path: "/"
+      Roles:
+      - Ref: C9Role
+
+  C9Instance:
+    DependsOn: C9BootstrapAssociation
+    Type: AWS::Cloud9::EnvironmentEC2
     Properties:
-      Description: Runs custom setup actions on Cloud9 environment
-      Handler: lambda_function.handler
-      Runtime: python3.6
-      Role: !GetAtt 'C9SetupRole.Arn'
-      Timeout: 900
-      Code:
-        S3Bucket:
-          !If [CreateZipsBucket, Ref: LambdaZipsBucket, Ref: OutputBucketName]
-        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/c9DiskResize/lambda.zip'
-  C9DiskResize:
-    Type: Custom::C9DiskResizeLambda
-    Properties:
-      ServiceToken: !GetAtt 'C9DiskResizeLambda.Arn'
-      InstanceId: !Ref C9InstanceProfile
-      Region: !Sub '${AWS::Region}'
-      EBSVolumeSize: 32
-  C9BootstrapLambda:
-    Condition: DoCustomBootstrap
-    DependsOn: CopyZips
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Runs custom setup actions on Cloud9 environment
-      Handler: lambda_function.handler
-      Runtime: python3.6
-      Role: !GetAtt 'C9SetupRole.Arn'
-      Timeout: 900
-      Code:
-        S3Bucket:
-          !If [CreateZipsBucket, Ref: LambdaZipsBucket, Ref: OutputBucketName]
-        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/c9bootstrap/lambda.zip'
-  C9Bootstrap:
-    Condition: DoCustomBootstrap
-    DependsOn: C9DiskResize
-    Type: Custom::C9BootstrapLambda
-    Properties:
-      ServiceToken: !GetAtt 'C9BootstrapLambda.Arn'
-      InstanceId: !Ref C9InstanceProfile
-      BootstrapPath: !Ref BootstrapScriptS3Uri
-      BootstrapArguments: ''
+      Description: !Sub  AWS Cloud9 instance for ${EnvironmentName}
+      SubnetId: !Ref PublicSubnet1
+      #ConnectionType: CONNECT_SSM
+
+      AutomaticStopTimeMinutes: 3600
+      InstanceType:
+        Ref: C9InstanceType
+      Name: observabilityworkshop
+      OwnerArn: !If [Create3rdPartyResources, !Ref OwnerArn, !If [CreateEventEngineResources, !Join ['',['arn:aws:iam::',!Ref 'AWS::AccountId',':assumed-role/TeamRole/MasterKey']],!Ref "AWS::NoValue"]]
+      Tags: 
+        - 
+          Key: SSMBootstrap
+          Value: Active
+        - 
+          Key: Environment
+          Value: !Sub ${EnvironmentName} 
+
 Outputs:
-  Cloud9Env:
-    Description: Cloud9 Instance Name
-    Value: !Ref Cloud9Env
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2 ]]
+
+  PrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ]]
+
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 2nd Availability Zone
+    Value: !Ref PublicSubnet2
+
+  PrivateSubnet1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: A reference to the private subnet in the 2nd Availability Zone
+    Value: !Ref PrivateSubnet2
+
+  NoIngressSecurityGroup:
+    Description: Security group with no ingress rule
+    Value: !Ref NoIngressSecurityGroup
+
+  Cloud9IDE:
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Ref: AWS::Region
+        - ".console.aws.amazon.com/cloud9/ide/"
+        - Ref: C9Instance
+        - "?region="
+        - Ref: AWS::Region
