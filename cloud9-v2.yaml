@@ -68,6 +68,11 @@ Conditions:
 Resources:
   VPC:
     Type: AWS::EC2::VPC
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: "No need for Flow logs in this workshop"    
     Properties:
       CidrBlock: !Ref VpcCIDR
       EnableDnsSupport: true
@@ -95,7 +100,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       CidrBlock: !Ref PublicSubnet1CIDR
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
@@ -106,7 +111,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 1, !GetAZs  '' ]
       CidrBlock: !Ref PublicSubnet2CIDR
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
@@ -230,10 +235,25 @@ Resources:
 
   NoIngressSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W5
+            reason: "Outbound access to the world is needed to download dependencies in C9"    
     Properties:
-      GroupName: "no-ingress-sg"
       GroupDescription: "Security group with no ingress rule"
       VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "HTTP Outbound traffic"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "HTTPS Outbound traffic"
 
   # CloudEnv:
   #   Type: AWS::Cloud9::EnvironmentEC2
@@ -253,6 +273,15 @@ Resources:
 ################## PERMISSIONS AND ROLES #################
   C9Role:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W43
+            reason: "C9 Instance will be used to deploy Infrastructure in the workshop"
+          - id: W28
+            reason: "Needed in order to check the proper role is attached to the instance before running CDK"
+
+
     Properties:
       RoleName: observabilityworkshop-admin
       Tags:
@@ -290,6 +319,11 @@ Resources:
 
   C9LambdaExecutionRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "Describe Action doesn't support any resource condition"    
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -301,6 +335,8 @@ Resources:
           Action:
           - sts:AssumeRole
       Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
       - PolicyName:
           Fn::Join:
@@ -312,25 +348,33 @@ Resources:
           Statement:
           - Effect: Allow
             Action:
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            Resource: arn:aws:logs:*:*:*
-          - Effect: Allow
-            Action:
             - cloudformation:DescribeStacks
             - cloudformation:DescribeStackEvents
             - cloudformation:DescribeStackResource
             - cloudformation:DescribeStackResources
-            - ec2:DescribeInstances
+            Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*"
+          - Effect: Allow
+            Action:
             - ec2:AssociateIamInstanceProfile
             - ec2:ModifyInstanceAttribute
             - ec2:ReplaceIamInstanceProfileAssociation
+            Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+          - Effect: Allow
+            Action:
+            - ec2:DescribeInstances
             - ec2:DescribeIamInstanceProfileAssociations
+            Resource: "*"         
+          - Effect: Allow
+            Action:
             - iam:ListInstanceProfiles
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/*
+          - Effect: Allow
+            Action:
             - iam:PassRole
-            Resource: "*"
-
+            Resource: 
+              Fn::GetAtt:
+                - C9Role
+                - Arn
 ################## LAMBDA BOOTSTRAP FUNCTION ################
 
   C9BootstrapInstanceLambda:
@@ -428,10 +472,54 @@ Resources:
                       # responseData = {'Error': traceback.format_exc(e)}
                       responseData = {'Error':'There was a problem associating IAM profile to the Cloud9 Instance'}
                       cfnresponse.send(event, context, cfnresponse.FAILED, responseData, 'CustomResourcePhysicalID')
+
+              else:
+                responseData = {'Success': 'Update or delete event'}
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
 ################## SSM BOOTSRAP HANDLER ###############
   C9OutputBucket:
     Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: "Access Logs aren't needed for this bucket"
     DeletionPolicy: Delete
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  C9OutputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref C9OutputBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref C9OutputBucket
+                - /*
+            Principal:
+              AWS: 
+                Fn::GetAtt:
+                - C9LambdaExecutionRole
+                - Arn
+
 
   C9SSMDocument: 
     Type: AWS::SSM::Document
@@ -499,40 +587,6 @@ Resources:
                   sudo resize2fs /dev/nvme0n1p1
                 fi
               fi
-            - echo '=== INSTALL and CONFIGURE amplify and setting ENVIRONMENT VARS ==='
-            - sudo -H -u ec2-user bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.2/install.sh | bash" && sudo -H -u ec2-user bash -c ". ~/.nvm/nvm.sh && nvm install node" && sudo -H -u ec2-user bash -c ". ~/.nvm/nvm.sh && npm install -g @aws-amplify/cli"
-            - echo '=== INSTALL and CONFIGURE IaC Tools ==='
-            - sudo -H -u ec2-user bash -c ". ~/.nvm/nvm.sh && npm install -g aws-cdk"
-            - curl --silent --location -o terraform_0.12.20_linux_amd64.zip https://releases.hashicorp.com/terraform/0.13.5/terraform_0.13.5_linux_amd64.zip && unzip terraform_0.13.5_linux_amd64.zip && mv -f terraform /usr/bin/
-            - sudo -H -u ec2-user bash -c "pip install --user -U ansible"
-            - echo '=== CONFIGURE kubecrtl and setting ENVIRONMENT VARS ==='
-            - curl --silent --location -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-            - chmod +x /usr/bin/kubectl
-            - sudo -H -u ec2-user bash -c "kubectl completion bash >>  ~/.bash_completion"
-            - sudo -H -u ec2-user bash -c ". /etc/profile.d/bash_completion.sh"
-            - sudo -H -u ec2-user bash -c ". ~/.bash_completion"
-            - echo '=== CONFIGURE eksctl and setting ENVIRONMENT VARS ==='
-            - curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-            - mv /tmp/eksctl /usr/bin
-            - sudo -H -u ec2-user bash -c "eksctl completion bash >> ~/.bash_completion"
-            - sudo -H -u ec2-user bash -c ". /etc/profile.d/bash_completion.sh"
-            - sudo -H -u ec2-user bash -c ". ~/.bash_completion"
-            - echo '=== CONFIGURE awscli and setting ENVIRONMENT VARS ==='
-            - echo "complete -C '/usr/local/bin/aws_completer' aws" >> /home/ec2-user/.bashrc
-            - mkdir /home/ec2-user/.aws
-            - echo '[default]' > /home/ec2-user/.aws/config
-            - echo 'output = json' >> /home/ec2-user/.aws/config
-            - chmod 600 /home/ec2-user/.aws/config && chmod 600 /home/ec2-user/.aws/credentials
-            - echo 'PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
-            - echo 'export PATH' >> /home/ec2-user/.bashrc
-            - echo '=== CREATING EKS CLUSTER ==='
-            - AWS_USER=$(aws sts get-caller-identity --query Arn --output text)
-            - echo 'Running with user $AWS_USER'
-            - echo '=== CLEANING /home/ec2-user ==='
-            - for f in cloud9; do rm -rf /home/ec2-user/$f; done
-            - chown -R ec2-user:ec2-user /home/ec2-user/
-            - echo '=== PREPARE REBOOT in 1 minute with at ==='
-            - FILE=$(mktemp) && echo $FILE && echo '#!/bin/bash' > $FILE && echo 'reboot -f --verbose' >> $FILE && at now + 1 minute -f $FILE
             - echo "Bootstrap completed with return code $?"
   
   C9BootstrapAssociation: 
