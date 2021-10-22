@@ -484,7 +484,7 @@ Resources:
         rules_to_suppress:
           - id: W35
             reason: "Access Logs aren't needed for this bucket"
-    DeletionPolicy: Delete
+    DeletionPolicy: Retain
     Properties:
       AccessControl: Private
       BucketEncryption:
