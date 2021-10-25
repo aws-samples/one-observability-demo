@@ -26,7 +26,7 @@ import { KubernetesVersion } from '@aws-cdk/aws-eks';
 import { CfnJson, RemovalPolicy, Fn, Duration } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
-
+import { TreatMissingData, ComparisonOperator } from '@aws-cdk/aws-cloudwatch';
 
 export class Services extends cdk.Stack {
     constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -72,18 +72,22 @@ export class Services extends cdk.Stack {
             removalPolicy:  RemovalPolicy.DESTROY
         });
 
-        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'ReadCapacityUnitsLimit-BasicAlarm', {
-          threshold: 240,
-          evaluationPeriods: 2,
+        dynamodb_petadoption.metric('WriteThrottleEvents',{statistic:"avg"}).createAlarm(this, 'WriteThrottleEvents-BasicAlarm', {
+          threshold: 0,
+          treatMissingData: TreatMissingData.NOT_BREACHING,
+          comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+          evaluationPeriods: 1,
           period: cdk.Duration.minutes(1),
-          alarmName: `${dynamodb_petadoption.tableName}-ReadCapacityUnitsLimit-BasicAlarm`,
+          alarmName: `${dynamodb_petadoption.tableName}-WriteThrottleEvents-BasicAlarm`,
         });
 
-        dynamodb_petadoption.metricConsumedReadCapacityUnits().createAlarm(this, 'WriteCapacityUnitsLimit-BasicAlarm', {
-          threshold: 240,
-          evaluationPeriods: 2,
+        dynamodb_petadoption.metric('ReadThrottleEvents',{statistic:"avg"}).createAlarm(this, 'ReadThrottleEvents-BasicAlarm', {
+          threshold: 0,
+          treatMissingData: TreatMissingData.NOT_BREACHING,
+          comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+          evaluationPeriods: 1,
           period: cdk.Duration.minutes(1),
-          alarmName: `${dynamodb_petadoption.tableName}-WriteCapacityUnitsLimit-BasicAlarm`,
+          alarmName: `${dynamodb_petadoption.tableName}-ReadThrottleEvents-BasicAlarm`,
         });
 
 
@@ -413,7 +417,7 @@ export class Services extends cdk.Stack {
             var c9role = undefined
             var c9InstanceProfile = undefined
             var c9env = undefined
-    
+
             // Dynamically check if AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile exists
             const c9SSMRole = new iam.Role(this,'AWSCloud9SSMAccessRole', {
                 path: '/service-role/',
@@ -421,7 +425,7 @@ export class Services extends cdk.Stack {
                 assumedBy: new iam.CompositePrincipal(new iam.ServicePrincipal("ec2.amazonaws.com"), new iam.ServicePrincipal("cloud9.amazonaws.com")),
                 managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
             });
-            
+
             const c9SSMRoleNoPath = iam.Role.fromRoleArn(this,'c9SSMRoleNoPath', "arn:aws:iam::" + stack.account + ":role/AWSCloud9SSMAccessRole")
             cluster.awsAuth.addMastersRole(c9SSMRoleNoPath);
 
