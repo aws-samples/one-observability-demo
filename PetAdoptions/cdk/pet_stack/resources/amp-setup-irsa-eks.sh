@@ -41,26 +41,7 @@ cat <<EOF > TrustPolicy.json
   ]
 }
 EOF
-#
-# Set up the permission policy that grants ingest (remote write) permissions for all AMP workspaces
-#
-cat <<EOF > PermissionPolicyIngest.json
-{
-  "Version": "2012-10-17",
-   "Statement": [
-       {"Effect": "Allow",
-        "Action": [
-           "aps:RemoteWrite", 
-           "aps:GetSeries", 
-           "aps:GetLabels",
-           "aps:GetMetricMetadata",
-           "aps:QueryMetrics"
-        ], 
-        "Resource": "*"
-      }
-   ]
-}
-EOF
+
 
 function getRoleArn() {
   OUTPUT=$(aws iam get-role --role-name $1 --query 'Role.Arn' --output text 2>&1)
@@ -89,18 +70,16 @@ then
   --role-name $SERVICE_ACCOUNT_IAM_AMP_INGEST_ROLE \
   --assume-role-policy-document file://TrustPolicy.json \
   --query "Role.Arn" --output text)
-  #
-  # Create an IAM permission policy
-  #
-  SERVICE_ACCOUNT_IAM_AMP_INGEST_ARN=$(aws iam create-policy --policy-name $SERVICE_ACCOUNT_IAM_AMP_INGEST_POLICY \
-  --policy-document file://PermissionPolicyIngest.json \
-  --query 'Policy.Arn' --output text)
-  #
-  # Attach the required IAM policies to the IAM role created above
-  #
+  
+  # Attach managed policy to ingest metrics into AMP
   aws iam attach-role-policy \
   --role-name $SERVICE_ACCOUNT_IAM_AMP_INGEST_ROLE \
-  --policy-arn $SERVICE_ACCOUNT_IAM_AMP_INGEST_ARN  
+  --policy-arn "arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess"
+
+  # Attach managed policy to query metrics from AMP
+  aws iam attach-role-policy \
+  --role-name $SERVICE_ACCOUNT_IAM_AMP_INGEST_ROLE \
+  --policy-arn "arn:aws:iam::aws:policy/AmazonPrometheusQueryAccess"  
 else
     echo "$SERVICE_ACCOUNT_IAM_AMP_INGEST_ROLE_ARN IAM role for ingest already exists"
 fi
