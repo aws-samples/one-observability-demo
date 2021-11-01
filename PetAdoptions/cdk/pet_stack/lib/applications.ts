@@ -2,6 +2,7 @@ import * as cdk from '@aws-cdk/core';
 import * as iam from '@aws-cdk/aws-iam';
 import * as ssm from '@aws-cdk/aws-ssm';
 import * as eks from '@aws-cdk/aws-eks';
+import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 import * as yaml from 'js-yaml';
 import { CfnJson, Fn } from '@aws-cdk/core';
 import { readFileSync } from 'fs';
@@ -68,22 +69,17 @@ export class Applications extends cdk.Stack {
 
     petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
 
-    const repositoryURI = "public.ecr.aws/one-observability-workshop";
-    const petSiteECRImageURL = `${repositoryURI}/pet-site:latest`
+    const petsiteAsset = new DockerImageAsset(this, 'petsiteAsset', {
+        directory: "./resources/microservices/petsite/petsite/"
+    });
 
 
     var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
 
 
     deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-    deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petSiteECRImageURL}` });
-    deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroupArn}`});
-
-
-    const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
-        cluster: cluster,
-        manifest: deploymentYaml
-    });
+    deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petsiteAsset.imageUri}` });
+    deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroupArn}`})
 
 
     this.createSsmParameters(new Map(Object.entries({
@@ -91,7 +87,7 @@ export class Applications extends cdk.Stack {
     })));
 
     this.createOuputs(new Map(Object.entries({
-        'PetSiteECRImageURL': petSiteECRImageURL,
+        'PetSiteECRImageURL': petsiteAsset.imageUri,
         'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
     })));
   }
