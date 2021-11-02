@@ -81,6 +81,11 @@ export class Applications extends cdk.Stack {
     deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petsiteAsset.imageUri}` });
     deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroupArn}`})
 
+    const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
+        cluster: cluster,
+        manifest: deploymentYaml
+    });
+
 
     this.createSsmParameters(new Map(Object.entries({
         '/eks/petsite/stackname': stackName
