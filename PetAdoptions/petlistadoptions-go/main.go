@@ -15,68 +15,48 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	_ "github.com/lib/pq"
-	"go.opentelemetry.io/contrib/detectors/aws/ecs"
-	otelxray "go.opentelemetry.io/contrib/propagators/aws/xray"
+	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlphttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/semconv"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"google.golang.org/grpc"
 )
 
 func init() {
 	// Create new OTLP Exporter struct
 	ctx := context.Background()
 
-	exporter, _ := otlp.NewExporter(
-		ctx,
-		otlphttp.NewDriver(
-			otlphttp.WithInsecure(),
-			otlphttp.WithEndpoint("0.0.0.0:55681"),
-		),
-	)
-
-	// AlwaysSample() returns a Sampler that samples every trace.
-	// Be careful about using this sampler in a production application with
-	// significant traffic: a new trace will be started and exported for every request.
-	cfg := sdktrace.Config{
-		DefaultSampler: sdktrace.AlwaysSample(),
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "0.0.0.0:4317" // setting default endpoint for exporter
 	}
+	traceExporter, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithDialOption(grpc.WithBlock()))
 
 	// A custom ID Generator to generate traceIDs that conform to
 	// AWS X-Ray traceID format
-	idg := otelxray.NewIDGenerator()
+	idg := xray.NewIDGenerator()
 
-	// ECS plugin on XRay service map
-	ecsResourceDetector := ecs.NewResourceDetector()
-	ecsResource, err := ecsResourceDetector.Detect(ctx)
-
-	if err != nil {
-		fmt.Println("ECS Resource detection error:", err)
-	}
-
-	tracesNameResource, _ := resource.New(ctx,
-		resource.WithAttributes(
-			// the service name used to display traces in backends
-			semconv.ServiceNameKey.String("petlistadoptions"),
-		),
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		// the service name used to display traces in backends
+		semconv.ServiceNameKey.String("petlistadoptions"),
 	)
-
-	// merge custom reources together
-	ecsNamedResource := resource.Merge(ecsResource, tracesNameResource)
-
 	// Create a new TraceProvider struct passing in the config, the exporter
 	// and the ID Generator we want to use for our tracing
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithConfig(cfg),
-		sdktrace.WithSyncer(exporter),
+		// AlwaysSample() returns a Sampler that samples every trace.
+		// Be careful about using this sampler in a production application with
+		// significant traffic: a new trace will be started and exported for every request.
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithIDGenerator(idg),
-		sdktrace.WithResource(ecsNamedResource),
+		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithResource(res),
 	)
 	// Set the traceprovider and the propagator we want to use
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(otelxray.Propagator{})
+	otel.SetTextMapPropagator(xray.Propagator{})
 }
 
 func main() {
