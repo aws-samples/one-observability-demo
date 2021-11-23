@@ -9,7 +9,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -40,26 +40,25 @@ func NewInstrumenting(logger log.Logger, s Service) Service {
 
 func (mw *middleware) ListAdoptions(ctx context.Context) (ax []Adoption, err error) {
 	defer func(begin time.Time) {
-
-		span := trace.SpanFromContext(ctx)
 		labelValues := []string{"endpoint", "adoptionlist", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(labelValues...).Add(1)
 		mw.requestLatency.With(labelValues...).Observe(time.Since(begin).Seconds())
 
+		span := trace.SpanFromContext(ctx)
 		if span == nil {
 			return
 		}
 
 		span.SetAttributes(
-			label.Float64("timeTakenSeconds", time.Since(begin).Seconds()),
-			label.Int("resultCount", len(ax)),
+			attribute.Float64("timeTakenSeconds", time.Since(begin).Seconds()),
+			attribute.Int("resultCount", len(ax)),
 		)
 
 		spanCtx := span.SpanContext()
 
 		mw.logger.Log(
 			"method", "ListAdoptions",
-			"traceId", spanCtx.TraceID,
+			"traceId", getXrayTraceID(span),
 			"SpanID", spanCtx.SpanID,
 			"resultCount", len(ax),
 			"took", time.Since(begin),
@@ -76,4 +75,10 @@ func (mw *middleware) HealthCheck(ctx context.Context) (res string, err error) {
 		mw.requestLatency.With(labelValues...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 	return mw.Service.HealthCheck(ctx)
+}
+
+func getXrayTraceID(span trace.Span) string {
+	xrayTraceID := span.SpanContext().TraceID().String()
+	result := fmt.Sprintf("1-%s-%s", xrayTraceID[0:8], xrayTraceID[8:])
+	return result
 }

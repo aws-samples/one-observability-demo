@@ -13,7 +13,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -65,8 +65,8 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 	//rows, err := r.db.QueryContext(ctx, sql)
 
 	span.SetAttributes(
-		label.String("sql", sql),
-		label.String("url", r.safeConnStr),
+		attribute.String("sql", sql),
+		attribute.String("url", r.safeConnStr),
 	)
 
 	rows, err := r.db.Query(sql)
