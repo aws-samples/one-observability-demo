@@ -1,12 +1,11 @@
 package ca.petsearch;
 
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.GlobalMeterProvider;
 import io.opentelemetry.api.metrics.LongCounter;
-import io.opentelemetry.api.metrics.LongValueRecorder;
+import io.opentelemetry.api.metrics.LongHistogram;
 import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.api.metrics.common.Labels;
-import io.opentelemetry.api.trace.SpanBuilder;
-import io.opentelemetry.api.trace.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,15 +21,11 @@ public class MetricEmitter {
     static String PETS_RETURNED_METRIC = "petsReturned";
 
     private LongCounter apiBytesSentCounter;
-    private LongValueRecorder apiLatencyRecorder;
+    private LongHistogram apiLatencyHistogram;
     private LongCounter petsReturned;
 
-    private Tracer tracer;
-
-    public MetricEmitter(Tracer tracer) {
-        Meter meter = GlobalMeterProvider.getMeter("aws-otel", "1.0");
-
-        this.tracer = tracer;
+    public MetricEmitter() {
+        Meter meter = GlobalMeterProvider.get().meterBuilder("aws-otel").setInstrumentationVersion("1.0").build();
 
         logger.debug("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
 
@@ -47,22 +42,22 @@ public class MetricEmitter {
 
         apiBytesSentCounter =
                 meter
-                        .longCounterBuilder(apiBytesSentMetricName)
+                        .counterBuilder(apiBytesSentMetricName)
                         .setDescription("API request load sent in bytes")
                         .setUnit("one")
                         .build();
 
         petsReturned =
                 meter
-                        .longCounterBuilder(petsReturnedMetricName)
+                        .counterBuilder(petsReturnedMetricName)
                         .setDescription("Number of pets returned by this service")
                         .setUnit("one")
                         .build();
 
 
-        apiLatencyRecorder =
+        apiLatencyHistogram =
                 meter
-                        .longValueRecorderBuilder(latencyMetricName)
+                        .histogramBuilder(latencyMetricName).ofLongs()
                         .setDescription("API latency time")
                         .setUnit("ms")
                         .build();
@@ -78,8 +73,8 @@ public class MetricEmitter {
     public void emitReturnTimeMetric(Long returnTime, String apiName, String statusCode) {
         logger.debug(
                 "emit metric with return time " + returnTime + "ms, " + apiName + ", status code:" + statusCode);
-        apiLatencyRecorder.record(
-                returnTime, Labels.of(DIMENSION_API_NAME, apiName, DIMENSION_STATUS_CODE, statusCode));
+        apiLatencyHistogram.record(
+                returnTime, Attributes.of(AttributeKey.stringKey(DIMENSION_API_NAME), apiName, AttributeKey.stringKey(DIMENSION_STATUS_CODE), statusCode));
     }
 
     /**
@@ -92,15 +87,11 @@ public class MetricEmitter {
     public void emitBytesSentMetric(int bytes, String apiName, String statusCode) {
         logger.debug("emit metric with http request size " + bytes + " bytes, " + apiName);
         apiBytesSentCounter.add(
-                bytes, Labels.of(DIMENSION_API_NAME, apiName, DIMENSION_STATUS_CODE, statusCode));
+                bytes, Attributes.of(AttributeKey.stringKey(DIMENSION_API_NAME), apiName, AttributeKey.stringKey(DIMENSION_STATUS_CODE), statusCode));
     }
 
     public void emitPetsReturnedMetric(int petsCount) {
         petsReturned.add(petsCount);
-    }
-
-    public SpanBuilder spanBuilder(String spanName) {
-        return tracer.spanBuilder(spanName);
     }
 
 }
