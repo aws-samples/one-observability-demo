@@ -1,29 +1,28 @@
 plugins {
-    id 'org.springframework.boot' version '2.3.8.RELEASE'
+    id 'org.springframework.boot' version '2.6.2'
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
 }
 
 group = 'org.example'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '15'
+sourceCompatibility = '11'
 
 repositories {
     mavenCentral()
-    jcenter()
 }
 
 ext {
-    set('springCloudVersion', "Hoxton.SR10")
-    set('testContainerVersion', '1.13.0')
-    set('opentelemetryVersion', '1.3.0')
+    set('springCloudAwsVersion', "2.3.3")
+    set('testContainerVersion', '1.16.2')
+    set('opentelemetryVersion', '1.9.1')
     set('log4j2.version', '2.17.0')
 }
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.cloud:spring-cloud-starter-aws'
-    implementation 'org.springframework.cloud:spring-cloud-aws-autoconfigure'
+    implementation "io.awspring.cloud:spring-cloud-starter-aws:${springCloudAwsVersion}"
+    implementation "io.awspring.cloud:spring-cloud-aws-autoconfigure:${springCloudAwsVersion}"
 
     implementation 'com.amazonaws:aws-java-sdk-core'
     implementation 'com.amazonaws:aws-java-sdk-s3'
@@ -33,24 +32,28 @@ dependencies {
 
     implementation "io.opentelemetry:opentelemetry-api"
     implementation "io.opentelemetry:opentelemetry-api-metrics"
+    implementation "io.opentelemetry:opentelemetry-extension-annotations"
 
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
     testImplementation "org.testcontainers:localstack:${testContainerVersion}"
     testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
-    testImplementation group: 'io.vavr', name: 'vavr-test', version: '0.10.3'
+    testImplementation group: 'io.vavr', name: 'vavr-test', version: '0.10.4'
 
 }
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-        mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.4.0"
+        mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.9.1"
         mavenBom "io.opentelemetry:opentelemetry-bom:${opentelemetryVersion}"
         mavenBom "io.opentelemetry:opentelemetry-bom-alpha:${opentelemetryVersion}-alpha"
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.946'
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.12.131'
     }
+}
+
+jar { // https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/htmlsingle/#packaging-executable.and-plain-archives
+    enabled = false
 }
 
 test {

@@ -65,7 +65,6 @@ services:
       "
         java -jar /app/app.jar \\
           --cloud.aws.region.static="eu-central-1" \\
-          --spring.autoconfigure.exclude="org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration" \\
           --aws.local.endpoint=http://localstack:4566
       "
 

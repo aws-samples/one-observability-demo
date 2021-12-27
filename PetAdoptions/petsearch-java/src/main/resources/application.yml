@@ -1,8 +1,6 @@
 spring:
   application:
     name: petstore
-  autoconfigure:
-    exclude: org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration
 cloud:
   aws:
     region:

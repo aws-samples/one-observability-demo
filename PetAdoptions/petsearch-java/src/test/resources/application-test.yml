@@ -2,8 +2,6 @@ spring:
   profiles: test, default
   main:
     allow-bean-definition-overriding: true
-  autoconfigure:
-    exclude: org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration
 cloud:
   aws:
     region:
