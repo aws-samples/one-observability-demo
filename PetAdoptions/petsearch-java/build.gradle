@@ -17,7 +17,6 @@ ext {
     set('springCloudVersion', "Hoxton.SR10")
     set('testContainerVersion', '1.13.0')
     set('opentelemetryVersion', '1.3.0')
-    set('log4j2.version', '2.17.0')
 }
 
 dependencies {
