@@ -20,7 +20,7 @@ using Amazon;
 using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-// todo: these need to use the proper x-ray-wrapped calls to petfood and petfood-metric
+// todo: these need to use the proper x-ray-wrapped calls to petfood and petfood-metric. Right now these do not use the upstream trace ID
 
 namespace PetSite.Controllers
 {
@@ -56,8 +56,10 @@ namespace PetSite.Controllers
             WebClient client = new WebClient();
             string downloadString = client.DownloadString("http://petfood-metric/metric/" + entityId + "/" + value.ToString());
             Console.WriteLine("Calling: " + "http://petfood-metric/metric/" + entityId + "/" + value.ToString());
+
             Console.WriteLine($"[{AWSXRayRecorder.Instance.GetEntity().TraceId}][{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}] - Calling PetFood metric");
-            
+            AWSXRayRecorder.Instance.AddAnnotation("entityId", entityId);
+            AWSXRayRecorder.Instance.AddAnnotation("value", value.ToString());
             AWSXRayRecorder.Instance.EndSubsegment();
             
             return downloadString;
