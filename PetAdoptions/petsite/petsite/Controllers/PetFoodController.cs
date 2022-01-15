@@ -1,9 +1,10 @@
-using System;
 using Microsoft.AspNetCore.Mvc;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
-using System.Net;
-using Amazon.XRay.Recorder.Core;
 using Microsoft.Extensions.Configuration;
+using System;
+using System.Net;
+using Amazon.XRay.Recorder.Handlers.AwsSdk;
+using Amazon.XRay.Recorder.Core;
+
 
 // unused imports
 using System.Collections.Generic;
@@ -21,7 +22,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 // todo: these need to use the proper x-ray-wrapped calls to petfood and petfood-metric. Right now these do not use the upstream trace ID
-
+// todo: move these, as per https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-dotnet-httpclients.html, to var httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
 namespace PetSite.Controllers
 {
     public class PetFoodController : Controller
@@ -41,7 +42,6 @@ namespace PetSite.Controllers
 
             WebClient client = new WebClient();
             string downloadString = client.DownloadString("http://petfood");
-            
             AWSXRayRecorder.Instance.EndSubsegment();
 
             return downloadString;
