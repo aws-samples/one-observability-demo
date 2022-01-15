@@ -34,6 +34,11 @@ namespace PetSite.ViewModels
     {
         public List<Pet> Pets { get; set; }
         public Variety Varieties { get; set; }
-
     }
+
+    public class PetFood
+    {
+        public string EntityId { get; set; }
+    }
+    
 }
