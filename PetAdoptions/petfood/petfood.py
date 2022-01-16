@@ -96,7 +96,7 @@ def return_evidently_response(evidently):
     """Create a response using an Evidently project"""
     xray_recorder.begin_subsegment('return_evidently_response')
     logger.info(_('building evidently response'))
-    entity_id = str(random.randint(1, 10))
+    entity_id = str(random.randint(1, 100))
     evaluation = evidently.get_upsell_evaluation(entity_id)
     logger.warning(_('response from feature evaluation', evaluation=evaluation))
     xray_recorder.end_subsegment()
