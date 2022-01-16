@@ -16,8 +16,10 @@ var jqxhr = $.getJSON( "/petfood", function() {
         var respJson = JSON.parse( jqxhr.responseText );
         console.log("Evidently provided entityId: " + respJson.entityId);
         if (respJson.entityId) {
-          $(".upsell").css("visibility", "visible");
-          $("#upsell-span").text(respJson.message);
+            if (respJson.variation.feature_enabled === true) { 
+              $(".upsell").css("visibility", "visible");
+              $("#upsell-span").text(respJson.message);
+            };
         };
         
         $('#upsell-checkbox').change(function() {
