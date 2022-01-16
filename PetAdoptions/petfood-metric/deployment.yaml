@@ -18,19 +18,19 @@ spec:
       containers:
       - env:
         - name: AWS_XRAY_DAEMON_ADDRESS
-          value: xray-service.default:2000
+          value: xray-service:2000
         - name: AWS_DEFAULT_REGION
           value: us-east-1
         name: petfood-metric
         image: 246341051302.dkr.ecr.us-east-1.amazonaws.com/petfood-metric:2
         ports:
         - containerPort: 5000
-        livenessProbe:
-          httpGet:
-            path: /status
-            port: 5000
-          initialDelaySeconds: 3
-          periodSeconds: 3
+#        livenessProbe:
+#          httpGet:
+#            path: /status
+#            port: 5000
+#          initialDelaySeconds: 3
+#          periodSeconds: 3
 
 ---
 apiVersion: v1

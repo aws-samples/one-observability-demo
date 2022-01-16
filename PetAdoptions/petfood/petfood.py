@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Simple microservice to show Evidently features"""
 
 import json
@@ -7,9 +5,10 @@ import logging
 import os
 import random
 import boto3
+from datetime import datetime
 from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 from aws_xray_sdk.core import patch_all, xray_recorder
-from flask import Flask
+from flask import Flask, request
 
 
 app = Flask(__name__)
@@ -99,7 +98,6 @@ def return_evidently_response(evidently):
     entity_id = str(random.randint(1, 100))
     evaluation = evidently.get_upsell_evaluation(entity_id)
     logger.warning(_('response from feature evaluation', evaluation=evaluation))
-    xray_recorder.end_subsegment()
     response = json.dumps(
         {
             'statusCode': 200,
@@ -109,6 +107,7 @@ def return_evidently_response(evidently):
         }
     )
     logger.warning(_('final response to request', response=response))
+    xray_recorder.end_subsegment()
     return response
 
 
@@ -122,15 +121,25 @@ def return_default():
             'statusCode': 200
         }
     )
+    xray_recorder.end_subsegment()
     return text
 
 
 @app.route('/')
 def root_path():
     """Base URL for our handler"""
-    xray_recorder.begin_segment('petfood')
+    now = datetime.now()
+    print(
+        now.strftime('%Y-%m-%d %H:%M:%S.%s') +
+        ' [none] AWS-XRAY-TRACE-ID: ' +
+        request.headers['X-Amzn-Trace-Id'] +
+        ' INFO - manual logging of X-Ray trace ID'
+    )
+    logger.info(_('raw request headers', headers=request.headers))
+    segment = xray_recorder.begin_segment('petfood')
     evidently = EvidentlyProject()
     project = evidently.project_exists()
+    # xray_recorder.end_segment()
     if not project:
         return return_default()
     else:
@@ -140,4 +149,5 @@ def root_path():
 @app.route('/status')
 def status_path():
     """Used for health checks"""
+    logger.info(_('raw request headers', headers=request.headers))
     return json.dumps({'statusCode': 200, 'body': 'ok'})

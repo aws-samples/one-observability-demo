@@ -71,16 +71,19 @@ class EvidentlyProject:
 @app.route('/metric/<entity_id>/<value>')
 def root_path(entity_id, value):
     """Base URL for our handler"""
+    logger.info(_('raw request headers', headers=request.headers))
     xray_recorder.begin_segment('petfood-metric')
     evidently = EvidentlyProject()
     project = evidently.project_exists()
     if not project:
         return json.dumps({'statusCode': 404, 'body': 'evidently project not found'})
     evidently.put_metric(str(entity_id), float(value))
+    # xray_recorder.end_segment()
     return json.dumps('ok')
 
 
 @app.route('/status')
 def status_path():
+    logger.info(_('raw request headers', headers=request.headers))
     """Used for health checks"""
     return json.dumps({'statusCode': 200, 'body': 'ok'})
