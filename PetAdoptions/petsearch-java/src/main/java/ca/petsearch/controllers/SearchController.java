@@ -14,7 +14,9 @@ import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetParameterResult;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.extension.annotations.WithSpan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,17 +39,19 @@ public class SearchController {
     private final AmazonDynamoDB ddbClient;
     private final AWSSimpleSystemsManagement ssmClient;
     private final MetricEmitter metricEmitter;
+    private final Tracer tracer;
     private Map<String, String> paramCache = new HashMap<>();
 
-    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter, RandomNumberGenerator randomGenerator) {
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter, Tracer tracer, RandomNumberGenerator randomGenerator) {
         this.s3Client = s3Client;
         this.ddbClient = ddbClient;
         this.ssmClient = ssmClient;
         this.metricEmitter = metricEmitter;
+        this.tracer = tracer;
         this.randomGenerator = randomGenerator;
     }
 
-    private String getKey(String petType, String petId) throws InterruptedException {
+    private String getKey(String petType, String petId) {
 
         String folderName;
 
@@ -68,7 +72,7 @@ public class SearchController {
     }
 
     private String getPetUrl(String petType, String image) {
-        Span span = metricEmitter.spanBuilder("Get Pet URL").startSpan();
+        Span span = tracer.spanBuilder("Get Pet URL").startSpan();
 
         try(Scope scope = span.makeCurrent()) {
 
@@ -98,6 +102,7 @@ public class SearchController {
         return "";
     }
 
+    @WithSpan("Get parameter from Systems Manager or cache") // this annotation can be used as an alternative to tracer.spanBuilder
     private String getSSMParameter(String paramName) {
         if (!paramCache.containsKey(paramName)) {
             GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName).withWithDecryption(false);
@@ -128,7 +133,7 @@ public class SearchController {
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
-        Span span = metricEmitter.spanBuilder("Scanning DynamoDB Table").startSpan();
+        Span span = tracer.spanBuilder("Scanning DynamoDB Table").startSpan();
 
         // This line is intentional. Delays searches
         if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
