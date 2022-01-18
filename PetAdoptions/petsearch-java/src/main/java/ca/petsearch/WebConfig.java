@@ -59,8 +59,8 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public MetricEmitter metricEmitter(Tracer tracer) {
-        return new MetricEmitter(tracer);
+    public MetricEmitter metricEmitter() {
+        return new MetricEmitter();
     }
 
     @Bean
