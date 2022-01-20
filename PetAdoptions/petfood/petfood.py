@@ -12,9 +12,11 @@ from flask import Flask, request
 
 
 app = Flask(__name__)
-xray_recorder.configure(service='petfood')
+plugins = ('EC2Plugin',)
+xray_recorder.configure(plugins=plugins, service='petfood')
 patch_all()
 XRayMiddleware(app, xray_recorder)
+xray_recorder.begin_segment('petfood')
 
 
 class StructuredMessage:  # pylint: disable=R0903
@@ -41,41 +43,37 @@ class EvidentlyProject:
         self.upsell_feature = 'petfood-upsell'
         self.upsell_text_feature = 'petfood-upsell-text'
 
+    @xray_recorder.capture('evidently project_exists')
     def project_exists(self):
         """Returns False if the project does not currently exist"""
-        xray_recorder.begin_subsegment('evidently project_exists')
         try:
             response = self.client.get_project(project=self.project)
             logger.info(_('checking for evidently project', response=response))
-            xray_recorder.end_subsegment()
             return True
         except self.client.exceptions.ResourceNotFoundException:
             logger.warning(_('evidently project not found'))
-            xray_recorder.end_subsegment()
             return None
 
+    @xray_recorder.capture('evidently get_upsell_evaluation')
     def get_upsell_evaluation(self, entity_id):
         """Gets the feature evaluation for petfood-upsell"""
-        xray_recorder.begin_subsegment('evidently ' + self.upsell_feature)
         try:
             response = self.client.evaluate_feature(
                 entityId=entity_id,
                 feature=self.upsell_feature,
                 project=self.project
             )
-            xray_recorder.end_subsegment()
             return {
                 'feature_enabled': response['value']['boolValue'],
                 'variation': response['variation']
             }
         except self.client.exceptions.ResourceNotFoundException:
             logger.warning(_('evidently feature ' + self.upsell_feature + ' not found for project'))
-            xray_recorder.end_subsegment()
             return return_default()
 
+    @xray_recorder.capture('evidently get_upsell_text')
     def get_upsell_text(self, entity_id):
         """Gets the feature evaluation for petfood-upsell-verbiage"""
-        xray_recorder.begin_subsegment('evidently ' + self.upsell_text_feature)
         try:
             response = self.client.evaluate_feature(
                 entityId=entity_id,
@@ -83,17 +81,15 @@ class EvidentlyProject:
                 project=self.project
             )
             logger.info(_('evidently ' + self.upsell_text_feature, response=response))
-            xray_recorder.end_subsegment()
             return response['value']['stringValue']
         except self.client.exceptions.ResourceNotFoundException:
             logger.warning(_('evidently feature ' + self.upsell_text_feature + ' not found for project'))
-            xray_recorder.end_subsegment()
             return 'Error getting upsell message - check that your feature exists in Evidently!'
 
 
+@xray_recorder.capture('return_evidently_response')
 def return_evidently_response(evidently):
     """Create a response using an Evidently project"""
-    xray_recorder.begin_subsegment('return_evidently_response')
     logger.info(_('building evidently response'))
     entity_id = str(random.randint(1, 100))
     evaluation = evidently.get_upsell_evaluation(entity_id)
@@ -107,13 +103,12 @@ def return_evidently_response(evidently):
         }
     )
     logger.warning(_('final response to request', response=response))
-    xray_recorder.end_subsegment()
     return response
 
 
+@xray_recorder.capture('return_default_response')
 def return_default():
     """Returns the default response to the user"""
-    xray_recorder.begin_subsegment('return_default_response')
     logger.warning(_('returning default response to the user'))
     text = json.dumps(
         {
@@ -121,7 +116,6 @@ def return_default():
             'statusCode': 200
         }
     )
-    xray_recorder.end_subsegment()
     return text
 
 
@@ -129,14 +123,18 @@ def return_default():
 def root_path():
     """Base URL for our handler"""
     now = datetime.now()
-    print(
-        now.strftime('%Y-%m-%d %H:%M:%S.%s') +
-        ' [none] AWS-XRAY-TRACE-ID: ' +
-        request.headers['X-Amzn-Trace-Id'] +
-        ' INFO - manual logging of X-Ray trace ID'
-    )
+    # if 'X-Amzn-Trace-Id' in request.headers:
+    #     logger.warning(
+    #         now.strftime('%Y-%m-%d %H:%M:%S.%s') + ' [none] AWS-XRAY-TRACE-ID: ' +
+    #         request.headers['X-Amzn-Trace-Id'] + ' INFO - manual logging of X-Ray trace ID'
+    #     )
     logger.info(_('raw request headers', headers=request.headers))
-    segment = xray_recorder.begin_segment('petfood')
+
+    # Manually adding the parent ID here
+    # if 'X-Amzn-Trace-Id' in request.headers:
+    #     xray_recorder.set_trace_entity(request.headers['X-Amzn-Trace-Id'])
+    # segment = xray_recorder.begin_segment('petfood')
+
     evidently = EvidentlyProject()
     project = evidently.project_exists()
     # xray_recorder.end_segment()
