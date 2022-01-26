@@ -5,7 +5,6 @@ import logging
 import os
 import random
 import boto3
-from datetime import datetime
 from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 from aws_xray_sdk.core import patch_all, xray_recorder
 from flask import Flask, request
@@ -122,22 +121,9 @@ def return_default():
 @app.route('/')
 def root_path():
     """Base URL for our handler"""
-    now = datetime.now()
-    # if 'X-Amzn-Trace-Id' in request.headers:
-    #     logger.warning(
-    #         now.strftime('%Y-%m-%d %H:%M:%S.%s') + ' [none] AWS-XRAY-TRACE-ID: ' +
-    #         request.headers['X-Amzn-Trace-Id'] + ' INFO - manual logging of X-Ray trace ID'
-    #     )
     logger.info(_('raw request headers', headers=request.headers))
-
-    # Manually adding the parent ID here
-    # if 'X-Amzn-Trace-Id' in request.headers:
-    #     xray_recorder.set_trace_entity(request.headers['X-Amzn-Trace-Id'])
-    # segment = xray_recorder.begin_segment('petfood')
-
     evidently = EvidentlyProject()
     project = evidently.project_exists()
-    # xray_recorder.end_segment()
     if not project:
         return return_default()
     else:
