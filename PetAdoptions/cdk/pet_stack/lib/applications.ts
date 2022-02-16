@@ -74,8 +74,7 @@ export class Applications extends cdk.Stack {
     });
 
 
-    var deploymentYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
-
+    var deploymentYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
 
     deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
     deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petsiteAsset.imageUri}` });

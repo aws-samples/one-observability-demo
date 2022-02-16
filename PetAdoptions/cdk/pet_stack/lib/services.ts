@@ -311,7 +311,7 @@ export class Services extends cdk.Stack {
         cluster.defaultNodegroup?.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
 
         // From https://github.com/aws-samples/ssm-agent-daemonset-installer
-        var ssmAgentSetup = yaml.safeLoadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
+        var ssmAgentSetup = yaml.loadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
 
         const ssmAgentSetupManifest = new eks.KubernetesManifest(this,"ssmAgentdeployment",{
             cluster: cluster,
@@ -404,7 +404,7 @@ export class Services extends cdk.Stack {
 
         // Fix for EKS Dashboard access
 
-        const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
+        const dashboardRoleYaml = yaml.loadAll(readFileSync("./resources/dashboard.yaml","utf8"));
 
         const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
         if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
@@ -485,7 +485,7 @@ export class Services extends cdk.Stack {
         });
 
 
-        var xRayYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8"));
+        var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8"));
 
         xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });
 
@@ -494,7 +494,7 @@ export class Services extends cdk.Stack {
             manifest: xRayYaml
         });
 
-        var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
+        var loadBalancerServiceAccountYaml  = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
 
         const loadBalancerServiceAccount = new eks.KubernetesManifest(this, "loadBalancerServiceAccount",{
@@ -510,7 +510,7 @@ export class Services extends cdk.Stack {
             jsonPath: "@"
         });
 
-        const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
+        const loadBalancerCRDYaml = yaml.loadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
             cluster: cluster,
             manifest: loadBalancerCRDYaml
@@ -536,7 +536,7 @@ export class Services extends cdk.Stack {
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
 
         // NOTE: amazon-cloudwatch namespace is created here!!
-        var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
+        var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
         fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
 
         fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
@@ -565,7 +565,7 @@ export class Services extends cdk.Stack {
             manifest: fluentbitYaml
         });
 
-        var prometheusYaml = yaml.safeLoadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
+        var prometheusYaml = yaml.loadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
 
         prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
 
