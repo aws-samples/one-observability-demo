@@ -1,35 +1,36 @@
-import * as cdk from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as ec2 from '@aws-cdk/aws-ec2';
-import * as ecs from '@aws-cdk/aws-ecs';
-import * as sns from '@aws-cdk/aws-sns'
-import * as sqs from '@aws-cdk/aws-sqs'
-import * as subs from '@aws-cdk/aws-sns-subscriptions'
-import * as ddb from '@aws-cdk/aws-dynamodb'
-import * as s3 from '@aws-cdk/aws-s3'
-import * as s3seeder from '@aws-cdk/aws-s3-deployment'
-import * as rds from '@aws-cdk/aws-rds';
-import * as ssm from '@aws-cdk/aws-ssm';
-import * as eks from '@aws-cdk/aws-eks';
+import * as cdk from 'aws-cdk-lib/core';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as sns from 'aws-cdk-lib/aws-sns'
+import * as sqs from 'aws-cdk-lib/aws-sqs'
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions'
+import * as ddb from 'aws-cdk-lib/aws-dynamodb'
+import * as s3 from 'aws-cdk-lib/aws-s3'
+import * as s3seeder from 'aws-cdk-lib/aws-s3-deployment'
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
-import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
-import * as cloud9 from '@aws-cdk/aws-cloud9';
-import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
+import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
 import { ListAdoptionsService } from './services/list-adoptions-service'
 import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
-import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { CfnJson, RemovalPolicy, Fn, Duration } from '@aws-cdk/core';
+import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
+import { CfnJson, RemovalPolicy, Fn, Duration } from 'aws-cdk-lib/core';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
-import { TreatMissingData, ComparisonOperator } from '@aws-cdk/aws-cloudwatch';
+import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 
 export class Services extends cdk.Stack {
-    constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
         var isEventEngine = 'false';
@@ -77,7 +78,6 @@ export class Services extends cdk.Stack {
           treatMissingData: TreatMissingData.NOT_BREACHING,
           comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
           evaluationPeriods: 1,
-          period: cdk.Duration.minutes(1),
           alarmName: `${dynamodb_petadoption.tableName}-WriteThrottleEvents-BasicAlarm`,
         });
 
@@ -86,7 +86,6 @@ export class Services extends cdk.Stack {
           treatMissingData: TreatMissingData.NOT_BREACHING,
           comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
           evaluationPeriods: 1,
-          period: cdk.Duration.minutes(1),
           alarmName: `${dynamodb_petadoption.tableName}-ReadThrottleEvents-BasicAlarm`,
         });
 

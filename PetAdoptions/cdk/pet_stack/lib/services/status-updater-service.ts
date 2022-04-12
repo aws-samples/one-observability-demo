@@ -1,18 +1,19 @@
-import * as cdk from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as lambda from '@aws-cdk/aws-lambda';
-import * as nodejslambda from '@aws-cdk/aws-lambda-nodejs';
-import * as apigw from '@aws-cdk/aws-apigateway';
+import * as cdk from 'aws-cdk-lib/core';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as nodejslambda from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as apigw from 'aws-cdk-lib/aws-apigateway';
+import { Construct } from 'constructs'
 
 export interface StatusUpdaterServiceProps {
   tableName: string
 }
 
-export class StatusUpdaterService extends cdk.Construct {
+export class StatusUpdaterService extends Construct {
 
   public api: apigw.RestApi
 
-  constructor(scope: cdk.Construct, id: string, props: StatusUpdaterServiceProps) {
+  constructor(scope: Construct, id: string, props: StatusUpdaterServiceProps) {
     super(scope, id);
 
     var lambdaRole = new iam.Role(this, 'lambdaexecutionrole', {
@@ -62,7 +63,7 @@ export class StatusUpdaterService extends cdk.Construct {
             tracingEnabled: true,
             loggingLevel:apigw.MethodLoggingLevel.INFO,
             stageName: 'prod'
-        }, options: { defaultMethodOptions: { methodResponses: [] } }
+        }, defaultMethodOptions: {methodResponses: [] }
         //defaultIntegration: new apigw.Integration({ integrationHttpMethod: 'PUT', type: apigw.IntegrationType.AWS })
     });
   }

@@ -1,10 +1,12 @@
-import * as cdk from '@aws-cdk/core';
-import * as ecs from '@aws-cdk/aws-ecs';
+import * as cdk from 'aws-cdk-lib/core';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { EcsService, EcsServiceProps } from './ecs-service'
+import { Construct } from 'constructs'
 
 export class TrafficGeneratorService extends EcsService {
 
-  constructor(scope: cdk.Construct, id: string, props: EcsServiceProps  ) {
+  constructor(scope: Construct, id: string, props: EcsServiceProps  ) {
     super(scope, id, props);
   }
 
@@ -13,8 +15,8 @@ export class TrafficGeneratorService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("./resources/microservices/trafficgenerator/trafficgenerator", {
-      repositoryName: "pet-trafficgenerator"
-    })
+    return ecs.ContainerImage.fromDockerImageAsset(new DockerImageAsset(this, "traffic-generator", {
+      directory: "./resources/microservices/trafficgenerator/trafficgenerator"
+    }))
   }
 }

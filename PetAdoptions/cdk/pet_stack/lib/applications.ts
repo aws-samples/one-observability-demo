@@ -1,14 +1,15 @@
-import * as cdk from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as ssm from '@aws-cdk/aws-ssm';
-import * as eks from '@aws-cdk/aws-eks';
-import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
+import * as cdk from 'aws-cdk-lib/core';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as eks from 'aws-cdk-lib/aws-eks';
+import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as yaml from 'js-yaml';
-import { CfnJson, Fn } from '@aws-cdk/core';
+import { CfnJson, Fn } from 'aws-cdk-lib/core';
 import { readFileSync } from 'fs';
+import { Construct } from 'constructs'
 
 export class Applications extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope,id,props);
 
     const stackName = id;

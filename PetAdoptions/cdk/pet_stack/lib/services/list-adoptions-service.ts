@@ -1,7 +1,10 @@
-import * as cdk from '@aws-cdk/core';
-import * as ecs from '@aws-cdk/aws-ecs';
-import * as rds from '@aws-cdk/aws-rds';
+import * as cdk from 'aws-cdk-lib/core';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { EcsService, EcsServiceProps } from './ecs-service'
+import { Construct } from 'constructs'
+
 
 export interface ListAdoptionServiceProps extends EcsServiceProps {
   database: rds.ServerlessCluster
@@ -9,7 +12,7 @@ export interface ListAdoptionServiceProps extends EcsServiceProps {
 
 export class ListAdoptionsService extends EcsService {
 
-  constructor(scope: cdk.Construct, id: string, props: ListAdoptionServiceProps  ) {
+  constructor(scope: Construct, id: string, props: ListAdoptionServiceProps  ) {
     super(scope, id, props);
 
     props.database.secret?.grantRead(this.taskDefinition.taskRole);
@@ -20,8 +23,8 @@ export class ListAdoptionsService extends EcsService {
   }
 
   createContainerImage() : ecs.ContainerImage {
-    return ecs.ContainerImage.fromAsset("./resources/microservices/petlistadoptions-go", {
-      repositoryName: "pet-listadoptions"
-    })
-  }
+    return ecs.ContainerImage.fromDockerImageAsset(new DockerImageAsset(this,"petlistadoptions-go", 
+    { directory: "./resources/microservices/petlistadoptions-go"}
+    ))
+  } 
 }
