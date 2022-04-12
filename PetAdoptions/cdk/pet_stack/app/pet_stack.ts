@@ -3,7 +3,8 @@ import 'source-map-support/register';
 import { Services } from '../lib/services';
 import { Applications } from '../lib/applications';
 //import { EKSPetsite } from '../lib/ekspetsite'
-import { App, Tags } from 'aws-cdk-lib';
+import { App, Tags, Aspects } from 'aws-cdk-lib';
+import { AwsSolutionsChecks } from 'cdk-nag';
 
 
 const stackName = "Services";
@@ -22,3 +23,5 @@ const applications = new Applications(app, "Applications", {
 }});
 
 Tags.of(app).add("Workshop","true")
+//Aspects.of(stack).add(new AwsSolutionsChecks({verbose: true}));
+//Aspects.of(applications).add(new AwsSolutionsChecks({verbose: true}));
