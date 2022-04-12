@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib/core';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';

@@ -1,4 +1,4 @@
-import * as cdk from 'aws-cdk-lib/core';
+import { RemovalPolicy } from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -61,7 +61,7 @@ export abstract class EcsService extends Construct {
       streamPrefix: "logs",
       logGroup: new logs.LogGroup(this, "ecs-log-group", {
         logGroupName: props.logGroupName,
-        removalPolicy: cdk.RemovalPolicy.DESTROY
+        removalPolicy: RemovalPolicy.DESTROY
       })
     });
 

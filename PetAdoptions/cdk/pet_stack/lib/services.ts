@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib/core';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -24,13 +23,13 @@ import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
 import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
-import { CfnJson, RemovalPolicy, Fn, Duration } from 'aws-cdk-lib/core';
+import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 
-export class Services extends cdk.Stack {
-    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class Services extends Stack {
+    constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
         var isEventEngine = 'false';
@@ -43,7 +42,7 @@ export class Services extends cdk.Stack {
 
         // Create SQS resource to send Pet adoption messages to
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
-            visibilityTimeout: cdk.Duration.seconds(300)
+            visibilityTimeout: Duration.seconds(300)
         });
 
         // Create SNS and an email topic to send notifications to
@@ -160,7 +159,7 @@ export class Services extends cdk.Stack {
 
         const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
-        const stack = cdk.Stack.of(this);
+        const stack = Stack.of(this);
         const region = stack.region;
 
         const ecsServicesSecurityGroup = new ec2.SecurityGroup(this, 'ECSServicesSG', {
@@ -310,7 +309,7 @@ export class Services extends cdk.Stack {
         cluster.defaultNodegroup?.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
 
         // From https://github.com/aws-samples/ssm-agent-daemonset-installer
-        var ssmAgentSetup = yaml.loadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
+        var ssmAgentSetup = yaml.loadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8")) as Record<string,any>[];
 
         const ssmAgentSetupManifest = new eks.KubernetesManifest(this,"ssmAgentdeployment",{
             cluster: cluster,
@@ -403,7 +402,7 @@ export class Services extends cdk.Stack {
 
         // Fix for EKS Dashboard access
 
-        const dashboardRoleYaml = yaml.loadAll(readFileSync("./resources/dashboard.yaml","utf8"));
+        const dashboardRoleYaml = yaml.loadAll(readFileSync("./resources/dashboard.yaml","utf8")) as Record<string,any>[];
 
         const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
         if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
@@ -484,7 +483,7 @@ export class Services extends cdk.Stack {
         });
 
 
-        var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8"));
+        var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8")) as Record<string,any>[];
 
         xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });
 
@@ -493,7 +492,7 @@ export class Services extends cdk.Stack {
             manifest: xRayYaml
         });
 
-        var loadBalancerServiceAccountYaml  = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
+        var loadBalancerServiceAccountYaml  = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8")) as Record<string,any>[];
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
 
         const loadBalancerServiceAccount = new eks.KubernetesManifest(this, "loadBalancerServiceAccount",{
@@ -509,7 +508,7 @@ export class Services extends cdk.Stack {
             jsonPath: "@"
         });
 
-        const loadBalancerCRDYaml = yaml.loadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
+        const loadBalancerCRDYaml = yaml.loadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8")) as Record<string,any>[];
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
             cluster: cluster,
             manifest: loadBalancerCRDYaml
@@ -535,7 +534,7 @@ export class Services extends cdk.Stack {
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
 
         // NOTE: amazon-cloudwatch namespace is created here!!
-        var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
+        var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8")) as Record<string,any>[];
         fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
 
         fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
@@ -564,7 +563,7 @@ export class Services extends cdk.Stack {
             manifest: fluentbitYaml
         });
 
-        var prometheusYaml = yaml.loadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
+        var prometheusYaml = yaml.loadAll(readFileSync("./resources/prometheus-eks.yaml","utf8")) as Record<string,any>[];
 
         prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
 
@@ -637,7 +636,7 @@ export class Services extends cdk.Stack {
 
     private createOuputs(params: Map<string, string>) {
         params.forEach((value, key) => {
-            new cdk.CfnOutput(this, key, { value: value })
+            new CfnOutput(this, key, { value: value })
         });
     }
 }

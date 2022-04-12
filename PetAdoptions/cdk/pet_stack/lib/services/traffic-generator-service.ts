@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib/core';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { EcsService, EcsServiceProps } from './ecs-service'

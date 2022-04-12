@@ -1,15 +1,14 @@
-import * as cdk from 'aws-cdk-lib/core';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as yaml from 'js-yaml';
-import { CfnJson, Fn } from 'aws-cdk-lib/core';
+import { Stack, StackProps, CfnJson, Fn, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import { Construct } from 'constructs'
 
-export class Applications extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class Applications extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope,id,props);
 
     const stackName = id;
@@ -27,7 +26,7 @@ export class Applications extends cdk.Stack {
     // Thsos might be an issue
     const clusterId = Fn.select(4, Fn.split('/', oidcProviderUrl)) // Remove https:// from the URL as workaround to get ClusterID
 
-    const stack = cdk.Stack.of(this);
+    const stack = Stack.of(this);
     const region = stack.region;
 
     const app_federatedPrincipal = new iam.FederatedPrincipal(
@@ -75,7 +74,8 @@ export class Applications extends cdk.Stack {
     });
 
 
-    var deploymentYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/deployment.yaml","utf8"));
+    var manifest = readFileSync("./resources/k8s_petsite/deployment.yaml","utf8");
+    var deploymentYaml = yaml.loadAll(manifest) as Record<string,any>[];
 
     deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
     deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petsiteAsset.imageUri}` });
@@ -106,7 +106,7 @@ export class Applications extends cdk.Stack {
 
     private createOuputs(params: Map<string, string>) {
     params.forEach((value, key) => {
-        new cdk.CfnOutput(this, key, { value: value })
+        new CfnOutput(this, key, { value: value })
     });
     }
 }

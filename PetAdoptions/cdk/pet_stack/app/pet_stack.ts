@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import * as cdk from '@aws-cdk/core';
-
 import { Services } from '../lib/services';
 import { Applications } from '../lib/applications';
 //import { EKSPetsite } from '../lib/ekspetsite'
+import { App, Tags } from 'aws-cdk-lib';
+
 
 const stackName = "Services";
-const app = new cdk.App();
+const app = new App();
 
 const stack = new Services(app, stackName, { 
   env: { 
@@ -21,4 +21,4 @@ const applications = new Applications(app, "Applications", {
     region: process.env.CDK_DEFAULT_REGION 
 }});
 
-cdk.Tags.of(stack).add('Workshop','true')
+Tags.of(app).add("Workshop","true")
