@@ -25,9 +25,9 @@
     <PackageReference Include="AWSSDK.XRay" Version="3.5.4.29"/>
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.5.1.44"/>
     <PackageReference Include="AWSXRayRecorder.Core" Version="2.10.1"/>
-    <PackageReference Include="AWSXRayRecorder.Handlers.AspNetCore" Version="2.7.1"/>
-    <PackageReference Include="AWSXRayRecorder.Handlers.AwsSdk" Version="2.8.1"/>
-    <PackageReference Include="AWSXRayRecorder.Handlers.System.Net" Version="2.7.1"/>
+    <PackageReference Include="AWSXRayRecorder.Handlers.AspNetCore" Version="2.7.3"/>
+    <PackageReference Include="AWSXRayRecorder.Handlers.AwsSdk" Version="2.8.3"/>
+    <PackageReference Include="AWSXRayRecorder.Handlers.System.Net" Version="2.7.3"/>
     <PackageReference Include="BuildBundlerMinifier" Version="3.2.449"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="5.0.2"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="5.0.2">

@@ -29,7 +29,6 @@
     "aws-cdk-lib": "^2.20.0",
     "jest": "^27.5.1",
     "js-yaml": "^4.1.0",
-    "ncu": "^0.2.1",
     "source-map-support": "^0.5.21"
   }
 }
