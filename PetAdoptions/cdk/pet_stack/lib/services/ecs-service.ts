@@ -1,9 +1,10 @@
-import * as cdk from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as ecs from '@aws-cdk/aws-ecs';
-import * as logs from '@aws-cdk/aws-logs';
-import * as ecs_patterns from '@aws-cdk/aws-ecs-patterns';
-import * as ec2 from '@aws-cdk/aws-ec2';
+import { RemovalPolicy } from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Construct } from 'constructs'
 
 export interface EcsServiceProps {
   cluster?: ecs.Cluster,
@@ -26,7 +27,7 @@ export interface EcsServiceProps {
   securityGroup: ec2.SecurityGroup
 }
 
-export abstract class EcsService extends cdk.Construct {
+export abstract class EcsService extends Construct {
 
   private static ExecutionRolePolicy = new iam.PolicyStatement({
     effect: iam.Effect.ALLOW,
@@ -53,14 +54,14 @@ export abstract class EcsService extends cdk.Construct {
   public readonly taskDefinition: ecs.TaskDefinition;
   public readonly service: ecs_patterns.ApplicationLoadBalancedServiceBase;
 
-  constructor(scope: cdk.Construct, id: string, props: EcsServiceProps) {
+  constructor(scope: Construct, id: string, props: EcsServiceProps) {
     super(scope, id);
 
     const logging = new ecs.AwsLogDriver({
       streamPrefix: "logs",
       logGroup: new logs.LogGroup(this, "ecs-log-group", {
         logGroupName: props.logGroupName,
-        removalPolicy: cdk.RemovalPolicy.DESTROY
+        removalPolicy: RemovalPolicy.DESTROY
       })
     });
 

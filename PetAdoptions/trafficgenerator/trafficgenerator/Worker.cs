@@ -45,7 +45,8 @@ namespace trafficgenerator
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    Console.WriteLine(e.Message);
+                    _logger.LogCritical(e.Message);
                     await Task.Delay(100000, stoppingToken);
                 }
             }
@@ -62,16 +63,16 @@ namespace trafficgenerator
 
         private async Task ThrowSomeTrafficIn()
         {
-            Console.WriteLine("Synchronous Housekeeping call");
+            _logger.LogInformation("Synchronous Housekeeping call");
             // Performs housekeeping. Basically, reset the application data and gets ready for the execution cycle
             _httpClient.GetAsync(
                 $"{_petSiteUrl}/housekeeping/").Wait();
             
-            Console.WriteLine("Starting Async LoadPetData");
+            _logger.LogInformation("Starting Async LoadPetData");
 
             await LoadPetData();
 
-            Console.WriteLine($"Total number of pets - {_allPets.Count}");
+            _logger.LogInformation($"Total number of pets - {_allPets.Count}");
             Random random = new Random();
             var loadSize = random.Next(5, _allPets.Count);
 
