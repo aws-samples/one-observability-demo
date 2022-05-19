@@ -1,20 +1,20 @@
-import * as cdk from '@aws-cdk/core';
+import { Duration, StackProps } from 'aws-cdk-lib';
 
-import * as sfn from '@aws-cdk/aws-stepfunctions';
-import * as tasks from '@aws-cdk/aws-stepfunctions-tasks';
-import * as lambda from '@aws-cdk/aws-lambda';
-import * as pythonlambda from '@aws-cdk/aws-lambda-python';
-import { Duration } from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as apigw from '@aws-cdk/aws-apigateway';
-import { Tracing } from '@aws-cdk/aws-lambda';
-import * as ssm from '@aws-cdk/aws-ssm';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as pythonlambda from '@aws-cdk/aws-lambda-python-alpha';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as apigw from 'aws-cdk-lib/aws-apigateway';
+import { Tracing } from 'aws-cdk-lib/aws-lambda';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { Construct } from 'constructs'
 
 
-export class PetAdoptionsStepFn extends cdk.Construct {
+export class PetAdoptionsStepFn extends Construct {
   public readonly stepFn: sfn.StateMachine;
 
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id);
 
     var lambdaRole = new iam.Role(this, 'stepfnlambdaexecutionrole', {

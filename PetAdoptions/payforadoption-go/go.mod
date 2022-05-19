@@ -3,18 +3,24 @@ module petadoptions
 go 1.15
 
 require (
-	github.com/aws/aws-sdk-go v1.35.28
-	github.com/aws/aws-xray-sdk-go v1.1.0
-	github.com/denisenkom/go-mssqldb v0.9.0
-	github.com/dghubble/sling v1.3.0
-	github.com/go-kit/kit v0.10.0
-	github.com/go-pg/pg/v10 v10.8.0
-	github.com/gofrs/uuid v3.3.0+incompatible
-	github.com/gorilla/mux v1.7.3
-	github.com/guregu/dynamo v1.10.2
-	github.com/jackc/pgx v3.6.2+incompatible // indirect
-	github.com/jackc/pgx/v4 v4.10.1
-	github.com/lib/pq v1.10.0
-	github.com/prometheus/client_golang v1.3.0
-	github.com/spf13/viper v1.7.1
+	github.com/aws/aws-sdk-go v1.43.37
+	github.com/aws/aws-xray-sdk-go v1.7.0
+	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+	github.com/dghubble/sling v1.4.0
+	github.com/go-kit/kit v0.12.0
+	github.com/gofrs/uuid v4.2.0+incompatible
+	github.com/gorilla/mux v1.8.0
+	github.com/guregu/dynamo v1.15.0
+	github.com/klauspost/compress v1.15.1 // indirect
+	github.com/lib/pq v1.10.5
+	github.com/magiconair/properties v1.8.6 // indirect
+	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/common v0.33.0 // indirect
+	github.com/spf13/afero v1.8.2 // indirect
+	github.com/spf13/viper v1.10.1
+	github.com/valyala/fasthttp v1.35.0 // indirect
+	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
+	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5 // indirect
+	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
+	gopkg.in/ini.v1 v1.66.4 // indirect
 )

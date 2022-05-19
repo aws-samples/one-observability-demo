@@ -1,35 +1,35 @@
-import * as cdk from '@aws-cdk/core';
-import * as iam from '@aws-cdk/aws-iam';
-import * as ec2 from '@aws-cdk/aws-ec2';
-import * as ecs from '@aws-cdk/aws-ecs';
-import * as sns from '@aws-cdk/aws-sns'
-import * as sqs from '@aws-cdk/aws-sqs'
-import * as subs from '@aws-cdk/aws-sns-subscriptions'
-import * as ddb from '@aws-cdk/aws-dynamodb'
-import * as s3 from '@aws-cdk/aws-s3'
-import * as s3seeder from '@aws-cdk/aws-s3-deployment'
-import * as rds from '@aws-cdk/aws-rds';
-import * as ssm from '@aws-cdk/aws-ssm';
-import * as eks from '@aws-cdk/aws-eks';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as sns from 'aws-cdk-lib/aws-sns'
+import * as sqs from 'aws-cdk-lib/aws-sqs'
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions'
+import * as ddb from 'aws-cdk-lib/aws-dynamodb'
+import * as s3 from 'aws-cdk-lib/aws-s3'
+import * as s3seeder from 'aws-cdk-lib/aws-s3-deployment'
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
-import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
-import * as cloud9 from '@aws-cdk/aws-cloud9';
-import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
+import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
 import { ListAdoptionsService } from './services/list-adoptions-service'
 import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
-import { KubernetesVersion } from '@aws-cdk/aws-eks';
-import { CfnJson, RemovalPolicy, Fn, Duration } from '@aws-cdk/core';
+import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
+import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
-import { TreatMissingData, ComparisonOperator } from '@aws-cdk/aws-cloudwatch';
+import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 
-export class Services extends cdk.Stack {
-    constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+export class Services extends Stack {
+    constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
         var isEventEngine = 'false';
@@ -42,7 +42,7 @@ export class Services extends cdk.Stack {
 
         // Create SQS resource to send Pet adoption messages to
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
-            visibilityTimeout: cdk.Duration.seconds(300)
+            visibilityTimeout: Duration.seconds(300)
         });
 
         // Create SNS and an email topic to send notifications to
@@ -77,7 +77,6 @@ export class Services extends cdk.Stack {
           treatMissingData: TreatMissingData.NOT_BREACHING,
           comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
           evaluationPeriods: 1,
-          period: cdk.Duration.minutes(1),
           alarmName: `${dynamodb_petadoption.tableName}-WriteThrottleEvents-BasicAlarm`,
         });
 
@@ -86,7 +85,6 @@ export class Services extends cdk.Stack {
           treatMissingData: TreatMissingData.NOT_BREACHING,
           comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
           evaluationPeriods: 1,
-          period: cdk.Duration.minutes(1),
           alarmName: `${dynamodb_petadoption.tableName}-ReadThrottleEvents-BasicAlarm`,
         });
 
@@ -161,7 +159,7 @@ export class Services extends cdk.Stack {
 
         const repositoryURI = "public.ecr.aws/one-observability-workshop";
 
-        const stack = cdk.Stack.of(this);
+        const stack = Stack.of(this);
         const region = stack.region;
 
         const ecsServicesSecurityGroup = new ec2.SecurityGroup(this, 'ECSServicesSG', {
@@ -299,7 +297,7 @@ export class Services extends cdk.Stack {
             vpc: theVPC,
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-            version: KubernetesVersion.V1_21
+            version: KubernetesVersion.V1_22
         });
 
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
@@ -311,7 +309,7 @@ export class Services extends cdk.Stack {
         cluster.defaultNodegroup?.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
 
         // From https://github.com/aws-samples/ssm-agent-daemonset-installer
-        var ssmAgentSetup = yaml.safeLoadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8"));
+        var ssmAgentSetup = yaml.loadAll(readFileSync("./resources/setup-ssm-agent.yaml","utf8")) as Record<string,any>[];
 
         const ssmAgentSetupManifest = new eks.KubernetesManifest(this,"ssmAgentdeployment",{
             cluster: cluster,
@@ -404,7 +402,7 @@ export class Services extends cdk.Stack {
 
         // Fix for EKS Dashboard access
 
-        const dashboardRoleYaml = yaml.safeLoadAll(readFileSync("./resources/dashboard.yaml","utf8"));
+        const dashboardRoleYaml = yaml.loadAll(readFileSync("./resources/dashboard.yaml","utf8")) as Record<string,any>[];
 
         const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
         if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
@@ -485,7 +483,7 @@ export class Services extends cdk.Stack {
         });
 
 
-        var xRayYaml = yaml.safeLoadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8"));
+        var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8")) as Record<string,any>[];
 
         xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value : `${xrayserviceaccount.roleArn}` });
 
@@ -494,7 +492,7 @@ export class Services extends cdk.Stack {
             manifest: xRayYaml
         });
 
-        var loadBalancerServiceAccountYaml  = yaml.safeLoadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8"));
+        var loadBalancerServiceAccountYaml  = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml","utf8")) as Record<string,any>[];
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value : `${loadBalancerserviceaccount.roleArn}` });
 
         const loadBalancerServiceAccount = new eks.KubernetesManifest(this, "loadBalancerServiceAccount",{
@@ -510,7 +508,7 @@ export class Services extends cdk.Stack {
             jsonPath: "@"
         });
 
-        const loadBalancerCRDYaml = yaml.safeLoadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8"));
+        const loadBalancerCRDYaml = yaml.loadAll(readFileSync("./resources/load_balancer/crds.yaml","utf8")) as Record<string,any>[];
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this,"loadBalancerCRD",{
             cluster: cluster,
             manifest: loadBalancerCRDYaml
@@ -536,7 +534,7 @@ export class Services extends cdk.Stack {
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
 
         // NOTE: amazon-cloudwatch namespace is created here!!
-        var fluentbitYaml = yaml.safeLoadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8"));
+        var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8")) as Record<string,any>[];
         fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
 
         fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
@@ -565,7 +563,7 @@ export class Services extends cdk.Stack {
             manifest: fluentbitYaml
         });
 
-        var prometheusYaml = yaml.safeLoadAll(readFileSync("./resources/prometheus-eks.yaml","utf8"));
+        var prometheusYaml = yaml.loadAll(readFileSync("./resources/prometheus-eks.yaml","utf8")) as Record<string,any>[];
 
         prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
 
@@ -638,7 +636,7 @@ export class Services extends cdk.Stack {
 
     private createOuputs(params: Map<string, string>) {
         params.forEach((value, key) => {
-            new cdk.CfnOutput(this, key, { value: value })
+            new CfnOutput(this, key, { value: value })
         });
     }
 }
