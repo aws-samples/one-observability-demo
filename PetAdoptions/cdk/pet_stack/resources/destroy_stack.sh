@@ -8,20 +8,6 @@ echo ---------------------------------------------------------------------------
 DDB_CONTRIB=$(aws ssm get-parameter --name '/petstore/dynamodbtablename' | jq .Parameter.Value -r)
 aws dynamodb update-contributor-insights --table-name $DDB_CONTRIB --contributor-insights-action DISABLE  
 
-# Fetch the name of the S3 bucket created by CDKToolkit for bootstrap
-CDK_S3_BUCKET_NAME=$(aws cloudformation describe-stacks  --stack-name CDKToolkit | jq '.Stacks[0].Outputs[] | select(.OutputKey == "BucketName").OutputValue' -r)
-
-# Empty the S3 bucket CDKToolkit
-echo CLEANING OUT BOOTSTRAP S3 BUCKET CONTENTS
-echo -----------------------------------------
-aws s3 rm s3://$CDK_S3_BUCKET_NAME --recursive   
-
-# Delete resources such as S3 buckets etc created by CDKToolkit
-
-aws cloudformation delete-stack --stack-name CDKToolkit
-echo DELETED THE BOOTSTRAP S3 BUCKET
-echo ----------------------------------
-
 echo STARTING SERVICES CLEANUP
 echo -----------------------------
 
@@ -46,5 +32,7 @@ aws cloudformation delete-stack --stack-name $STACK_NAME
 aws cloudformation delete-stack --stack-name $STACK_NAME_APP
 
 aws cloudwatch delete-dashboards --dashboard-names "EKS_FluentBit_Dashboard"
+
+echo CDK BOOTSTRAP WAS NOT DELETED
 
 echo ----- ✅ DONE --------
