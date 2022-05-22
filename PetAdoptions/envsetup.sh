@@ -66,8 +66,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 npm install npm
 
 # Upgrade CDK version
-npm i aws-cdk --force
-
+npm i -g aws-cdk --force
 
 # Download lab repository
 git clone https://github.com/aws-samples/one-observability-demo

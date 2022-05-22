@@ -297,7 +297,7 @@ export class Services extends Stack {
             vpc: theVPC,
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-            version: KubernetesVersion.V1_22
+            version: KubernetesVersion.V1_21
         });
 
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
