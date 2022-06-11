@@ -5,7 +5,9 @@ serviceAccounts:
   ## Disable alert manager roles
   ##
   server:
-        name: "amp-iamproxy-service-account"
+    name: "amp-iamproxy-ingest-role"
+    create: false
+
   alertmanager:
     create: false
 
