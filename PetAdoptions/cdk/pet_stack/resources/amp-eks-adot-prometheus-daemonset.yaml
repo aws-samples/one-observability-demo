@@ -145,7 +145,7 @@ spec:
       - command:
           - "/awscollector"
           - "--config=/conf/adot-collector-config.yaml"
-        image: public.ecr.aws/aws-observability/aws-otel-collector:latest
+        image: public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
         name: adot-collector
         resources:
           limits:
