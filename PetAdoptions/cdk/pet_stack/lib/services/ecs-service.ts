@@ -168,7 +168,7 @@ export abstract class EcsService extends Construct {
 
   private addXRayContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('xraydaemon', {
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:latest'),
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:3.3.3'),
       memoryLimitMiB: 256,
       cpu: 256,
       logging
