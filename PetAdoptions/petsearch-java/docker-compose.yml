@@ -35,7 +35,7 @@ services:
       - localstack
 
   collector:
-    image: public.ecr.aws/aws-observability/aws-otel-collector:latest
+    image: public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
     command: ["--config=/etc/ecs/ecs-default-config.yaml", "--log-level=INFO"]
     environment:
       - AWS_DEFAULT_REGION=us-east-1
