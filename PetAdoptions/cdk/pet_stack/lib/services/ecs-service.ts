@@ -111,7 +111,7 @@ export abstract class EcsService extends Construct {
       firelensConfig: {
         type: ecs.FirelensLogRouterType.FLUENTBIT
       },
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:latest')
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:stable')
     })
 
     // sidecar for instrumentation collecting
@@ -180,7 +180,7 @@ export abstract class EcsService extends Construct {
 
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
-        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.15.1'),
+        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1'),
         memoryLimitMiB: 256,
         cpu: 256,
         command: ["--config", "/etc/ecs/ecs-xray.yaml"],

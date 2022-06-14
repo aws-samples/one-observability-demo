@@ -23,7 +23,7 @@ aws ecr describe-repositories --repository-names ${ECR_REPOSITORY_URI#*/} --regi
 mkdir -p "/tmp/$image_name"
 cd "/tmp/$image_name"
 cat > Dockerfile <<EOF
-FROM public.ecr.aws/aws-observability/aws-otel-collector:latest
+FROM public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
 COPY config.yaml /etc/ecs/otel-config.yaml
 CMD ["--config=/etc/ecs/otel-config.yaml"]
 EOF
