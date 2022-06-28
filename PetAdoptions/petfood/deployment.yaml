@@ -1,0 +1,48 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petfood
+  labels:
+    app: petfood
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: petfood
+  template:
+    metadata:
+      labels:
+        app: petfood
+    spec:
+      containers:
+      - env:
+        - name: AWS_XRAY_DAEMON_ADDRESS
+          value: xray-service:2000
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+        name: petfood
+        image: 246341051302.dkr.ecr.us-east-1.amazonaws.com/petfood:6
+        ports:
+        - containerPort: 5000
+#        livenessProbe:
+#          httpGet:
+#            path: /status
+#            port: 5000
+#          initialDelaySeconds: 3
+#          periodSeconds: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petfood
+  labels:
+    app: petfood
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: petfood
