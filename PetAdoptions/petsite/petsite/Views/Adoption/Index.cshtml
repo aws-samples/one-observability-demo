@@ -4,10 +4,37 @@
     @model Pet;
 }
 
-<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-<script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
-
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+<script src="//code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+var jqxhr = $.getJSON( "/petfood", function() {
+  console.log( "Getting entityId and variation from Evidently" );
+})
+  .done(function() {
+    $(document).ready(function() {
+        var respJson = JSON.parse( jqxhr.responseText );
+        console.log("Evidently provided entityId: " + respJson.entityId);
+        if (respJson.entityId) {
+            if (respJson.variation.feature_enabled === true) { 
+              $(".upsell").css("visibility", "visible");
+              $("#upsell-span").text(respJson.message);
+            };
+        };
+        
+        $('#upsell-checkbox').change(function() {
+            if(this.checked) {
+                var conversionUpsellCall = $.getJSON( "/petfood-metric/" + respJson.entityId + "/1", function() {
+                    console.log("upsell checked for entityId: " + respJson.entityId);
+            });
+          }
+        });
+    })
+  //.fail(function() {
+  //  console.log( "Error getting data from Evidently" );
+  //});
+});
+</script>
 <section class="pet-hero">
     <div class="container">
         <img class="pet-hero-title" src="~/images/main_banner_text.png" />
@@ -43,6 +70,12 @@
 <div class="container align-items-center">
     <div class="pet-items d-table-row">
         <span class="alert-danger">Information entered on this page is neither stored nor processed.</span>
+    </div>
+    <div class="upsell" style="visibility: hidden; border: solid 1px; padding: 1em;">
+        <span id="upsell-span">Thank you for supporting our animal adoption agency!</span>
+        <span>
+            <input type="checkbox" id="upsell-checkbox" name="upsell-checkbox"/>
+        </span>
     </div>
 </div>
 <div class="container">
