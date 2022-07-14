@@ -31,6 +31,12 @@ EOF
 # Create config file
 cat > config.yaml <<EOF
 receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
   prometheus:
     config:
       global:
@@ -44,6 +50,15 @@ receivers:
     collection_interval: 15s
 
 processors:
+  resourcedetection:
+    detectors:
+      - env
+      - system
+      - ecs
+      - ec2
+  batch/traces:
+    timeout: 1s
+    send_batch_size: 50
   filter:
     metrics:
       include:
@@ -117,6 +132,7 @@ processors:
         action: delete
 
 exporters:
+  awsxray:
   awsprometheusremotewrite:
     endpoint: "https://aps-workspaces.$REGION.amazonaws.com/workspaces/$WORKSPACE_ID/api/v1/remote_write"
     aws_auth:
@@ -129,6 +145,10 @@ exporters:
 
 service:
   pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, batch/traces]
+      exporters: [awsxray]
     metrics:
       receivers: [prometheus]
       exporters: [logging, awsprometheusremotewrite]
