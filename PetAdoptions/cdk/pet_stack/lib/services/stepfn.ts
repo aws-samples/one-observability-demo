@@ -73,7 +73,7 @@ export class PetAdoptionsStepFn extends Construct {
       index: lambdaFileName + '.py',
       handler: 'lambda_handler',
       memorySize: 128,
-      runtime: lambda.Runtime.PYTHON_3_8,
+      runtime: lambda.Runtime.PYTHON_3_9,
       role: lambdaRole,
       layers: lambdalayers,
       tracing: Tracing.ACTIVE
