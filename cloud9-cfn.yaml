@@ -413,7 +413,7 @@ Resources:
         Fn::GetAtt:
         - C9LambdaExecutionRole
         - Arn
-      Runtime: python3.6
+      Runtime: python3.9
       MemorySize: 256
       Timeout: 600
       Code:
@@ -544,7 +544,7 @@ Resources:
             - yum -y remove aws-cli; yum -y install sqlite telnet jq strace tree gcc glibc-static python3 python3-pip gettext bash-completion
             - echo '=== CONFIGURE default python version ==='
             - PATH=$PATH:/usr/bin
-            - alternatives --set python /usr/bin/python3.6
+            - alternatives --set python /usr/bin/python3.9
             - echo '=== INSTALL and CONFIGURE default software components ==='
             - sudo -H -u ec2-user bash -c "pip install --user -U boto boto3 botocore awscli aws-sam-cli"
             - echo '=== Resizing the Instance volume'
