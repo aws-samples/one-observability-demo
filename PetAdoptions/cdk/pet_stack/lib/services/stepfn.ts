@@ -33,7 +33,7 @@ export class PetAdoptionsStepFn extends Construct {
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
 
     
-    var adotLayerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION + ":901920570463:layer:aws-otel-python38-ver-1-5-0:2"
+    var adotLayerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION + ":901920570463:layer:aws-otel-python-amd64-ver-1-11-1:2"
     var adotlayer = lambda.LayerVersion.fromLayerVersionArn(this,'otelPythonLambdaLayer',adotLayerArn);
 
     var layers: lambda.ILayerVersion[] = [layer, adotlayer]
