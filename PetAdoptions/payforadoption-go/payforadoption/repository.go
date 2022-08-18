@@ -25,7 +25,7 @@ type Repository interface {
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
-	CreateSQLTable(ctx context.Context) error
+	CreateSQLTables(ctx context.Context) error
 	ErrorModeOn(ctx context.Context) bool
 }
 
@@ -71,14 +71,17 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 }
 
 func (r *repo) DropTransactions(ctx context.Context) error {
+	sql := []string{`INSERT INTO transactions_history SELECT * FROM transactions`,
+		`DELETE FROM transactions`}
 
-	sql := `DELETE FROM transactions`
-
-	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql)
-	if err != nil {
-		return err
+	for _, s := range sql {
+		r.logger.Log("sql", s)
+		_, err := r.db.ExecContext(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -192,7 +195,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 	r.logger.Log("res", res, "err", err)
 
-	sqlErr := r.CreateSQLTable(ctx)
+	sqlErr := r.CreateSQLTables(ctx)
 	if sqlErr != nil {
 		return sqlErr
 	}
@@ -231,15 +234,32 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 	return false
 }
 
-func (r *repo) CreateSQLTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS transactions (
-		id SERIAL PRIMARY KEY,
-		pet_id VARCHAR,
-		adoption_date DATE,
-		transaction_id VARCHAR
-	);
-	`
-	_, err := r.db.ExecContext(ctx, sql)
+func (r *repo) CreateSQLTables(ctx context.Context) error {
+	sql := []string{
+		`CREATE TABLE IF NOT EXISTS transactions (
+			id SERIAL PRIMARY KEY,
+			pet_id VARCHAR,
+			adoption_date DATE,
+			transaction_id VARCHAR
+		);
+		`,
+		`CREATE TABLE IF NOT EXISTS transactions_history (
+			id SERIAL PRIMARY KEY,
+			pet_id VARCHAR,
+			adoption_date DATE,
+			transaction_id VARCHAR
+		);
+		`}
+
+	var err error = nil
+
+	for _, s := range sql {
+		r.logger.Log("sql", s)
+		_, err = r.db.ExecContext(ctx, s)
+		if err != nil {
+			return err
+		}
+	}
 
 	return err
 }
