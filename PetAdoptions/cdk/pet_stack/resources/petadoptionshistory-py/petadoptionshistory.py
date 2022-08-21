@@ -18,7 +18,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.propagate import set_global_textmap
 from opentelemetry.propagators.aws import AwsXRayPropagator
 
-# AWS XRay ID Generator
+# AWS X-Ray ID Generator
 from opentelemetry.sdk.extension.aws.trace import AwsXRayIdGenerator
 
 # Instrumentation
