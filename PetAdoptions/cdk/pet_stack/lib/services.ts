@@ -122,7 +122,8 @@ export class Services extends Stack {
         }
 
         const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
-            engine: rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_10_18 }),
+ 
             parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql10'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
@@ -133,6 +134,7 @@ export class Services extends Stack {
                 maxCapacity: rds.AuroraCapacityUnit.ACU_8,
             }
         });
+
 
         const readSSMParamsPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
