@@ -31,7 +31,7 @@ dependencies {
     implementation 'com.amazonaws:aws-java-sdk-sqs'
 
     implementation "io.opentelemetry:opentelemetry-api"
-    implementation "io.opentelemetry:opentelemetry-extension-annotations"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations"
 
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
@@ -47,6 +47,7 @@ dependencyManagement {
         mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.11.2"
         mavenBom "io.opentelemetry:opentelemetry-bom:${opentelemetryVersion}"
         mavenBom "io.opentelemetry:opentelemetry-bom-alpha:${opentelemetryVersion}-alpha"
+        mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:${opentelemetryVersion}-alpha"
         mavenBom 'com.amazonaws:aws-java-sdk-bom:1.12.297'
     }
 }
