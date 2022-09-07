@@ -22,7 +22,7 @@ spec:
         - name: AWS_DEFAULT_REGION
           value: us-east-1
         name: petfood-metric
-        image: 246341051302.dkr.ecr.us-east-1.amazonaws.com/petfood-metric:latest
+        image: 246341051302.dkr.ecr.us-east-1.amazonaws.com/petfood-metric:1
         ports:
         - containerPort: 5000
 #        livenessProbe:
