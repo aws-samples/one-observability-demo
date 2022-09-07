@@ -19,6 +19,8 @@ deploy () {
     docker tag ${service}:1 `aws ecr describe-repositories --repository-names ${service} | jq .repositories[0].repositoryUri | sed "s/\"//g"`:1
     docker push `aws ecr describe-repositories --repository-names ${service} | jq .repositories[0].repositoryUri | sed "s/\"//g"`:1
 
+    sed -i "s/DEPLOYMENTACCOUNT/${ACCOUNT_ID}/g" deployment.yaml
+    sed -i "s/DEPLOYMENTREGION/${AWS_REGION}/g" deployment.yaml
     kubectl apply -f deployment.yaml
 }
 
@@ -39,7 +41,6 @@ permissions () {
     else
         echo Role has an Evidently policy already
     fi
-
 }
 
 
