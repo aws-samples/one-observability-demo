@@ -19,6 +19,7 @@ COPY --from=build /app/${JAR_FILE} ./app.jar
 
 # OpenTelemetry agent configuration
 ENV OTEL_TRACES_SAMPLER "always_on"
+ENV OTEL_PROPAGATORS "tracecontext,baggage,xray"
 ENV OTEL_RESOURCE_ATTRIBUTES "service.name=PetSearch"
 ENV OTEL_IMR_EXPORT_INTERVAL "10000"
 ENV OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:4317"
