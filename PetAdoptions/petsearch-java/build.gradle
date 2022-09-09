@@ -1,5 +1,5 @@
 plugins {
-    id 'org.springframework.boot' version '2.6.2'
+    id 'org.springframework.boot' version '2.7.3'
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
 }
@@ -13,10 +13,10 @@ repositories {
 }
 
 ext {
-    set('springCloudAwsVersion', "2.3.3")
+    set('springCloudAwsVersion', "2.4.2")
     set('testContainerVersion', '1.16.2')
-    set('opentelemetryVersion', '1.9.1')
-    set('log4j2.version', '2.17.0')
+    set('opentelemetryVersion', '1.17.0')
+    set('log4j2.version', '2.18.0')
 }
 
 dependencies {
@@ -31,8 +31,7 @@ dependencies {
     implementation 'com.amazonaws:aws-java-sdk-sqs'
 
     implementation "io.opentelemetry:opentelemetry-api"
-    implementation "io.opentelemetry:opentelemetry-api-metrics"
-    implementation "io.opentelemetry:opentelemetry-extension-annotations"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations"
 
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
@@ -45,10 +44,11 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.9.1"
+        mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.11.2"
         mavenBom "io.opentelemetry:opentelemetry-bom:${opentelemetryVersion}"
         mavenBom "io.opentelemetry:opentelemetry-bom-alpha:${opentelemetryVersion}-alpha"
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.12.131'
+        mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:${opentelemetryVersion}-alpha"
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.12.297'
     }
 }
 
