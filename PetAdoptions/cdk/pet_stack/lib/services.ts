@@ -649,8 +649,6 @@ export class Services extends Stack {
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
             '/petstore/pethistoryurl': `http://${petadoptionhistory_alb.loadBalancerDnsName}`,
-            '/petstore/pethistoryapiurl': `http://${petadoptionhistory_alb.loadBalancerDnsName}/api/home/transactions`,
-            '/petstore/pethistorymetricsurl': `http://${petadoptionhistory_alb.loadBalancerDnsName}/metrics`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             '/petstore/errormode1':"false"
