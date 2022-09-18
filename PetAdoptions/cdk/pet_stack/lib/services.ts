@@ -286,33 +286,28 @@ export class Services extends Stack {
             defaultTargetGroups: [targetGroup],
         });
 
-        // PetAdoptionHistory - Create ALB and Target Groups
-        const petadoptionhistory_alb = new elbv2.ApplicationLoadBalancer(this, 'PetAdoptionHistoryLoadBalancer', {
-            vpc: theVPC,
-            internetFacing: true,
-            securityGroup: albSG
-        });
-        trafficGeneratorService.node.addDependency(petadoptionhistory_alb);
-
+        // PetAdoptionHistory - attach service to path /petadoptionhistory on PetSite ALB
         const petadoptionhistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionHistoryTargetGroup', {
             port: 80,
             protocol: elbv2.ApplicationProtocol.HTTP,
             vpc: theVPC,
             targetType: elbv2.TargetType.IP,
             healthCheck: {
-                path: '/health/status',
+                path: '/petadoptionhistory/health/status',
             }
         });
 
-        new ssm.StringParameter(this,"putPetAdoptionHistoryParamTargetGroupArn",{
-            stringValue: petadoptionhistory_targetGroup.targetGroupArn,
-            parameterName: '/eks/pethistory/TargetGroupArn'
+        listener.addTargetGroups('PetAdoptionHistoryTargetGroups', {
+            priority: 10,
+            conditions: [
+                elbv2.ListenerCondition.pathPatterns(['/petadoptionhistory/*']),
+            ],
+            targetGroups: [petadoptionhistory_targetGroup]
         });
 
-        const petadoptionhistory_listener = petadoptionhistory_alb.addListener('PetAdoptionHistoryListener', {
-            port: 80,
-            open: true,
-            defaultTargetGroups: [petadoptionhistory_targetGroup],
+        new ssm.StringParameter(this,"putPetHistoryParamTargetGroupArn",{
+            stringValue: petadoptionhistory_targetGroup.targetGroupArn,
+            parameterName: '/eks/pethistory/TargetGroupArn'
         });
 
         // PetSite - EKS Cluster
@@ -648,7 +643,7 @@ export class Services extends Stack {
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
-            '/petstore/pethistoryurl': `http://${petadoptionhistory_alb.loadBalancerDnsName}`,
+            '/petstore/pethistoryurl': `http://${alb.loadBalancerDnsName}/petadoptionhistory`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             '/petstore/errormode1':"false"

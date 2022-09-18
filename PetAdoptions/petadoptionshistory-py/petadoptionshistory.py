@@ -14,16 +14,16 @@ cfg = config.fetch_config()
 conn_params = config.get_rds_connection_parameters(cfg['rds_secret_arn'], cfg['region'])
 db = psycopg2.connect(**conn_params)
 
-@app.route('/api/home/transactions', methods=['GET'])
+@app.route('/petadoptionhistory/api/home/transactions', methods=['GET'])
 def transactions_get():
     transactions = repository.list_transaction_history(db)
     return jsonify(transactions)
 
-@app.route('/api/home/transactions', methods=['DELETE'])
+@app.route('/petadoptionhistory/api/home/transactions', methods=['DELETE'])
 def transactions_delete():
     repository.delete_transaction_history(db)
     return jsonify(success=True)
 
-@app.route('/health/status')
+@app.route('/petadoptionhistory/health/status')
 def status_path():
     return jsonify(success=True)
