@@ -25,12 +25,11 @@ export class StatusUpdaterService extends Construct {
       ]
     });
     
-    var layerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION +":580247275435:layer:LambdaInsightsExtension:18";
-//    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
+    var layerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION +":580247275435:layer:LambdaInsightsExtension:21";
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LayerFromArn`, layerArn);
 
     const lambdaFunction = new nodejslambda.NodejsFunction(this, 'lambdafn', {
-        runtime: lambda.Runtime.NODEJS_12_X,    // execution environment
+        runtime: lambda.Runtime.NODEJS_16_X,    // execution environment
         entry: '../../petstatusupdater/index.js',
         depsLockFilePath: '../../petstatusupdater/package-lock.json',
         handler: 'handler',
