@@ -23,13 +23,17 @@ aws ecr describe-repositories --repository-names ${ECR_REPOSITORY_URI#*/} --regi
 mkdir -p "/tmp/$image_name"
 cd "/tmp/$image_name"
 cat > Dockerfile <<EOF
-FROM public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
+FROM public.ecr.aws/aws-observability/aws-otel-collector:v0.21.0
 COPY config.yaml /etc/ecs/otel-config.yaml
 CMD ["--config=/etc/ecs/otel-config.yaml"]
 EOF
 
 # Create config file
 cat > config.yaml <<EOF
+extensions:
+  sigv4auth:
+    region: $REGION
+        
 receivers:
   otlp:
     protocols:
@@ -77,34 +81,34 @@ processors:
 
   metricstransform:
     transforms:
-      - metric_name: ecs.task.memory.utilized
+      - include: ecs.task.memory.utilized
         action: update
         new_name: MemoryUtilized
-      - metric_name: ecs.task.memory.reserved
+      - include: ecs.task.memory.reserved
         action: update
         new_name: MemoryReserved
-      - metric_name: ecs.task.memory.usage
+      - include: ecs.task.memory.usage
         action: update
         new_name: MemoryUsage
-      - metric_name: ecs.task.cpu.utilized
+      - include: ecs.task.cpu.utilized
         action: update
         new_name: CpuUtilized
-      - metric_name: ecs.task.cpu.reserved
+      - include: ecs.task.cpu.reserved
         action: update
         new_name: CpuReserved
-      - metric_name: ecs.task.cpu.usage.vcpu
+      - include: ecs.task.cpu.usage.vcpu
         action: update
         new_name: CpuUsage
-      - metric_name: ecs.task.network.rate.rx
+      - include: ecs.task.network.rate.rx
         action: update
         new_name: NetworkRxBytes
-      - metric_name: ecs.task.network.rate.tx
+      - include: ecs.task.network.rate.tx
         action: update
         new_name: NetworkTxBytes
-      - metric_name: ecs.task.storage.read_bytes
+      - include: ecs.task.storage.read_bytes
         action: update
         new_name: StorageReadBytes
-      - metric_name: ecs.task.storage.write_bytes
+      - include: ecs.task.storage.write_bytes
         action: update
         new_name: StorageWriteBytes
 
@@ -133,17 +137,15 @@ processors:
 
 exporters:
   awsxray:
-  awsprometheusremotewrite:
+  prometheusremotewrite:
     endpoint: "https://aps-workspaces.$REGION.amazonaws.com/workspaces/$WORKSPACE_ID/api/v1/remote_write"
-    aws_auth:
-      region: $REGION
-      service: "aps"
-    resource_to_telemetry_conversion:
-      enabled: true
+    auth:
+      authenticator: sigv4auth
   logging:
     loglevel: debug
 
 service:
+  extensions: [sigv4auth]
   pipelines:
     traces:
       receivers: [otlp]
@@ -151,11 +153,11 @@ service:
       exporters: [awsxray]
     metrics:
       receivers: [prometheus]
-      exporters: [logging, awsprometheusremotewrite]
+      exporters: [logging, prometheusremotewrite]
     metrics/ecs:
       receivers: [awsecscontainermetrics]
       processors: [filter]
-      exporters: [logging, awsprometheusremotewrite]
+      exporters: [logging, prometheusremotewrite]
 EOF
 
 # Build and push image
