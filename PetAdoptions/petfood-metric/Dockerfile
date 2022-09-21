@@ -10,4 +10,4 @@ RUN pip3 install -r requirements.txt
 COPY . .
 ENV FLASK_APP=petfood-metric
 
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
+CMD [ "python3", "-m" , "gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--capture-output", "petfood-metric:app"]

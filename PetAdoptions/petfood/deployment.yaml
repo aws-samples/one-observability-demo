@@ -20,9 +20,9 @@ spec:
         - name: AWS_XRAY_DAEMON_ADDRESS
           value: xray-service:2000
         - name: AWS_DEFAULT_REGION
-          value: us-east-1
+          value: DEPLOYMENTREGION
         name: petfood
-        image: 246341051302.dkr.ecr.us-east-1.amazonaws.com/petfood:6
+        image: DEPLOYMENTACCOUNT.dkr.ecr.DEPLOYMENTREGION.amazonaws.com/petfood:1
         ports:
         - containerPort: 5000
 #        livenessProbe:
