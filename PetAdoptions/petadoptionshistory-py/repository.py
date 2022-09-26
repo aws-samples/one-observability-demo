@@ -4,6 +4,7 @@ def list_transaction_history(db):
     cur = db.cursor()
     cur.execute(sql)
     result = cur.fetchall()
+    db.commit()
 
     return result
 
@@ -12,6 +13,7 @@ def delete_transaction_history(db):
 
     cur = db.cursor()
     result = cur.execute(sql)
+    db.commit()
 
     return result
 
@@ -21,5 +23,6 @@ def count_transaction_history(db):
     cur = db.cursor()
     cur.execute(sql)
     result = cur.fetchone()
+    db.commit()
 
     return result[0]
