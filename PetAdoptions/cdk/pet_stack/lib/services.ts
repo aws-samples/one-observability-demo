@@ -600,6 +600,7 @@ export class Services extends Stack {
         const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
 
         this.createSsmParameters(new Map(Object.entries({
+            '/petstore/rumscript': "",
             '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
             '/petstore/updateadoptionstatusurl': statusUpdaterService.api.url,
             '/petstore/queueurl': sqsQueue.queueUrl,
