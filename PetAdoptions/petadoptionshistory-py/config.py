@@ -60,8 +60,7 @@ def get_rds_connection_parameters(secret_id, region):
         'database': c['dbname'],
         'user':     c['username'],
         'password': c['password'],
-        'host':     c['host'],
-        'password': c['password']
+        'host':     c['host']
     }
 
     return u
