@@ -106,6 +106,6 @@ def transactions_delete():
         repository.delete_transaction_history(db)
         return jsonify(success=True)
 
-@app.route('/health/status')
+@app.route('/petadoptionhistory/health/status')
 def status_path():
     return jsonify(success=True)
