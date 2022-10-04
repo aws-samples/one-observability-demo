@@ -1,6 +1,12 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Html
+@using Amazon.SimpleSystemsManagement
+@using Amazon.SimpleSystemsManagement.Model
+
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
+    @(new HtmlString(new AmazonSimpleSystemsManagementClient().GetParameterAsync(new GetParameterRequest() { Name = "/petstore/rumscript" }).Result.Parameter.Value))
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>@ViewData["Title"] - Observability PetAdoptions</title>
