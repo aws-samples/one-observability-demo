@@ -13,10 +13,7 @@
     <link rel="stylesheet" href="~/css/site.css"/>
     <link rel="stylesheet" href="~/css/petstyles.css"/>
     <script>
-    @{
-        var result = new AmazonSimpleSystemsManagementClient().GetParameterAsync(new GetParameterRequest() { Name = "/petstore/rumstring" }).Result;
-    }
-    @(new HtmlString(result.Parameter.Value));
+    @(new HtmlString(new AmazonSimpleSystemsManagementClient().GetParameterAsync(new GetParameterRequest() { Name = "/petstore/rumstring" }).Result.Parameter.Value));
     </script>
 </head>
 <body>
