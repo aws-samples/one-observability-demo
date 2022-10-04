@@ -12,9 +12,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
     <link rel="stylesheet" href="~/css/site.css"/>
     <link rel="stylesheet" href="~/css/petstyles.css"/>
-    <script>
     @(new HtmlString(new AmazonSimpleSystemsManagementClient().GetParameterAsync(new GetParameterRequest() { Name = "/petstore/rumscript" }).Result.Parameter.Value));
-    </script>
 </head>
 <body>
 <div class="pet-wrapper">
