@@ -49,13 +49,14 @@ cfg = config.fetch_config()
 conn_params = config.get_rds_connection_parameters(cfg['rds_secret_arn'], cfg['region'])
 db = psycopg2.connect(**conn_params)
 
-# Setup AWX X-Ray Propagator
+# Setup AWS X-Ray propagator
 set_global_textmap(AwsXRayPropagator())
 
 resource = Resource(attributes={
     SERVICE_NAME: "PetAdoptionsHistory"
 })
 
+# Setup tracer provider with the X-Ray ID generator
 provider = TracerProvider(resource=resource, id_generator=AwsXRayIdGenerator())
 processor = BatchSpanProcessor(OTLPSpanExporter())
 provider.add_span_processor(processor)
