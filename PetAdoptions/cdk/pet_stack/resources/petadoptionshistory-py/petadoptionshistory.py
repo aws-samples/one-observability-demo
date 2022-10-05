@@ -91,7 +91,7 @@ transactions_get_counter = meter.create_counter(
     description="The number of times the transactions_get endpoint has been called",
 )
 
-# This exposes the /metrics HTTP endpoint
+# This exposes the /petadoptionhistory/metrics HTTP endpoint
 metrics = PrometheusMetrics(app, group_by='endpoint', path='/petadoptionhistory/metrics')
 
 @app.route('/petadoptionhistory/api/home/transactions', methods=['GET'])
