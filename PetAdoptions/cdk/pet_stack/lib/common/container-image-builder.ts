@@ -8,6 +8,8 @@
  * 2. A dedicated ECR repository is created
  * 3. The container image is copied from "CDK Assets" to the dedicated repository
  */
+
+import * as cdk from 'aws-cdk-lib';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecrassets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecrdeploy from 'cdk-ecr-deployment';
@@ -29,6 +31,7 @@ export class ContainerImageBuilder extends Construct {
         const repository = new ecr.Repository(this, props.repositoryName + 'Repository', {
             repositoryName: props.repositoryName,
             imageScanOnPush: true,
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
         const image = new ecrassets.DockerImageAsset(this, props.repositoryName + 'DockerImageAsset', {
           directory: props.dockerImageAssetDirectory
