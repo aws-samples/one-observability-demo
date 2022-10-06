@@ -51,7 +51,7 @@ data:
                 - role: pod
               static_configs:
                 - targets: ["localhost:8080"]
-              metrics_path: /petadoptionhistory/metrics
+              metrics_path: /petadoptionshistory/metrics
               relabel_configs:
                 - source_labels: [ __meta_kubernetes_pod_name ]
                   action: replace

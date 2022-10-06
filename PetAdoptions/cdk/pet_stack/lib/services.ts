@@ -287,26 +287,26 @@ export class Services extends Stack {
         });
 
         // PetAdoptionHistory - attach service to path /petadoptionhistory on PetSite ALB
-        const petadoptionhistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionHistoryTargetGroup', {
+        const petadoptionshistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionsHistoryTargetGroup', {
             port: 80,
             protocol: elbv2.ApplicationProtocol.HTTP,
             vpc: theVPC,
             targetType: elbv2.TargetType.IP,
             healthCheck: {
-                path: '/petadoptionhistory/health/status',
+                path: '/petadoptionshistory/health/status',
             }
         });
 
-        listener.addTargetGroups('PetAdoptionHistoryTargetGroups', {
+        listener.addTargetGroups('PetAdoptionsHistoryTargetGroups', {
             priority: 10,
             conditions: [
-                elbv2.ListenerCondition.pathPatterns(['/petadoptionhistory/*']),
+                elbv2.ListenerCondition.pathPatterns(['/petadoptionshistory/*']),
             ],
-            targetGroups: [petadoptionhistory_targetGroup]
+            targetGroups: [petadoptionshistory_targetGroup]
         });
 
         new ssm.StringParameter(this,"putPetHistoryParamTargetGroupArn",{
-            stringValue: petadoptionhistory_targetGroup.targetGroupArn,
+            stringValue: petadoptionshistory_targetGroup.targetGroupArn,
             parameterName: '/eks/pethistory/TargetGroupArn'
         });
 

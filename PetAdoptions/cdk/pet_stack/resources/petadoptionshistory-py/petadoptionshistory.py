@@ -91,22 +91,22 @@ transactions_get_counter = meter.create_counter(
     description="The number of times the transactions_get endpoint has been called",
 )
 
-# This exposes the /petadoptionhistory/metrics HTTP endpoint
-metrics = PrometheusMetrics(app, group_by='endpoint', path='/petadoptionhistory/metrics')
+# This exposes the /petadoptionshistory/metrics HTTP endpoint
+metrics = PrometheusMetrics(app, group_by='endpoint', path='/petadoptionshistory/metrics')
 
-@app.route('/petadoptionhistory/api/home/transactions', methods=['GET'])
+@app.route('/petadoptionshistory/api/home/transactions', methods=['GET'])
 def transactions_get():
     with tracer.start_as_current_span("transactions_get") as transactions_span:
         transactions_get_counter.add(1)
         transactions = repository.list_transaction_history(db)
         return jsonify(transactions)
 
-@app.route('/petadoptionhistory/api/home/transactions', methods=['DELETE'])
+@app.route('/petadoptionshistory/api/home/transactions', methods=['DELETE'])
 def transactions_delete():
     with tracer.start_as_current_span("transactions_delete") as transactions_span:
         repository.delete_transaction_history(db)
         return jsonify(success=True)
 
-@app.route('/petadoptionhistory/health/status')
+@app.route('/petadoptionshistory/health/status')
 def status_path():
     return jsonify(success=True)
