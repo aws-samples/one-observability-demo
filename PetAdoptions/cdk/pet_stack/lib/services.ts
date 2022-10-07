@@ -443,8 +443,8 @@ export class Services extends Stack {
                 connectionType: 'CONNECT_SSM',
                 repositories: [
                     {
-                        repositoryUrl: "https://git-codecommit." + region + ".amazonaws.com/v1/repos/event-source",
-                        pathComponent: "/codecommit/pet_stack"
+                        repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
+                        pathComponent: "/one-observability-demo"
                     }
                 ]
             });
