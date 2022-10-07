@@ -436,7 +436,7 @@ export class Services extends Stack {
             });
 
             c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
-                ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/TeamRole/MasterKey",
+                ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/WSParticipantRole/Participant",
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
