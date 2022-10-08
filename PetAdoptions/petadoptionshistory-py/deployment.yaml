@@ -49,14 +49,13 @@ data:
             - job_name: "otel-collector"
               kubernetes_sd_configs:
                 - role: pod
-              metrics_path: /petadoptionshistory/metrics
               relabel_configs:
                 - source_labels: [__meta_kubernetes_pod_container_port_number]
                   action: keep
                   target_label: '^8080$'
                 - source_labels: [ __meta_kubernetes_pod_container_name ]
                   action: keep
-                  target_label: '^petsite$'
+                  target_label: '^pethistory$'
                 - source_labels: [ __meta_kubernetes_pod_name ]
                   action: replace
                   target_label: pod_name

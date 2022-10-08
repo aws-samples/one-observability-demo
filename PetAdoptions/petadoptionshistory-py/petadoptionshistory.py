@@ -24,6 +24,6 @@ def transactions_delete():
     repository.delete_transaction_history(db)
     return jsonify(success=True)
 
-@app.route('/petadoptionshistory/health/status')
+@app.route('/health/status')
 def status_path():
     return jsonify(success=True)

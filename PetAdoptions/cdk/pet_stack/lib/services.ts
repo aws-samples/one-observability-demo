@@ -293,7 +293,7 @@ export class Services extends Stack {
             vpc: theVPC,
             targetType: elbv2.TargetType.IP,
             healthCheck: {
-                path: '/petadoptionshistory/health/status',
+                path: '/health/status',
             }
         });
 
