@@ -6,6 +6,8 @@ import * as yaml from 'js-yaml';
 import { Stack, StackProps, CfnJson, Fn, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import { Construct } from 'constructs'
+import { ContainerImageBuilderProps, ContainerImageBuilder } from './common/container-image-builder'
+import { PetAdoptionsHistory } from './applications/pet-adoptions-history-application'
 
 export class Applications extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -17,6 +19,8 @@ export class Applications extends Stack {
     const targetGroupArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getParamTargetGroupArn', { parameterName: "/eks/petsite/TargetGroupArn"}).stringValue;
     const oidcProviderUrl = ssm.StringParameter.fromStringParameterAttributes(this, 'getOIDCProviderUrl', { parameterName: "/eks/petsite/OIDCProviderUrl"}).stringValue;
     const oidcProviderArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getOIDCProviderArn', { parameterName: "/eks/petsite/OIDCProviderArn"}).stringValue;
+    const rdsSecretArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getRdsSecretArn', { parameterName: "/petstore/rdssecretarn"}).stringValue;
+    const petHistoryTargetGroupArn = ssm.StringParameter.fromStringParameterAttributes(this, 'getPetHistoryParamTargetGroupArn', { parameterName: "/eks/pethistory/TargetGroupArn"}).stringValue;
 
     const cluster = eks.Cluster.fromClusterAttributes(this, 'MyCluster', {
       clusterName: 'PetSite',
@@ -86,6 +90,25 @@ export class Applications extends Stack {
         manifest: deploymentYaml
     });
 
+    // PetAdoptionsHistory application definitions-----------------------------------------------------------------------
+    const petAdoptionsHistoryContainerImage = new ContainerImageBuilder(this, 'pet-adoptions-history-container-image', {
+       repositoryName: "pet-adoptions-history",
+       dockerImageAssetDirectory: "./resources/microservices/petadoptionshistory-py",
+    });
+    new ssm.StringParameter(this,"putPetAdoptionHistoryRepositoryName",{
+        stringValue: petAdoptionsHistoryContainerImage.repositoryUri,
+        parameterName: '/petstore/pethistoryrepositoryuri'
+    });
+
+    const petAdoptionsHistoryApplication = new PetAdoptionsHistory(this, 'pet-adoptions-history-application', {
+        cluster: cluster,
+        app_trustRelationship: app_trustRelationship,
+        kubernetesManifestPath: "./resources/microservices/petadoptionshistory-py/deployment.yaml",
+        rdsSecretArn: rdsSecretArn,
+        region: region,
+        imageUri: petAdoptionsHistoryContainerImage.imageUri,
+        targetGroupArn: petHistoryTargetGroupArn
+    });
 
     this.createSsmParameters(new Map(Object.entries({
         '/eks/petsite/stackname': stackName

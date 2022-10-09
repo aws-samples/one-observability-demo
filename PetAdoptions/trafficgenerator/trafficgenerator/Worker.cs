@@ -78,6 +78,16 @@ namespace trafficgenerator
 
          //   Console.WriteLine($"PetSite URL: {_petSiteUrl}");
 
+            if (loadSize > 20)
+            {
+                await _httpClient.DeleteAsync($"{_petSiteUrl}/pethistory/deletepetadoptionshistory");
+                _logger.LogInformation("Deleted PetAdoptions History");
+            }
+            else
+            {
+                await _httpClient.GetAsync($"{_petSiteUrl}/pethistory");
+            }
+
             
             for (int i = 0; i < loadSize; i++)
             {

@@ -14,6 +14,8 @@ import * as yaml from 'js-yaml';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecrassets from 'aws-cdk-lib/aws-ecr-assets';
 
 import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -257,7 +259,7 @@ export class Services extends Stack {
         });
         albSG.addIngressRule(ec2.Peer.anyIpv4(),ec2.Port.tcp(80));
 
-        // Create ALB and Target Groups
+        // PetSite - Create ALB and Target Groups
         const alb = new elbv2.ApplicationLoadBalancer(this, 'PetSiteLoadBalancer', {
             vpc: theVPC,
             internetFacing: true,
@@ -284,6 +286,31 @@ export class Services extends Stack {
             defaultTargetGroups: [targetGroup],
         });
 
+        // PetAdoptionHistory - attach service to path /petadoptionhistory on PetSite ALB
+        const petadoptionshistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionsHistoryTargetGroup', {
+            port: 80,
+            protocol: elbv2.ApplicationProtocol.HTTP,
+            vpc: theVPC,
+            targetType: elbv2.TargetType.IP,
+            healthCheck: {
+                path: '/health/status',
+            }
+        });
+
+        listener.addTargetGroups('PetAdoptionsHistoryTargetGroups', {
+            priority: 10,
+            conditions: [
+                elbv2.ListenerCondition.pathPatterns(['/petadoptionshistory/*']),
+            ],
+            targetGroups: [petadoptionshistory_targetGroup]
+        });
+
+        new ssm.StringParameter(this,"putPetHistoryParamTargetGroupArn",{
+            stringValue: petadoptionshistory_targetGroup.targetGroupArn,
+            parameterName: '/eks/pethistory/TargetGroupArn'
+        });
+
+        // PetSite - EKS Cluster
         const clusterAdmin = new iam.Role(this, 'AdminRole', {
             assumedBy: new iam.AccountRootPrincipal()
         });
@@ -617,6 +644,7 @@ export class Services extends Stack {
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
+            '/petstore/pethistoryurl': `http://${alb.loadBalancerDnsName}/petadoptionshistory`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             '/petstore/errormode1':"false"
