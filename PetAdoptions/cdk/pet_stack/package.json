@@ -28,6 +28,7 @@
     "@types/js-yaml": "4.0.5",
     "aws-cdk-dynamodb-seeder": "^1.2.1",
     "aws-cdk-lib": "^2.20.0",
+    "cdk-ecr-deployment": "^2.5.5",
     "jest": "^27.5.1",
     "js-yaml": "^4.1.0",
     "source-map-support": "^0.5.21"
