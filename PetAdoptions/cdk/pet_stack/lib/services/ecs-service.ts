@@ -65,6 +65,7 @@ export abstract class EcsService extends Construct {
       })
     });
 
+    /*
     const firelenslogging = new ecs.FireLensLogDriver({
       options: {
         "Name": "cloudwatch",
@@ -75,6 +76,7 @@ export abstract class EcsService extends Construct {
         "log_stream_name": "$(ecs_task_id)"
       }
     });
+   //*/
 
     const taskRole = new iam.Role(this, `taskRole`, {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com')
@@ -98,7 +100,7 @@ export abstract class EcsService extends Construct {
       image: image,
       memoryLimitMiB: 512,
       cpu: 256,
-      logging: firelenslogging,
+      logging,
       environment: { // clear text, not for sensitive data
         AWS_REGION: props.region,
       }
@@ -107,12 +109,14 @@ export abstract class EcsService extends Construct {
       protocol: ecs.Protocol.TCP
     });
 
+    /*
     this.taskDefinition.addFirelensLogRouter('firelensrouter', {
       firelensConfig: {
         type: ecs.FirelensLogRouterType.FLUENTBIT
       },
       image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:stable')
     })
+   //*/
 
     // sidecar for instrumentation collecting
     switch(props.instrumentation) {
