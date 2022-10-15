@@ -234,3 +234,34 @@ subjects:
   - kind: ServiceAccount
     name: pethistory-sa
     namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-awseksresourcedetector-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - aws-auth
+      - cluster-info
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-awseksresourcedetector-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-awseksresourcedetector-role
+subjects:
+  - kind: ServiceAccount
+    name: pethistory-sa
+    namespace: default
+  - kind: ServiceAccount
+    name: pethistory-sa
+    namespace: default
