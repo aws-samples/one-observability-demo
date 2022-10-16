@@ -36,7 +36,7 @@ type service struct {
 //inject dependencies into core logic
 func NewService(logger log.Logger, rep Repository, petSearchURL string) Service {
 	return &service{
-		logger:       logger,
+		logger: logger,
 		repository:   rep,
 		petSearchURL: petSearchURL,
 	}

@@ -42,6 +42,7 @@ func init() {
 		semconv.SchemaURL,
 		// the service name used to display traces in backends
 		semconv.ServiceNameKey.String("petlistadoptions"),
+		//semconv.AWSLogGroupNamesKey.String("/ecs/PetListAdoptions"),
 	)
 	// Create a new TraceProvider struct passing in the config, the exporter
 	// and the ID Generator we want to use for our tracing
@@ -67,11 +68,9 @@ func main() {
 	flag.Parse()
 
 	var logger log.Logger
-	{
-		logger = log.NewJSONLogger(os.Stderr)
-		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
-		logger = log.With(logger, "caller", log.DefaultCaller)
-	}
+	logger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+
 
 	var cfg Config
 	{
