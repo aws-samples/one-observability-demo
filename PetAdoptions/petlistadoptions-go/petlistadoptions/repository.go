@@ -32,7 +32,7 @@ type repo struct {
 func NewRepository(db *sql.DB, logger log.Logger, safeConnStr string) Repository {
 	return &repo{
 		db:          db,
-		logger:      log.With(logger, "repo", "sql"),
+		logger:      logger,
 		safeConnStr: safeConnStr,
 	}
 }
@@ -100,7 +100,7 @@ func (r *repo) GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]A
 	res := []Adoption{}
 
 	for i := range adoptions {
-		logger.Log("petid", i.PetID, "pettype", i.PetType, "petcolor", i.PetColor)
+		logger.Log("petid", i.PetID, "pettype", i.PetType, "petcolor", i.PetColor, "xrayTraceId", getXrayTraceID(span))
 		res = append(res, i)
 	}
 
