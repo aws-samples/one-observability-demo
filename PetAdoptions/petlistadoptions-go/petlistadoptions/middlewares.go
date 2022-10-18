@@ -23,7 +23,7 @@ type middleware struct {
 func NewInstrumenting(logger log.Logger, s Service) Service {
 	labels := []string{"endpoint", "error"}
 	return &middleware{
-		logger:  logger,
+		logger: logger,
 		Service: s,
 		requestCount: kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "petlistadoptions",
@@ -54,15 +54,15 @@ func (mw *middleware) ListAdoptions(ctx context.Context) (ax []Adoption, err err
 			attribute.Int("resultCount", len(ax)),
 		)
 
-		spanCtx := span.SpanContext()
-
-		mw.logger.Log(
-			"method", "ListAdoptions",
-			"traceId", getXrayTraceID(span),
-			"SpanID", spanCtx.SpanID,
+		err2 := mw.logger.Log(
+			"method", "ListAdoptionsMiddleware",
+			"xrayTraceId", getXrayTraceID(span),
 			"resultCount", len(ax),
 			"took", time.Since(begin),
 			"err", err)
+		if err2 != nil {
+			fmt.Println("log error", err2)
+		}
 	}(time.Now())
 
 	return mw.Service.ListAdoptions(ctx)
