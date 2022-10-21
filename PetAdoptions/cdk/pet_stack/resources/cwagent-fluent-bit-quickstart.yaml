@@ -553,3 +553,18 @@ spec:
         effect: "NoExecute"
       - operator: "Exists"
         effect: "NoSchedule"
+---
+# The `cluster-info` configmap in the `amazon-cloudwatch` namespace is used by the current
+# Python implementation for the `AwsEksResourceDetector`
+#
+# See here for info on AWS resource detectors: https://aws-otel.github.io/docs/getting-started/python-sdk/trace-manual-instr#using-the-aws-resource-detectors
+# AwsEksResourceDetector implementation: https://github.com/open-telemetry/opentelemetry-python-contrib/blob/main/sdk-extension/opentelemetry-sdk-extension-aws/src/opentelemetry/sdk/extension/aws/resource/eks.py
+# Cluster-info definition borrowed from FluentD setup: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-setup-EKS-quickstart.html#Container-Insights-setup-EKS-quickstart-Fluentd
+apiVersion: v1
+data:
+  cluster.name: {{cluster_name}}
+  logs.region: {{region_name}}
+kind: ConfigMap
+metadata:
+  name: cluster-info
+  namespace: amazon-cloudwatch
