@@ -585,26 +585,14 @@ export class Services extends Stack {
         fluentbitYaml[6].data["cluster.name"] = "PetSite";
         fluentbitYaml[6].data["logs.region"] = region;
         fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });
+        
+        // The `cluster-info` configmap is used by the current Python implementation for the `AwsEksResourceDetector`
+        fluentbitYaml[12].data["cluster.name"] = "PetSite";
+        fluentbitYaml[12].data["logs.region"] = region;
 
         const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
             cluster: cluster,
             manifest: fluentbitYaml
-        });
-
-        // The `cluster-info` configmap in the `amazon-cloudwatch` namespace is used by the current
-        // Python implementation for the `AwsEksResourceDetector`
-        //
-        // See here for info on AWS resource detectors: https://aws-otel.github.io/docs/getting-started/python-sdk/trace-manual-instr#using-the-aws-resource-detectors
-        // AwsEksResourceDetector implementation: https://github.com/open-telemetry/opentelemetry-python-contrib/blob/main/sdk-extension/opentelemetry-sdk-extension-aws/src/opentelemetry/sdk/extension/aws/resource/eks.py
-        // Cluster-info definition borrowed from FluentD setup: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-setup-EKS-quickstart.html#Container-Insights-setup-EKS-quickstart-Fluentd
-        var clusterInfoYaml = yaml.loadAll(readFileSync("./resources/cluster-info.yaml","utf8")) as Record<string,any>[];
-
-        clusterInfoYaml[0].data["cluster.name"] = "PetSite";
-        clusterInfoYaml[0].data["logs.region"] = region;
-
-        const clusterInfoManifest = new eks.KubernetesManifest(this,"clusterinfodeployment",{
-            cluster: cluster,
-            manifest: clusterInfoYaml
         });
 
         // CloudWatch agent for prometheus metrics
