@@ -9,7 +9,7 @@ from flask import Flask, jsonify
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource, get_aggregated_resources
 
 # Exporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -21,19 +21,13 @@ from opentelemetry.propagators.aws import AwsXRayPropagator
 # AWS X-Ray ID Generator
 from opentelemetry.sdk.extension.aws.trace import AwsXRayIdGenerator
 
+# Resource detector
+from opentelemetry.sdk.extension.aws.resource.eks import AwsEksResourceDetector
+
 # Instrumentation
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
 from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
-
-# OLTP Metrics
-from opentelemetry import metrics
-from opentelemetry.metrics import Observation
-from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.sdk.metrics import MeterProvider
-
-# Flask exporter
-from prometheus_flask_exporter import PrometheusMetrics
 
 # Instrumentation
 BotocoreInstrumentor().instrument()
@@ -52,52 +46,27 @@ db = psycopg2.connect(**conn_params)
 # Setup AWS X-Ray propagator
 set_global_textmap(AwsXRayPropagator())
 
-resource = Resource(attributes={
-    SERVICE_NAME: "PetAdoptionsHistory"
-})
+# Setup AWS EKS resource detector
+resource = get_aggregated_resources(
+    [
+        AwsEksResourceDetector(),
+    ]
+)
 
 # Setup tracer provider with the X-Ray ID generator
-provider = TracerProvider(resource=resource, id_generator=AwsXRayIdGenerator())
+tracer_provider = TracerProvider(resource=resource, id_generator=AwsXRayIdGenerator())
 processor = BatchSpanProcessor(OTLPSpanExporter())
-provider.add_span_processor(processor)
+tracer_provider.add_span_processor(processor)
 
 # Sets the global default tracer provider
-trace.set_tracer_provider(provider)
+trace.set_tracer_provider(tracer_provider)
 
 # Creates a tracer from the global tracer provider
 tracer = trace.get_tracer(__name__)
 
-# Setup metrics
-reader = PrometheusMetricReader()
-provider = MeterProvider(resource=resource, metric_readers=[reader])
-
-# Sets the global default meter provider
-metrics.set_meter_provider(provider)
-
-# Creates a meter from the global meter provider
-meter = metrics.get_meter(__name__)
-
-def transactions_history_callback(result):
-    count = repository.count_transaction_history(db)
-    yield Observation(count)
-
-meter.create_observable_gauge(
-    name="transactions_history.count",
-    description="The number of items in the transactions history",
-    callbacks=[transactions_history_callback])
-
-transactions_get_counter = meter.create_counter(
-    "transactions_get.count",
-    description="The number of times the transactions_get endpoint has been called",
-)
-
-# This exposes the /metrics HTTP endpoint
-metrics = PrometheusMetrics(app, group_by='endpoint')
-
 @app.route('/petadoptionshistory/api/home/transactions', methods=['GET'])
 def transactions_get():
     with tracer.start_as_current_span("transactions_get") as transactions_span:
-        transactions_get_counter.add(1)
         transactions = repository.list_transaction_history(db)
         return jsonify(transactions)
 
