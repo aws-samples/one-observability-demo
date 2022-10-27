@@ -104,6 +104,7 @@ export class Applications extends Stack {
         cluster: cluster,
         app_trustRelationship: app_trustRelationship,
         kubernetesManifestPath: "./resources/microservices/petadoptionshistory-py/deployment.yaml",
+        otelConfigMapPath: "./resources/microservices/petadoptionshistory-py/otel-collector-config.yaml",
         rdsSecretArn: rdsSecretArn,
         region: region,
         imageUri: petAdoptionsHistoryContainerImage.imageUri,
