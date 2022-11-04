@@ -95,6 +95,7 @@ public class SearchController {
         } catch (Throwable e) {
             logger.error("Error while acessing S3 bucket", e);
             span.recordException(e);
+            throw (e);
         } finally {
             span.end();
         }
