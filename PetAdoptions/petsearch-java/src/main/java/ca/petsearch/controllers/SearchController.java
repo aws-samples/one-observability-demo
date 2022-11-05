@@ -82,9 +82,11 @@ public class SearchController {
 
             if (randomGenerator.nextNonNegativeInt(10) == 4) {
                 logger.debug("Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions");
+                logger.info("Creating Bucket");
                 s3Client.createBucket(s3BucketName);
             }
 
+            logger.info("Generating presigned url");
             GeneratePresignedUrlRequest generatePresignedUrlRequest =
                     new GeneratePresignedUrlRequest(s3BucketName, key)
                             .withMethod(HttpMethod.GET)
@@ -92,15 +94,13 @@ public class SearchController {
 
             return s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
-        } catch (Throwable e) {
-            logger.error("Error while acessing S3 bucket", e);
+        } catch (Exception e) {
+            logger.error("Error while accessing S3 bucket", e);
             span.recordException(e);
             throw (e);
         } finally {
             span.end();
         }
-
-        return "";
     }
 
     @WithSpan("Get parameter from Systems Manager or cache") // this annotation can be used as an alternative to tracer.spanBuilder
