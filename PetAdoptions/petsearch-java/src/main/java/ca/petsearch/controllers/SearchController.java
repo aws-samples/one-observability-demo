@@ -79,10 +79,13 @@ public class SearchController {
             String s3BucketName = getSSMParameter(BUCKET_NAME);
 
             String key = getKey(petType, image);
+            
+            Double randomnumber = Math.random()*9999;
 
-            if (randomGenerator.nextNonNegativeInt(10) == 4) {
+            if (randomnumber < 100) {
                 logger.debug("Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions");
-                logger.info("Creating Bucket");
+                logger.info("Trying to create a S3 Bucket");
+                logger.info(randomnumber + " is the random number");
                 s3Client.createBucket(s3BucketName);
             }
 
