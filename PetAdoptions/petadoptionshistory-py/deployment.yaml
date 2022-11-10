@@ -151,6 +151,3 @@ subjects:
   - kind: ServiceAccount
     name: pethistory-sa
     namespace: default
-  - kind: ServiceAccount
-    name: pethistory-sa
-    namespace: default
