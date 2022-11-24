@@ -78,4 +78,5 @@ def transactions_delete():
 
 @app.route('/health/status')
 def status_path():
+    repository.check_alive(db)
     return jsonify(success=True)
