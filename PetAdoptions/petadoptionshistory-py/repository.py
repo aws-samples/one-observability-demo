@@ -26,3 +26,10 @@ def count_transaction_history(db):
     db.commit()
 
     return result[0]
+
+def check_alive(db):
+    sql = 'SELECT NULL' # do nothing
+
+    cur = db.cursor()
+    cur.execute(sql)
+    db.commit()

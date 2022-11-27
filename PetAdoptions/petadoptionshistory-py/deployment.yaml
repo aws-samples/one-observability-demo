@@ -60,6 +60,12 @@ spec:
           value: "{{AWS_REGION}}"
         - name: OTEL_METRICS_EXPORTER
           value: "otlp"
+        livenessProbe:
+          httpGet:
+            path: /health/status
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
       - name: aws-otel-collector
         image: amazon/aws-otel-collector:latest
         args: ["--config=/etc/otel-config/otel-config.yaml"]
@@ -148,9 +154,6 @@ roleRef:
   kind: ClusterRole
   name: otel-awseksresourcedetector-role
 subjects:
-  - kind: ServiceAccount
-    name: pethistory-sa
-    namespace: default
   - kind: ServiceAccount
     name: pethistory-sa
     namespace: default
