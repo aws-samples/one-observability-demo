@@ -18,11 +18,13 @@ npm install
 sam sync --stack-name cop301-data
 ```
 
-2. Amazon ECS API
+#### Amazon ECS API
 
-Visit [the documentation](./ecs-api/README) to deploy the Amazon ECS backend API.
+Visit [the documentation](./ecs-api/README.md) to deploy the Amazon ECS backend API.
 
-3. Webapp (with AWS Amplify)
+#### Webapp (with AWS Amplify)
+
+Visit [the documentation](./ecs-api/README.md) to deploy the web app with AWS Amplify.
 
 ### Visualization with Amazon Managed Grafana
 
