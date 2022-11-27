@@ -24,6 +24,8 @@ Visit [the documentation](./ecs-api/README.md) to deploy the Amazon ECS backend 
 
 #### Webapp (with AWS Amplify)
 
+<img width="543" alt="Screenshot 2022-11-27 at 11 31 31" src="https://user-images.githubusercontent.com/10175027/204155839-9505cd12-1b59-458c-a073-747da1e73d84.png">
+
 Visit [the documentation](./amplifyapp/README.md) to deploy the web app with AWS Amplify.
 
 ### Visualization with Amazon Managed Grafana
