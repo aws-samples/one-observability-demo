@@ -28,4 +28,5 @@ Visit [the documentation](./ecs-api/README) to deploy the Amazon ECS backend API
 
 Visit the [getting started page](https://docs.aws.amazon.com/grafana/latest/userguide/getting-started-with-AMG.html) to create an Amazon Managed Grafana workspace and create your dashboard.
 
-<img width="2056" alt="image" src="https://user-images.githubusercontent.com/10175027/204155180-b22d7f41-f773-458c-a570-160b44a8ec10.png">
+<img width="2054" alt="image" src="https://user-images.githubusercontent.com/10175027/204155560-aa9b6a40-d7ec-4da4-a5af-82cd74aeecb1.png">
+
