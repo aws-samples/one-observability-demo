@@ -1,4 +1,4 @@
-# re:Invent 2022 COP301 demo
+# AWS re:Invent 2022 COP301 demo
 
 This contains the sources artifacts to deploy the COP301 session.
 
