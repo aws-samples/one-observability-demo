@@ -60,7 +60,7 @@ func newConfig(log *zap.SugaredLogger) *Config {
 
 	dataAPI := os.Getenv("DATA_API")
 	if dataAPI == "" {
-		dataAPI = "https://jwy7czz6uxkaxsumktie64266q0efzki.lambda-url.us-west-2.on.aws/votes"
+		log.Fatal("Failed to get DATA_API")
 	}
 
 	return &Config{
