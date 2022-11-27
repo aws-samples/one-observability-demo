@@ -31,7 +31,3 @@ Install [AWS Amplify CLI](https://docs.amplify.aws/cli/start/install/)
 npm install
 amplify publish
 ```
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
