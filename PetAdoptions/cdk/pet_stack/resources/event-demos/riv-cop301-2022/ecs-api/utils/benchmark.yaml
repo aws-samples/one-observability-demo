@@ -1,0 +1,30 @@
+---
+concurrency: 60
+base: "https://dopi6gkpn7o94.cloudfront.net"
+iterations: 200
+rampup: 4
+
+plan:
+  - name: Vote {{ item.color }}
+    shuffle: true
+    request:
+      url: /votes
+      method: POST
+      body: '{"color":"{{ item.color }}"}'
+      headers:
+        Content-Type: "application/json"
+    with_items:
+      - { color: "teal" }
+      - { color: "black" }
+      - { color: "orange" }
+      - { color: "red orange" }
+      - { color: "pink" }
+      - { color: "purple" }
+      - { color: "deep purple" }
+      - { color: "indigo" }
+      - { color: "blue" }
+      - { color: "cyan" }
+      - { color: "teal" }
+      - { color: "yellow" }
+      - { color: "orange" }
+      - { color: "black" }
