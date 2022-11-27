@@ -24,7 +24,7 @@ Visit [the documentation](./ecs-api/README.md) to deploy the Amazon ECS backend 
 
 #### Webapp (with AWS Amplify)
 
-Visit [the documentation](./ecs-api/README.md) to deploy the web app with AWS Amplify.
+Visit [the documentation](./amplifyapp/README.md) to deploy the web app with AWS Amplify.
 
 ### Visualization with Amazon Managed Grafana
 
