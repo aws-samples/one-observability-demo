@@ -60,6 +60,7 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 			"PetId", petId,
 			"PetType", petType,
 			"took", time.Since(begin),
+			"customer", getFakeCustomer(),
 			"err", err)
 	}(time.Now())
 
