@@ -40,5 +40,5 @@ alertmanager:
 
 ## Disable pushgateway
 ##
-pushgateway:
+prometheus-pushgateway:
   enabled: false
