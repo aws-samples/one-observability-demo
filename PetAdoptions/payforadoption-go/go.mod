@@ -20,7 +20,7 @@ require (
 	github.com/spf13/viper v1.10.1
 	github.com/valyala/fasthttp v1.35.0 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
-	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 )
