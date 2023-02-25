@@ -25,8 +25,7 @@ require (
 	go.opentelemetry.io/otel/metric v0.29.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.6.3
 	go.opentelemetry.io/otel/trace v1.6.3
-	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
-	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
 	google.golang.org/grpc v1.45.0
 	gopkg.in/ini.v1 v1.66.4 // indirect
