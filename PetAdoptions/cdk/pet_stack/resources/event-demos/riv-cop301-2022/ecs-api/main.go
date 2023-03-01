@@ -31,6 +31,7 @@ import (
 
 type Config struct {
 	dataAPI          string
+	dataAPIRegion    string
 	exporterEndpoint string
 	sess             *session.Session
 	log              *zap.SugaredLogger
@@ -63,10 +64,16 @@ func newConfig(log *zap.SugaredLogger) *Config {
 		log.Fatal("Failed to get DATA_API")
 	}
 
+	dataAPIRegion := os.Getenv("DATA_API_REGION")
+	if dataAPIRegion == "" {
+		log.Fatal("Failed to get DATA_API_REGION")
+	}
+
 	return &Config{
 		sess:             sess,
 		log:              log,
 		dataAPI:          dataAPI,
+		dataAPIRegion:    dataAPIRegion,
 		exporterEndpoint: endpoint,
 	}
 }
