@@ -639,6 +639,7 @@ export class Services extends Stack {
             '/petstore/dynamodbtablename': dynamodb_petadoption.tableName,
             '/petstore/s3bucketname': s3_observabilitypetadoptions.bucketName,
             '/petstore/searchapiurl': `http://${searchService.service.loadBalancer.loadBalancerDnsName}/api/search?`,
+            '/petstore/searchimage': searchService.container.imageName,
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/petlistadoptionsmetricsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/metrics`,
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
