@@ -1,0 +1,14 @@
+spring:
+  profiles: test, default
+  main:
+    allow-bean-definition-overriding: true
+cloud:
+  aws:
+    region:
+      static: eu-central-1
+      auto: false
+    stack:
+      auto: false
+    credentials:
+      accessKey: ABC
+      secretKey: XYZ
