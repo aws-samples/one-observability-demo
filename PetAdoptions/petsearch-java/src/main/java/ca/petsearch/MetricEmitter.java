@@ -1,6 +1,6 @@
 package ca.petsearch;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.LongCounter;
@@ -24,8 +24,8 @@ public class MetricEmitter {
     private LongHistogram apiLatencyHistogram;
     private LongCounter petsReturned;
 
-    public MetricEmitter() {
-        Meter meter = GlobalOpenTelemetry.get().meterBuilder("aws-otel").setInstrumentationVersion("1.0").build();
+    public MetricEmitter(OpenTelemetry otel) {
+        Meter meter = otel.meterBuilder("aws-otel").setInstrumentationVersion("1.0").build();
 
         logger.debug("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
 

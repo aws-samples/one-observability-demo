@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -32,8 +33,13 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public Tracer tracer() {
-        return GlobalOpenTelemetry.get().getTracer("petsearch");
+    public OpenTelemetry openTelemetry() {
+        return GlobalOpenTelemetry.get();
+    }
+
+    @Bean
+    public Tracer tracer(OpenTelemetry otel) {
+        return otel.getTracer("petsearch");
     }
 
     @Bean
@@ -59,8 +65,8 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public MetricEmitter metricEmitter() {
-        return new MetricEmitter();
+    public MetricEmitter metricEmitter(OpenTelemetry otel) {
+        return new MetricEmitter(otel);
     }
 
     @Bean
