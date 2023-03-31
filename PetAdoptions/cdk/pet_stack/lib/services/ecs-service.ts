@@ -53,6 +53,7 @@ export abstract class EcsService extends Construct {
 
   public readonly taskDefinition: ecs.TaskDefinition;
   public readonly service: ecs_patterns.ApplicationLoadBalancedServiceBase;
+  public readonly container: ecs.ContainerDefinition;
 
   constructor(scope: Construct, id: string, props: EcsServiceProps) {
     super(scope, id);
@@ -96,7 +97,7 @@ export abstract class EcsService extends Construct {
     // Can help speed up builds if we are not rebuilding anything
     const image = props.repositoryURI? this.containerImageFromRepository(props.repositoryURI) : this.createContainerImage()
 
-    this.taskDefinition.addContainer('container', {
+    this.container = this.taskDefinition.addContainer('container', {
       image: image,
       memoryLimitMiB: 512,
       cpu: 256,
@@ -104,7 +105,9 @@ export abstract class EcsService extends Construct {
       environment: { // clear text, not for sensitive data
         AWS_REGION: props.region,
       }
-    }).addPortMappings({
+    });
+
+    this.container.addPortMappings({
       containerPort: 80,
       protocol: ecs.Protocol.TCP
     });
