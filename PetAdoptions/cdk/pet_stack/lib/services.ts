@@ -471,7 +471,7 @@ export class Services extends Stack {
                 repositories: [
                     {
                         repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
-                        pathComponent: "/one-observability-demo"
+                        pathComponent: "workshopfiles/one-observability-demo"
                     }
                 ]
             });
