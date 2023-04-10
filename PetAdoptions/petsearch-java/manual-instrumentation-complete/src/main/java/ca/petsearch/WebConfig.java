@@ -21,7 +21,6 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
-import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +59,6 @@ public class WebConfig implements WebMvcConfigurer {
                 .map( pair -> pair.split("=") )
                 .map( keyValue -> Attributes.of(AttributeKey.stringKey(keyValue[0]), keyValue[1]))
                 .forEach(builder::putAll);
-        // Set service type
-        builder.put(ResourceAttributes.CLOUD_PLATFORM, ResourceAttributes.CloudPlatformValues.AWS_ECS);
         // https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/#otel_exporter_otlp_endpoint
         String exporterEndpoint = System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
 
