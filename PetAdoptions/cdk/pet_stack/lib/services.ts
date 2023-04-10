@@ -468,12 +468,6 @@ export class Services extends Stack {
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
                 connectionType: 'CONNECT_SSM',
-                repositories: [
-                    {
-                        repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
-                        pathComponent: "/one-observability-demo"
-                    }
-                ]
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
