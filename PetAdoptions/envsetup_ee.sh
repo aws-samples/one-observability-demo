@@ -25,9 +25,9 @@
 #==============================================================================
 
 # Create a directory
-# foldername=workshopfiles
-# mkdir $foldername
-# cd $foldername
+foldername=workshopfiles
+mkdir $foldername
+cd $foldername
 
 # upgrade pip
 sudo pip install --upgrade pip
@@ -65,4 +65,4 @@ sudo mv /tmp/eksctl /usr/local/bin
 curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
 # Download lab repository
-# git clone https://github.com/aws-samples/one-observability-demo
+git clone https://github.com/aws-samples/one-observability-demo
