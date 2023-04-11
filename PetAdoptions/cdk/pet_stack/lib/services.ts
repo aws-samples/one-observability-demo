@@ -467,13 +467,7 @@ export class Services extends Stack {
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
-                connectionType: 'CONNECT_SSM',
-                repositories: [
-                    {
-                        repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
-                        pathComponent: "/one-observability-demo"
-                    }
-                ]
+                connectionType: 'CONNECT_SSM'
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
@@ -639,6 +633,7 @@ export class Services extends Stack {
             '/petstore/dynamodbtablename': dynamodb_petadoption.tableName,
             '/petstore/s3bucketname': s3_observabilitypetadoptions.bucketName,
             '/petstore/searchapiurl': `http://${searchService.service.loadBalancer.loadBalancerDnsName}/api/search?`,
+            '/petstore/searchimage': searchService.container.imageName,
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/petlistadoptionsmetricsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/metrics`,
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
