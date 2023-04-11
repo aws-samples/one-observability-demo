@@ -467,7 +467,7 @@ export class Services extends Stack {
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
-                connectionType: 'CONNECT_SSM',
+                connectionType: 'CONNECT_SSM'
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
