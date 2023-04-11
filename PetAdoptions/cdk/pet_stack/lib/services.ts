@@ -11,6 +11,8 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as pythonlambda from '@aws-cdk/aws-lambda-python-alpha';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
@@ -607,11 +609,52 @@ export class Services extends Stack {
 
         prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
 
+        const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'ecs:ListServices',
+                'ecs:UpdateService',
+                'eks:DescribeNodegroup',
+                'eks:ListNodegroups',
+                'eks:DescribeUpdate',
+                'eks:UpdateNodegroupConfig',
+                'ecs:DescribeServices',
+                'eks:DescribeCluster',
+                'eks:ListClusters',
+                'ecs:ListClusters'
+            ],
+            resources: ['*']
+        });
+        var customWidgetLambdaRole = new iam.Role(this, 'customWidgetLambdaRole', {
+            assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+        });
+        customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy)
 
+        var petsiteApplicationResourceController = new pythonlambda.PythonFunction(this, 'petsite-application-resource-controler', {
+            entry: './resources/resource-controller-widget/',
+            index: 'petsite-application-resource-controler.py',
+            handler: 'lambda_handler',
+            memorySize: 128,
+            runtime: lambda.Runtime.PYTHON_3_9,
+            role: customWidgetLambdaRole,
+            timeout: Duration.minutes(10)
+        });
+
+        var customWidgetFunction = new pythonlambda.PythonFunction(this, 'cloudwatch-custom-widget', {
+            entry: './resources/resource-controller-widget/',
+            index: 'cloudwatch-custom-widget.py',
+            handler: 'lambda_handler',
+            memorySize: 128,
+            runtime: lambda.Runtime.PYTHON_3_9,
+            role: customWidgetLambdaRole,
+            timeout: Duration.seconds(60)
+        });
+        customWidgetFunction.addEnvironment("CONTROLER_LAMBDA_ARN", petsiteApplicationResourceController.functionArn )
 
         var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
+        dashboardBody = dashboardBody.replaceAll("{{YOUR_LAMBDA_ARN}}",customWidgetFunction.functionArn);
 
         const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
             dashboardName: "EKS_FluentBit_Dashboard",
