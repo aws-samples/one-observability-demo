@@ -174,12 +174,13 @@ export class Services extends Stack {
 
         ecsServicesSecurityGroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(80));
 
+        const ecsPayForAdoptionCluster = new ecs.Cluster(this, "PayForAdoption", {
+            vpc: theVPC,
+            containerInsights: true
+        });
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
-            cluster: new ecs.Cluster(this, "PayForAdoption", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
+            cluster: ecsPayForAdoptionCluster,
             logGroupName: "/ecs/PayForAdoption",
             cpu: 1024,
             memoryLimitMiB: 2048,
@@ -216,12 +217,13 @@ export class Services extends Stack {
         });
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
+        const ecsPetSearchCluster = new ecs.Cluster(this, "PetSearch", {
+            vpc: theVPC,
+            containerInsights: true
+        });
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
-            cluster: new ecs.Cluster(this, "PetSearch", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
+            cluster: ecsPetSearchCluster,
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
@@ -609,6 +611,16 @@ export class Services extends Stack {
 
         prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
 
+        
+var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
+        dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
+        dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
+
+        const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
+            dashboardName: "EKS_FluentBit_Dashboard",
+            dashboardBody: dashboardBody
+        });
+
         const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: [
@@ -628,7 +640,7 @@ export class Services extends Stack {
         var customWidgetLambdaRole = new iam.Role(this, 'customWidgetLambdaRole', {
             assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
         });
-        customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy)
+        customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy);
 
         var petsiteApplicationResourceController = new pythonlambda.PythonFunction(this, 'petsite-application-resource-controler', {
             entry: './resources/resource-controller-widget/',
@@ -639,6 +651,9 @@ export class Services extends Stack {
             role: customWidgetLambdaRole,
             timeout: Duration.minutes(10)
         });
+        petsiteApplicationResourceController.addEnvironment("EKS_CLUSTER_NAME", cluster.clusterName);
+        petsiteApplicationResourceController.addEnvironment("ECS_CLUSTER_ARNS", ecsPayForAdoptionCluster.clusterArn + "," +
+            ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
 
         var customWidgetFunction = new pythonlambda.PythonFunction(this, 'cloudwatch-custom-widget', {
             entry: './resources/resource-controller-widget/',
@@ -649,16 +664,17 @@ export class Services extends Stack {
             role: customWidgetLambdaRole,
             timeout: Duration.seconds(60)
         });
-        customWidgetFunction.addEnvironment("CONTROLER_LAMBDA_ARN", petsiteApplicationResourceController.functionArn )
+        customWidgetFunction.addEnvironment("CONTROLER_LAMBDA_ARN", petsiteApplicationResourceController.functionArn);
+        customWidgetFunction.addEnvironment("EKS_CLUSTER_NAME", cluster.clusterName);
+        customWidgetFunction.addEnvironment("ECS_CLUSTER_ARNS", ecsPayForAdoptionCluster.clusterArn + "," +
+            ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
 
-        var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
-        dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
-        dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
-        dashboardBody = dashboardBody.replaceAll("{{YOUR_LAMBDA_ARN}}",customWidgetFunction.functionArn);
+        var costControlDashboardBody = readFileSync("./resources/cw_dashboard_cost_control.json","utf-8");
+        costControlDashboardBody = costControlDashboardBody.replaceAll("{{YOUR_LAMBDA_ARN}}",customWidgetFunction.functionArn);
 
-        const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
-            dashboardName: "EKS_FluentBit_Dashboard",
-            dashboardBody: dashboardBody
+        const petSiteCostControlDashboard = new cloudwatch.CfnDashboard(this, "PetSiteCostControlDashboard", {
+            dashboardName: "PetSite_Cost_Control_Dashboard",
+            dashboardBody: costControlDashboardBody
         });
 
 

@@ -5,8 +5,9 @@ import boto3
 ecs_client = boto3.client('ecs')
 eks_client = boto3.client('eks')
 
-EKS_CLUSTER_NAME = 'PetSite'
+EKS_CLUSTER_NAME = os.environ['EKS_CLUSTER_NAME']
 CONTROLER_LAMBDA_ARN = os.environ['CONTROLER_LAMBDA_ARN']
+ECS_CLUSTER_ARNS = os.environ['ECS_CLUSTER_ARNS'].split(",")
 
 def get_current_status(number_of_tasks):
     """Function to return HTML tag based on number of tasks"""
@@ -20,7 +21,7 @@ def get_current_count():
     clusters = ecs_client.list_clusters()
     ecs_task_count = 0
     for cluster in clusters['clusterArns']:
-        if ("Services-PayForAdoption" in cluster) or ("Services-PetSearch" in cluster) or ("Services-PetListAdoptions" in cluster):
+        if cluster in ECS_CLUSTER_ARNS:
             services = ecs_client.list_services(
                 cluster = cluster
             )
@@ -33,7 +34,7 @@ def get_current_count():
     nodegroups = eks_client.list_nodegroups(
         clusterName=EKS_CLUSTER_NAME)
     for group in nodegroups['nodegroups']:
-        if 'petsiteNodegroup' in group:
+        if EKS_CLUSTER_NAME.lower()+'nodegroup' in group.lower():
             node_group_info = eks_client.describe_nodegroup(
                 clusterName=EKS_CLUSTER_NAME,
                 nodegroupName=group

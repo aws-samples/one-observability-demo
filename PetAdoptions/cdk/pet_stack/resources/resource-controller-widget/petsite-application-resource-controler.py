@@ -4,13 +4,15 @@ To stop ECS and EKS resources: {'Action':'disable'}
 To start ECS and EKS resources: {'Action':'enable'}
 """
 
+import os
 import boto3
 import time
 
 ecs_client = boto3.client('ecs')
 eks_client = boto3.client('eks')
 
-EKS_CLUSTER_NAME = 'PetSite'
+EKS_CLUSTER_NAME = os.environ['EKS_CLUSTER_NAME']
+ECS_CLUSTER_ARNS = os.environ['ECS_CLUSTER_ARNS'].split(",")
 
 def set_ecs_desired_task_count_to_zero(cluster):
     """Function to set ECS Desired Tasks counts to 0 for all ECS Cluster Services"""
@@ -43,7 +45,7 @@ def manageECSTasks(status):
     """Enable/Disable ECS Tasks"""
     clusters = ecs_client.list_clusters()
     for cluster in clusters['clusterArns']:
-        if ("Services-PayForAdoption" in cluster) or ("Services-PetSearch" in cluster) or ("Services-PetListAdoptions" in cluster):
+        if cluster in ECS_CLUSTER_ARNS:
             if status == "enable":
                 set_ecs_desired_task_count_to_normal(cluster)
             elif status == "disable":
@@ -70,7 +72,7 @@ def waitTillUpdateCompletes(update_response,nodegroup_name):
 def setEKSNodeGroupCountToNormal(nodegroup_name):
     """Function to set EKS nodegroup node desired count to 2"""
     update_response = eks_client.update_nodegroup_config(
-        clusterName='PetSite',
+        clusterName=EKS_CLUSTER_NAME,
         nodegroupName=nodegroup_name,
         scalingConfig={
             'minSize': 2,
@@ -96,7 +98,7 @@ def manageEKSNodes(status):
     nodegroups = eks_client.list_nodegroups(
         clusterName=EKS_CLUSTER_NAME)
     for group in nodegroups['nodegroups']:
-        if 'petsiteNodegroup' in group:
+        if EKS_CLUSTER_NAME.lower()+'nodegroup' in group.lower():
             nodegroup_name = group
             break
     if status == "enable":

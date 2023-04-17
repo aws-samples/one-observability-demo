@@ -1,0 +1,20 @@
+{
+    "widgets": [
+        {
+            "height": 3,
+            "width": 18,
+            "y": 0,
+            "x": 0,
+            "type": "custom",
+            "properties": {
+                "endpoint": "{{YOUR_LAMBDA_ARN}}",
+                "updateOn": {
+                    "refresh": true,
+                    "resize": true,
+                    "timeRange": true
+                },
+                "title": "Petsite Resource Controller"
+            }
+        }
+    ]
+}
