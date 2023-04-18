@@ -11,8 +11,8 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
+import * as path from 'path';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as pythonlambda from '@aws-cdk/aws-lambda-python-alpha';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
@@ -642,10 +642,9 @@ var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf
         });
         customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy);
 
-        var petsiteApplicationResourceController = new pythonlambda.PythonFunction(this, 'petsite-application-resource-controler', {
-            entry: './resources/resource-controller-widget/',
-            index: 'petsite-application-resource-controler.py',
-            handler: 'lambda_handler',
+        var petsiteApplicationResourceController = new lambda.Function(this, 'petsite-application-resource-controler', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            handler: 'petsite-application-resource-controler.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
             role: customWidgetLambdaRole,
@@ -655,10 +654,9 @@ var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf
         petsiteApplicationResourceController.addEnvironment("ECS_CLUSTER_ARNS", ecsPayForAdoptionCluster.clusterArn + "," +
             ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
 
-        var customWidgetFunction = new pythonlambda.PythonFunction(this, 'cloudwatch-custom-widget', {
-            entry: './resources/resource-controller-widget/',
-            index: 'cloudwatch-custom-widget.py',
-            handler: 'lambda_handler',
+        var customWidgetFunction = new lambda.Function(this, 'cloudwatch-custom-widget', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            handler: 'cloudwatch-custom-widget.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
             role: customWidgetLambdaRole,

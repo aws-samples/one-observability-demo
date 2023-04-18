@@ -1,5 +1,5 @@
 """
-This function will be triggered by Cloudwatch Custom Widget lambda function. You can also trigger it manually with below evetn.
+This function will be triggered by Cloudwatch Custom Widget lambda function. You can also trigger resource-controller function manually with below event.
 To stop ECS and EKS resources: {'Action':'disable'}
 To start ECS and EKS resources: {'Action':'enable'}
 """
