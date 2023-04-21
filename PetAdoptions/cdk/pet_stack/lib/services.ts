@@ -11,6 +11,8 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
+import * as path from 'path';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
@@ -172,12 +174,13 @@ export class Services extends Stack {
 
         ecsServicesSecurityGroup.addIngressRule(ec2.Peer.ipv4(theVPC.vpcCidrBlock), ec2.Port.tcp(80));
 
+        const ecsPayForAdoptionCluster = new ecs.Cluster(this, "PayForAdoption", {
+            vpc: theVPC,
+            containerInsights: true
+        });
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
-            cluster: new ecs.Cluster(this, "PayForAdoption", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
+            cluster: ecsPayForAdoptionCluster,
             logGroupName: "/ecs/PayForAdoption",
             cpu: 1024,
             memoryLimitMiB: 2048,
@@ -214,12 +217,13 @@ export class Services extends Stack {
         });
         listAdoptionsService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
+        const ecsPetSearchCluster = new ecs.Cluster(this, "PetSearch", {
+            vpc: theVPC,
+            containerInsights: true
+        });
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
-            cluster: new ecs.Cluster(this, "PetSearch", {
-                vpc: theVPC,
-                containerInsights: true
-            }),
+            cluster: ecsPetSearchCluster,
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
@@ -601,15 +605,68 @@ export class Services extends Stack {
 
         prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
 
-
-
-        var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
+        
+var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
         dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
 
         const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
             dashboardName: "EKS_FluentBit_Dashboard",
             dashboardBody: dashboardBody
+        });
+
+        const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'ecs:ListServices',
+                'ecs:UpdateService',
+                'eks:DescribeNodegroup',
+                'eks:ListNodegroups',
+                'eks:DescribeUpdate',
+                'eks:UpdateNodegroupConfig',
+                'ecs:DescribeServices',
+                'eks:DescribeCluster',
+                'eks:ListClusters',
+                'ecs:ListClusters'
+            ],
+            resources: ['*']
+        });
+        var customWidgetLambdaRole = new iam.Role(this, 'customWidgetLambdaRole', {
+            assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+        });
+        customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy);
+
+        var petsiteApplicationResourceController = new lambda.Function(this, 'petsite-application-resource-controler', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            handler: 'petsite-application-resource-controler.lambda_handler',
+            memorySize: 128,
+            runtime: lambda.Runtime.PYTHON_3_9,
+            role: customWidgetLambdaRole,
+            timeout: Duration.minutes(10)
+        });
+        petsiteApplicationResourceController.addEnvironment("EKS_CLUSTER_NAME", cluster.clusterName);
+        petsiteApplicationResourceController.addEnvironment("ECS_CLUSTER_ARNS", ecsPayForAdoptionCluster.clusterArn + "," +
+            ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
+
+        var customWidgetFunction = new lambda.Function(this, 'cloudwatch-custom-widget', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            handler: 'cloudwatch-custom-widget.lambda_handler',
+            memorySize: 128,
+            runtime: lambda.Runtime.PYTHON_3_9,
+            role: customWidgetLambdaRole,
+            timeout: Duration.seconds(60)
+        });
+        customWidgetFunction.addEnvironment("CONTROLER_LAMBDA_ARN", petsiteApplicationResourceController.functionArn);
+        customWidgetFunction.addEnvironment("EKS_CLUSTER_NAME", cluster.clusterName);
+        customWidgetFunction.addEnvironment("ECS_CLUSTER_ARNS", ecsPayForAdoptionCluster.clusterArn + "," +
+            ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
+
+        var costControlDashboardBody = readFileSync("./resources/cw_dashboard_cost_control.json","utf-8");
+        costControlDashboardBody = costControlDashboardBody.replaceAll("{{YOUR_LAMBDA_ARN}}",customWidgetFunction.functionArn);
+
+        const petSiteCostControlDashboard = new cloudwatch.CfnDashboard(this, "PetSiteCostControlDashboard", {
+            dashboardName: "PetSite_Cost_Control_Dashboard",
+            dashboardBody: costControlDashboardBody
         });
 
 
@@ -625,6 +682,7 @@ export class Services extends Stack {
         const petAdoptionsStepFn = new PetAdoptionsStepFn(this,'StepFn');
 
         this.createSsmParameters(new Map(Object.entries({
+            '/petstore/trafficdelaytime':"1",
             '/petstore/rumscript': " ",
             '/petstore/petadoptionsstepfnarn': petAdoptionsStepFn.stepFn.stateMachineArn,
             '/petstore/updateadoptionstatusurl': statusUpdaterService.api.url,
@@ -639,6 +697,7 @@ export class Services extends Stack {
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
             '/petstore/payforadoptionmetricsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/metrics`,
             '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+            '/petstore/petsearch-collector-manual-config': readFileSync("./resources/collector/ecs-xray-manual.yaml", "utf8"),
             '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/stackname': stackName,
