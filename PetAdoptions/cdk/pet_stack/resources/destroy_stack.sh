@@ -4,6 +4,11 @@ echo ---------------------------------------------------------------------------
 echo This script destroys the CDK stack
 echo ---------------------------------------------------------------------------------------------
 
+if [ -z "$AWS_REGION" ]; then
+	echo "Fatal: environment variable AWS_REGION not set. Aborting."
+	exit 1
+fi
+
 # Disable Contributor Insights
 DDB_CONTRIB=$(aws ssm get-parameter --name '/petstore/dynamodbtablename' | jq .Parameter.Value -r)
 aws dynamodb update-contributor-insights --table-name $DDB_CONTRIB --contributor-insights-action DISABLE  
