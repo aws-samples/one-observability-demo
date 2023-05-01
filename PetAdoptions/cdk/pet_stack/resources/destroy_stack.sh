@@ -29,8 +29,8 @@ aws eks update-kubeconfig --name PetSite
 kubectl delete -f ./resources/load_balancer/crds.yaml
 
 # Get rid of all resources (Application first, then cluster or it will fail)
-cdk destroy $STACK_NAME_APP $STACK_NAME --force
 cdk destroy $STACK_NAME --force
+cdk destroy $STACK_NAME_APP --force
 
 # Sometimes the SqlSeeder doesn't get deleted cleanly. This helps clean up the environment completely including Sqlseeder
 aws cloudformation delete-stack --stack-name $STACK_NAME 
