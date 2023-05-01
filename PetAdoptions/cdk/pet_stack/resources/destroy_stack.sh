@@ -26,7 +26,7 @@ if [ -z $STACK_NAME_APP ]; then STACK_NAME_APP="Applications"; fi
 
 # Fix for CDK teardown issues
 aws eks update-kubeconfig --name PetSite
-kubectl delete -f ./resources/load_balancer/crds.yaml
+kubectl delete -f https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/cdk/pet_stack/resources/load_balancer/crds.yaml
 
 # Get rid of all resources (Application first, then cluster or it will fail)
 cdk destroy $STACK_NAME --force

@@ -19,15 +19,21 @@
 #description     This script will setup the Cloud9 IDE with the prerequisite packages and code for the Observability workshop.
 #author          Imaya Kumar Jagannathan (@ijaganna)
 #contributors    @ijaganna
-#date            2020-05-24
+#date            2023-31-03
 #version         0.1
-#usage           curl -sSL https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/envsetup.sh | bash -s stable
+#usage           curl -sSL https://raw.githubusercontent.com/aws-samples/one-observability-demo/main/PetAdoptions/envsetup_ee.sh | bash -s stable
 #==============================================================================
 
 # Create a directory
 foldername=workshopfiles
 mkdir $foldername
 cd $foldername
+
+# upgrade pip
+sudo pip install --upgrade pip
+
+# upgrade npm
+npm install -g npm@9.6.3 t
 
 # Install jq
 sudo yum -y -q install jq

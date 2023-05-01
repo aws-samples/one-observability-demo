@@ -53,6 +53,7 @@ export abstract class EcsService extends Construct {
 
   public readonly taskDefinition: ecs.TaskDefinition;
   public readonly service: ecs_patterns.ApplicationLoadBalancedServiceBase;
+  public readonly container: ecs.ContainerDefinition;
 
   constructor(scope: Construct, id: string, props: EcsServiceProps) {
     super(scope, id);
@@ -96,7 +97,7 @@ export abstract class EcsService extends Construct {
     // Can help speed up builds if we are not rebuilding anything
     const image = props.repositoryURI? this.containerImageFromRepository(props.repositoryURI) : this.createContainerImage()
 
-    this.taskDefinition.addContainer('container', {
+    this.container = this.taskDefinition.addContainer('container', {
       image: image,
       memoryLimitMiB: 512,
       cpu: 256,
@@ -104,7 +105,9 @@ export abstract class EcsService extends Construct {
       environment: { // clear text, not for sensitive data
         AWS_REGION: props.region,
       }
-    }).addPortMappings({
+    });
+
+    this.container.addPortMappings({
       containerPort: 80,
       protocol: ecs.Protocol.TCP
     });
@@ -184,7 +187,7 @@ export abstract class EcsService extends Construct {
 
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
-        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.21.0'),
+        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.28.0'),
         memoryLimitMiB: 256,
         cpu: 256,
         command: ["--config", "/etc/ecs/ecs-xray.yaml"],

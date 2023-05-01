@@ -22,6 +22,7 @@ namespace trafficgenerator
         private List<Pet> _allPets;
         private string _petSiteUrl;
         private string _petSearchUrl;
+        private string _trafficdelaytime;
 
         public Worker(ILogger<Worker> logger, IConfiguration configuration)
         {
@@ -30,6 +31,8 @@ namespace trafficgenerator
             _httpClient = new HttpClient();
             _petSiteUrl = configuration["petsiteurl"];
             _petSearchUrl = configuration["searchapiurl"];
+            _trafficdelaytime = configuration["trafficdelaytime"];
+            
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,7 +44,14 @@ namespace trafficgenerator
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
 
                     await ThrowSomeTrafficIn();
-                    await Task.Delay(20000, stoppingToken);
+
+                    Int32.TryParse(_trafficdelaytime, out int delaytime);
+
+                    delaytime = delaytime == 0 ? 1 : delaytime;
+                    
+                    _logger.LogInformation($"Delay time : {delaytime * 20} seconds");
+                    
+                    await Task.Delay(delaytime * 20000, stoppingToken);
                 }
                 catch (Exception e)
                 {

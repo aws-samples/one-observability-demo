@@ -156,7 +156,7 @@
     "pettype": "puppy",
     "petid": "007",
     "availability": "yes",
-    "cuteness_rate": "4",
+    "cuteness_rate": "5",
     "image": "p4",
     "petcolor": "brown",
     "price": "70"
@@ -165,7 +165,7 @@
     "pettype": "puppy",
     "petid": "008",
     "availability": "yes",
-    "cuteness_rate": "5",
+    "cuteness_rate": "4",
     "image": "p7",
     "petcolor": "brown",
     "price": "600"

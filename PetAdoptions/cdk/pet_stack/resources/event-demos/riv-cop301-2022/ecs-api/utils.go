@@ -120,7 +120,7 @@ func signedQuery(ctx context.Context, cfg *Config, method string, url string, da
 	b, _ := io.ReadAll(data)
 	cfg.log.Debug(string(b))
 
-	signer.Sign(request, strings.NewReader(string(b)), "lambda", "us-west-2", time.Now())
+	signer.Sign(request, strings.NewReader(string(b)), "lambda", cfg.dataAPIRegion, time.Now())
 	//#endregion signed query
 	client := http.Client{
 		Transport: otelhttp.NewTransport(&defaultTransportRT{cfg.log}),
