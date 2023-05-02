@@ -38,12 +38,6 @@ aws cloudformation delete-stack --stack-name $STACK_NAME
 
 aws cloudwatch delete-dashboards --dashboard-names "EKS_FluentBit_Dashboard"
 
-# delete s3 buckets
-for b in $(aws s3 ls | awk '/services-s3bucketpetadoption/ {print $3}'); do
-	echo "deleting ${b}"
-	aws s3 rb s3://$b --force
-done
-
 echo CDK BOOTSTRAP WAS NOT DELETED
 
 echo ----- ✅ DONE --------
