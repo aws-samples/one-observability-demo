@@ -60,7 +60,9 @@ export class Services extends Stack {
 
         // Creates an S3 bucket to store pet images
         const s3_observabilitypetadoptions = new s3.Bucket(this, 's3bucket_petadoption', {
-            publicReadAccess: false
+            publicReadAccess: false,
+            autoDeleteObjects: true,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         // Creates the DynamoDB table for Petadoption data
