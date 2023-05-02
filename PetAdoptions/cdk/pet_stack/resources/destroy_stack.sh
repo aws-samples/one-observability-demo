@@ -34,7 +34,7 @@ cdk destroy $STACK_NAME --force
 
 # Sometimes the SqlSeeder doesn't get deleted cleanly. This helps clean up the environment completely including Sqlseeder
 aws cloudformation delete-stack --stack-name $STACK_NAME_APP
-aws cloudformation delete-stack --stack-name $STACK_NAME 
+aws cloudformation delete-stack --stack-name $STACK_NAME
 
 aws cloudwatch delete-dashboards --dashboard-names "EKS_FluentBit_Dashboard"
 
