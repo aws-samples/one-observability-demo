@@ -8,13 +8,12 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.context.propagation.TextMapPropagator;
+import io.opentelemetry.contrib.aws.resource.EcsResource;
 import io.opentelemetry.contrib.awsxray.AwsXrayIdGenerator;
 import io.opentelemetry.contrib.awsxray.propagator.AwsXrayPropagator;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
@@ -23,6 +22,7 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -52,18 +52,14 @@ public class WebConfig implements WebMvcConfigurer {
     public OpenTelemetry openTelemetry() {
 
         // Extract OpenTelemetry variables
-        AttributesBuilder builder = Attributes.builder();
-        // https://opentelemetry.io/docs/reference/specification/resource/sdk/#specifying-resource-information-via-an-environment-variable
-        Arrays.stream(System.getenv().getOrDefault("OTEL_RESOURCE_ATTRIBUTES", "service.name=PetSearch")
-                .split(","))
-                .map( pair -> pair.split("=") )
-                .map( keyValue -> Attributes.of(AttributeKey.stringKey(keyValue[0]), keyValue[1]))
-                .forEach(builder::putAll);
+        // https://opentelemetry.io/docs/reference/specification/sdk-environment-variables/#general-sdk-configuration
+        Attributes serviceName = Attributes.of(ResourceAttributes.SERVICE_NAME, System.getenv().getOrDefault("OTEL_SERVICE_NAME", "PetSearch"));
         // https://opentelemetry.io/docs/concepts/sdk-configuration/otlp-exporter-configuration/#otel_exporter_otlp_endpoint
         String exporterEndpoint = System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
-
-        Resource resource = Resource.getDefault().merge(
-                Resource.create(builder.build()));
+        Resource resource = Resource.getDefault()
+                .merge(Resource.create(serviceName))
+                // ECS Resource detector. Detect attributes of the ECS environment where the task is running.
+                .merge(EcsResource.get());
         return OpenTelemetrySdk.builder()
                 // This will enable your downstream requests to include the X-Ray trace header
                 .setPropagators(
