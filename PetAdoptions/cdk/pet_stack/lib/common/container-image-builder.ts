@@ -31,7 +31,8 @@ export class ContainerImageBuilder extends Construct {
         const repository = new ecr.Repository(this, props.repositoryName + 'Repository', {
             repositoryName: props.repositoryName,
             imageScanOnPush: true,
-            removalPolicy: cdk.RemovalPolicy.DESTROY
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteImages: true,
         });
         const image = new ecrassets.DockerImageAsset(this, props.repositoryName + 'DockerImageAsset', {
           directory: props.dockerImageAssetDirectory
