@@ -1,0 +1,18 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: grafanadatasource-sample-xray
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "external-grafana"
+  datasource:
+    name: X-Ray 
+    type: grafana-x-ray-datasource
+    access: server
+    isDefault: false
+    jsonData:
+      "authType": "ec2_iam_role"
+      "defaultRegion": ${AMG_AWS_REGION}
+      "provisionedBy": "aws-datasource-provisioner-app"
+    editable: true
