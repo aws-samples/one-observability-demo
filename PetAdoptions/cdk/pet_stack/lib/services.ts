@@ -128,9 +128,10 @@ export class Services extends Stack {
         }
 
         const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_10_18 }),
+
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_9 }),
  
-            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql10'),
+            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
@@ -473,7 +474,13 @@ export class Services extends Stack {
                 instanceType: "t2.micro",
                 name: "observabilityworkshop",
                 subnetId: theVPC.privateSubnets[0].subnetId,
-                connectionType: 'CONNECT_SSM'
+                connectionType: 'CONNECT_SSM',
+                repositories: [
+                    {
+                        repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
+                        pathComponent: "workshopfiles/one-observability-demo"
+                    }
+                ]
             });
 
             c9role = new iam.Role(this,'cloud9InstanceRole', {
