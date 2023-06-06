@@ -52,7 +52,7 @@ rm awscli-exe-linux-x86_64.zip
 sudo yum -y install jq gettext bash-completion moreutils
 
 # Install kubectl 1.22.6
-curl -o kubectl curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.1/2023-04-19/bin/linux/amd64/kubectl
+curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.1/2023-04-19/bin/linux/amd64/kubectl
 
 chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 echo "source <(kubectl completion bash)" >> ~/.bashrc
