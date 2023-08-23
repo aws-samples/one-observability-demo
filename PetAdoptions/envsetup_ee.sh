@@ -63,6 +63,3 @@ sudo mv /tmp/eksctl /usr/local/bin
 
 # Install helm
 curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-
-# Download lab repository
-git clone https://github.com/aws-samples/one-observability-demo
