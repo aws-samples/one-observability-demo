@@ -28,12 +28,12 @@ export class PetAdoptionsStepFn extends Construct {
       ]
     });
 
-    var layerArn = "arn:aws:lambda:" + process.env.CDK_DEFAULT_REGION + ":580247275435:layer:LambdaInsightsExtension:18";
+    var layerArn = "arn:aws:lambda:" + process.env.CDK_DEFAULT_REGION + ":580247275435:layer:LambdaInsightsExtension:38";
     //    var layerArn = "arn:aws:lambda:us-west-2:580247275435:layer:LambdaInsightsExtension:2";
     var layer = lambda.LayerVersion.fromLayerVersionArn(this, `LambdaInsights`, layerArn);
 
     
-    var adotLayerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION + ":901920570463:layer:aws-otel-python-amd64-ver-1-11-1:2"
+    var adotLayerArn = "arn:aws:lambda:"+ process.env.CDK_DEFAULT_REGION + ":901920570463:layer:aws-otel-python-amd64-ver-1-19-0:2"
     var adotlayer = lambda.LayerVersion.fromLayerVersionArn(this,'otelPythonLambdaLayer',adotLayerArn);
 
     var layers: lambda.ILayerVersion[] = [layer, adotlayer]
