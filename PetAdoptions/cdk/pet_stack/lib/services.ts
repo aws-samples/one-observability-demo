@@ -109,7 +109,8 @@ export class Services extends Stack {
         }
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
-            cidr: cidrRange,
+            ipAddresses: ec2.IpAddresses.cidr(cidrRange),
+            // cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2
         });
