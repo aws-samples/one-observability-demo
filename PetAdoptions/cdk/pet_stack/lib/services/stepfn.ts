@@ -59,7 +59,7 @@ export class PetAdoptionsStepFn extends Construct {
 
 
     this.stepFn = new sfn.StateMachine(this, 'StateMachine', {
-      definition,
+      definitionBody: sfn.DefinitionBody.fromChainable(definition),
       tracingEnabled: true,
       timeout: Duration.minutes(5)
     });

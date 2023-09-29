@@ -31,6 +31,7 @@ import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } fr
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
+import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -109,7 +110,8 @@ export class Services extends Stack {
         }
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
-            cidr: cidrRange,
+            ipAddresses: ec2.IpAddresses.cidr(cidrRange),
+            // cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2
         });
@@ -333,7 +335,8 @@ export class Services extends Stack {
             vpc: theVPC,
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-            version: KubernetesVersion.V1_23
+            version: KubernetesVersion.of('1.27'),
+            kubectlLayer: new KubectlLayer(this, 'kubectl') 
         });
 
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);

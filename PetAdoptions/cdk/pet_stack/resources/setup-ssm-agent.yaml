@@ -34,22 +34,6 @@ subjects:
   name: ssm-agent-installer 
   namespace: node-configuration-daemonset
 ---
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: ssm-agent-installer
-spec:
-  privileged: true
-  hostPID: true 
-  seLinux:
-    rule: RunAsAny
-  supplementalGroups:
-    rule: RunAsAny
-  runAsUser:
-    rule: RunAsAny
-  fsGroup:
-    rule: RunAsAny
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
