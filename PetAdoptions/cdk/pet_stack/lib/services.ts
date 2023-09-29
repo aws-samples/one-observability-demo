@@ -9,6 +9,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as s3seeder from 'aws-cdk-lib/aws-s3-deployment'
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
@@ -327,12 +328,14 @@ export class Services extends Stack {
             parameterName: '/eks/petsite/EKSMasterRoleArn'
           })
 
+        const secretsKey = new kms.Key(this, 'SecretsKey');
         const cluster = new eks.Cluster(this, 'petsite', {
             clusterName: 'PetSite',
             mastersRole: clusterAdmin,
             vpc: theVPC,
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
+            secretsEncryptionKey: secretsKey,
             version: KubernetesVersion.V1_23
         });
 
