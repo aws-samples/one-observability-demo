@@ -9,6 +9,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as s3seeder from 'aws-cdk-lib/aws-s3-deployment'
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
@@ -31,6 +32,8 @@ import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } fr
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
+import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
+import { Cloud9Environment } from './modules/core/cloud9';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -109,7 +112,8 @@ export class Services extends Stack {
         }
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
-            cidr: cidrRange,
+            ipAddresses: ec2.IpAddresses.cidr(cidrRange),
+            // cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2
         });
@@ -327,13 +331,16 @@ export class Services extends Stack {
             parameterName: '/eks/petsite/EKSMasterRoleArn'
           })
 
+        const secretsKey = new kms.Key(this, 'SecretsKey');
         const cluster = new eks.Cluster(this, 'petsite', {
             clusterName: 'PetSite',
             mastersRole: clusterAdmin,
             vpc: theVPC,
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-            version: KubernetesVersion.V1_23
+            secretsEncryptionKey: secretsKey,
+            version: KubernetesVersion.of('1.27'),
+            kubectlLayer: new KubectlLayer(this, 'kubectl') 
         });
 
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
@@ -448,9 +455,16 @@ export class Services extends Stack {
 
         if (isEventEngine === 'true')
         {
-            var c9role = undefined
-            var c9InstanceProfile = undefined
-            var c9env = undefined
+
+            var c9Env = new Cloud9Environment(this, 'Cloud9Environment', {
+                vpcId: theVPC.vpcId,
+                subnetId: theVPC.publicSubnets[0].subnetId,
+                cloud9OwnerArn: "assumed-role/WSParticipantRole/Participant",
+                templateFile: __dirname + "/../../../../cloud9-cfn.yaml"
+            
+            });
+    
+            var c9role = c9Env.c9Role;
 
             // Dynamically check if AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile exists
             const c9SSMRole = new iam.Role(this,'AWSCloud9SSMAccessRole', {
@@ -460,50 +474,14 @@ export class Services extends Stack {
                 managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
             });
 
-            const c9SSMRoleNoPath = iam.Role.fromRoleArn(this,'c9SSMRoleNoPath', "arn:aws:iam::" + stack.account + ":role/AWSCloud9SSMAccessRole")
-            cluster.awsAuth.addMastersRole(c9SSMRoleNoPath);
-
-            new iam.CfnInstanceProfile(this, 'AWSCloud9SSMInstanceProfile', {
-                path: '/cloud9/',
-                roles: [c9SSMRole.roleName],
-                instanceProfileName: 'AWSCloud9SSMInstanceProfile'
-            });
-
-            c9env = new cloud9.CfnEnvironmentEC2(this,"CloudEnv",{
-                ownerArn: "arn:aws:iam::" + stack.account +":assumed-role/WSParticipantRole/Participant",
-                instanceType: "t2.micro",
-                name: "observabilityworkshop",
-                subnetId: theVPC.privateSubnets[0].subnetId,
-                connectionType: 'CONNECT_SSM',
-                repositories: [
-                    {
-                        repositoryUrl: "https://github.com/aws-samples/one-observability-demo.git",
-                        pathComponent: "workshopfiles/one-observability-demo"
-                    }
-                ]
-            });
-
-            c9role = new iam.Role(this,'cloud9InstanceRole', {
-                assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
-                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"), iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore")],
-                roleName: "observabilityworkshop-admin"
-            });
-
-            c9InstanceProfile = new iam.CfnInstanceProfile(this,'cloud9InstanceProfile', {
-                roles: [c9role.roleName],
-                instanceProfileName: "observabilityworkshop-profile"
-            })
-
-            const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/TeamRole");
+            const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/WSParticipantRole");
             cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
+            
 
+            if (c9role!=undefined) {
+                cluster.awsAuth.addMastersRole(iam.Role.fromRoleArn(this, 'c9role', c9role.attrArn, { mutable: false }));
+            }
 
-
-            if (c9role!=undefined)
-                cluster.awsAuth.addMastersRole(c9role)
-
-            if (c9env!=undefined)
-                cluster.node.addDependency(c9env)
 
         }
 
