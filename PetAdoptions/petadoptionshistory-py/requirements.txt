@@ -19,3 +19,4 @@ opentelemetry-sdk-extension-aws==2.0.1
 opentelemetry-semantic-conventions==0.32b0
 opentelemetry-util-http==0.32b0
 prometheus-flask-exporter==0.20.2
+Werkzeug==2.2.2
