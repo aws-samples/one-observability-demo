@@ -142,9 +142,9 @@ namespace PetSite.Controllers
 
             AWSXRayRecorder.Instance.BeginSubsegment("Calling Search API");
 
-            AWSXRayRecorder.Instance.AddMetadata("PetType", selectedPetType);
-            AWSXRayRecorder.Instance.AddMetadata("PetId", petid);
-            AWSXRayRecorder.Instance.AddMetadata("PetColor", selectedPetColor);
+            AWSXRayRecorder.Instance.AddAnnotation("PetType", selectedPetType);
+            AWSXRayRecorder.Instance.AddAnnotation("PetId", petid);
+            AWSXRayRecorder.Instance.AddAnnotation("PetColor", selectedPetColor);
 
             
             Console.WriteLine(
