@@ -19,6 +19,8 @@ import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecrassets from 'aws-cdk-lib/aws-ecr-assets';
+import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
+import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 
 import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -656,13 +658,50 @@ var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf
             dashboardBody: costControlDashboardBody
         });
 
+        // Creating AWS Resource Group for all the resources of stack.
+        const servicesCfnGroup = new resourcegroups.CfnGroup(this, 'ServicesCfnGroup', {
+            name: stackName,
+            description: 'Contains all the resources deployed by Cloudformation Stack ' + stackName,
+            resourceQuery: {
+                type: 'CLOUDFORMATION_STACK_1_0',
+            }
+            });
+            // Enabling CloudWatch Application Insights for Resource Group
+        const servicesCfnApplication = new applicationinsights.CfnApplication(this, 'ServicesApplicationInsights', {
+            resourceGroupName: servicesCfnGroup.name,
+            autoConfigurationEnabled: true,
+            cweMonitorEnabled: true,
+            opsCenterEnabled: true,
+        });
+        // Adding dependency to create these resources at last
+        servicesCfnGroup.node.addDependency(petSiteCostControlDashboard);
+        servicesCfnApplication.node.addDependency(servicesCfnGroup);
+        // Adding a Lambda function to produce the errors - manually executed
+        var dynamodbQueryLambdaRole = new iam.Role(this, 'dynamodbQueryLambdaRole', {
+            assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+            managedPolicies: [
+                iam.ManagedPolicy.fromManagedPolicyArn(this, 'manageddynamodbread', 'arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess'),
+                iam.ManagedPolicy.fromManagedPolicyArn(this, 'lambdaBasicExecRoletoddb', 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+            ]
+        });
+
+        var dynamodbQueryFunction = new lambda.Function(this, 'dynamodb-query-function', {
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/application-insights')),
+            handler: 'dynamodb-query-function.lambda_handler',
+            memorySize: 128,
+            runtime: lambda.Runtime.PYTHON_3_9,
+            role: dynamodbQueryLambdaRole,
+            timeout: Duration.seconds(900)
+        });
+        dynamodbQueryFunction.addEnvironment("DYNAMODB_TABLE_NAME", dynamodb_petadoption.tableName);
 
         this.createOuputs(new Map(Object.entries({
             'CWServiceAccountArn': cwserviceaccount.roleArn,
             'XRayServiceAccountArn': xrayserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
-            'PetSiteUrl': `http://${alb.loadBalancerDnsName}`
+            'PetSiteUrl': `http://${alb.loadBalancerDnsName}`,
+            'DynamoDBQueryFunction': dynamodbQueryFunction.functionName
         })));
 
 
