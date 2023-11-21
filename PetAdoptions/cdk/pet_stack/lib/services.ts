@@ -560,15 +560,6 @@ export class Services extends Stack {
             serviceAccountRoleArn: cwserviceaccount.roleArn,
           });
 
-        var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
-                dashboardBody = dashboardBody.replaceAll("{{YOUR_CLUSTER_NAME}}","PetSite");
-                dashboardBody = dashboardBody.replaceAll("{{YOUR_AWS_REGION}}",region);
-
-                const fluentBitDashboard = new cloudwatch.CfnDashboard(this, "FluentBitDashboard", {
-                    dashboardName: "EKS_FluentBit_Dashboard",
-                    dashboardBody: dashboardBody
-                });
-
         const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: [
