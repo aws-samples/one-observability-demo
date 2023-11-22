@@ -1,6 +1,7 @@
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as eks from 'aws-cdk-lib/aws-eks';
+import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as yaml from 'js-yaml';
 import { Stack, StackProps, CfnJson, Fn, CfnOutput } from 'aws-cdk-lib';
@@ -119,6 +120,14 @@ export class Applications extends Stack {
         'PetSiteECRImageURL': petsiteAsset.imageUri,
         'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
     })));
+    // Creating AWS Resource Group for all the resources of stack.
+    const applicationsCfnGroup = new resourcegroups.CfnGroup(this, 'ApplicationsCfnGroup', {
+        name: stackName,
+        description: 'Contains all the resources deployed by Cloudformation Stack ' + stackName,
+        resourceQuery: {
+          type: 'CLOUDFORMATION_STACK_1_0',
+        }
+    });
   }
 
   private createSsmParameters(params: Map<string, string>) {
