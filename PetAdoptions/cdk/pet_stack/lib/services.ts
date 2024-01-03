@@ -553,6 +553,7 @@ export class Services extends Stack {
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
         const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
+            addonVersion: 'v1.2.0-eksbuild.1',
             clusterName: cluster.clusterName,
             // the properties below are optional
             resolveConflicts: 'OVERWRITE',
