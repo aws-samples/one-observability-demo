@@ -1,0 +1,404 @@
+Resources:
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        EnvironmentVariables:
+          - Name: ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Ref AWS::AccountId
+          - Name: AWS_REGION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Region
+          - Name: STACK_ID
+            Type: PLAINTEXT
+            Value: !Ref AWS::StackId
+          - Name: ADMIN_ROLE
+            Type: PLAINTEXT
+            Value: !GetAtt EKSAdminRole.Arn
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - export STATUS=SUCCESS
+                - echo $STATUS
+                - echo $ACCOUNT_ID
+                - echo $AWS_REGION
+                - echo $STACK_ID
+                - echo $ADMIN_ROLE
+                - npm -g install typescript     
+                - npm install -g aws-cdk
+                - git clone https://github.com/aws-samples/one-observability-demo.git
+                - cd one-observability-demo/PetAdoptions/cdk/pet_stack
+                - npm install
+                - cdk bootstrap
+                - cdk deploy --context admin_role=$ADMIN_ROLE Services --context dashboard_role_arn=$ADMIN_ROLE --require-approval never  && export STATUS=SUCCESS || export STATUS=FAILURE
+                - aws cloudformation signal-resource --stack-name $STACK_ID --logical-resource-id ServicesWaitCondition --unique-id 'cdk deploy Services' --status $STATUS
+                - sleep 15
+                - cdk deploy Applications --require-approval never  && export STATUS=SUCCESS || export STATUS=FAILURE
+                - aws cloudformation signal-resource --stack-name $STACK_ID --logical-resource-id ApplicationsWaitCondition --unique-id 'cdk deploy Applications' --status $STATUS
+      TimeoutInMinutes: 240
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [codebuild.amazonaws.com]
+        Version: '2012-10-17'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+#      Policies:
+#        - PolicyName: CodeBuildAccess
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Action: '*'
+#                Effect: Allow
+#                Resource: '*'
+  EKSAdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+        Version: '2012-10-17'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+#      Policies:
+#        - PolicyName: EKSAccess
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Action: '*'
+#                Effect: Allow
+#                Resource: '*'
+  CodeBuildProjectExecutionLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+#      Policies:
+#        - PolicyName: EKSAccess
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Action: '*'
+#                Effect: Allow
+#                Resource: '*'
+  CodeBuildProjectExecutionLambdaFunction:
+    #DeletionPolicy: Retain
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt CodeBuildProjectExecutionLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 3
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import boto3
+          
+          def stack_active(StackName):
+            stackActive=False
+            try:
+              client=boto3.client('cloudformation')
+              response=client.describe_stacks(
+                StackName=StackName
+              )
+              print(response)
+              stackActive=True
+            except Exception as e:
+              print(e)
+            finally:
+              return stackActive
+          
+          def delete_stack(stackName):
+            response={}
+            status="FAILED"
+            message="Error"
+            try:
+              if stack_active(stackName):
+                client=boto3.client('cloudformation')
+                response=client.delete_stack(
+                  StackName=stackName
+                )
+                print(response)
+                message = stackName + " delete initiated"
+              else:
+                message = stackName + " doesn't exist"
+              status="SUCCESS"
+            except Exception as e:
+              print(e)
+              message = "Exception occurred when attempting to delete stack: " + stackName
+            finally:
+              response={
+                "status": status,
+                "message": message
+              }
+              return response
+          
+          def create(projectName):
+            response={}
+            status="FAILED"
+            message="Error"
+            try:
+              if stack_active('Services') != True and stack_active('Applications') != True:
+                client = boto3.client('codebuild')
+                response = client.start_build(
+                  projectName=projectName
+                )
+                print(response)
+                status = "SUCCESS"
+                message = "CodeBuild project Execution ID: " + response['build']['id']
+              else:
+                message = "Cloudformation stack named Services or Applications already exists"
+            except Exception as e:
+              print(e)
+              message = "Exception occurred when attempting to execute CodeBuild project"
+            finally:
+              response={
+                "status": status,
+                "message": message
+              }
+              return response
+          
+          def update():
+            response={}
+            status="FAILED"
+            message="Error"
+            try:
+              status="SUCCESS"
+              message="Update Request: No action required"    
+            except Exception as e:
+              print(e)
+              message = "Exception"
+            finally:
+              response={
+                "status": status,
+                "message": message
+              }
+              return response
+          
+          def delete():
+            response = {}
+            status = "FAILED"
+            message = "Error"
+            try:
+              deleteServicesStack = delete_stack('Services')
+              deleteApplicationsStack = delete_stack('Applications')
+              if deleteServicesStack['status'] == "SUCCESS" and deleteApplicationsStack['status'] == "SUCCESS":
+                status = "SUCCESS"
+              message = deleteServicesStack['message'] + " " + deleteApplicationsStack['message']
+            except Exception as e:
+              print(e)
+              message = "Exception occurred when attempting to delete CloudFormation stacks"
+            finally:
+              response={
+                "status": status,
+                "message": message
+              }
+              return response
+          
+          def lambda_handler(event, context):
+            responseData={}
+            responseStatus = "SUCCESS"
+            try:
+              print(event)
+              if event['RequestType'] == "Create":
+                response = create(event['ResourceProperties']['CodeBuildProjectName'])
+                responseStatus = response['status']
+                responseData = {"Data": response['message']}
+              elif event['RequestType'] == "Update":
+                response = update()
+                responseStatus = response['status']
+                responseData = {"Data": response['message']}
+              elif event['RequestType'] == "Delete":
+                response = delete()
+                responseStatus = response['status']
+                responseData = {"Data": response['message']}
+            except Exception as e:
+              print(e)
+              responseStatus = "FAILED"
+              responseData = { "Data": "Lambda backed custom resource execution issue."}
+            finally:
+              cfnresponse.send(event, context, responseStatus, responseData)
+  CodeBuildProjectExecution:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt CodeBuildProjectExecutionLambdaFunction.Arn
+      CodeBuildProjectName: !Ref CodeBuildProject
+  ServicesWaitCondition:
+    DependsOn: CodeBuildProjectExecution
+    Type: AWS::CloudFormation::WaitCondition
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT60M
+  ApplicationsWaitCondition:
+    DependsOn: ServicesWaitCondition
+    Type: AWS::CloudFormation::WaitCondition
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT60M
+  GetStackDetailsIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+#      Policies:
+#        - PolicyName: Logs
+#          PolicyDocument:
+#            Version: '2012-10-17'
+#            Statement:
+#              - Action: '*'
+#                Effect: Allow
+#                Resource: '*'
+  GetStackDetailsLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt GetStackDetailsIamRole.Arn
+      Runtime: python3.9
+      Timeout: 3
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import boto3
+          def create_request(stackName):
+            response = {}
+            status = "FAILED"
+            message = "Error"
+            stackId = "CloudFormation stack ID not found"
+            petSiteUrl = "Output named PetSiteUrl not available in the Applications stack"
+            try:
+              client=boto3.client('cloudformation')
+              response=client.describe_stacks(
+                StackName=stackName
+              )
+              print(response)
+              status = "SUCCESS"
+              message = "CloudFormation stack describe executed successfully for stack: " + stackName
+              stackId = response['Stacks'][0]['StackId']
+              if stackName == "Services":
+                outputs = response['Stacks'][0]['Outputs']
+                for output in outputs:
+                  if output['OutputKey'] == "PetSiteUrl":
+                    petSiteUrl = output['OutputValue'] 
+            except Exception as e:
+              print(e)
+              status = "FAILED"
+              message = "Exception occurred when attempting to describe stack " + stackName
+            finally:
+              response={
+                "status": status,
+                "message": message,
+                "stackId": stackId,
+                "petSiteUrl": petSiteUrl
+              }
+              return response
+              
+          def lambda_handler(event, context):
+            responseData={}
+            try:
+              print(event)
+              responseStatus = "SUCCESS"
+              if event['RequestType'] == "Create":
+                response=create_request(event['ResourceProperties']['StackName'])
+                responseStatus = response['status']
+                responseData = {"Message": response['message'], "StackId": response['stackId'], "PetSiteUrl": response['petSiteUrl']}
+              elif event['RequestType'] == "Update":
+                message = "Update Request: No action required - Lambda backed custom resource executed successfully"
+                responseData = {"Message": message, "StackId": "", "PetSiteUrl": ""}
+              elif event['RequestType'] == "Delete":
+                message = "Delete Request: No action required - Lambda backed custom resource executed successfully"
+                responseData = {"Message": message, "StackId": "", "PetSiteUrl": ""}
+            except Exception as e:
+              print(e)
+              responseStatus = "FAILED"
+              message = "Exception"
+              responseData = {"Message": message, "StackId": "", "PetSiteUrl": ""}
+            finally:
+              cfnresponse.send(event, context, responseStatus, responseData)
+  GetServicesStackDetails:
+    DependsOn: ServicesWaitCondition
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt GetStackDetailsLambdaFunction.Arn
+      StackName: Services
+  GetApplicationsStackDetails:
+    DependsOn: ApplicationsWaitCondition
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt GetStackDetailsLambdaFunction.Arn
+      StackName: Applications
+  ProjectExecutionDeleteStacksPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "CloudFormation_DeleteStack"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: [
+              'cloudformation:DeleteStack'
+            ]
+            Resource: [
+              !GetAtt GetServicesStackDetails.StackId,
+              !GetAtt GetApplicationsStackDetails.StackId
+            ]
+      Roles:
+        - !Ref CodeBuildProjectExecutionLambdaRole
+Outputs:
+  CodeBuildProjectExecutionData:
+    Value: !GetAtt CodeBuildProjectExecution.Data
+  GetServicesStackDetailsMessage:
+    Value: !GetAtt GetServicesStackDetails.Message
+  ServicesStackId:
+    Value: !GetAtt GetServicesStackDetails.StackId
+  ServicesStackPetSiteUrl:
+    Value: !GetAtt GetServicesStackDetails.PetSiteUrl
+  GetApplicationsStackDetailsMessage:
+    Value: !GetAtt GetApplicationsStackDetails.Message
+  ApplicationsStackId:
+    Value: !GetAtt GetApplicationsStackDetails.StackId
