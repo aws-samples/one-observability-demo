@@ -4,7 +4,7 @@ import { Services } from '../lib/services';
 import { Applications } from '../lib/applications';
 //import { EKSPetsite } from '../lib/ekspetsite'
 import { App, Tags, Aspects } from 'aws-cdk-lib';
-import { AwsSolutionsChecks } from 'cdk-nag';
+//import { AwsSolutionsChecks } from 'cdk-nag';
 
 
 const stackName = "Services";
