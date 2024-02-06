@@ -341,7 +341,7 @@ export class Services extends Stack {
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
-            version: KubernetesVersion.of('1.27'),
+            version: KubernetesVersion.of('1.28'),
             kubectlLayer: new KubectlLayer(this, 'kubectl') 
         });
 
