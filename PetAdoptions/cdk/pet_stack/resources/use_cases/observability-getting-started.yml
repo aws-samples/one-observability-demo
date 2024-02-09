@@ -1,0 +1,325 @@
+#*
+#* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#* SPDX-License-Identifier: MIT-0
+#*
+#* Permission is hereby granted, free of charge, to any person obtaining a copy of this
+#* software and associated documentation files (the "Software"), to deal in the Software
+#* without restriction, including without limitation the rights to use, copy, modify,
+#* merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+#* permit persons to whom the Software is furnished to do so.
+#*
+#* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+#* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+#* PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#* HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#* OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#*
+
+#------------------------------------------------------------------------------
+#
+# Template: cw-immersionday-resources.yml
+# Purpose:  CloudFormation template to deploy EC2 instance for observability immersion day.
+#
+#------------------------------------------------------------------------------
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template to launch EC2 instances and create apache style log events. Written for Observability getting started workshop June 2022. **WARNING** This template creates a VPC, public subnet, Internet Gateway, 2 EC2s, a Lambda function and CloudWatch Log Group, and associated route tables and permissions. You will be billed for the AWS resources used if you create a stack from this template.
+
+#-----------------------------------------------------------
+# Parameters
+#-----------------------------------------------------------
+Parameters :
+  LatestAmazonLinuxAmiId :
+    # Use public Systems Manager Parameter
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+# Calling AMI public parameters
+# https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html
+
+Resources:
+
+  #-------------------------------------------------
+  # VPC and required resources to enable network connectivity to AWS Systems Manager
+  #-------------------------------------------------
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  SubnetPublic:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.0.0.0/20
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  RouteTablePublic:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  RouteTableAssociationPublic:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPublic
+      RouteTableId: !Ref RouteTablePublic
+  RouteTablePublicInternetRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Security Group for CW ImmersionDay test instances'
+      GroupName: ObservabilityGettingStartedImmersionDay
+      SecurityGroupEgress:
+        - Description: Egress to allow CloudWatch agent to communicate with CloudWatch service
+          IpProtocol: 6
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+      VpcId: !Ref VPC
+  #-------------------------------------------------
+  # IAM ROLE FOR EC2 Instance
+  #-------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SSMCloudWatchInstanceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonSSMPatchAssociation
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: SSMCloudWatchInstanceRole
+      Path: '/'
+      Roles:
+        - !Ref InstanceRole
+  #-------------------------------------------------
+  # EC2 instance using the latest Amazon Linux AMI
+  #-------------------------------------------------
+  LinuxEc2Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.small
+      ImageId: !Ref LatestAmazonLinuxAmiId
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+          SubnetId: !Ref SubnetPublic
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            #Cloudformation Stack: ${AWS::StackName}
+            yum update -y
+            yum install -y tomcat tomcat-webapps
+            systemctl start tomcat.service
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: AppServer1
+
+  LinuxEc2Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.small
+      ImageId: !Ref LatestAmazonLinuxAmiId
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+          SubnetId: !Ref SubnetPublic
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            #Cloudformation Stack: ${AWS::StackName}
+            yum update -y
+            yum install -y tomcat tomcat-webapps
+            systemctl start tomcat.service
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: AppServer2
+
+  #-------------------------------------------------
+  # Lambda log group to store the fake logs in (ensures it will be deleted on stack deletion)
+  # Note: can't change the path for the lambda to log to
+  #-------------------------------------------------
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaFunctionApacheLogGenerator}-${AWS::StackName}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  #-------------------------------------------------
+  # Lambda function to generate fake looking apache logs
+  #------------------------------------------------
+  LambdaFunctionApacheLogGenerator:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+            # To generate fake apache style logs
+            import json
+            import datetime
+            import random
+            import time
+
+            def lambda_handler(event, context):
+                maxnumevents = 5
+                numevents = int(random.randrange(1,maxnumevents,1)) # can set numevents to a fixed value if wish
+
+
+                # create list of pages
+                pages = ['searchProduct.html','addToCart.html','makePayment.html']
+
+                # create list of possible events
+                # 127.0.0.1 - frank [10Oct2000135536 -0700] "GET apache_pb.gif HTTP/1.0" 200 2326 123
+                eventList = ['127.0.0.1 - - timestamp "GET page HTTP/1.0" status loadtime bytesLoaded']
+
+                # have a few more 200s to make these the most common
+                statusValues = ['200','200','200','200','200','200','200','200','403','404','500','303']
+
+
+                for x in range(1,numevents+1):
+                    # create log events
+                    event = random.choice(eventList)
+                    page = random.choice(pages)
+                    status = random.choice(statusValues)
+                    loadtime =  random.randrange(300,1000,1)
+                    bytesLoaded =  random.randrange(100,1000,1)
+
+                    # create timestamp
+                    timestamp = datetime.datetime.now().astimezone()
+                    # 2021-08-25T150000.000-0600
+                    timestr = timestamp.strftime('%Y-%m-%dT%H%M%S%z')
+                    # 10-Oct-2000T135536 -0700
+
+                    # replace variables
+                    event = event.replace('page', str(page))
+                    event = event.replace('status', str(status))
+                    event = event.replace('loadtime', str(loadtime))
+                    event = event.replace('bytesLoaded', str(bytesLoaded))
+                    event = event.replace('timestamp', str(timestr))
+
+                    print(event)
+
+                    # add a delay - want a timegap between events (between 1 and 5 secs)
+                    sleepfor = random.randrange(1, 5, 1)
+                    time.sleep(sleepfor);
+
+                # end loop through numevents
+
+                return
+
+      Description: Apache log generator
+      FunctionName: !Sub LambdaFunctionApacheLogGenerator-${AWS::StackName}
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt LambdaIAMRole.Arn
+      Runtime: python3.9
+      Timeout: 60
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+
+  #-------------------------------------------------
+  # Lambda Role for ability to log events
+  #------------------------------------------------
+  LambdaIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/LambdaFunctionApacheLogGenerator-${AWS::StackName}:*
+          PolicyName: LambdaCloudWatchLogs
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedImmersionDay
+  #-------------------------------------------------
+  # Scheduled event to run the Lambda every 2 minutes to generate timespaced logs
+  #------------------------------------------------
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub InvokeLambdaApacheLogs-${AWS::StackName}
+      ScheduleExpression: rate(2 minutes)
+      Targets:
+        - Arn: !GetAtt LambdaFunctionApacheLogGenerator.Arn
+          Id: !Sub LambdaFunctionApacheLogGenerator-${AWS::StackName}
+
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunctionApacheLogGenerator
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRule.Arn
