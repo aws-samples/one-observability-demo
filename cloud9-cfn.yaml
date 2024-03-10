@@ -62,7 +62,7 @@ Parameters:
   C9InstanceVolumeSize:
     Type: Number
     Description: The Size in GB of the Cloud9 Instance Volume.
-    Default: 30
+    Default: 100
 
   C9Image:
     Type: String
