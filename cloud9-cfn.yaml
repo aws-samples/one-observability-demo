@@ -548,7 +548,6 @@ Resources:
       #     - !Ref PrivateSubnet2      
       MemorySize: 256
       Timeout: 600
-      ReservedConcurrentExecutions: 1
       Code:
         ZipFile: !Sub |
           from __future__ import print_function
