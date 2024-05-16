@@ -720,6 +720,7 @@ Resources:
             - !Sub SIZE=${C9InstanceVolumeSize}
             - !Sub REGION=${AWS::Region}
             - |
+              unset AWS_SHARED_CREDENTIALS_FILE
               INSTANCEID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
               VOLUMEID=$(aws ec2 describe-instances \
                 --instance-id $INSTANCEID \
@@ -814,6 +815,7 @@ Resources:
 
 
   C9BootstrapAssociation:
+    DependsOn: C9BootstrapInstanceLambda
     Type: AWS::SSM::Association
     Properties:
       Name: !Ref C9SSMDocument
@@ -880,7 +882,6 @@ Resources:
       - Ref: C9Role
 
   C9Instance:
-    DependsOn: C9BootstrapAssociation
     Type: AWS::Cloud9::EnvironmentEC2
     Properties:
       Description: !Sub  AWS Cloud9 instance for ${EnvironmentName}
