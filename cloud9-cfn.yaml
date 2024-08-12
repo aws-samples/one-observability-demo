@@ -595,7 +595,7 @@ Resources:
                       # attach instance profile
                       response = ec2.associate_iam_instance_profile(IamInstanceProfile=iam_instance_profile, InstanceId=instance['InstanceId'])
                       logger.info('response - associate_iam_instance_profile: {}'.format(response))
-                      #r_ec2 = boto3.resource('ec2')
+                      ec2.reboot_instances(InstanceIds=[instance['InstanceId']], DryRun=False)
 
                       responseData = {'Success': 'Started bootstrapping for instance: '+instance['InstanceId']}
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
