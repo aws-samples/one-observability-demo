@@ -12,7 +12,7 @@ To deploy this workshop on your own account you need to have an IAM role with el
 of the repository run the following command:
 
 ```
-aws cloudformation create-stack --stack-name Observability-Workshop --template-body file://codepipeline-stack.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=UserRoleArn,ParameterValue=$(aws sts get-caller-identity --query Arn --output text)
+aws cloudformation create-stack --stack-name Observability-Workshop --template-body file://codepipeline-stack.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=UserRoleArn,ParameterValue=$(aws iam get-role --role-name $(aws sts get-caller-identity --query Arn --output text | awk -F/ '{print $(NF-1)}') --query Role.Arn --output text)
 ```
 
 You can replace the role specified in the paramter `UserRoleArn` with any other role with access to AWS CloudShell if you need so.
