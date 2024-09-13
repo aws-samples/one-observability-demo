@@ -9,6 +9,12 @@ if [ -z "$AWS_REGION" ]; then
 	exit 1
 fi
 
+if [ ! -f "cdk.json" ]; then
+	echo "error: run this script in the PetAdoptions/cdk/pet_stack directory"
+	echo "Usage: $ ./resources/destroy_stack.sh"
+	exit 1
+fi
+
 # Disable Contributor Insights
 DDB_CONTRIB=$(aws ssm get-parameter --name '/petstore/dynamodbtablename' | jq .Parameter.Value -r)
 aws dynamodb update-contributor-insights --table-name $DDB_CONTRIB --contributor-insights-action DISABLE
