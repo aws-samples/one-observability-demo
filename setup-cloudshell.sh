@@ -10,6 +10,7 @@ function install_helm(){
 	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 	chmod 700 get_helm.sh
 	./get_helm.sh
+	sudo mv $(which helm) $HOME/.local/bin
 	rm get_helm.sh
 }
 
@@ -20,7 +21,7 @@ function install_eksctl(){
 	curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
 	curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_checksums.txt" | grep $PLATFORM | sha256sum --check
 	tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
-	sudo mv /tmp/eksctl /usr/local/bin
+	sudo mv /tmp/eksctl $HOME/.local/bin
 }
 
 function install_awscurl(){
@@ -41,5 +42,7 @@ command -v awscurl >/dev/null 2>&1 ||
 # install eksctl
 command -v eksctl >/dev/null 2>&1 ||
 	{ install_eksctl; }
+
+echo "All dependencies installed!"
 
 cd -
