@@ -9,12 +9,6 @@ if [ -z "$AWS_REGION" ]; then
 	exit 1
 fi
 
-if [ ! -f "cdk.json" ]; then
-	echo "error: run this script in the PetAdoptions/cdk/pet_stack directory"
-	echo "Usage: $ ./resources/destroy_stack.sh"
-	exit 1
-fi
-
 # Disable Contributor Insights
 DDB_CONTRIB=$(aws ssm get-parameter --name '/petstore/dynamodbtablename' | jq .Parameter.Value -r)
 aws dynamodb update-contributor-insights --table-name $DDB_CONTRIB --contributor-insights-action DISABLE
@@ -37,10 +31,6 @@ kubectl delete -f https://raw.githubusercontent.com/aws-samples/one-observabilit
 
 #Deleting keycloak
 kubectl delete namespace keycloak --force
-
-# Get rid of all resources (Application first, then cluster or it will fail)
-cdk destroy $STACK_NAME_APP --force
-cdk destroy $STACK_NAME --force
 
 # Sometimes the SqlSeeder doesn't get deleted cleanly. This helps clean up the environment completely including Sqlseeder
 aws cloudformation delete-stack --stack-name $STACK_NAME_APP
