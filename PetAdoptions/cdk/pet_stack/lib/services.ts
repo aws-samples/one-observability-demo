@@ -41,12 +41,6 @@ export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
-        var isEventEngine = 'false';
-        if (this.node.tryGetContext('is_event_engine') != undefined)
-        {
-            isEventEngine = this.node.tryGetContext('is_event_engine');
-        }
-
         const stackName = id;
 
         // Create SQS resource to send Pet adoption messages to
@@ -445,17 +439,6 @@ export class Services extends Stack {
         });
 
         loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
-
-
-        if (isEventEngine === 'true')
-        {
-            const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/WSParticipantRole");
-            cluster.grantAccess('TeamRoleAccess', teamRole.roleArn, [
-                eks.AccessPolicy.fromAccessPolicyName('AmazonEKSClusterAdminPolicy', {
-                    accessScopeType: eks.AccessScopeType.CLUSTER
-                })
-            ]);  
-        }
 
         const eksAdminArn = this.node.tryGetContext('admin_role');
         if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
