@@ -41,12 +41,6 @@ export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
-        var isEventEngine = 'false';
-        if (this.node.tryGetContext('is_event_engine') != undefined)
-        {
-            isEventEngine = this.node.tryGetContext('is_event_engine');
-        }
-
         const stackName = id;
 
         // Create SQS resource to send Pet adoption messages to
@@ -342,7 +336,8 @@ export class Services extends Stack {
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
             version: KubernetesVersion.of('1.28'),
-            kubectlLayer: new KubectlLayer(this, 'kubectl') 
+            kubectlLayer: new KubectlLayer(this, 'kubectl'),
+            authenticationMode: eks.AuthenticationMode.API_AND_CONFIG_MAP,
         });
 
         const clusterSG = ec2.SecurityGroup.fromSecurityGroupId(this,'ClusterSG',cluster.clusterSecurityGroupId);
@@ -445,59 +440,15 @@ export class Services extends Stack {
 
         loadBalancerserviceaccount.assumeRolePolicy?.addStatements(loadBalancer_trustRelationship);
 
-        // Fix for EKS Dashboard access
-
-        const dashboardRoleYaml = yaml.loadAll(readFileSync("./resources/dashboard.yaml","utf8")) as Record<string,any>[];
-
-        const dashboardRoleArn = this.node.tryGetContext('dashboard_role_arn');
-        if((dashboardRoleArn != undefined)&&(dashboardRoleArn.length > 0)) {
-            const role = iam.Role.fromRoleArn(this, "DashboardRoleArn",dashboardRoleArn,{mutable:false});
-            cluster.awsAuth.addRoleMapping(role,{groups:["dashboard-view"]});
-        }
-
-        if (isEventEngine === 'true')
-        {
-
-            var c9Env = new Cloud9Environment(this, 'Cloud9Environment', {
-                vpcId: theVPC.vpcId,
-                subnetId: theVPC.publicSubnets[0].subnetId,
-                cloud9OwnerArn: "assumed-role/WSParticipantRole/Participant",
-                templateFile: __dirname + "/../../../../cloud9-cfn.yaml"
-            
-            });
-    
-            var c9role = c9Env.c9Role;
-
-            // Dynamically check if AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile exists
-            const c9SSMRole = new iam.Role(this,'AWSCloud9SSMAccessRole', {
-                path: '/service-role/',
-                roleName: 'AWSCloud9SSMAccessRole',
-                assumedBy: new iam.CompositePrincipal(new iam.ServicePrincipal("ec2.amazonaws.com"), new iam.ServicePrincipal("cloud9.amazonaws.com")),
-                managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCloud9SSMInstanceProfile"),iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess")]
-            });
-
-            const teamRole = iam.Role.fromRoleArn(this,'TeamRole',"arn:aws:iam::" + stack.account +":role/WSParticipantRole");
-            cluster.awsAuth.addRoleMapping(teamRole,{groups:["dashboard-view"]});
-            
-
-            if (c9role!=undefined) {
-                cluster.awsAuth.addMastersRole(iam.Role.fromRoleArn(this, 'c9role', c9role.attrArn, { mutable: false }));
-            }
-
-
-        }
-
         const eksAdminArn = this.node.tryGetContext('admin_role');
         if ((eksAdminArn!=undefined)&&(eksAdminArn.length > 0)) {
-            const role = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
-            cluster.awsAuth.addMastersRole(role)
+            const adminRole = iam.Role.fromRoleArn(this,"ekdAdminRoleArn",eksAdminArn,{mutable:false});
+            cluster.grantAccess('TeamRoleAccess', adminRole.roleArn, [
+                eks.AccessPolicy.fromAccessPolicyName('AmazonEKSClusterAdminPolicy', {
+                    accessScopeType: eks.AccessScopeType.CLUSTER
+                })
+            ]);  
         }
-
-        const dahshboardManifest = new eks.KubernetesManifest(this,"k8sdashboardrbac",{
-            cluster: cluster,
-            manifest: dashboardRoleYaml
-        });
-
 
         var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml","utf8")) as Record<string,any>[];
 
