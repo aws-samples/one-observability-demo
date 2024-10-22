@@ -16,7 +16,7 @@ phases:
       - npm install
       - if [ -z "$CDK_STACK" ] ; then cdk bootstrap ; else echo "Already bootstrapped" ; fi
       - npm run build
-      - cdk deploy Services --context admin_role=${EE_TEAM_ROLE_ARN} --context is_event_engine="true" --require-approval=never --verbose -O ./out/out.json
+      - cdk deploy Services --context admin_role=${EE_TEAM_ROLE_ARN} --require-approval=never --verbose -O ./out/out.json
       - cdk deploy Applications --require-approval=never --verbose -O ./out/out.json
 artifacts:
   files: "./PetAdoptions/cdk/pet_stack/out/out.json"
