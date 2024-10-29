@@ -18,6 +18,10 @@ export class CDKPipeline extends cdk.Stack {
             pipelineName: 'PetAdoption',
             synth: new ShellStep('SynthStep', {
                 input: CodePipelineSource.s3(sourceBucket,'Repository.zip'),
+                env: {
+                    'SOURCE_BUCKET_NAME':props.sourceBucketName,
+                    'GITHUB_BRANCH':props.branchName
+                },
                 commands: [
                         `cd one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack`,
                         'npm install',
