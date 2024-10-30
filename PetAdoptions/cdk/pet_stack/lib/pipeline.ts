@@ -42,7 +42,7 @@ export class CDKPipeline extends cdk.Stack {
                           resources: ['*'],
                         }),
                       ],
-            primaryOutputDirectory: `one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack`
+            primaryOutputDirectory: `one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack/cdk.out`
             });
 
         const pipeline = new CodePipeline(this, 'Pipeline', {
