@@ -1,6 +1,6 @@
 import { Stage, StageProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { Services } from "./services";
+import { Services } from "./stacks/services";
 
 export class ServiceStage extends Stage {
     constructor(scope: Construct, id: string, props: StageProps) {

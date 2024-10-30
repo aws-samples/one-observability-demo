@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import { Services } from '../lib/services';
-import { Applications } from '../lib/applications';
+import { Services } from '../lib/stacks/services';
+import { Applications } from '../lib/stacks/applications';
 //import { EKSPetsite } from '../lib/ekspetsite'
 import { App, Tags, Aspects } from 'aws-cdk-lib';
-import { CDKPipeline } from '../lib/pipeline';
+import { CDKPipeline } from '../lib/stacks/pipeline';
 //import { AwsSolutionsChecks } from 'cdk-nag';
 
 
@@ -19,19 +19,6 @@ const pipelineStack = new CDKPipeline(app, "Pipeline", {
     region: process.env.CDK_DEFAULT_REGION 
   }
 });
-
-const stack = new Services(app, stackName, { 
-  env: { 
-    account: process.env.CDK_DEFAULT_ACCOUNT, 
-    region: process.env.CDK_DEFAULT_REGION 
-}});
-
-const applications = new Applications(app, "Applications", {
-  env: { 
-    account: process.env.CDK_DEFAULT_ACCOUNT, 
-    region: process.env.CDK_DEFAULT_REGION 
-}});
-
 
 
 Tags.of(app).add("Workshop","true")

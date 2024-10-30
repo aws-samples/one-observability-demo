@@ -23,19 +23,18 @@ import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 
 import { Construct } from 'constructs'
-import { PayForAdoptionService } from './services/pay-for-adoption-service'
-import { ListAdoptionsService } from './services/list-adoptions-service'
-import { SearchService } from './services/search-service'
-import { TrafficGeneratorService } from './services/traffic-generator-service'
-import { StatusUpdaterService } from './services/status-updater-service'
-import { PetAdoptionsStepFn } from './services/stepfn'
+import { PayForAdoptionService } from '../services/pay-for-adoption-service'
+import { ListAdoptionsService } from '../services/list-adoptions-service'
+import { SearchService } from '../services/search-service'
+import { TrafficGeneratorService } from '../services/traffic-generator-service'
+import { StatusUpdaterService } from '../services/status-updater-service'
+import { PetAdoptionsStepFn } from '../services/stepfn'
 import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
 import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
-import { Cloud9Environment } from './modules/core/cloud9';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {

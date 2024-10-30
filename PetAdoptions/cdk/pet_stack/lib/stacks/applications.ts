@@ -7,8 +7,8 @@ import * as yaml from 'js-yaml';
 import { Stack, StackProps, CfnJson, Fn, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import { Construct } from 'constructs'
-import { ContainerImageBuilderProps, ContainerImageBuilder } from './common/container-image-builder'
-import { PetAdoptionsHistory } from './applications/pet-adoptions-history-application'
+import { ContainerImageBuilderProps, ContainerImageBuilder } from '../common/container-image-builder'
+import { PetAdoptionsHistory } from '../applications/pet-adoptions-history-application'
 
 export class Applications extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
