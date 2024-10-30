@@ -1,7 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
+import { CodeBuildStep, CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export interface CDKPipelineProps extends cdk.StackProps {
     sourceBucketName: string;
@@ -14,21 +15,38 @@ export class CDKPipeline extends cdk.Stack {
 
         const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', props.sourceBucketName);
 
+        const synthStep = new CodeBuildStep('SynthStep', {
+            input: CodePipelineSource.s3(sourceBucket,'Repository.zip'),
+            env: {
+                'SOURCE_BUCKET_NAME':props.sourceBucketName,
+                'GITHUB_BRANCH':props.branchName
+            },
+            commands: [
+                    `cd one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack`,
+                    'npm install',
+                    'npm ci', 
+                    'npm run build', 
+                    'npx cdk synth'],
+            rolePolicyStatements: [
+                        new PolicyStatement({
+                          actions: [
+                            'logs:CreateLogGroup',
+                            'logs:CreateLogStream',
+                            'logs:PutLogEvents',
+                            'secretsmanager:*',
+                            'lambda:*',
+                            's3:*',
+                            'ec2:DescribeAvailabilityZones',
+                          ],
+                          resources: ['*'],
+                        }),
+                      ]         
+            });
+
         const pipeline = new CodePipeline(this, 'Pipeline', {
             pipelineName: 'PetAdoption',
-            synth: new ShellStep('SynthStep', {
-                input: CodePipelineSource.s3(sourceBucket,'Repository.zip'),
-                env: {
-                    'SOURCE_BUCKET_NAME':props.sourceBucketName,
-                    'GITHUB_BRANCH':props.branchName
-                },
-                commands: [
-                        `cd one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack`,
-                        'npm install',
-                        'npm ci', 
-                        'npm run build', 
-                        'npx cdk synth']
-            })
+            synth: synthStep
         });
+
     }
 };
