@@ -13,7 +13,11 @@ const app = new App();
 
 const pipelineStack = new CDKPipeline(app, "Pipeline", {
   sourceBucketName: process.env.SOURCE_BUCKET_NAME!,
-  branchName: process.env.GITHUB_BRANCH || "main"
+  branchName: process.env.GITHUB_BRANCH || "main",
+  env: { 
+    account: process.env.CDK_DEFAULT_ACCOUNT, 
+    region: process.env.CDK_DEFAULT_REGION 
+  }
 });
 
 const stack = new Services(app, stackName, { 

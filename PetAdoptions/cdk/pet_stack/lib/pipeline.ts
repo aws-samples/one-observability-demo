@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { CodeBuildStep, CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { ServiceStage } from './servicesStage';
 
 export interface CDKPipelineProps extends cdk.StackProps {
     sourceBucketName: string;
@@ -40,7 +41,8 @@ export class CDKPipeline extends cdk.Stack {
                           ],
                           resources: ['*'],
                         }),
-                      ]         
+                      ],
+            primaryOutputDirectory: `one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack`
             });
 
         const pipeline = new CodePipeline(this, 'Pipeline', {
@@ -48,5 +50,11 @@ export class CDKPipeline extends cdk.Stack {
             synth: synthStep
         });
 
+        const serviceStage = pipeline.addStage(new ServiceStage(this, "Services", {
+            env: { 
+                account: process.env.CDK_DEFAULT_ACCOUNT, 
+                region: process.env.CDK_DEFAULT_REGION 
+            }
+        }));
     }
 };
