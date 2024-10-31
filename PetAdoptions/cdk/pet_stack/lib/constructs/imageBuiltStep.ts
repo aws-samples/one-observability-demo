@@ -41,7 +41,7 @@ export class ImageBuildStep extends CodeBuildStep {
                 'IMAGE_TAG': "latest",
                 'ECR_REPOSITORY_URL': props.repositoryUri,
                 'IMAGE_REPO_NAME': props.repositoryName,
-                'BASE_PATH': `one-observability-demo-${props.branchName}/${props.repositoryName}`
+                'BASE_PATH': `one-observability-demo-${props.branchName}/PetAdoptions/${props.repositoryName}`
             }
         });
 
