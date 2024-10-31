@@ -65,8 +65,8 @@ export class CDKPipeline extends cdk.Stack {
                 repositoryName: key,
                 repositoryUri: value,
                 source: source,
-                account: coreStage.account!,
-                region: coreStage.region!,
+                account: this.account,
+                region: this.region,
             }));
         });
         
