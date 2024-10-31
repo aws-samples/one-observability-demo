@@ -30,12 +30,13 @@ export class CoreStack extends Stack {
             });
         
             
-            this.repoList.set(container + "Uri", repo.getECRUri());
+            this.repoList.set(container, repo.getECRUri());
         });
         
-        createOuputs(this,this.repoList);
-        
-        
+        this.repoList.forEach((value, key) => {
+            new CfnOutput(this, key + "Uri", { value: value })
+        })
+    
         Tags.of(this).add("Workshop","true")
         Tags.of(this).add("ModularVersioning","true")
         Aspects.of(this).add(new AwsSolutionsChecks({verbose: true}));
