@@ -1,3 +1,4 @@
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { CodeBuildStep, CodePipelineSource } from "aws-cdk-lib/pipelines";
 
 export interface ImageBuildStepProps {
@@ -21,7 +22,12 @@ export class ImageBuildStep extends CodeBuildStep {
                 'docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG'
             ],
             rolePolicyStatements: [
-                
+                new PolicyStatement({
+                    actions: [
+                      'ecr:*',
+                    ],
+                    resources: ['*'],
+                  }),
             ],
             input: props.source,
             buildEnvironment: {
