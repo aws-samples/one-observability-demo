@@ -23,25 +23,37 @@ import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 
 import { Construct } from 'constructs'
-import { PayForAdoptionService } from './services/pay-for-adoption-service'
-import { ListAdoptionsService } from './services/list-adoptions-service'
-import { SearchService } from './services/search-service'
-import { TrafficGeneratorService } from './services/traffic-generator-service'
-import { StatusUpdaterService } from './services/status-updater-service'
-import { PetAdoptionsStepFn } from './services/stepfn'
+import { PayForAdoptionService } from '../services/pay-for-adoption-service'
+import { ListAdoptionsService } from '../services/list-adoptions-service'
+import { SearchService } from '../services/search-service'
+import { TrafficGeneratorService } from '../services/traffic-generator-service'
+import { StatusUpdaterService } from '../services/status-updater-service'
+import { PetAdoptionsStepFn } from '../services/stepfn'
 import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
 import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
-import { Cloud9Environment } from './modules/core/cloud9';
+import { getConfig } from '../common/config';
+import { CfnGroup } from 'aws-cdk-lib/aws-xray';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
         const stackName = id;
+
+        // Retrieve the configuration from the context
+        const config = getConfig(scope);
+
+        if (config.createXRayGroup) {
+            const xrayGroup = new CfnGroup(this, 'xrayGroup', {
+                groupName: 'Higherlatency',
+                filterExpression: "responsetime > 2",
+            })
+        }
+
 
         // Create SQS resource to send Pet adoption messages to
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
@@ -166,7 +178,7 @@ export class Services extends Stack {
             resources: ['*']
         });
 
-        const repositoryURI = "public.ecr.aws/one-observability-workshop";
+        const repositoryURI = `${this.account}.dkr.ecr.${this.region}.amazonaws.com`;
 
         const stack = Stack.of(this);
         const region = stack.region;
@@ -189,7 +201,7 @@ export class Services extends Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             // build locally
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount : 2,
             region: region,
@@ -212,7 +224,7 @@ export class Services extends Stack {
             healthCheck: '/health/status',
             instrumentation: 'otel',
             // build locally
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount: 2,
             region: region,
@@ -230,7 +242,7 @@ export class Services extends Stack {
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
             instrumentation: 'otel',
@@ -246,7 +258,7 @@ export class Services extends Stack {
             cpu: 256,
             memoryLimitMiB: 512,
             instrumentation: 'none',
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             desiredTaskCount: 1,
             region: region,
             securityGroup: ecsServicesSecurityGroup
@@ -534,7 +546,7 @@ export class Services extends Stack {
         customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy);
 
         var petsiteApplicationResourceController = new lambda.Function(this, 'petsite-application-resource-controler', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/resource-controller-widget')),
             handler: 'petsite-application-resource-controler.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
@@ -546,7 +558,7 @@ export class Services extends Stack {
             ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
 
         var customWidgetFunction = new lambda.Function(this, 'cloudwatch-custom-widget', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/resource-controller-widget')),
             handler: 'cloudwatch-custom-widget.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
@@ -594,7 +606,7 @@ export class Services extends Stack {
         });
 
         var dynamodbQueryFunction = new lambda.Function(this, 'dynamodb-query-function', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/application-insights')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/application-insights')),
             handler: 'dynamodb-query-function.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,

@@ -17,7 +17,7 @@ export class PayForAdoptionService extends EcsService {
   }
 
   containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-payforadoption:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/payforadoption-go:latest`)
   }
 
   createContainerImage() : ecs.ContainerImage {

@@ -10,12 +10,12 @@ export class TrafficGeneratorService extends EcsService {
   }
 
   containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-trafficgenerator:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/trafficgenerator:latest`)
   }
 
   createContainerImage() : ecs.ContainerImage {
     return ecs.ContainerImage.fromDockerImageAsset(new DockerImageAsset(this, "traffic-generator", {
-      directory: "./resources/microservices/trafficgenerator/trafficgenerator"
+      directory: "./resources/microservices/trafficgenerator"
     }))
   }
 }
