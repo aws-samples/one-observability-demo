@@ -50,7 +50,7 @@ export class Services extends Stack {
         if (config.createXRayGroup) {
             const xrayGroup = new CfnGroup(this, 'xrayGroup', {
                 groupName: 'petstore-xray-group',
-                filterExpression: "resourcetype = 'RDS::DBInstance' OR resourcetype = 'DynamoDB::Table' OR resourceType = 'Lambda::Function'",
+                filterExpression: "resourcetype = 'RDS::DBInstance' OR resourcetype = 'DynamoDB::Table' OR resourcetype = 'Lambda::Function'",
             })
         }
 

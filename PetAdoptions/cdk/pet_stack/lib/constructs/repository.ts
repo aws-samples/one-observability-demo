@@ -22,7 +22,7 @@ export class Repository extends Construct {
         this.imageRepo = new ecr.Repository(scope, props.name + "ImageRepo", {
             repositoryName: props.name, 
             imageScanOnPush: props.enableScanOnPush,
-            imageTagMutability: ecr.TagMutability.IMMUTABLE,
+            imageTagMutability: ecr.TagMutability.MUTABLE,  // Set to Mutable to allow the Pipeline to run multiple times. An alternative solution can be used to delete the latest before pushing the new build.
             removalPolicy: RemovalPolicy.DESTROY,
             encryption: ecr.RepositoryEncryption.AES_256,
             autoDeleteImages: true
