@@ -51,7 +51,7 @@ export class CDKPipeline extends cdk.Stack {
             });
 
         const pipeline = new CodePipeline(this, 'CodePipeline', {
-            pipelineName: 'PetAdoption',
+            pipelineName: 'OneObservabilityWorkshopPipeline',
             synth: synthStep
         });
 
