@@ -1,4 +1,4 @@
-import { Aspects, CfnOutput, Stack, Tags } from 'aws-cdk-lib';
+import { Aspects, CfnOutput, Stack, StackProps, Tags } from 'aws-cdk-lib';
 import { WorkshopNetwork } from '../constructs/network';
 import { AwsSolutionsChecks, NagSuppressions } from "cdk-nag";
 import { Construct } from 'constructs';
@@ -6,27 +6,16 @@ import * as fs from 'fs';
 import path = require('path');
 import { Repository } from '../constructs/repository';
 
-export interface CoreStackProps {
-    name: string,
-    awsHostedWorkshop: boolean
-}
 
 export class CoreStack extends Stack {
-    public readonly network;
     public readonly repoList = new Map<string, string>();
-    constructor(scope: Construct, id: string, props: CoreStackProps) {
-        super(scope, id);
+    constructor(scope: Construct, id: string, props: StackProps) {
+        super(scope, id, props);
 
         // Suppressions for the Core Stack
         NagSuppressions.addStackSuppressions(this, [
             { id: "AwsSolutions-IAM4", reason: "Stack level suppression, managed policies are aceptable in this workshop."}
         ])
-
-        // Network (VPC, Routes, etc)
-        this.network = new WorkshopNetwork(this, 'WorkshopNetwork', {
-            name: props.name,
-            cidrRange: "11.0.0.0/16"
-        });
 
         const repoFolders = __dirname + "/../../resources/microservices";
         const repositories = fs.readdirSync(repoFolders);        
@@ -46,11 +35,6 @@ export class CoreStack extends Stack {
         
         createOuputs(this,this.repoList);
         
-        new CfnOutput(this, 'VpcId', { value: this.network.vpc.vpcId });
-        new CfnOutput(this, 'VpcCidr', { value: this.network.vpc.vpcCidrBlock });
-        new CfnOutput(this, 'VpcPublicSubnetIds', { value: this.network.vpc.publicSubnets.map(subnet => subnet.subnetId).toString() });
-        new CfnOutput(this, 'VpcAvailabilityZones', {value: this.network.vpc.availabilityZones.toString()});
-
         
         Tags.of(this).add("Workshop","true")
         Tags.of(this).add("ModularVersioning","true")
