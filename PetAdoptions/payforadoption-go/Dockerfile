@@ -5,7 +5,7 @@ ENV GOPROXY=https://goproxy.io,direct
 RUN go get .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
-FROM alpine:latest
+FROM public.ecr.aws/docker/library/alpine:latest
 WORKDIR /app
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /go/src/app/app .
