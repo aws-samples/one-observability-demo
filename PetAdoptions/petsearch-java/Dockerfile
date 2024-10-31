@@ -1,4 +1,4 @@
-FROM gradle:7.3-jdk17 as build
+FROM public.ecr.aws/docker/library/gradle:7.3-jdk17 as build
 
 WORKDIR /app
 COPY ./build.gradle ./build.gradle

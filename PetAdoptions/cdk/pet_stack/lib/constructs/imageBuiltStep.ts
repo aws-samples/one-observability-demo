@@ -1,11 +1,9 @@
-import { IVpc } from "aws-cdk-lib/aws-ec2";
 import { CodeBuildStep, CodePipelineSource } from "aws-cdk-lib/pipelines";
 
 export interface ImageBuildStepProps {
     repositoryName: string;
     repositoryUri: string;
     source: CodePipelineSource;
-    vpc?: IVpc;
     account: string;
     region: string;
 
@@ -35,9 +33,7 @@ export class ImageBuildStep extends CodeBuildStep {
                 'IMAGE_TAG': "latest",
                 'ECR_REPOSITORY_URL': props.repositoryUri,
                 'IMAGE_REPO_NAME': props.repositoryName
-            },
-            vpc: props.vpc,
-            subnetSelection: props.vpc?.selectSubnets({ onePerAz: true })
+            }
         });
 
         this.consumedStackOutputs.push()

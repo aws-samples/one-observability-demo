@@ -1,4 +1,4 @@
-FROM golang:1.20 as builder
+FROM public.ecr.aws/docker/library/golang:1.20 as builder
 WORKDIR /go/src/app
 COPY . .
 ENV GOPROXY=https://goproxy.io,direct

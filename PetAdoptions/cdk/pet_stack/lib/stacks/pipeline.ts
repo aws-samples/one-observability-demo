@@ -58,12 +58,6 @@ export class CDKPipeline extends cdk.Stack {
         const coreStage = new CoreStage(scope, "WorkshopBase", {});
         pipeline.addStage(coreStage);
 
-        const vpcId = cdk.Fn.importValue('VpcId');
-        const publicSubnetIds = cdk.Fn.importListValue('VpcPublicSubnets',2,',');
-        const availabilityZones = cdk.Fn.importListValue('VpcAvailabilityZones', 2, ',');
-        const vpc = Vpc.fromVpcAttributes(this, 'VPC', { vpcId, publicSubnetIds, availabilityZones});
-
-
         const imageBuildSteps = new Array<CodeBuildStep>();
 
         coreStage.repoList.forEach((value, key) => {
@@ -71,7 +65,6 @@ export class CDKPipeline extends cdk.Stack {
                 repositoryName: key,
                 repositoryUri: value,
                 source: source,
-                vpc: vpc,
                 account: coreStage.account!,
                 region: coreStage.region!,
             }));
