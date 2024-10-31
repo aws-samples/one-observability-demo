@@ -14,7 +14,7 @@ export class SearchService extends EcsService {
   }
 
   containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-search-java:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/petsearch-java:latest`)
   }
 
   createContainerImage() : ecs.ContainerImage {
