@@ -75,7 +75,7 @@ export class Applications extends Stack {
     petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
 
     const petsiteAsset = new DockerImageAsset(this, 'petsiteAsset', {
-        directory: "./resources/microservices/petsite/petsite/"
+        directory: "./resources/microservices/petsite/"
     });
 
 

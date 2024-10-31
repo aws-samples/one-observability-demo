@@ -3,10 +3,9 @@ import { Construct } from 'constructs';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { CoreStage } from '../coreStage';
-import { ImageBuildStep } from '../constructs/imageBuiltStep';
-import { Vpc } from 'aws-cdk-lib/aws-ec2';
-import { App } from 'aws-cdk-lib';
+import { ImageBuilderStage } from './imageBuilderStage';
+import { ImageBuildStep } from './constructs/imageBuiltStep';
+import { ServiceStage } from './servicesStage';
 
 export interface CDKPipelineProps extends cdk.StackProps {
     sourceBucketName: string;
@@ -55,7 +54,7 @@ export class CDKPipeline extends cdk.Stack {
             synth: synthStep
         });
 
-        const coreStage = new CoreStage(scope, "WorkshopBase", {});
+        const coreStage = new ImageBuilderStage(scope, "WorkshopBase", {});
         pipeline.addStage(coreStage);
 
         const imageBuildSteps = new Array<CodeBuildStep>();
@@ -75,11 +74,11 @@ export class CDKPipeline extends cdk.Stack {
             post: imageBuildSteps,
         });
         
-        // const serviceStage = pipeline.addStage(new ServiceStage(this, "Services", {
-        //     env: { 
-        //         account: process.env.CDK_DEFAULT_ACCOUNT, 
-        //         region: process.env.CDK_DEFAULT_REGION 
-        //     }
-        // }));
+        const serviceStage = pipeline.addStage(new ServiceStage(this, "Services", {
+            env: { 
+                account: process.env.CDK_DEFAULT_ACCOUNT, 
+                region: process.env.CDK_DEFAULT_REGION 
+            }
+        }));
     }
 };

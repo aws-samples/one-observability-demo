@@ -165,7 +165,7 @@ export class Services extends Stack {
             resources: ['*']
         });
 
-        const repositoryURI = "public.ecr.aws/one-observability-workshop";
+        const repositoryURI = `${this.account}.dkr.ecr.${this.region}.amazonaws.com`;
 
         const stack = Stack.of(this);
         const region = stack.region;
@@ -188,7 +188,7 @@ export class Services extends Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             // build locally
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount : 2,
             region: region,
@@ -211,7 +211,7 @@ export class Services extends Stack {
             healthCheck: '/health/status',
             instrumentation: 'otel',
             // build locally
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount: 2,
             region: region,
@@ -229,7 +229,7 @@ export class Services extends Stack {
             logGroupName: "/ecs/PetSearch",
             cpu: 1024,
             memoryLimitMiB: 2048,
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
             instrumentation: 'otel',
@@ -245,7 +245,7 @@ export class Services extends Stack {
             cpu: 256,
             memoryLimitMiB: 512,
             instrumentation: 'none',
-            //repositoryURI: repositoryURI,
+            repositoryURI: repositoryURI,
             desiredTaskCount: 1,
             region: region,
             securityGroup: ecsServicesSecurityGroup
@@ -533,7 +533,7 @@ export class Services extends Stack {
         customWidgetLambdaRole.addToPrincipalPolicy(customWidgetResourceControllerPolicy);
 
         var petsiteApplicationResourceController = new lambda.Function(this, 'petsite-application-resource-controler', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/resource-controller-widget')),
             handler: 'petsite-application-resource-controler.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
@@ -545,7 +545,7 @@ export class Services extends Stack {
             ecsPetListAdoptionCluster.clusterArn + "," + ecsPetSearchCluster.clusterArn);
 
         var customWidgetFunction = new lambda.Function(this, 'cloudwatch-custom-widget', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/resource-controller-widget')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/resource-controller-widget')),
             handler: 'cloudwatch-custom-widget.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,
@@ -593,7 +593,7 @@ export class Services extends Stack {
         });
 
         var dynamodbQueryFunction = new lambda.Function(this, 'dynamodb-query-function', {
-            code: lambda.Code.fromAsset(path.join(__dirname, '/../resources/application-insights')),
+            code: lambda.Code.fromAsset(path.join(__dirname, '/../../resources/application-insights')),
             handler: 'dynamodb-query-function.lambda_handler',
             memorySize: 128,
             runtime: lambda.Runtime.PYTHON_3_9,

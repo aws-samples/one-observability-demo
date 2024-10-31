@@ -1,14 +1,14 @@
 import { Stage, StageProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { CoreStack } from "./stacks/core";
+import { ImageBuilderStack } from "./stacks/imageBuilder";
 
-export class CoreStage extends Stage {
+export class ImageBuilderStage extends Stage {
     public readonly repoList = new Map<string, string>();
     constructor(scope: Construct, id: string, props: StageProps) {
         super(scope, id, props);
 
-        const stackName = "WorkshopCore";
-        const coreStack = new CoreStack(this, stackName, { 
+        const stackName = "ImageBuilder";
+        const coreStack = new ImageBuilderStack(this, stackName, { 
             env: { 
                 account: props.env?.account,
                 region:  props.env?.region

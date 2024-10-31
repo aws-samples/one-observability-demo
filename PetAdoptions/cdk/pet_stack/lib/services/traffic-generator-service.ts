@@ -15,7 +15,7 @@ export class TrafficGeneratorService extends EcsService {
 
   createContainerImage() : ecs.ContainerImage {
     return ecs.ContainerImage.fromDockerImageAsset(new DockerImageAsset(this, "traffic-generator", {
-      directory: "./resources/microservices/trafficgenerator/trafficgenerator"
+      directory: "./resources/microservices/trafficgenerator"
     }))
   }
 }
