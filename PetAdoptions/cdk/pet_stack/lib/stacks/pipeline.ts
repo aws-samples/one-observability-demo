@@ -67,6 +67,7 @@ export class CDKPipeline extends cdk.Stack {
                 source: source,
                 account: this.account,
                 region: this.region,
+                branchName: props.branchName,
             }));
         });
         
