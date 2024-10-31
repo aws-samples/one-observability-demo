@@ -35,12 +35,25 @@ import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
+import { getConfig } from '../common/config';
+import { CfnGroup } from 'aws-cdk-lib/aws-xray';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
         const stackName = id;
+
+        // Retrieve the configuration from the context
+        const config = getConfig(scope);
+
+        if (config.createXRayGroup) {
+            const xrayGroup = new CfnGroup(this, 'xrayGroup', {
+                groupName: 'petstore-xray-group',
+                filterExpression: "resourcetype = 'RDS::DBInstance' OR resourcetype = 'DynamoDB::Table' OR resourceType = 'Lambda::Function'",
+            })
+        }
+
 
         // Create SQS resource to send Pet adoption messages to
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {

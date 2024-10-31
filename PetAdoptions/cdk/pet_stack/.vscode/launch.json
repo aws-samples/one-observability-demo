@@ -11,7 +11,12 @@
                 "./node_modules/ts-node/register/transpile-only"
             ],
             // Entry point of your stack
-            "args": ["${workspaceFolder}/app/pet_stack.ts"]
+            "args": [
+                        "${workspaceFolder}/app/pet_stack.ts"
+                    ],
+            "env": {
+                "CONFIG_PATH": "${workspaceFolder}/config.yaml"
+            }
         }
     ]
 }
