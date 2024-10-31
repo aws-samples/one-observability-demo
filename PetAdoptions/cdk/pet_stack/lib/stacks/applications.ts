@@ -74,16 +74,13 @@ export class Applications extends Stack {
 
     petstoreserviceaccount.addToPrincipalPolicy(startStepFnExecutionPolicy);
 
-    const petsiteAsset = new DockerImageAsset(this, 'petsiteAsset', {
-        directory: "./resources/microservices/petsite/"
-    });
-
+    const repositoryURI = `${this.account}.dkr.ecr.${this.region}.amazonaws.com`;
 
     var manifest = readFileSync("./resources/k8s_petsite/deployment.yaml","utf8");
     var deploymentYaml = yaml.loadAll(manifest) as Record<string,any>[];
 
     deploymentYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "deployment_Role", { value : `${petstoreserviceaccount.roleArn}` });
-    deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${petsiteAsset.imageUri}` });
+    deploymentYaml[2].spec.template.spec.containers[0].image = new CfnJson(this, "deployment_Image", { value : `${repositoryURI + "/petsite:latest"}` });
     deploymentYaml[3].spec.targetGroupARN = new CfnJson(this,"targetgroupArn", { value: `${targetGroupArn}`})
 
     const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
@@ -91,13 +88,8 @@ export class Applications extends Stack {
         manifest: deploymentYaml
     });
 
-    // PetAdoptionsHistory application definitions-----------------------------------------------------------------------
-    const petAdoptionsHistoryContainerImage = new ContainerImageBuilder(this, 'pet-adoptions-history-container-image', {
-       repositoryName: "pet-adoptions-history",
-       dockerImageAssetDirectory: "./resources/microservices/petadoptionshistory-py",
-    });
     new ssm.StringParameter(this,"putPetAdoptionHistoryRepositoryName",{
-        stringValue: petAdoptionsHistoryContainerImage.repositoryUri,
+        stringValue: `${repositoryURI}/petadoptionshistory-py`,
         parameterName: '/petstore/pethistoryrepositoryuri'
     });
 
@@ -108,7 +100,7 @@ export class Applications extends Stack {
         otelConfigMapPath: "./resources/microservices/petadoptionshistory-py/otel-collector-config.yaml",
         rdsSecretArn: rdsSecretArn,
         region: region,
-        imageUri: petAdoptionsHistoryContainerImage.imageUri,
+        imageUri: `${repositoryURI}/petadoptionshistory-py`,
         targetGroupArn: petHistoryTargetGroupArn
     });
 
@@ -117,7 +109,7 @@ export class Applications extends Stack {
     })));
 
     this.createOuputs(new Map(Object.entries({
-        'PetSiteECRImageURL': petsiteAsset.imageUri,
+        'PetSiteECRImageURL': `${repositoryURI + "/petsite:latest"}`,
         'PetStoreServiceAccountArn': petstoreserviceaccount.roleArn,
     })));
     // Creating AWS Resource Group for all the resources of stack.

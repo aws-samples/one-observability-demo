@@ -10,7 +10,7 @@ export class TrafficGeneratorService extends EcsService {
   }
 
   containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-trafficgenerator:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/trafficgenerator:latest`)
   }
 
   createContainerImage() : ecs.ContainerImage {

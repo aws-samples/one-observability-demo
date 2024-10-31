@@ -18,7 +18,7 @@ export class ListAdoptionsService extends EcsService {
   }
 
   containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage {
-    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/pet-listadoptions:latest`)
+    return ecs.ContainerImage.fromRegistry(`${repositoryURI}/petlistadoptions-go:latest`)
   }
 
   createContainerImage() : ecs.ContainerImage {
