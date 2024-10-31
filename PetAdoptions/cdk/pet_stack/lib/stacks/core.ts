@@ -1,8 +1,10 @@
-import { Stack } from 'aws-cdk-lib';
+import { Aspects, CfnOutput, Stack, Tags } from 'aws-cdk-lib';
 import { WorkshopNetwork } from '../constructs/network';
-import { NagSuppressions } from "cdk-nag";
-import { Vpc } from 'aws-cdk-lib/aws-ec2';
+import { AwsSolutionsChecks, NagSuppressions } from "cdk-nag";
 import { Construct } from 'constructs';
+import * as fs from 'fs';
+import path = require('path');
+import { Repository } from '../constructs/repository';
 
 export interface CoreStackProps {
     name: string,
@@ -11,6 +13,7 @@ export interface CoreStackProps {
 
 export class CoreStack extends Stack {
     public readonly network;
+    public readonly repoList = new Map<string, string>();
     constructor(scope: Construct, id: string, props: CoreStackProps) {
         super(scope, id);
 
@@ -19,23 +22,44 @@ export class CoreStack extends Stack {
             { id: "AwsSolutions-IAM4", reason: "Stack level suppression, managed policies are aceptable in this workshop."}
         ])
 
-        var vpc = undefined;
+        // Network (VPC, Routes, etc)
+        this.network = new WorkshopNetwork(this, 'WorkshopNetwork', {
+            name: props.name,
+            cidrRange: "11.0.0.0/16"
+        });
 
-        const vpcid = this.node.tryGetContext('vpcid');
-
-
-        if (vpcid != undefined) {
-            vpc = Vpc.fromLookup(this, 'VPC', {
-                vpcId: vpcid,
+        const repoFolders = __dirname + "/../../resources/microservices";
+        const repositories = fs.readdirSync(repoFolders);        
+        const basePath = path.resolve(repoFolders);
+        
+        repositories.forEach(container => {
+        
+            const repo = new Repository(this, container, {
+                name: container,
+                enableScanOnPush: true,
+                initialCodePath: basePath + "/" + container,
             });
-        }
-        else {
-            // Network (VPC, Routes, etc)
-            this.network = new WorkshopNetwork(this, 'WorkshopNetwork', {
-                name: props.name,
-                cidrRange: "11.0.0.0/16"
+        
+            
+            this.repoList.set(container + "Uri", repo.getECRUri());
+        });
+        
+        createOuputs(this,this.repoList);
+        
+        new CfnOutput(this, 'VpcId', { value: this.network.vpc.vpcId });
+        new CfnOutput(this, 'VpcCidr', { value: this.network.vpc.vpcCidrBlock });
+        new CfnOutput(this, 'VpcPublicSubnetIds', { value: this.network.vpc.publicSubnets.map(subnet => subnet.subnetId).toString() });
+        new CfnOutput(this, 'VpcAvailabilityZones', {value: this.network.vpc.availabilityZones.toString()});
+
+        
+        Tags.of(this).add("Workshop","true")
+        Tags.of(this).add("ModularVersioning","true")
+        Aspects.of(this).add(new AwsSolutionsChecks({verbose: true}));
+        
+        function createOuputs(scope: Construct ,params: Map<string, string>) {
+            params.forEach((value, key) => {
+                new CfnOutput(scope, key, { value: value })
             });
-            vpc = this.network.vpc;
         }
 
         // // Stack Level suppressions (TODO: move to the construct if possible)

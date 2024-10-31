@@ -8,8 +8,12 @@ import { CDKPipeline } from '../lib/stacks/pipeline';
 //import { AwsSolutionsChecks } from 'cdk-nag';
 
 
-const stackName = "Services";
-const app = new App();
+const stackName = "OneObservabilityWorkshop";
+const app = new App({
+  context: {
+    stackName: stackName
+  }
+});
 
 const pipelineStack = new CDKPipeline(app, "Pipeline", {
   sourceBucketName: process.env.SOURCE_BUCKET_NAME!,

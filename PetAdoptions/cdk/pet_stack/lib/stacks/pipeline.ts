@@ -1,11 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { CodeBuildStep, CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
+import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { ServiceStage } from '../servicesStage';
-import { CoreStack } from './core';
 import { CoreStage } from '../coreStage';
+import { ImageBuildStep } from '../constructs/imageBuiltStep';
+import { Vpc } from 'aws-cdk-lib/aws-ec2';
+import { App } from 'aws-cdk-lib';
 
 export interface CDKPipelineProps extends cdk.StackProps {
     sourceBucketName: string;
@@ -18,8 +19,10 @@ export class CDKPipeline extends cdk.Stack {
 
         const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', props.sourceBucketName);
 
+        const source = CodePipelineSource.s3(sourceBucket,'Repository.zip');
+
         const synthStep = new CodeBuildStep('SynthStep', {
-            input: CodePipelineSource.s3(sourceBucket,'Repository.zip'),
+            input: source,
             env: {
                 'SOURCE_BUCKET_NAME':props.sourceBucketName,
                 'GITHUB_BRANCH':props.branchName
@@ -47,13 +50,37 @@ export class CDKPipeline extends cdk.Stack {
             primaryOutputDirectory: `one-observability-demo-${props.branchName}/PetAdoptions/cdk/pet_stack/cdk.out`
             });
 
-        const pipeline = new CodePipeline(this, 'Pipeline', {
+        const pipeline = new CodePipeline(this, 'CodePipeline', {
             pipelineName: 'PetAdoption',
             synth: synthStep
         });
 
-        const coreStage = pipeline.addStage(new CoreStage(this, "WorkshopCore", {}));
+        const coreStage = new CoreStage(scope, "WorkshopBase", {});
+        pipeline.addStage(coreStage);
 
+        const vpcId = cdk.Fn.importValue('VpcId');
+        const publicSubnetIds = cdk.Fn.importListValue('VpcPublicSubnets',2,',');
+        const availabilityZones = cdk.Fn.importListValue('VpcAvailabilityZones', 2, ',');
+        const vpc = Vpc.fromVpcAttributes(this, 'VPC', { vpcId, publicSubnetIds, availabilityZones});
+
+
+        const imageBuildSteps = new Array<CodeBuildStep>();
+
+        coreStage.repoList.forEach((value, key) => {
+            imageBuildSteps.push(new ImageBuildStep(key, {
+                repositoryName: key,
+                repositoryUri: value,
+                source: source,
+                vpc: vpc,
+                account: coreStage.account!,
+                region: coreStage.region!,
+            }));
+        });
+        
+        const imageWave = pipeline.addWave("ImageBuildWave", {
+            post: imageBuildSteps,
+        });
+        
         // const serviceStage = pipeline.addStage(new ServiceStage(this, "Services", {
         //     env: { 
         //         account: process.env.CDK_DEFAULT_ACCOUNT, 
