@@ -95,8 +95,8 @@ Resources:
                 - cd one-observability-demo-${GITHUB_BRANCH}/PetAdoptions/cdk/pet_stack
                 - npm install
                 - if [ -z "$CDK_STACK" ] ; then echo "cdk bootstrap needed" ; else echo "Already bootstrapped" ; fi
-                - cdk synth Pipeline
-                - cdk deploy Pipeline --require-approval never
+                - cdk synth OneObservabilityWorkshopPipeline
+                - cdk deploy OneObservabilityWorkshopPipeline --require-approval never
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED

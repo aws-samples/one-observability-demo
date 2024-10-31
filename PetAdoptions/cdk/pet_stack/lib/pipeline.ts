@@ -6,6 +6,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { ImageBuilderStage } from './imageBuilderStage';
 import { ImageBuildStep } from './constructs/imageBuiltStep';
 import { ServiceStage } from './servicesStage';
+import { ApplicationsStage } from './applicationsStage';
 
 export interface CDKPipelineProps extends cdk.StackProps {
     sourceBucketName: string;
@@ -54,7 +55,7 @@ export class CDKPipeline extends cdk.Stack {
             synth: synthStep
         });
 
-        const coreStage = new ImageBuilderStage(scope, "WorkshopBase", {});
+        const coreStage = new ImageBuilderStage(scope, "Repositories", {});
         pipeline.addStage(coreStage);
 
         const imageBuildSteps = new Array<CodeBuildStep>();
@@ -74,11 +75,18 @@ export class CDKPipeline extends cdk.Stack {
             post: imageBuildSteps,
         });
         
-        const serviceStage = pipeline.addStage(new ServiceStage(this, "Services", {
+        const serviceStage = pipeline.addStage(new ServiceStage(scope, "Services", {
             env: { 
                 account: process.env.CDK_DEFAULT_ACCOUNT, 
                 region: process.env.CDK_DEFAULT_REGION 
             }
+        }));
+
+        const applicationStage = pipeline.addStage(new ApplicationsStage(scope, "Applications", {
+            env: { 
+                account: process.env.CDK_DEFAULT_ACCOUNT, 
+                region: process.env.CDK_DEFAULT_REGION 
+            }            
         }));
     }
 };
