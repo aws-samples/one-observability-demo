@@ -129,7 +129,7 @@ export class Services extends Stack {
 
         const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
 
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_15 }),
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_14_12 }),
  
             parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
             vpc: theVPC,
