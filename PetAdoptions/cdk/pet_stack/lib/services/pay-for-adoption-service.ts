@@ -5,7 +5,7 @@ import { EcsService, EcsServiceProps } from './ecs-service'
 import { Construct } from 'constructs'
 
 export interface PayForAdoptionServiceProps extends EcsServiceProps {
-  database: rds.ServerlessCluster
+  database: rds.DatabaseCluster
 }
 
 export class PayForAdoptionService extends EcsService {
