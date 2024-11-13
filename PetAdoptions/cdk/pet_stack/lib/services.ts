@@ -135,9 +135,6 @@ export class Services extends Stack {
                 autoMinorVersionUpgrade: true
             }),
             readers: [
-                rds.ClusterInstance.serverlessV2('reader1', {
-                    autoMinorVersionUpgrade: true
-                })
             ],
             serverlessV2MaxCapacity: 1,
             serverlessV2MinCapacity: 0.5,
