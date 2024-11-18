@@ -15,10 +15,7 @@ import * as yaml from 'js-yaml';
 import * as path from 'path';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
-import * as ecrassets from 'aws-cdk-lib/aws-ecr-assets';
 import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 
@@ -35,7 +32,6 @@ import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
-import { Cloud9Environment } from './modules/core/cloud9';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -136,19 +132,21 @@ export class Services extends Stack {
             rdsUsername = "petadmin"
         }
 
-        const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
+        const auroraCluster = new rds.DatabaseCluster(this, 'Database', {
 
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_9 }),
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_15 }),
  
             parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
-            scaling: {
-                autoPause: Duration.minutes(60),
-                minCapacity: rds.AuroraCapacityUnit.ACU_2,
-                maxCapacity: rds.AuroraCapacityUnit.ACU_8,
-            }
+            writer: rds.ClusterInstance.serverlessV2('writer', {
+                autoMinorVersionUpgrade: true
+            }),
+            readers: [
+            ],
+            serverlessV2MaxCapacity: 1,
+            serverlessV2MinCapacity: 0.5,
         });
 
 
