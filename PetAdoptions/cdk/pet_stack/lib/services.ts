@@ -109,15 +109,17 @@ export class Services extends Stack {
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
             ipAddresses: ec2.IpAddresses.cidr(cidrRange),
-            // cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2,
-            
         });
 
         // Disable Map IP on launch for all public subnets
-        for (const subnet of theVPC.publicSubnets) {
-            const cfnSubnet = subnet.node.findChild('Resource') as ec2.CfnSubnet;
+        const publicSubnets = theVPC.selectSubnets({
+            subnetType: ec2.SubnetType.PUBLIC,
+        });
+        
+        for (const subnet of publicSubnets.subnets) {
+            const cfnSubnet = subnet.node.defaultChild as ec2.CfnSubnet;
             cfnSubnet.mapPublicIpOnLaunch = false;
         }
 
