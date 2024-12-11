@@ -105,10 +105,19 @@ export class Services extends Stack {
         // The VPC where all the microservices will be deployed into
         const theVPC = new ec2.Vpc(this, 'Microservices', {
             ipAddresses: ec2.IpAddresses.cidr(cidrRange),
-            // cidr: cidrRange,
             natGateways: 1,
             maxAzs: 2
         });
+
+        // Disable Map IP on launch for all public subnets
+        const publicSubnets = theVPC.selectSubnets({
+            subnetType: ec2.SubnetType.PUBLIC,
+        });
+        
+        for (const subnet of publicSubnets.subnets) {
+            const cfnSubnet = subnet.node.defaultChild as ec2.CfnSubnet;
+            cfnSubnet.mapPublicIpOnLaunch = false;
+        }        
 
         // Create RDS Aurora PG cluster
         const rdssecuritygroup = new ec2.SecurityGroup(this, 'petadoptionsrdsSG', {
