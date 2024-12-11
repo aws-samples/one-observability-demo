@@ -111,8 +111,15 @@ export class Services extends Stack {
             ipAddresses: ec2.IpAddresses.cidr(cidrRange),
             // cidr: cidrRange,
             natGateways: 1,
-            maxAzs: 2
+            maxAzs: 2,
+            
         });
+
+        // Disable Map IP on launch for all public subnets
+        for (const subnet of theVPC.publicSubnets) {
+            const cfnSubnet = subnet.node.findChild('Resource') as ec2.CfnSubnet;
+            cfnSubnet.mapPublicIpOnLaunch = false;
+        }
 
         // Create RDS Aurora PG cluster
         const rdssecuritygroup = new ec2.SecurityGroup(this, 'petadoptionsrdsSG', {
