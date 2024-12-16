@@ -342,7 +342,7 @@ export class Services extends Stack {
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
-            version: KubernetesVersion.of('1.28'),
+            version: KubernetesVersion.of('1.31'),
             kubectlLayer: new KubectlLayer(this, 'kubectl'),
             authenticationMode: eks.AuthenticationMode.API_AND_CONFIG_MAP,
         });
@@ -511,7 +511,7 @@ export class Services extends Stack {
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
         const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
-            addonVersion: 'v1.2.0-eksbuild.1',
+            addonVersion: 'v2.6.0-eksbuild.1',
             clusterName: cluster.clusterName,
             // the properties below are optional
             resolveConflicts: 'OVERWRITE',
