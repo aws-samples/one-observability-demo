@@ -95,7 +95,7 @@ export abstract class EcsService extends Construct {
 
     // Build locally the image only if the repository URI is not specified
     // Can help speed up builds if we are not rebuilding anything
-    const image = props.repositoryURI? this.containerImageFromRepository(props.repositoryURI) : this.createContainerImage()
+    const image = props.repositoryURI ? this.containerImageFromRepository(props.repositoryURI) : this.createContainerImage()
 
     this.container = this.taskDefinition.addContainer('container', {
       image: image,
@@ -122,7 +122,7 @@ export abstract class EcsService extends Construct {
    //*/
 
     // sidecar for instrumentation collecting
-    switch(props.instrumentation) {
+    switch (props.instrumentation) {
 
       // we don't add any sidecar if instrumentation is none
       case "none": {
@@ -169,7 +169,7 @@ export abstract class EcsService extends Construct {
     }
   }
 
-  abstract containerImageFromRepository(repositoryURI: string) : ecs.ContainerImage;
+  abstract containerImageFromRepository(repositoryURI: string): ecs.ContainerImage;
 
   abstract createContainerImage(): ecs.ContainerImage;
 
@@ -187,11 +187,11 @@ export abstract class EcsService extends Construct {
 
   private addOtelCollectorContainer(taskDefinition: ecs.FargateTaskDefinition, logging: ecs.AwsLogDriver) {
     taskDefinition.addContainer('aws-otel-collector', {
-        image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.32.0'),
-        memoryLimitMiB: 256,
-        cpu: 256,
-        command: ["--config", "/etc/ecs/ecs-xray.yaml"],
-        logging
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.32.0'),
+      memoryLimitMiB: 256,
+      cpu: 256,
+      command: ["--config", "/etc/ecs/ecs-xray.yaml"],
+      logging
     });
   }
 }
