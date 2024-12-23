@@ -1,4 +1,4 @@
-FROM golang:1.20 as builder
+FROM golang:1.23 as builder
 WORKDIR /go/src/app
 COPY . .
 ENV GOPROXY=https://goproxy.io,direct
