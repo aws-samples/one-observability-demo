@@ -34,7 +34,7 @@ type service struct {
 	ddbSeedingLambdaName string
 }
 
-//inject dependencies into core logic
+// inject dependencies into core logic
 func NewService(logger log.Logger, rep Repository) Service {
 	return &service{
 		logger:     logger,
