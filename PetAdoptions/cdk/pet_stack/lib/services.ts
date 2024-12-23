@@ -194,8 +194,7 @@ export class Services extends Stack {
             cpu: 1024,
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
-            // build locally
-            //repositoryURI: repositoryURI,
+            instrumentation: 'otel',
             database: auroraCluster,
             desiredTaskCount: 2,
             region: region,
@@ -217,8 +216,6 @@ export class Services extends Stack {
             memoryLimitMiB: 2048,
             healthCheck: '/health/status',
             instrumentation: 'otel',
-            // build locally
-            //repositoryURI: repositoryURI,
             database: auroraCluster,
             desiredTaskCount: 2,
             region: region,
