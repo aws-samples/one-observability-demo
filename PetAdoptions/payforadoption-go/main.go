@@ -29,10 +29,11 @@ const otelServiceName = "payforadoption"
 
 var tracer trace.Tracer
 
-func otelInit(ctx context.Context) {
+func init() {
 	// OpenTelemetry Go requires an exporter to send traces to a backend
 	// Exporters allow telemetry data to be transferred either to the ADOT Collector,
 	// or to a remote system or console for further analysis
+	ctx := context.Background()
 
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
@@ -44,6 +45,7 @@ func otelInit(ctx context.Context) {
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(endpoint),
 	)
+	fmt.Println("init error", err)
 
 	// service name used to display traces in backends
 	svcNameResource := resource.NewWithAttributes(
@@ -57,12 +59,11 @@ func otelInit(ctx context.Context) {
 	mergedResource, err := resource.Merge(ecsRes, svcNameResource)
 	if err != nil {
 		mergedResource = svcNameResource
+		fmt.Println("mergedResource error", err)
 	}
-	idg := xray.NewIDGenerator()
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(traceExporter),
-		sdktrace.WithIDGenerator(idg),
 		sdktrace.WithResource(mergedResource),
 	)
 
@@ -86,8 +87,6 @@ func main() {
 		logger = log.With(logger, "caller", log.DefaultCaller)
 	}
 
-	ctx := context.Background()
-	otelInit(ctx)
 	// otelaws.AppendMiddlewares(&cfg.awsCfg.APIOptions)
 
 	var cfg payforadoption.Config

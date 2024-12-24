@@ -28,10 +28,8 @@ type Service interface {
 
 // object that handles the logic and complies with interface
 type service struct {
-	logger               log.Logger
-	repository           Repository
-	updateAdoptionURL    string
-	ddbSeedingLambdaName string
+	logger     log.Logger
+	repository Repository
 }
 
 // inject dependencies into core logic
@@ -64,7 +62,7 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		if s.repository.ErrorModeOn(ctx) {
 			level.Error(logger).Log("errorMode", "On")
 			memoryLeak()
-			return a, errors.New("Illegal memory allocation")
+			return a, errors.New("illegal memory allocation")
 		} else {
 			level.Error(logger).Log("errorMode", "Off")
 		}

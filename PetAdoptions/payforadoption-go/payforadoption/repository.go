@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -205,7 +205,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 func (r *repo) fetchSeedData() (string, error) {
 
 	//TODO Fetch from s3
-	data, err := ioutil.ReadFile("seed.json")
+	data, err := os.ReadFile("seed.json")
 	if err != nil {
 		r.logger.Log("err", err)
 	}

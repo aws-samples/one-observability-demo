@@ -22,8 +22,8 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	r.Use(otelmux.Middleware("payforadoption",
 		otelmux.WithFilter(func(r *http.Request) bool {
 			switch r.URL.Path {
-			case "/health/status":
-				return false
+			// case "/health/status":
+			// 	return false
 			case "/metrics":
 				return false
 			default:
