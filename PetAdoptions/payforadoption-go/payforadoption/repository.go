@@ -5,18 +5,21 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/guregu/dynamo"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Repository as an interface to define data store interactions
@@ -35,11 +38,12 @@ type Config struct {
 	S3BucketName      string
 	DynamoDBTable     string
 	AWSRegion         string
+	Tracer            trace.Tracer
 }
 
 var RepoErr = errors.New("Unable to handle Repo Request")
 
-//repo as an implementation of Repository with dependency injection
+// repo as an implementation of Repository with dependency injection
 type repo struct {
 	db     *sql.DB
 	cfg    Config
@@ -87,24 +91,20 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 
 func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 	logger := log.With(r.logger, "method", "UpdateAvailability")
-	subsegCtx, subseg := xray.BeginSubsegment(ctx, "UpdateAvailability")
-	defer subseg.Close(nil)
+	ctx, parentSpan := r.cfg.Tracer.Start(ctx, "UpdateAvailability")
+	defer parentSpan.End()
 
 	errs := make(chan error)
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	// using xray as a wrapper for http client
-	client := xray.Client(&http.Client{})
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
 
 	go func() {
 		defer wg.Done()
-
-		updateAdoptionStatusCtx, updateAdoptionStatusSeg := xray.BeginSubsegment(
-			subsegCtx,
-			"Update Adoption Status",
-		)
-		defer updateAdoptionStatusSeg.Close(nil)
+		updateAdoptionStatusCtx, updateAdoptionStatusSpan := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
+		defer updateAdoptionStatusSpan.End()
 
 		body := &completeAdoptionRequest{a.PetID, a.PetType}
 		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
@@ -116,7 +116,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		}
 
 		defer resp.Body.Close()
-		if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		if body, err := io.ReadAll(resp.Body); err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
 		} else {
@@ -127,19 +127,17 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 
 	go func() {
 		defer wg.Done()
+		availabilityCtx, availabilitySpan := r.cfg.Tracer.Start(ctx, "Invoking Availability API")
+		defer availabilitySpan.End()
 
-		availabilityCtx, availabilitySeg := xray.BeginSubsegment(
-			subsegCtx,
-			"Invoking Availability API",
-		)
-		defer availabilitySeg.Close(nil)
-
-		req, _ := http.NewRequest("GET", "https://amazon.com", nil)
-		_, err := client.Do(req.WithContext(availabilityCtx))
+		client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
+		request, err := http.NewRequestWithContext(availabilityCtx, http.MethodGet, "https://amazon.com", nil)
 		if err != nil {
 			level.Error(logger).Log("err", err)
 			errs <- err
 		}
+		client.Do(request)
+
 	}()
 
 	go func() {

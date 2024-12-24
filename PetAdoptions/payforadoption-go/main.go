@@ -98,6 +98,7 @@ func main() {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
 		}
+		cfg.Tracer = tracer
 	}
 
 	var db *sql.DB
