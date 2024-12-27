@@ -9,9 +9,9 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
@@ -22,8 +22,8 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	r.Use(otelmux.Middleware("payforadoption",
 		otelmux.WithFilter(func(r *http.Request) bool {
 			switch r.URL.Path {
-			// case "/health/status":
-			// 	return false
+			case "/health/status":
+				return false
 			case "/metrics":
 				return false
 			default:

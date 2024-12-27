@@ -11,13 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/dghubble/sling"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/guregu/dynamo"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/guregu/dynamo/v2"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -39,9 +38,10 @@ type Config struct {
 	DynamoDBTable     string
 	AWSRegion         string
 	Tracer            trace.Tracer
+	AWSCfg            aws.Config
 }
 
-var RepoErr = errors.New("Unable to handle Repo Request")
+var RepoErr = errors.New("unable to handle Repo Request")
 
 // repo as an implementation of Repository with dependency injection
 type repo struct {
@@ -181,7 +181,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 		return err
 	}
 
-	db := dynamo.New(session.New(), &aws.Config{Region: aws.String(r.cfg.AWSRegion)})
+	db := dynamo.New(r.cfg.AWSCfg)
 	table := db.Table(r.cfg.DynamoDBTable)
 
 	bw := table.Batch().Write()
@@ -189,7 +189,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 		bw = bw.Put(i)
 	}
 
-	res, err := bw.Run()
+	res, err := bw.Run(ctx)
 
 	r.logger.Log("res", res, "err", err)
 
@@ -204,7 +204,6 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 func (r *repo) fetchSeedData() (string, error) {
 
-	//TODO Fetch from s3
 	data, err := os.ReadFile("seed.json")
 	if err != nil {
 		r.logger.Log("err", err)
@@ -215,9 +214,9 @@ func (r *repo) fetchSeedData() (string, error) {
 
 func (r *repo) ErrorModeOn(ctx context.Context) bool {
 
-	svc := ssm.New(session.New(&aws.Config{Region: aws.String(r.cfg.AWSRegion)}))
+	svc := ssm.NewFromConfig(r.cfg.AWSCfg)
 
-	res, err := svc.GetParameterWithContext(ctx, &ssm.GetParameterInput{
+	res, err := svc.GetParameter(ctx, &ssm.GetParameterInput{
 		Name: aws.String("/petstore/errormode1"),
 	})
 
@@ -225,11 +224,7 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 		return false
 	}
 
-	if aws.StringValue(res.Parameter.Value) == "true" {
-		return true
-	}
-
-	return false
+	return aws.ToString(res.Parameter.Value) == "true"
 }
 
 func (r *repo) CreateSQLTables(ctx context.Context) error {

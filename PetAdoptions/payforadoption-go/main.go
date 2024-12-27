@@ -12,10 +12,11 @@ import (
 
 	"petadoptions/payforadoption"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -29,11 +30,10 @@ const otelServiceName = "payforadoption"
 
 var tracer trace.Tracer
 
-func init() {
+func otelInit(ctx context.Context) {
 	// OpenTelemetry Go requires an exporter to send traces to a backend
 	// Exporters allow telemetry data to be transferred either to the ADOT Collector,
 	// or to a remote system or console for further analysis
-	ctx := context.Background()
 
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
@@ -74,6 +74,9 @@ func init() {
 }
 
 func main() {
+	ctx := context.Background()
+	otelInit(ctx)
+
 	var (
 		httpAddr = flag.String("http.addr", ":80", "HTTP Port binding")
 	)
@@ -87,12 +90,10 @@ func main() {
 		logger = log.With(logger, "caller", log.DefaultCaller)
 	}
 
-	// otelaws.AppendMiddlewares(&cfg.awsCfg.APIOptions)
-
 	var cfg payforadoption.Config
 	{
 		var err error
-		cfg, err = fetchConfig()
+		cfg, err = fetchConfig(ctx, logger)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
@@ -100,12 +101,15 @@ func main() {
 		cfg.Tracer = tracer
 	}
 
+	//auto instrumentation of AWS APIs
+	otelaws.AppendMiddlewares(&cfg.AWSCfg.APIOptions)
+
 	var db *sql.DB
 	{
 		var err error
 		var connStr string
 
-		connStr, err = getRDSConnectionString(cfg.RDSSecretArn)
+		connStr, err = getRDSConnectionString(ctx, cfg)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
