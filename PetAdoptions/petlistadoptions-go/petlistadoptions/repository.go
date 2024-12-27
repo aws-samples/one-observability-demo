@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,7 +22,7 @@ type Repository interface {
 	GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]Adoption, error)
 }
 
-//repo as an implementation of Repository with dependency injection
+// repo as an implementation of Repository with dependency injection
 type repo struct {
 	db          *sql.DB
 	logger      log.Logger

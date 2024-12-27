@@ -12,8 +12,8 @@ import (
 
 	"petadoptions/petlistadoptions"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
