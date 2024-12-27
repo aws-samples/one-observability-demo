@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -20,6 +21,13 @@ import (
 // Repository as an interface to define data store interactions
 type Repository interface {
 	GetLatestAdoptions(ctx context.Context, petSearchURL string) ([]Adoption, error)
+}
+
+type Config struct {
+	PetSearchURL string
+	RDSSecretArn string
+	Tracer       trace.Tracer
+	AWSCfg       aws.Config
 }
 
 // repo as an implementation of Repository with dependency injection

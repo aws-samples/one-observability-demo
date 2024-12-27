@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
+	"petadoptions/petlistadoptions"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/spf13/viper"
 )
 
@@ -21,80 +22,78 @@ type dbConfig struct {
 }
 
 // config is injected as environment variable
-type Config struct {
-	PetSearchURL string
-	RDSSecretArn string
-}
-
-func fetchConfig() (Config, error) {
+func fetchConfig(ctx context.Context, logger log.Logger) (petlistadoptions.Config, error) {
 
 	// fetch from env
 	viper.SetEnvPrefix("app")
 	viper.AutomaticEnv() // Bind automatically all env vars that have the same prefix
 
-	cfg := Config{
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		level.Error(logger).Log("aws", err)
+	}
+
+	cfg := petlistadoptions.Config{
 		PetSearchURL: viper.GetString("PET_SEARCH_URL"),
 		RDSSecretArn: viper.GetString("RDS_SECRET_ARN"),
+		AWSCfg:       awsCfg,
 	}
 
 	if cfg.PetSearchURL == "" || cfg.RDSSecretArn == "" {
-		return fetchConfigFromParameterStore(os.Getenv("AWS_REGION"))
+		return fetchConfigFromParameterStore(ctx, cfg)
 	}
 
 	return cfg, nil
 }
 
-func fetchConfigFromParameterStore(region string) (Config, error) {
-	svc := ssm.New(session.New(&aws.Config{Region: aws.String(region)}))
-	xray.AWS(svc.Client)
-	ctx, seg := xray.BeginSegment(context.Background(), "petlistadoptions")
-	defer seg.Close(nil)
+func fetchConfigFromParameterStore(ctx context.Context, cfg petlistadoptions.Config) (petlistadoptions.Config, error) {
+	svc := ssm.NewFromConfig(cfg.AWSCfg)
 
-	res, err := svc.GetParametersWithContext(ctx, &ssm.GetParametersInput{
-		Names: []*string{
-			aws.String("/petstore/rdssecretarn"),
-			aws.String("/petstore/searchapiurl"),
+	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
+		Names: []string{
+			"/petstore/rdssecretarn",
+			"/petstore/searchapiurl",
 		},
 	})
 
-	cfg := Config{}
+	newCfg := petlistadoptions.Config{
+		AWSCfg: cfg.AWSCfg,
+	}
 
 	if err != nil {
-		return cfg, err
+		return newCfg, err
 	}
 
 	for _, p := range res.Parameters {
-		if aws.StringValue(p.Name) == "/petstore/rdssecretarn" {
-			cfg.RDSSecretArn = aws.StringValue(p.Value)
-		} else if aws.StringValue(p.Name) == "/petstore/searchapiurl" {
-			cfg.PetSearchURL = aws.StringValue(p.Value)
+		pValue := aws.ToString(p.Value)
+
+		switch aws.ToString(p.Name) {
+		case "/petstore/rdssecretarn":
+			newCfg.RDSSecretArn = pValue
+		case "/petstore/searchapiurl":
+			newCfg.PetSearchURL = pValue
 		}
 	}
 
 	return cfg, err
 }
 
-func getSecretValue(secretID, region string) (string, error) {
-
-	svc := secretsmanager.New(session.New(&aws.Config{Region: aws.String(region)}))
-	xray.AWS(svc.Client)
-	ctx, seg := xray.BeginSegment(context.Background(), "petlistadoptions")
-
-	res, err := svc.GetSecretValueWithContext(ctx, &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(secretID),
+func getSecretValue(ctx context.Context, cfg petlistadoptions.Config) (string, error) {
+	svc := secretsmanager.NewFromConfig(cfg.AWSCfg)
+	res, err := svc.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(cfg.RDSSecretArn),
 	})
-	seg.Close(nil)
 
 	if err != nil {
 		return "", err
 	}
 
-	return aws.StringValue(res.SecretString), nil
+	return aws.ToString(res.SecretString), nil
 }
 
 // Call aws secrets manager and return parsed sql server query str
-func getRDSConnectionString(secretid string, withPassword bool) (string, error) {
-	jsonstr, err := getSecretValue(secretid, os.Getenv("AWS_REGION"))
+func getRDSConnectionString(ctx context.Context, cfg petlistadoptions.Config) (string, error) {
+	jsonstr, err := getSecretValue(ctx, cfg)
 	if err != nil {
 		return "", err
 	}
@@ -109,22 +108,11 @@ func getRDSConnectionString(secretid string, withPassword bool) (string, error) 
 	// database should be in config
 	query.Set("database", "adoptions")
 
-	var u *url.URL
-
-	if withPassword {
-		u = &url.URL{
-			Scheme: c.Engine,
-			User:   url.UserPassword(c.Username, c.Password),
-			Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
-			Path:   c.Dbname,
-		}
-	} else {
-		u = &url.URL{
-			Scheme: c.Engine,
-			User:   url.UserPassword(c.Username, ""),
-			Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
-			Path:   c.Dbname,
-		}
+	u := &url.URL{
+		Scheme: c.Engine,
+		User:   url.UserPassword(c.Username, c.Password),
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+		Path:   c.Dbname,
 	}
 
 	return u.String(), nil
