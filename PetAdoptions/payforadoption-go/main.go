@@ -12,6 +12,7 @@ import (
 
 	"petadoptions/payforadoption"
 
+	"github.com/XSAM/otelsql"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
@@ -115,11 +116,23 @@ func main() {
 			os.Exit(-1)
 		}
 
-		db, err = sql.Open("postgres", connStr)
+		db, err = otelsql.Open("postgres", connStr, otelsql.WithAttributes(
+			semconv.DBSystemKey.String("postgres"),
+		),
+		)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
 		}
+
+		// Register DB stats to meter
+		err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
+			semconv.DBSystemMySQL,
+		))
+		if err != nil {
+			level.Error(logger).Log("RegisterDBStatsMetrics error", err)
+		}
+
 		defer db.Close()
 	}
 

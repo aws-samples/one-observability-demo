@@ -111,6 +111,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
+			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 			return
 		}
@@ -118,6 +119,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		defer resp.Body.Close()
 		if body, err := io.ReadAll(resp.Body); err != nil {
 			level.Error(logger).Log("err", err)
+			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 		} else {
 			sb := string(body)
@@ -134,6 +136,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		request, err := http.NewRequestWithContext(availabilityCtx, http.MethodGet, "https://amazon.com", nil)
 		if err != nil {
 			level.Error(logger).Log("err", err)
+			availabilitySpan.RecordError(err)
 			errs <- err
 		}
 		client.Do(request)
