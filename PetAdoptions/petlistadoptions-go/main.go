@@ -34,10 +34,6 @@ func init() {
 	}
 	traceExporter, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithDialOption(grpc.WithBlock()))
 
-	// A custom ID Generator to generate traceIDs that conform to
-	// AWS X-Ray traceID format
-	idg := xray.NewIDGenerator()
-
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
 		// the service name used to display traces in backends
@@ -51,7 +47,6 @@ func init() {
 		// Be careful about using this sampler in a production application with
 		// significant traffic: a new trace will be started and exported for every request.
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithIDGenerator(idg),
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(res),
 	)
@@ -70,7 +65,6 @@ func main() {
 	var logger log.Logger
 	logger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
-
 
 	var cfg Config
 	{
