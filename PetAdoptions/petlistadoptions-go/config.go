@@ -75,7 +75,7 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg petlistadoptions.Con
 		}
 	}
 
-	return cfg, err
+	return newCfg, err
 }
 
 func getSecretValue(ctx context.Context, cfg petlistadoptions.Config) (string, error) {
