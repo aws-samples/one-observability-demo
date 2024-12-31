@@ -75,6 +75,9 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 }
 
 func (r *repo) DropTransactions(ctx context.Context) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("saving history and removing transctions in PG DB")
+
 	sql := []string{`INSERT INTO transactions_history SELECT * FROM transactions`,
 		`DELETE FROM transactions`}
 
@@ -82,6 +85,7 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 		r.logger.Log("sql", s)
 		_, err := r.db.ExecContext(ctx, s)
 		if err != nil {
+			span.RecordError(err)
 			return err
 		}
 	}
@@ -169,11 +173,14 @@ type Pet struct {
 }
 
 func (r *repo) TriggerSeeding(ctx context.Context) error {
+	span := trace.SpanFromContext(ctx)
+	ctx, ddbSpan := r.cfg.Tracer.Start(ctx, "DDB seed")
 
 	seedRawData, err := r.fetchSeedData()
 
 	if err != nil {
 		level.Error(r.logger).Log("err", err)
+		span.RecordError(err)
 		return err
 	}
 
@@ -181,6 +188,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 	if err := json.Unmarshal([]byte(seedRawData), &pets); err != nil {
 		level.Error(r.logger).Log("err", err)
+		span.RecordError(err)
 		return err
 	}
 
@@ -195,9 +203,13 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 	res, err := bw.Run(ctx)
 
 	r.logger.Log("res", res, "err", err)
+	ddbSpan.End()
 
+	ctx, pgSpan := r.cfg.Tracer.Start(ctx, "PG create tables")
+	defer pgSpan.End()
 	sqlErr := r.CreateSQLTables(ctx)
 	if sqlErr != nil {
+		span.RecordError(sqlErr)
 		return sqlErr
 	}
 

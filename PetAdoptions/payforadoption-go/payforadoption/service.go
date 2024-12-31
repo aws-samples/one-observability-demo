@@ -9,6 +9,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/gofrs/uuid"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Adoption struct {
@@ -30,13 +31,15 @@ type Service interface {
 type service struct {
 	logger     log.Logger
 	repository Repository
+	tracer     trace.Tracer
 }
 
 // inject dependencies into core logic
-func NewService(logger log.Logger, rep Repository) Service {
+func NewService(logger log.Logger, rep Repository, tracer trace.Tracer) Service {
 	return &service{
 		logger:     logger,
 		repository: rep,
+		tracer:     tracer,
 	}
 }
 
@@ -85,6 +88,8 @@ func (s service) CleanupAdoptions(ctx context.Context) error {
 		level.Error(logger).Log("err", err)
 	}
 
+	ctx, parentSpan := s.tracer.Start(ctx, "PG drop tables")
+	defer parentSpan.End()
 	if err := s.repository.DropTransactions(ctx); err != nil {
 		level.Error(logger).Log("err", err)
 		return err
@@ -94,10 +99,13 @@ func (s service) CleanupAdoptions(ctx context.Context) error {
 }
 
 func (s service) TriggerSeeding(ctx context.Context) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("Triggering seeding in DDB")
 
 	if err := s.repository.TriggerSeeding(ctx); err != nil {
 		logger := log.With(s.logger, "method", "TriggerSeeding")
 		level.Error(logger).Log("err", err)
+		span.RecordError(err)
 		return err
 	}
 

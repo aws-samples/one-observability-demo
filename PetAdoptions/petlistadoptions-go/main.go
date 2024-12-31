@@ -110,6 +110,7 @@ func main() {
 		}
 
 		// Register DB stats to meter
+		// TODO: collect DB metrics
 		err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
 			semconv.DBSystemMySQL,
 		))

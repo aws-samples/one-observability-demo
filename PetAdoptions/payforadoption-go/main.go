@@ -46,7 +46,9 @@ func otelInit(ctx context.Context) {
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(endpoint),
 	)
-	fmt.Println("init error", err)
+	if err != nil {
+		fmt.Println("init error", err)
+	}
 
 	// service name used to display traces in backends
 	svcNameResource := resource.NewWithAttributes(
@@ -118,8 +120,7 @@ func main() {
 
 		db, err = otelsql.Open("postgres", connStr, otelsql.WithAttributes(
 			semconv.DBSystemKey.String("postgres"),
-		),
-		)
+		))
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
@@ -139,7 +140,7 @@ func main() {
 	var s payforadoption.Service
 	{
 		repo := payforadoption.NewRepository(db, cfg, logger)
-		s = payforadoption.NewService(logger, repo)
+		s = payforadoption.NewService(logger, repo, tracer)
 		s = payforadoption.NewInstrumenting(logger, s)
 	}
 

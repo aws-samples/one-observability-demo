@@ -21,8 +21,6 @@ type dbConfig struct {
 	Port                                     int
 }
 
-// config is injected as environment variable
-
 func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config, error) {
 
 	// fetch from env
@@ -68,7 +66,6 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 	}
 
 	for _, p := range res.Parameters {
-
 		pValue := aws.ToString(p.Value)
 
 		switch aws.ToString(p.Name) {
@@ -87,9 +84,7 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 }
 
 func getSecretValue(ctx context.Context, cfg payforadoption.Config) (string, error) {
-
 	svc := secretsmanager.NewFromConfig(cfg.AWSCfg)
-
 	res, err := svc.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(cfg.RDSSecretArn),
 	})
@@ -121,5 +116,11 @@ func getRDSConnectionString(ctx context.Context, cfg payforadoption.Config) (str
 		Path:   c.Dbname,
 	}
 
-	return u.String(), nil
+	fmt.Println(u.String())
+
+	connStr := u.String()
+	connStr += "?sslmode=disable"
+
+	// return u.String(), nil
+	return connStr, nil
 }
