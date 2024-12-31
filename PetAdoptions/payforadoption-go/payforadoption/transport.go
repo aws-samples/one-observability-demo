@@ -23,7 +23,8 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		otelmux.WithFilter(func(r *http.Request) bool {
 			switch r.URL.Path {
 			case "/health/status":
-				return false
+				// instrumenting health check endpoint for application signals
+				return true
 			case "/metrics":
 				return false
 			default:
