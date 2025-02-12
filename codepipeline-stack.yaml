@@ -28,6 +28,11 @@ Parameters:
     Description: "Source branch to use for CodePipeline deployment"
     Type: String
     Default: main
+  
+  GithubUser:
+    Description: "Github user to use for CodePipeline deployment"
+    Type: String
+    Default: aws-samples
 
 Resources:
 
@@ -254,6 +259,9 @@ Resources:
           - Name: USER_ROLE_ARN
             Type: PLAINTEXT
             Value: !Ref UserRoleArn
+          - Name: GITHUB_USER
+            Type: PLAINTEXT
+            Value: !Ref GithubUser
           - Name: GITHUB_BRANCH
             Type: PLAINTEXT
             Value: !Ref GithubBranch    
@@ -278,7 +286,7 @@ Resources:
                 - CDK_STACK=$(aws cloudformation list-stacks --query 'StackSummaries[?(StackName==`CDKToolkit` && StackStatus==`CREATE_COMPLETE`)].StackId' --output text)
             build:
               commands:
-                - git clone --single-branch --depth 1 --branch ${GITHUB_BRANCH} https://github.com/aws-samples/one-observability-demo.git
+                - git clone --single-branch --depth 1 --branch ${GITHUB_BRANCH} https://github.com/${GITHUB_USER}/one-observability-demo.git
                 - cd ./one-observability-demo/PetAdoptions/cdk/pet_stack/
                 - npm install
                 - if [ -z "$CDK_STACK" ] ; then cdk bootstrap ; else echo "Already bootstrapped" ; fi
