@@ -186,7 +186,7 @@ export class Services extends Stack {
 
         const ecsPayForAdoptionCluster = new ecs.Cluster(this, "PayForAdoption", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
@@ -208,7 +208,7 @@ export class Services extends Stack {
 
         const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
@@ -229,7 +229,7 @@ export class Services extends Stack {
 
         const ecsPetSearchCluster = new ecs.Cluster(this, "PetSearch", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
