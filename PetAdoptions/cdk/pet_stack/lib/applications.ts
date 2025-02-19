@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { Construct } from 'constructs'
 import { ContainerImageBuilderProps, ContainerImageBuilder } from './common/container-image-builder'
 import { PetAdoptionsHistory } from './applications/pet-adoptions-history-application'
+import { KubectlV32Layer } from '@aws-cdk/lambda-layer-kubectl-v32';
 
 export class Applications extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -25,6 +26,7 @@ export class Applications extends Stack {
 
     const cluster = eks.Cluster.fromClusterAttributes(this, 'MyCluster', {
       clusterName: 'PetSite',
+      kubectlLayer: new KubectlV32Layer(this, 'kubectl'),
       kubectlRoleArn: roleArn,
     });
     // ClusterID is not available for creating the proper conditions https://github.com/aws/aws-cdk/issues/10347

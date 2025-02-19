@@ -31,7 +31,7 @@ import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } fr
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
-import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
+import { KubectlV32Layer } from '@aws-cdk/lambda-layer-kubectl-v32';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -342,8 +342,8 @@ export class Services extends Stack {
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
-            version: KubernetesVersion.of('1.31'),
-            kubectlLayer: new KubectlLayer(this, 'kubectl'),
+            version: eks.KubernetesVersion.V1_32,
+            kubectlLayer: new KubectlV32Layer(this, 'kubectl'),
             authenticationMode: eks.AuthenticationMode.API_AND_CONFIG_MAP,
         });
 
@@ -511,7 +511,7 @@ export class Services extends Stack {
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
         const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
-            addonVersion: 'v2.6.0-eksbuild.1',
+            addonVersion: 'v3.3.0-eksbuild.1',
             clusterName: cluster.clusterName,
             // the properties below are optional
             resolveConflicts: 'OVERWRITE',
