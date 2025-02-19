@@ -140,6 +140,8 @@ export class Services extends Stack {
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
+            databaseInsightsMode: rds.DatabaseInsightsMode.ADVANCED,
+            performanceInsightRetention: rds.PerformanceInsightRetention.MONTHS_15,            
             writer: rds.ClusterInstance.serverlessV2('writer', {
                 autoMinorVersionUpgrade: true
             }),
