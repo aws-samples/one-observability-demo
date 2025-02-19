@@ -12,23 +12,24 @@
     "cdk": "cdk"
   },
   "dependencies": {
-    "@aws-cdk/aws-lambda-python-alpha": "^2.131.0-alpha.0",
+    "@aws-cdk/aws-lambda-python-alpha": "^2.179.0-alpha.0",
+    "@aws-cdk/lambda-layer-kubectl-v32": "^2.0.3",
     "@types/js-yaml": "^4.0.9",
-    "aws-cdk-lib": "^2.146.0",
-    "cdk-ecr-deployment": "^3.0.67",
+    "aws-cdk-lib": "^2.179.0",
+    "cdk-ecr-deployment": "^3.1.9",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.0",
     "source-map-support": "^0.5.21"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.12",
-    "@types/node": "^20.14.2",
-    "aws-cdk": "^2.146.0",
-    "cdk-nag": "^2.28.144",
-    "constructs": "^10.3.0",
-    "ts-jest": "^29.1.5",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.4",
+    "aws-cdk": "^2.1000.2",
+    "cdk-nag": "^2.35.24",
+    "constructs": "^10.4.2",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "ts-replace-all": "^1.0.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.7.3"
   }
 }
