@@ -13,6 +13,14 @@ fi
 DDB_CONTRIB=$(aws ssm get-parameter --name '/petstore/dynamodbtablename' | jq .Parameter.Value -r)
 aws dynamodb update-contributor-insights --table-name $DDB_CONTRIB --contributor-insights-action DISABLE
 
+# Delete Network Flow Monitor
+if aws networkflowmonitor get-monitor --monitor-name network-flow-monitor-demo >/dev/null 2>&1; then
+    echo "Deleting network flow monitor..."
+    aws networkflowmonitor delete-monitor --monitor-name network-flow-monitor-demo
+else
+    echo "Network flow monitor not found, skipping delete."
+fi
+
 echo STARTING SERVICES CLEANUP
 echo -----------------------------
 
