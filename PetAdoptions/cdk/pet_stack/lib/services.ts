@@ -31,7 +31,7 @@ import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } fr
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
-import { KubectlV32Layer } from '@aws-cdk/lambda-layer-kubectl-v32';
+import { KubectlV31Layer } from '@aws-cdk/lambda-layer-kubectl-v31';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -344,8 +344,8 @@ export class Services extends Stack {
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
-            version: eks.KubernetesVersion.V1_32,
-            kubectlLayer: new KubectlV32Layer(this, 'kubectl'),
+            version: eks.KubernetesVersion.V1_31,
+            kubectlLayer: new KubectlV31Layer(this, 'kubectl'),
             authenticationMode: eks.AuthenticationMode.API_AND_CONFIG_MAP,
         });
 
