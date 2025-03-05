@@ -9,15 +9,30 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
 
 func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	r := mux.NewRouter()
+
+	r.Use(otelmux.Middleware("payforadoption",
+		otelmux.WithFilter(func(r *http.Request) bool {
+			switch r.URL.Path {
+			case "/health/status":
+				// instrumenting health check endpoint for application signals
+				return true
+			case "/metrics":
+				return false
+			default:
+				return true
+			}
+		}),
+	))
+
 	e := MakeEndpoints(s)
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
@@ -32,30 +47,19 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		options...,
 	))
 
-	// using xray as wrapper for http.Handler
-	r.Methods("POST").Path("/api/home/completeadoption").Handler(
-		xray.Handler(
-			xray.NewFixedSegmentNamer("payforadoption"),
-			httptransport.NewServer(
-				e.CompleteAdoptionEndpoint,
-				decodeCompleteAdoptionRequest,
-				encodeResponse,
-				options...,
-			),
-		),
-	)
-	// using xray as wrapper for http.Handler
-	r.Methods("POST").Path("/api/home/cleanupadoptions").Handler(
-		xray.Handler(
-			xray.NewFixedSegmentNamer("payforadoption"),
-			httptransport.NewServer(
-				e.CleanupAdoptionsEndpoint,
-				decodeEmptyRequest,
-				encodeEmptyResponse,
-				options...,
-			),
-		),
-	)
+	r.Methods("POST").Path("/api/home/completeadoption").Handler(httptransport.NewServer(
+		e.CompleteAdoptionEndpoint,
+		decodeCompleteAdoptionRequest,
+		encodeResponse,
+		options...,
+	))
+
+	r.Methods("POST").Path("/api/home/cleanupadoptions").Handler(httptransport.NewServer(
+		e.CleanupAdoptionsEndpoint,
+		decodeEmptyRequest,
+		encodeEmptyResponse,
+		options...,
+	))
 
 	// Trigger DDB seeding
 	r.Methods("POST").Path("/api/home/triggerseeding").Handler(httptransport.NewServer(

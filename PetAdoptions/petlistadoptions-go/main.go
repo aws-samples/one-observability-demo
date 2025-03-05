@@ -12,21 +12,26 @@ import (
 
 	"petadoptions/petlistadoptions"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/XSAM/otelsql"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
 
-func init() {
+const otelServiceName = "petlistadoptions"
+
+var tracer trace.Tracer
+
+func otelInit(ctx context.Context) {
 	// Create new OTLP Exporter struct
-	ctx := context.Background()
 
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
@@ -34,15 +39,10 @@ func init() {
 	}
 	traceExporter, _ := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithDialOption(grpc.WithBlock()))
 
-	// A custom ID Generator to generate traceIDs that conform to
-	// AWS X-Ray traceID format
-	idg := xray.NewIDGenerator()
-
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
 		// the service name used to display traces in backends
-		semconv.ServiceNameKey.String("petlistadoptions"),
-		//semconv.AWSLogGroupNamesKey.String("/ecs/PetListAdoptions"),
+		semconv.ServiceNameKey.String(otelServiceName),
 	)
 	// Create a new TraceProvider struct passing in the config, the exporter
 	// and the ID Generator we want to use for our tracing
@@ -51,16 +51,20 @@ func init() {
 		// Be careful about using this sampler in a production application with
 		// significant traffic: a new trace will be started and exported for every request.
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithIDGenerator(idg),
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(res),
 	)
 	// Set the traceprovider and the propagator we want to use
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(xray.Propagator{})
+
+	tracer = tp.Tracer(otelServiceName)
 }
 
 func main() {
+	ctx := context.Background()
+	otelInit(ctx)
+
 	var (
 		httpAddr = flag.String("http.addr", ":80", "HTTP Port binding")
 	)
@@ -71,15 +75,15 @@ func main() {
 	logger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 
-
-	var cfg Config
+	var cfg petlistadoptions.Config
 	{
 		var err error
-		cfg, err = fetchConfig()
+		cfg, err = fetchConfig(ctx, logger)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
 		}
+		cfg.Tracer = tracer
 	}
 
 	var db *sql.DB
@@ -87,8 +91,7 @@ func main() {
 		var err error
 		var connStr string
 
-		withPassword := true
-		connStr, err = getRDSConnectionString(cfg.RDSSecretArn, withPassword)
+		connStr, err = getRDSConnectionString(ctx, cfg)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
@@ -97,10 +100,22 @@ func main() {
 		// OTEL does not instrument yet database/sql, falling back to the native
 		// go sql interface
 		// https://github.com/open-telemetry/opentelemetry-go-contrib/issues/5
-		db, err = sql.Open("postgres", connStr)
+		db, err = otelsql.Open("postgres", connStr, otelsql.WithAttributes(
+			semconv.DBSystemKey.String("postgres"),
+		),
+		)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
+		}
+
+		// Register DB stats to meter
+		// TODO: collect DB metrics
+		err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
+			semconv.DBSystemMySQL,
+		))
+		if err != nil {
+			level.Error(logger).Log("RegisterDBStatsMetrics error", err)
 		}
 
 		defer db.Close()
@@ -109,7 +124,7 @@ func main() {
 	var s petlistadoptions.Service
 	{
 
-		safeConnStr, _ := getRDSConnectionString(cfg.RDSSecretArn, false)
+		safeConnStr, _ := getRDSConnectionString(ctx, cfg)
 		repo := petlistadoptions.NewRepository(db, logger, safeConnStr)
 		s = petlistadoptions.NewService(logger, repo, cfg.PetSearchURL)
 		s = petlistadoptions.NewInstrumenting(logger, s)

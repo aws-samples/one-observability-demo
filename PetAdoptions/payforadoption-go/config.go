@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	"petadoptions/payforadoption"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/spf13/viper"
 )
 
@@ -21,86 +21,84 @@ type dbConfig struct {
 	Port                                     int
 }
 
-// config is injected as environment variable
-
-func fetchConfig() (payforadoption.Config, error) {
+func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config, error) {
 
 	// fetch from env
 	viper.AutomaticEnv() // Bind automatically all env vars that have the same prefix
+
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		level.Error(logger).Log("aws", err)
+	}
 
 	cfg := payforadoption.Config{
 		UpdateAdoptionURL: viper.GetString("UPDATE_ADOPTION_URL"),
 		RDSSecretArn:      viper.GetString("RDS_SECRET_ARN"),
 		AWSRegion:         viper.GetString("AWS_REGION"),
+		AWSCfg:            awsCfg,
 	}
 
 	if cfg.UpdateAdoptionURL == "" || cfg.RDSSecretArn == "" {
-		return fetchConfigFromParameterStore(cfg.AWSRegion)
+		return fetchConfigFromParameterStore(ctx, cfg)
 	}
 
 	return cfg, nil
 }
 
-func fetchConfigFromParameterStore(region string) (payforadoption.Config, error) {
-	svc := ssm.New(session.New(&aws.Config{Region: aws.String(region)}))
-	xray.AWS(svc.Client)
-	ctx, seg := xray.BeginSegment(context.Background(), "payforadoption")
-	defer seg.Close(nil)
+func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config) (payforadoption.Config, error) {
+	svc := ssm.NewFromConfig(cfg.AWSCfg)
 
-	res, err := svc.GetParametersWithContext(ctx, &ssm.GetParametersInput{
-		Names: []*string{
-			aws.String("/petstore/updateadoptionstatusurl"),
-			aws.String("/petstore/rdssecretarn"),
-			aws.String("/petstore/s3bucketname"),
-			aws.String("/petstore/dynamodbtablename"),
+	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
+		Names: []string{
+			"/petstore/updateadoptionstatusurl",
+			"/petstore/rdssecretarn",
+			"/petstore/s3bucketname",
+			"/petstore/dynamodbtablename",
 		},
 	})
 
-	cfg := payforadoption.Config{}
-	cfg.AWSRegion = region
+	newCfg := payforadoption.Config{}
+	newCfg.AWSCfg = cfg.AWSCfg
+	newCfg.AWSRegion = cfg.AWSCfg.Region
 
 	if err != nil {
-		return cfg, err
+		return newCfg, err
 	}
 
 	for _, p := range res.Parameters {
+		pValue := aws.ToString(p.Value)
 
-		switch aws.StringValue(p.Name) {
+		switch aws.ToString(p.Name) {
 		case "/petstore/rdssecretarn":
-			cfg.RDSSecretArn = aws.StringValue(p.Value)
+			newCfg.RDSSecretArn = pValue
 		case "/petstore/updateadoptionstatusurl":
-			cfg.UpdateAdoptionURL = aws.StringValue(p.Value)
+			newCfg.UpdateAdoptionURL = pValue
 		case "/petstore/s3bucketname":
-			cfg.S3BucketName = aws.StringValue(p.Value)
+			newCfg.S3BucketName = pValue
 		case "/petstore/dynamodbtablename":
-			cfg.DynamoDBTable = aws.StringValue(p.Value)
+			newCfg.DynamoDBTable = pValue
 		}
 	}
 
-	return cfg, err
+	return newCfg, err
 }
 
-func getSecretValue(secretID, region string) (string, error) {
-
-	svc := secretsmanager.New(session.New(&aws.Config{Region: aws.String(region)}))
-	xray.AWS(svc.Client)
-	ctx, seg := xray.BeginSegment(context.Background(), "payforadoption")
-
-	res, err := svc.GetSecretValueWithContext(ctx, &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(secretID),
+func getSecretValue(ctx context.Context, cfg payforadoption.Config) (string, error) {
+	svc := secretsmanager.NewFromConfig(cfg.AWSCfg)
+	res, err := svc.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(cfg.RDSSecretArn),
 	})
-	seg.Close(nil)
 
 	if err != nil {
 		return "", err
 	}
 
-	return aws.StringValue(res.SecretString), nil
+	return aws.ToString(res.SecretString), nil
 }
 
 // Call aws secrets manager and return parsed sql server query str
-func getRDSConnectionString(secretid string) (string, error) {
-	jsonstr, err := getSecretValue(secretid, os.Getenv("AWS_REGION"))
+func getRDSConnectionString(ctx context.Context, cfg payforadoption.Config) (string, error) {
+	jsonstr, err := getSecretValue(ctx, cfg)
 	if err != nil {
 		return "", err
 	}
@@ -118,5 +116,11 @@ func getRDSConnectionString(secretid string) (string, error) {
 		Path:   c.Dbname,
 	}
 
-	return u.String(), nil
+	fmt.Println(u.String())
+
+	connStr := u.String()
+	connStr += "?sslmode=disable"
+
+	// return u.String(), nil
+	return connStr, nil
 }
