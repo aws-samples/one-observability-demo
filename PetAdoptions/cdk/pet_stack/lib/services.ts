@@ -521,6 +521,53 @@ export class Services extends Stack {
             serviceAccountRoleArn: cwserviceaccount.roleArn,
           });
 
+        // IAM Role for Network Flow Monitor
+        const networkFlowMonitorRole = new iam.CfnRole(this, 'NetworkFlowMonitorRole', {
+            roleName: 'network-flow-monitor-demo-role',
+            assumeRolePolicyDocument: {
+              Version: '2012-10-17',
+              Statement: [
+                {
+                  Effect: 'Allow',
+                  Principal: {
+                    Service: 'pods.eks.amazonaws.com',
+                  },
+                  Action: [
+                    'sts:AssumeRole',
+                    'sts:TagSession',
+                  ],
+                },
+              ],
+            },
+            managedPolicyArns: [
+              'arn:aws:iam::aws:policy/CloudWatchNetworkFlowMonitorAgentPublishPolicy',
+            ],
+          });
+
+        // Amazon EKS Pod Identity Agent Addon for Network Flow Monitor
+        const podIdentityAgentAddon = new eks.CfnAddon(this, 'PodIdentityAgentAddon', {
+            addonName: 'eks-pod-identity-agent',
+            addonVersion: 'v1.3.4-eksbuild.1',
+            clusterName: cluster.clusterName,
+            resolveConflicts: 'OVERWRITE',
+            preserveOnDelete: false,
+          });
+
+        // Amazon EKS AWS Network Flow Monitor Agent add-on
+        const networkFlowMonitoringAgentAddon = new eks.CfnAddon(this, 'NetworkFlowMonitoringAgentAddon', {
+            addonName: 'aws-network-flow-monitoring-agent',
+            addonVersion: 'v1.0.1-eksbuild.2',
+            clusterName: cluster.clusterName,
+            resolveConflicts: 'OVERWRITE',
+            preserveOnDelete: false,
+            podIdentityAssociations: [
+              {
+                roleArn: networkFlowMonitorRole.attrArn,
+                serviceAccount: 'aws-network-flow-monitor-agent-service-account',
+              },
+            ],
+          });
+
         const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: [
@@ -614,6 +661,7 @@ export class Services extends Stack {
 
         this.createOuputs(new Map(Object.entries({
             'CWServiceAccountArn': cwserviceaccount.roleArn,
+            'NetworkFlowMonitorServiceAccountArn': networkFlowMonitorRole.attrArn,
             'XRayServiceAccountArn': xrayserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
