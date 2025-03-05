@@ -15,10 +15,7 @@ import * as yaml from 'js-yaml';
 import * as path from 'path';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as cloud9 from 'aws-cdk-lib/aws-cloud9';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
-import * as ecrassets from 'aws-cdk-lib/aws-ecr-assets';
 import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
 
@@ -34,8 +31,7 @@ import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } fr
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
-import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
-import { Cloud9Environment } from './modules/core/cloud9';
+import { KubectlV31Layer } from '@aws-cdk/lambda-layer-kubectl-v31';
 
 export class Services extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
@@ -133,19 +129,21 @@ export class Services extends Stack {
             rdsUsername = "petadmin"
         }
 
-        const auroraCluster = new rds.ServerlessCluster(this, 'Database', {
-
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_9 }),
-
+        const auroraCluster = new rds.DatabaseCluster(this, 'Database', {
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_15 }),
             parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
-            scaling: {
-                autoPause: Duration.minutes(60),
-                minCapacity: rds.AuroraCapacityUnit.ACU_2,
-                maxCapacity: rds.AuroraCapacityUnit.ACU_8,
-            }
+            databaseInsightsMode: rds.DatabaseInsightsMode.ADVANCED,
+            performanceInsightRetention: rds.PerformanceInsightRetention.MONTHS_15,
+            writer: rds.ClusterInstance.serverlessV2('writer', {
+                autoMinorVersionUpgrade: true
+            }),
+            readers: [
+            ],
+            serverlessV2MaxCapacity: 1,
+            serverlessV2MinCapacity: 0.5,
         });
 
 
@@ -185,7 +183,7 @@ export class Services extends Stack {
 
         const ecsPayForAdoptionCluster = new ecs.Cluster(this, "PayForAdoption", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
@@ -206,7 +204,7 @@ export class Services extends Stack {
 
         const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
@@ -225,7 +223,7 @@ export class Services extends Stack {
 
         const ecsPetSearchCluster = new ecs.Cluster(this, "PetSearch", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsightsV2: ecs.ContainerInsights.ENHANCED
         });
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
@@ -338,8 +336,8 @@ export class Services extends Stack {
             defaultCapacity: 2,
             defaultCapacityInstance: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             secretsEncryptionKey: secretsKey,
-            version: KubernetesVersion.of('1.31'),
-            kubectlLayer: new KubectlLayer(this, 'kubectl'),
+            version: eks.KubernetesVersion.V1_31,
+            kubectlLayer: new KubectlV31Layer(this, 'kubectl'),
             authenticationMode: eks.AuthenticationMode.API_AND_CONFIG_MAP,
         });
 
@@ -507,7 +505,7 @@ export class Services extends Stack {
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
         const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
-            addonVersion: 'v2.6.0-eksbuild.1',
+            addonVersion: 'v3.3.0-eksbuild.1',
             clusterName: cluster.clusterName,
             // the properties below are optional
             resolveConflicts: 'OVERWRITE',

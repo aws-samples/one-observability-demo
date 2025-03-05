@@ -51,7 +51,7 @@ export abstract class EcsService extends Construct {
     ]
   });
 
-  public readonly taskDefinition: ecs.TaskDefinition;
+  public readonly taskDefinition: ecs.FargateTaskDefinition;
   public readonly service: ecs_patterns.ApplicationLoadBalancedServiceBase;
   public readonly container: ecs.ContainerDefinition;
 
