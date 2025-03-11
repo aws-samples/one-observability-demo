@@ -1,6 +1,6 @@
 import logging
 import os
-import psycopg2
+import psycopg
 import config
 import repository
 from flask import Flask, jsonify
@@ -12,7 +12,7 @@ logging.basicConfig(level=os.getenv('LOG_LEVEL', 20), format='%(message)s')
 logger = logging.getLogger()
 cfg = config.fetch_config()
 conn_params = config.get_rds_connection_parameters(cfg['rds_secret_arn'], cfg['region'])
-db = psycopg2.connect(**conn_params)
+db = psycopg.connect(**conn_params)
 
 @app.route('/petadoptionshistory/api/home/transactions', methods=['GET'])
 def transactions_get():
