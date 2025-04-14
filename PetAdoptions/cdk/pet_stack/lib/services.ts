@@ -515,7 +515,6 @@ export class Services extends Stack {
 
         // IAM Role for Network Flow Monitor
         const networkFlowMonitorRole = new iam.CfnRole(this, 'NetworkFlowMonitorRole', {
-            roleName: 'network-flow-monitor-demo-role',
             assumeRolePolicyDocument: {
               Version: '2012-10-17',
               Statement: [
