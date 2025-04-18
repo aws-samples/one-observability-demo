@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 type Adoption struct {
@@ -33,10 +33,10 @@ type service struct {
 	petSearchURL string
 }
 
-//inject dependencies into core logic
+// inject dependencies into core logic
 func NewService(logger log.Logger, rep Repository, petSearchURL string) Service {
 	return &service{
-		logger: logger,
+		logger:       logger,
 		repository:   rep,
 		petSearchURL: petSearchURL,
 	}

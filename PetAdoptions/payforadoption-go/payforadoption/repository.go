@@ -5,18 +5,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"sync"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-xray-sdk-go/xray"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/dghubble/sling"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/guregu/dynamo"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/guregu/dynamo/v2"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Repository as an interface to define data store interactions
@@ -35,11 +37,13 @@ type Config struct {
 	S3BucketName      string
 	DynamoDBTable     string
 	AWSRegion         string
+	Tracer            trace.Tracer
+	AWSCfg            aws.Config
 }
 
-var RepoErr = errors.New("Unable to handle Repo Request")
+var RepoErr = errors.New("unable to handle Repo Request")
 
-//repo as an implementation of Repository with dependency injection
+// repo as an implementation of Repository with dependency injection
 type repo struct {
 	db     *sql.DB
 	cfg    Config
@@ -71,6 +75,9 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 }
 
 func (r *repo) DropTransactions(ctx context.Context) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("saving history and removing transctions in PG DB")
+
 	sql := []string{`INSERT INTO transactions_history SELECT * FROM transactions`,
 		`DELETE FROM transactions`}
 
@@ -78,6 +85,7 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 		r.logger.Log("sql", s)
 		_, err := r.db.ExecContext(ctx, s)
 		if err != nil {
+			span.RecordError(err)
 			return err
 		}
 	}
@@ -87,37 +95,35 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 
 func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 	logger := log.With(r.logger, "method", "UpdateAvailability")
-	subsegCtx, subseg := xray.BeginSubsegment(ctx, "UpdateAvailability")
-	defer subseg.Close(nil)
+	ctx, parentSpan := r.cfg.Tracer.Start(ctx, "UpdateAvailability")
+	defer parentSpan.End()
 
 	errs := make(chan error)
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	// using xray as a wrapper for http client
-	client := xray.Client(&http.Client{})
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
 
 	go func() {
 		defer wg.Done()
-
-		updateAdoptionStatusCtx, updateAdoptionStatusSeg := xray.BeginSubsegment(
-			subsegCtx,
-			"Update Adoption Status",
-		)
-		defer updateAdoptionStatusSeg.Close(nil)
+		updateAdoptionStatusCtx, updateAdoptionStatusSpan := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
+		defer updateAdoptionStatusSpan.End()
 
 		body := &completeAdoptionRequest{a.PetID, a.PetType}
 		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
 		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
 			level.Error(logger).Log("err", err)
+			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 			return
 		}
 
 		defer resp.Body.Close()
-		if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		if body, err := io.ReadAll(resp.Body); err != nil {
 			level.Error(logger).Log("err", err)
+			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 		} else {
 			sb := string(body)
@@ -127,19 +133,18 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 
 	go func() {
 		defer wg.Done()
+		availabilityCtx, availabilitySpan := r.cfg.Tracer.Start(ctx, "Invoking Availability API")
+		defer availabilitySpan.End()
 
-		availabilityCtx, availabilitySeg := xray.BeginSubsegment(
-			subsegCtx,
-			"Invoking Availability API",
-		)
-		defer availabilitySeg.Close(nil)
-
-		req, _ := http.NewRequest("GET", "https://amazon.com", nil)
-		_, err := client.Do(req.WithContext(availabilityCtx))
+		client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
+		request, err := http.NewRequestWithContext(availabilityCtx, http.MethodGet, "https://amazon.com", nil)
 		if err != nil {
 			level.Error(logger).Log("err", err)
+			availabilitySpan.RecordError(err)
 			errs <- err
 		}
+		client.Do(request)
+
 	}()
 
 	go func() {
@@ -168,11 +173,14 @@ type Pet struct {
 }
 
 func (r *repo) TriggerSeeding(ctx context.Context) error {
+	span := trace.SpanFromContext(ctx)
+	ctx, ddbSpan := r.cfg.Tracer.Start(ctx, "DDB seed")
 
 	seedRawData, err := r.fetchSeedData()
 
 	if err != nil {
 		level.Error(r.logger).Log("err", err)
+		span.RecordError(err)
 		return err
 	}
 
@@ -180,10 +188,11 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 	if err := json.Unmarshal([]byte(seedRawData), &pets); err != nil {
 		level.Error(r.logger).Log("err", err)
+		span.RecordError(err)
 		return err
 	}
 
-	db := dynamo.New(session.New(), &aws.Config{Region: aws.String(r.cfg.AWSRegion)})
+	db := dynamo.New(r.cfg.AWSCfg)
 	table := db.Table(r.cfg.DynamoDBTable)
 
 	bw := table.Batch().Write()
@@ -191,12 +200,16 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 		bw = bw.Put(i)
 	}
 
-	res, err := bw.Run()
+	res, err := bw.Run(ctx)
 
 	r.logger.Log("res", res, "err", err)
+	ddbSpan.End()
 
+	ctx, pgSpan := r.cfg.Tracer.Start(ctx, "PG create tables")
+	defer pgSpan.End()
 	sqlErr := r.CreateSQLTables(ctx)
 	if sqlErr != nil {
+		span.RecordError(sqlErr)
 		return sqlErr
 	}
 
@@ -206,8 +219,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 
 func (r *repo) fetchSeedData() (string, error) {
 
-	//TODO Fetch from s3
-	data, err := ioutil.ReadFile("seed.json")
+	data, err := os.ReadFile("seed.json")
 	if err != nil {
 		r.logger.Log("err", err)
 	}
@@ -217,9 +229,9 @@ func (r *repo) fetchSeedData() (string, error) {
 
 func (r *repo) ErrorModeOn(ctx context.Context) bool {
 
-	svc := ssm.New(session.New(&aws.Config{Region: aws.String(r.cfg.AWSRegion)}))
+	svc := ssm.NewFromConfig(r.cfg.AWSCfg)
 
-	res, err := svc.GetParameterWithContext(ctx, &ssm.GetParameterInput{
+	res, err := svc.GetParameter(ctx, &ssm.GetParameterInput{
 		Name: aws.String("/petstore/errormode1"),
 	})
 
@@ -227,11 +239,7 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 		return false
 	}
 
-	if aws.StringValue(res.Parameter.Value) == "true" {
-		return true
-	}
-
-	return false
+	return aws.ToString(res.Parameter.Value) == "true"
 }
 
 func (r *repo) CreateSQLTables(ctx context.Context) error {

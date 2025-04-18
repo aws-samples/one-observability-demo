@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/log"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type middleware struct {
@@ -48,15 +49,17 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 		mw.requestCount.With(labelValues...).Add(1)
 		mw.requestLatency.With(labelValues...).Observe(time.Since(begin).Seconds())
 
-		segment := xray.GetSegment(ctx)
+		span := trace.SpanFromContext(ctx)
 
-		xray.AddAnnotation(ctx, "PetId", petId)
-		xray.AddAnnotation(ctx, "PetType", petType)
-		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
+		span.SetAttributes(
+			attribute.String("PetId", petId),
+			attribute.String("PetType", petType),
+			attribute.Float64("TimeTakenSeconds", time.Since(begin).Seconds()),
+		)
 
 		mw.logger.Log(
 			"method", "In CompleteAdoption",
-			"traceId", segment.TraceID,
+			"traceId", span.SpanContext().SpanID(),
 			"PetId", petId,
 			"PetType", petType,
 			"took", time.Since(begin),
@@ -78,12 +81,12 @@ func (mw *middleware) CleanupAdoptions(ctx context.Context) (err error) {
 		mw.requestCount.With(labelValues...).Add(1)
 		mw.requestLatency.With(labelValues...).Observe(time.Since(begin).Seconds())
 
-		segment := xray.GetSegment(ctx)
-		xray.AddMetadata(ctx, "timeTakenSeconds", time.Since(begin).Seconds())
+		span := trace.SpanFromContext(ctx)
+		span.SetAttributes(attribute.Float64("TimeTakenSeconds", time.Since(begin).Seconds()))
 
 		mw.logger.Log(
 			"method", "In CleanupAdoptions",
-			"traceId", segment.TraceID,
+			"traceId", span.SpanContext().SpanID(),
 			"took", time.Since(begin),
 			"err", err)
 	}(time.Now())

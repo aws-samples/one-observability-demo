@@ -1,0 +1,551 @@
+Description: One Observability Workshop Pipeline
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: OneObservability
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.20.0/24
+
+  UserRoleArn:
+    Description: "ARN of the Role that will have access to manage the EKS Cluster"
+    Type: String
+
+  GithubBranch:
+    Description: "Source branch to use for CodePipeline deployment"
+    Type: String
+    Default: main
+  
+  GithubUser:
+    Description: "Github user to use for CodePipeline deployment"
+    Type: String
+    Default: aws-samples
+
+Resources:
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+
+  NoIngressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "no-ingress-sg"
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC
+
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+    DeletionPolicy: Retain
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  PipelineRoleDefaultPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:Abort*
+            Effect: Allow
+            Resource: "*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - PipelineDeployActionRole
+                - Arn
+
+        Version: "2012-10-17"
+      PolicyName: PipelineRoleDefaultPolicy
+      Roles:
+        - Ref: PipelineRole     
+
+  PipelineDeployActionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess        
+
+  PipelineDeployActionRoleDefaultPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:CreateReportGroup
+              - codebuild:CreateReport
+              - codebuild:UpdateReport
+              - codebuild:BatchPutTestCases
+              - codebuild:BatchPutCodeCoverages
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:Abort*
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: PipelineDeployActionRoleDefaultPolicy
+      Roles:
+        - Ref: PipelineDeployActionRole      
+    
+
+  PipelineDeployProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 90
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: USER_ROLE_ARN
+            Type: PLAINTEXT
+            Value: !Ref UserRoleArn
+          - Name: GITHUB_USER
+            Type: PLAINTEXT
+            Value: !Ref GithubUser
+          - Name: GITHUB_BRANCH
+            Type: PLAINTEXT
+            Value: !Ref GithubBranch    
+          # https://github.com/cdklabs/cdk-ecr-deployment/issues/478#issuecomment-1938020710
+          - Name: NO_PREBUILT_LAMBDA
+            Type: PLAINTEXT
+            Value: 1
+      ServiceRole:
+        Fn::GetAtt:
+          - PipelineDeployActionRole
+          - Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              commands:
+                - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 &
+                - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+                - npm install aws-cdk -g
+                - CDK_STACK=$(aws cloudformation list-stacks --query 'StackSummaries[?(StackName==`CDKToolkit` && StackStatus==`CREATE_COMPLETE`)].StackId' --output text)
+            build:
+              commands:
+                - git clone --single-branch --depth 1 --branch ${GITHUB_BRANCH} https://github.com/${GITHUB_USER}/one-observability-demo.git
+                - cd ./one-observability-demo/PetAdoptions/cdk/pet_stack/
+                - npm install
+                - if [ -z "$CDK_STACK" ] ; then cdk bootstrap ; else echo "Already bootstrapped" ; fi
+                - cdk deploy Services --context admin_role=${USER_ROLE_ARN} --require-approval=never --verbose -O ./out/out.json
+                - cdk deploy Applications --require-approval=never --verbose -O ./out/out.json
+          artifacts:
+            files: './one-observability-demo/PetAdoptions/cdk/pet_stack/out/out.json'
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: "/codebuild/PipelineDeployProject"
+      VpcConfig:
+        VpcId: !Ref VPC
+        Subnets:
+          - !Ref PrivateSubnet1
+        SecurityGroupIds:
+          - Fn::GetAtt:
+              - NoIngressSecurityGroup
+              - GroupId
+  
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn:
+        Fn::GetAtt:
+          - PipelineRole
+          - Arn
+      Stages:
+        - Actions:
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: "1"
+              Configuration:
+                S3Bucket: !Ref PipelineSourceBucket
+                S3ObjectKey: SourceCode.zip
+                PollForSourceChanges: "true"
+              Name: S3BucketSource
+              OutputArtifacts:
+                - Name: Artifact_Source_S3Bucket
+              RunOrder: 1
+          Name: Source
+        - Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName:
+                  Ref: PipelineDeployProject
+              InputArtifacts:
+                - Name: Artifact_Source_S3Bucket
+              OutputArtifacts:
+                - Name: Artifact_Build_CodeCommit
+              Name: Deploy
+              RunOrder: 2
+          Name: UpdatePipeline
+      
+      ArtifactStore:
+        Location:
+          Ref: PipelineArtifactsBucket
+        Type: S3
+      RestartExecutionOnUpdate: true
+
+  PipelineEventRule:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Pipeline results notification
+      EventPattern: {
+        "source": ["aws.codepipeline"],
+        "detail-type": ["CodePipeline Pipeline Execution State Change"],
+        "detail": {
+          "state": ["FAILED", "CANCELED", "SUCCEEDED"]
+        }
+      }
+      RoleArn: !GetAtt CodePipelineReadyFunctionRole.Arn
+      State: "ENABLED"
+      Targets: 
+        - Arn: !GetAtt CodePipelineReadyFunction.Arn
+          Id: "FailedPipeline"
+
+  CodePipelineReadyFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com  
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com                           
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSCodePipelineCustomActionAccess
+  
+  CodePipelineReadyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt CodePipelineReadyFunctionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import urllib3
+          import uuid
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.DEBUG)
+
+          def handler(event, context):
+            logger.info('Received event{}'.format(event))
+
+            result = event['detail']['state']
+            status = "FAILURE"
+            
+            if result == 'SUCCEEDED':
+              status = 'SUCCESS'
+
+            encoded_body = json.dumps({
+              "Status": status,
+              "Reason": "CodePipeline Deploy ended",
+              "UniqueId": str(uuid.uuid4()),
+              "Data": "CodePipeline Deploy ended"
+            })
+
+            logger.info('Sending response {}'.format(encoded_body))
+            http = urllib3.PoolManager()
+            http.request('PUT', os.environ['SIGNAL_URL'], body=encoded_body)
+
+      Runtime: python3.9
+      Timeout: 900
+      Environment:
+        Variables:
+          SIGNAL_URL: !Ref CodePipelineWaitHandle
+
+  CodePipelineWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  CodePipelineWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref CodePipelineWaitHandle
+      Timeout: "5400"
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "CodePipelineReadyFunction"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "PipelineEventRule"
+          - "Arn"
+
+  PipelineSourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+    DeletionPolicy: Retain
+
+  SourceCodeLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com                                    
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  SourceCodeLambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:Abort*
+            Effect: Allow
+            Resource: "*"
+
+        Version: "2012-10-17"
+      PolicyName: SourceCodeLambdaRolePolicy
+      Roles:
+        - Ref: SourceCodeLambdaRole   
+
+  SourceCodeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt SourceCodeLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import cfnresponse
+          import io
+          import zipfile
+
+          def handler(event, context):
+          # Upload the file
+            s3_client = boto3.client('s3')
+            responseData = {}
+            responseResult = cfnresponse.FAILED
+            try:
+              print('## ENVIRONMENT VARIABLES')
+              print(os.environ)
+              print('## EVENT')
+              print(event)              
+              destinationBucket = os.environ['DESTINATION_BUCKET']
+              zip_buffer = io.BytesIO()
+              with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zipper:
+                  file_name = "DUMMY.txt"
+                  infile_content = "Dummy file used to trigger CodeBuild"
+                  zipper.writestr(file_name, infile_content)
+          
+              s3_client.put_object(Bucket=destinationBucket, Key='SourceCode.zip', Body=zip_buffer.getvalue())
+              responseResult = cfnresponse.SUCCESS                
+            except Exception as e:
+              responseData['Data'] = str(e)
+
+            cfnresponse.send(event, context, responseResult, responseData, "CustomResourcePhysicalID")            
+            return      
+      Runtime: python3.9
+      Timeout: 900
+      Environment:
+        Variables:
+          DESTINATION_BUCKET: !Ref PipelineSourceBucket
+
+  PushCodeCustom:
+    Type: Custom::Buildspec
+    Properties:
+      ServiceToken: !GetAtt SourceCodeLambdaFunction.Arn

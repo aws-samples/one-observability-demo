@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/log"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -23,7 +23,7 @@ type middleware struct {
 func NewInstrumenting(logger log.Logger, s Service) Service {
 	labels := []string{"endpoint", "error"}
 	return &middleware{
-		logger: logger,
+		logger:  logger,
 		Service: s,
 		requestCount: kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "petlistadoptions",
