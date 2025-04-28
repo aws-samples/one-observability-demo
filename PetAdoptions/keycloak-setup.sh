@@ -594,6 +594,12 @@ function install_keycloak() {
   echo "Application 'keycloak' will be installed."
   
   echo "Generating keycloak chart values..."
+  # UPDATE: Disable resource presets and explicitly set container resources to avoid below warning.
+  #
+  # WARNING: There are "resources" sections in the chart not set. Using "resourcesPreset" is not recommended for production. For production installations, please set the following values according to your workload needs:
+  # 
+  #   * resources +info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  #
   KEYCLOAK_HELM_VALUES=$(cat <<EOF
 global:
   storageClass: "ebs-sc"
@@ -615,12 +621,26 @@ service:
     enabled: true
   ports:
     http: 80
+resourcesPreset: none
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+    ephemeral-storage: "50Mi"
+  limits:
+    cpu: "750m"
+    memory: "768Mi"
+    ephemeral-storage: "2Gi"
 EOF
 )
 
   echo "Executing helm install keycloak..."
   echo "---------------------------------------------------------------------------------------------"
+  # UPDATE: Pin chart version to avoid error due to container security assessments feature
+  # causing installation failure.
+  # https://github.com/bitnami/charts/issues/30850
   echo "$KEYCLOAK_HELM_VALUES" | helm install keycloak bitnami/keycloak \
+    --version 24.2.3 \
     --namespace $KEYCLOAK_NAMESPACE \
     -f -
   CMD_RESULT=$?
