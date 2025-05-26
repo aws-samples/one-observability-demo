@@ -5,10 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using PetSite.Models;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
 using System.Net.Http;
-using Amazon.XRay.Recorder.Handlers.System.Net;
-using Amazon.XRay.Recorder.Core;
 using System.Text.Json;
 using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -24,39 +21,36 @@ namespace PetSite.Controllers
         public PetListAdoptionsController(IConfiguration configuration)
         {
             _configuration = configuration;
-            AWSSDKHandler.RegisterXRayForAllServices();
-
-            _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
+            _httpClient = new HttpClient();
         }
 
         // GET
         public async Task<IActionResult> Index()
         {
-            AWSXRayRecorder.Instance.BeginSubsegment("Calling PetListAdoptions");
-            
-            Console.WriteLine($"[{AWSXRayRecorder.Instance.GetEntity().TraceId}][{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}] - Calling PetListAdoptions API");
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                Console.WriteLine("Calling PetListAdoptions API");
+            }
 
             string result;
-
             List<Pet> Pets = new List<Pet>();
 
             try
             {
-                //string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
-                string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petlistadoptionsurl");
-                
-        
-                result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
-                Pets = JsonSerializer.Deserialize<List<Pet>>(result);
+                // Create a new activity for the API call
+                using (var activity = new Activity("Calling PetListAdoptions").Start())
+                {
+                    string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petlistadoptionsurl");
+                    result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
+                    Pets = JsonSerializer.Deserialize<List<Pet>>(result);
+                }
             }
             catch (Exception e)
             {
-                AWSXRayRecorder.Instance.AddException(e);
-                throw e;
-            }
-            finally
-            {
-                AWSXRayRecorder.Instance.EndSubsegment();
+                Console.WriteLine($"Error calling PetListAdoptions API: {e.Message}");
+                throw;
             }
 
             return View(Pets);
