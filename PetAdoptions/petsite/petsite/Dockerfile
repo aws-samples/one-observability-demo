@@ -14,6 +14,6 @@ RUN dotnet publish "PetSite.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
-#ENV AWS_XRAY_DAEMON_ADDRESS=xray-service.default
+# Removed X-Ray daemon address environment variable
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "PetSite.dll"]

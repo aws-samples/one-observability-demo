@@ -3,38 +3,48 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Amazon.XRay.Recorder.Core;
-using Amazon.XRay.Recorder.Handlers.System.Net;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
-
+using System.Diagnostics;
 
 namespace PetSite.Controllers
 {
     public class PetFoodController : Controller
     {
-        
         private static HttpClient httpClient;
         private IConfiguration _configuration;
         
         public PetFoodController(IConfiguration configuration)
-        
         {
-            AWSSDKHandler.RegisterXRayForAllServices();
+            _configuration = configuration;
+            httpClient = new HttpClient();
         }
 
         [HttpGet("/petfood")]
         public async Task<string> Index()
         {
-            // X-Ray FTW
-            AWSXRayRecorder.Instance.BeginSubsegment("Calling PetFood");
-            Console.WriteLine($"[{AWSXRayRecorder.Instance.GetEntity().TraceId}][{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}] - Calling PetFood");
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("operation", "GetPetFood");
+                Console.WriteLine("Calling PetFood");
+            }
             
-            // Get our data from petfood
-            var httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
-            string result = await httpClient.GetStringAsync("http://petfood");
+            string result;
             
-            // Close the segment
-            AWSXRayRecorder.Instance.EndSubsegment();
+            try
+            {
+                // Create a new activity for the API call
+                using (var activity = new Activity("Calling PetFood").Start())
+                {
+                    // Get our data from petfood
+                    result = await httpClient.GetStringAsync("http://petfood");
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error calling PetFood: {e.Message}");
+                throw;
+            }
             
             // Return the result!
             return result;
@@ -43,20 +53,40 @@ namespace PetSite.Controllers
         [HttpGet("/petfood-metric/{entityId}/{value}")]
         public async Task<string> PetFoodMetric(string entityId, float value)
         {
-            // X-Ray FTW
-            AWSXRayRecorder.Instance.BeginSubsegment("Calling PetFood metric");
-            Console.WriteLine("Calling: " + "http://petfood-metric/metric/" + entityId + "/" + value.ToString());
-            Console.WriteLine($"[{AWSXRayRecorder.Instance.GetEntity().TraceId}][{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}] - Calling PetFood metric");            
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("operation", "PetFoodMetric");
+                currentActivity.SetTag("entityId", entityId);
+                currentActivity.SetTag("value", value.ToString());
+                
+                Console.WriteLine("Calling: " + "http://petfood-metric/metric/" + entityId + "/" + value.ToString());
+            }
             
-            var httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
-            string result = await httpClient.GetStringAsync("http://petfood-metric/metric/" + entityId + "/" + value.ToString());
-
-            AWSXRayRecorder.Instance.AddAnnotation("entityId", entityId);
-            AWSXRayRecorder.Instance.AddAnnotation("value", value.ToString());
-            AWSXRayRecorder.Instance.EndSubsegment();
+            string result;
+            
+            try
+            {
+                // Create a new activity for the API call
+                using (var activity = new Activity("Calling PetFood metric").Start())
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("entityId", entityId);
+                        activity.SetTag("value", value.ToString());
+                    }
+                    
+                    result = await httpClient.GetStringAsync("http://petfood-metric/metric/" + entityId + "/" + value.ToString());
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error calling PetFood metric: {e.Message}");
+                throw;
+            }
             
             return result;
         }
-
     }
 }

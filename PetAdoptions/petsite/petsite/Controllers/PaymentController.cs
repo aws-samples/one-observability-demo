@@ -1,12 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Amazon.XRay.Recorder.Core;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
-using Amazon.XRay.Recorder.Handlers.System.Net;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Amazon.SQS;
@@ -30,9 +28,7 @@ namespace PetSite.Controllers
     {
         private static string _txStatus = String.Empty;
 
-        private static HttpClient _httpClient =
-            new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
-
+        private static HttpClient _httpClient = new HttpClient();
         private static AmazonSQSClient _sqsClient;
         private static IConfiguration _configuration;
 
@@ -42,9 +38,7 @@ namespace PetSite.Controllers
 
         public PaymentController(IConfiguration configuration)
         {
-            AWSSDKHandler.RegisterXRayForAllServices();
             _configuration = configuration;
-
             _sqsClient = new AmazonSQSClient(Amazon.Util.EC2InstanceMetadata.Region);
         }
 
@@ -60,39 +54,69 @@ namespace PetSite.Controllers
         // [ValidateAntiForgeryToken]
         public async Task<IActionResult> MakePayment(string petId, string pettype)
         {
-            AWSXRayRecorder.Instance.AddMetadata("PetType", pettype);
-            AWSXRayRecorder.Instance.AddMetadata("PetId", petId);
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("pet.id", petId);
+                currentActivity.SetTag("pet.type", pettype);
+                
+                Console.WriteLine($"Inside MakePayment Action method - PetId:{petId} - PetType:{pettype}");
+            }
 
             ViewData["txStatus"] = "success";
 
             try
             {
-                AWSXRayRecorder.Instance.BeginSubsegment("Call Payment API");
+                // Create a new activity for the Payment API call
+                using (var activity = new Activity("Call Payment API").Start())
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.id", petId);
+                        activity.SetTag("pet.type", pettype);
+                    }
+                    
+                    var result = await PostTransaction(petId, pettype);
+                }
 
-                Console.WriteLine(
-                    $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - Inside MakePayment Action method - PetId:{petId} - PetType:{pettype}");
+                // Create a new activity for SQS message
+                using (var activity = new Activity("Post Message to SQS").Start())
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.id", petId);
+                        activity.SetTag("pet.type", pettype);
+                    }
+                    
+                    var messageResponse = await PostMessageToSqs(petId, pettype);
+                }
 
-                AWSXRayRecorder.Instance.AddAnnotation("PetId", petId);
-                AWSXRayRecorder.Instance.AddAnnotation("PetType", pettype);
-
-                var result = await PostTransaction(petId, pettype);
-                AWSXRayRecorder.Instance.EndSubsegment();
-
-                AWSXRayRecorder.Instance.BeginSubsegment("Post Message to SQS");
-                var messageResponse = PostMessageToSqs(petId, pettype).Result;
-                AWSXRayRecorder.Instance.EndSubsegment();
-
-                AWSXRayRecorder.Instance.BeginSubsegment("Send Notification");
-                var snsResponse = SendNotification(petId).Result;
-                AWSXRayRecorder.Instance.EndSubsegment();
+                // Create a new activity for SNS notification
+                using (var activity = new Activity("Send Notification").Start())
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.id", petId);
+                        activity.SetTag("pet.type", pettype);
+                    }
+                    
+                    var snsResponse = await SendNotification(petId);
+                }
 
                 if ("bunny" == pettype) // Only call StepFunction for "bunny" pettype to reduce number of invocations
                 {
-                   // Console.WriteLine($"STEPLOG- PETTYPE- {pettype}");
-                    //   AWSXRayRecorder.Instance.BeginSubsegment("Start Step Function");
-                    var stepFunctionResult = StartStepFunctionExecution(petId, pettype).Result;
-                    //Console.WriteLine($"STEPLOG - RESPONSE - {stepFunctionResult.HttpStatusCode}");
-                    //    AWSXRayRecorder.Instance.EndSubsegment();
+                    // Create a new activity for Step Function execution
+                    using (var activity = new Activity("Start Step Function").Start())
+                    {
+                        if (activity != null)
+                        {
+                            activity.SetTag("pet.id", petId);
+                            activity.SetTag("pet.type", pettype);
+                        }
+                        
+                        var stepFunctionResult = await StartStepFunctionExecution(petId, pettype);
+                    }
                 }
 
                 //Increase purchase metric count
@@ -103,7 +127,10 @@ namespace PetSite.Controllers
             {
                 ViewData["txStatus"] = "failure";
                 ViewData["error"] = ex.Message;
-                AWSXRayRecorder.Instance.AddException(ex);
+                
+                // Log the exception
+                Console.WriteLine($"Error in MakePayment: {ex.Message}");
+                
                 return View("Index");
             }
         }
@@ -116,8 +143,6 @@ namespace PetSite.Controllers
 
         private async Task<SendMessageResponse> PostMessageToSqs(string petId, string petType)
         {
-            AWSSDKHandler.RegisterXRay<IAmazonSQS>();
-
             return await _sqsClient.SendMessageAsync(new SendMessageRequest()
             {
                 MessageBody = JsonSerializer.Serialize($"{petId}-{petType}"),
@@ -127,27 +152,6 @@ namespace PetSite.Controllers
 
         private async Task<StartExecutionResponse> StartStepFunctionExecution(string petId, string petType)
         {
-            /*
-             
-             // Code to invoke StepFunction through API Gateway
-             var stepFunctionInputModel = new StepFunctionInputModel()
-            {
-                input = JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType}),
-                name = $"{petType}-{petId}-{Guid.NewGuid()}",
-                stateMachineArn = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnarn")
-            };
-            
-            var content = new StringContent(
-                JsonSerializer.Serialize(stepFunctionInputModel),
-                Encoding.UTF8,
-                "application/json");
-
-            return await _httpClient.PostAsync(SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnurl"), content);
-            
-            */
-           // Console.WriteLine($"STEPLOG -ARN - {SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petadoptionsstepfnarn")}");
-            //Console.WriteLine($"STEPLOG - SERIALIZE - {JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType})}");
-            AWSSDKHandler.RegisterXRay<IAmazonStepFunctions>();
             return await new AmazonStepFunctionsClient().StartExecutionAsync(new StartExecutionRequest()
             {
                 Input = JsonSerializer.Serialize(new SearchParams() {petid = petId, pettype = petType}),
@@ -158,8 +162,6 @@ namespace PetSite.Controllers
 
         private async Task<PublishResponse> SendNotification(string petId)
         {
-            AWSSDKHandler.RegisterXRay<IAmazonService>();
-
             var snsClient = new AmazonSimpleNotificationServiceClient();
             return await snsClient.PublishAsync(topicArn: _configuration["snsarn"],
                 message: $"PetId {petId} was adopted on {DateTime.Now}");

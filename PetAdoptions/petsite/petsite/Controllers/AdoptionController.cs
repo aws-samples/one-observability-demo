@@ -1,12 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Amazon.XRay.Recorder.Core;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
-using Amazon.XRay.Recorder.Handlers.System.Net;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +14,7 @@ namespace PetSite.Controllers
 {
     public class AdoptionController : Controller
     {
-        private static readonly HttpClient HttpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
+        private static readonly HttpClient HttpClient = new HttpClient();
         private static Variety _variety = new Variety();
         private static IConfiguration _configuration;
 
@@ -28,15 +26,15 @@ namespace PetSite.Controllers
             
             //_searchApiurl = _configuration["searchapiurl"];
             _searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
-           
-            AWSSDKHandler.RegisterXRayForAllServices();
         }
+        
         // GET: Adoption
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
             return View(pet);
         }
+        
         private async Task<string> GetPetDetails(SearchParams searchParams)
         {
             string searchString = string.Empty;
@@ -51,32 +49,39 @@ namespace PetSite.Controllers
         [HttpPost]
         public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams)
         {
-
-             Console.WriteLine(
-                $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - Inside TakeMehome. Pet in context - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
-              
-
-            AWSXRayRecorder.Instance.AddMetadata("PetType", searchParams.pettype);
-            AWSXRayRecorder.Instance.AddMetadata("PetId", searchParams.petid);
-            AWSXRayRecorder.Instance.AddMetadata("PetColor", searchParams.petcolor);
+            // Add custom span attributes using Activity API (compatible with Application Signals auto-instrumentation)
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("pet.id", searchParams.petid);
+                currentActivity.SetTag("pet.type", searchParams.pettype);
+                currentActivity.SetTag("pet.color", searchParams.petcolor);
+                
+                Console.WriteLine($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
+            }
             
-            //String traceId = TraceId.NewId(); // This function is present in : Amazon.XRay.Recorder.Core.Internal.Entities
-            AWSXRayRecorder.Instance
-                .BeginSubsegment("Calling Search API"); // custom traceId used while creating segment
             string result;
-
+            
             try
             {
-                result = await GetPetDetails(searchParams);
+                // Create a new activity for the API call
+                using (var activity = new Activity("Calling Search API").Start())
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.id", searchParams.petid);
+                        activity.SetTag("pet.type", searchParams.pettype);
+                        activity.SetTag("pet.color", searchParams.petcolor);
+                    }
+                    
+                    result = await GetPetDetails(searchParams);
+                }
             }
             catch (Exception e)
             {
-                AWSXRayRecorder.Instance.AddException(e);
-                throw e;
-            }
-            finally
-            {
-                AWSXRayRecorder.Instance.EndSubsegment();
+                // Log the exception
+                Console.WriteLine($"Error calling search API: {e.Message}");
+                throw;
             }
 
             return View("Index", JsonSerializer.Deserialize<List<Pet>>(result).FirstOrDefault());
