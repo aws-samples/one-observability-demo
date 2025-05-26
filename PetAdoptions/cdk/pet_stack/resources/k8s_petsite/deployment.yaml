@@ -39,6 +39,8 @@ spec:
     metadata:
       labels:
         app: petsite
+      annotations:
+        instrumentation.opentelemetry.io/inject-dotnet: "true"
     spec:
       serviceAccountName: petsite-sa
       containers:

@@ -18,6 +18,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
+import * as applicationsignals from 'aws-cdk-lib/aws-applicationsignals';
 
 import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -43,6 +44,11 @@ export class Services extends Stack {
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
             visibilityTimeout: Duration.seconds(300)
         });
+
+        // Enable Application Signals in the account
+        const cfnDiscovery = new applicationsignals.CfnDiscovery(this,
+            'ApplicationSignalsServiceRole', { }
+        );
 
         // Create SNS and an email topic to send notifications to
         const topic_petadoption = new sns.Topic(this, 'topic_petadoption');
@@ -503,7 +509,7 @@ export class Services extends Stack {
 
 
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
-        const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
+        const cwAddon = new eks.CfnAddon(this, 'CloudWatchObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
             addonVersion: 'v3.3.0-eksbuild.1',
             clusterName: cluster.clusterName,
