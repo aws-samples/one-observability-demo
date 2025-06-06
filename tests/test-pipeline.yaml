@@ -1,0 +1,302 @@
+Description: One Observability Workshop CI Pipeline
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: One-Observability-Workshop-CI-Pipeline
+
+  GithubBranch:
+    Description: "Source branch to use for CodePipeline deployment"
+    Type: String
+    Default: main
+
+  GithubUser:
+    Description: "Github user to use for CodePipeline deployment"
+    Type: String
+    Default: aws-samples
+
+Resources:
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  PipelineRoleDefaultPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:Abort*
+            Effect: Allow
+            Resource: "*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - PipelineDeployActionRole
+                - Arn
+
+        Version: "2012-10-17"
+      PolicyName: PipelineRoleDefaultPolicy
+      Roles:
+        - Ref: PipelineRole
+
+  PipelineDeployActionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  PipelineDestroyActionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  PipelineDeployActionRoleDefaultPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - codebuild:CreateReportGroup
+              - codebuild:CreateReport
+              - codebuild:UpdateReport
+              - codebuild:BatchPutTestCases
+              - codebuild:BatchPutCodeCoverages
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:Abort*
+            Effect: Allow
+            Resource: "*"
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              - "*"
+        Version: "2012-10-17"
+      PolicyName: PipelineDeployActionRoleDefaultPolicy
+      Roles:
+        - Ref: PipelineDeployActionRole
+
+  PipelineDeployProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 120
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: GITHUB_USER
+            Type: PLAINTEXT
+            Value: !Ref GithubUser
+          - Name: GITHUB_BRANCH
+            Type: PLAINTEXT
+            Value: !Ref GithubBranch
+          # https://github.com/cdklabs/cdk-ecr-deployment/issues/478#issuecomment-1938020710
+          - Name: NO_PREBUILT_LAMBDA
+            Type: PLAINTEXT
+            Value: 1
+      ServiceRole:
+        Fn::GetAtt:
+          - PipelineDeployActionRole
+          - Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands: |
+                echo https://raw.githubusercontent.com/$GithubUser/one-observability-demo/$GithubBranch/codepipeline-stack.yaml
+                wget https://raw.githubusercontent.com/$GithubUser/one-observability-demo/$GithubBranch/codepipeline-stack.yaml
+                aws cloudformation create-stack --stack-name Observability-Workshop\
+                  --template-body file://codepipeline-stack.yaml\
+                  --capabilities CAPABILITY_NAMED_IAM\
+                  --parameters ParameterKey=UserRoleArn,ParameterValue=$(aws iam get-role --role-name $(aws sts get-caller-identity --query Arn --output text | awk -F/ '{print $(NF-1)}') --query Role.Arn --output text) ParameterKey=GithubBranch,ParameterValue=$GithubBranch ParameterKey=GithubUser,ParameterValue=$GithubUser
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: "/aws/codebuild/one-observability-workshop/build"
+
+  PipelineDestroyProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 120
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      ServiceRole:
+        Fn::GetAtt:
+          - PipelineDestroyActionRole
+          - Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                curl https://raw.githubusercontent.com/$GithubUser/one-observability-demo/$GithubBranch/PetAdoptions/cdk/pet_stack/resources/destroy_stack.sh | bash
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: "/aws/codebuild/one-observability-workshop/destroy"
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn:
+        Fn::GetAtt:
+          - PipelineRole
+          - Arn
+      Stages:
+        - Actions:
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: "1"
+              Configuration:
+                S3Bucket: !Ref PipelineSourceBucket
+                S3ObjectKey: SourceCode.zip
+                PollForSourceChanges: "false"
+              Name: S3BucketSource
+              Namespace: "SourceVariables"
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+          Name: Source
+          OnFailure:
+            Result: RETRY
+            RetryConfiguration:
+              RetryMode: ALL_ACTIONS
+        - Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName:
+                  Ref: PipelineDeployProject
+                EnvironmentVariables: '[{"name":"GithubUser","type":"PLAINTEXT","value":"#{variables.GithubUser}"},{"name":"GithubBranch","type":"PLAINTEXT","value":"#{variables.GithubBranch}"}]'
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Name: Deploy
+              RunOrder: 1
+          Name: Build
+        - Actions:
+            - ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Provider: Manual
+                Version: "1"
+              Name: confirm-deletion
+              RunOrder: 1
+          Name: Deploy
+        - Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName:
+                  Ref: PipelineDestroyProject
+                EnvironmentVariables: '[{"name":"GithubUser","type":"PLAINTEXT","value":"#{variables.GithubUser}"},{"name":"GithubBranch","type":"PLAINTEXT","value":"#{variables.GithubBranch}"}]'
+              InputArtifacts:
+                - Name: SourceArtifact
+              Name: Delete
+              RunOrder: 1
+          Name: Destroy
+      ExecutionMode: QUEUED
+      PipelineType: V2
+      Variables:
+        - Name: GithubUser
+          DefaultValue: !Ref GithubUser
+        - Name: GithubBranch
+          DefaultValue: !Ref GithubBranch
+      ArtifactStore:
+        Location:
+          Ref: PipelineArtifactsBucket
+        Type: S3
+      RestartExecutionOnUpdate: false
+
+  PipelineSourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+    DeletionPolicy: Retain
+
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+    DeletionPolicy: Retain
