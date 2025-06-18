@@ -1,0 +1,52 @@
+name: acceptance-testing
+
+on:
+  # this will allow to run test on main and not modify the status badge when opening a PR
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  trigger-code-pipeline:
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Admins approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ steps.generate_token.outputs.token }}
+          approvers: aws-management-and-governance
+          minimum-approvals: 1
+
+      - name: Trigger AWS CodePipeline
+        uses: rexsateesh/aws-codepipeline-action@v1.0
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+          role-duration-seconds: 3600
+          role-session-name: GithubActions-Session
+
+
+      - name: Configure AWS credentials from Test account
+        uses: aws-actions/configure-aws-credentials@v2
+        if: steps.changes.outputs.src== 'true'
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+          role-duration-seconds: 3600
+          role-session-name: GithubActions-Session
+
+       - name: Run AWS Pipeline
+         run: |
+           echo "Triggering AWS Pipeline"
+           if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+             aws codepipeline start-pipeline-execution --name dummy
+           fi
