@@ -4,6 +4,12 @@ on:
   # this will allow to run test on main and not modify the status badge when opening a PR
   push:
   workflow_dispatch:
+    inputs:
+      pipeline:
+        description: "CodePipeline pipeline name"
+        type: string
+        default: "dummy"
+        required: true
 
 concurrency:
   group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
@@ -14,20 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Trigger AWS CodePipeline
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v1
-        with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Admins approval
-        uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ steps.generate_token.outputs.token }}
-          approvers: aws-management-and-governance
-          minimum-approvals: 1
-
       - name: Configure AWS credentials from Test account
         uses: aws-actions/configure-aws-credentials@v2
         if: steps.changes.outputs.src== 'true'
@@ -41,5 +33,5 @@ jobs:
         run: |
           echo "Triggering AWS Pipeline"
           if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-            aws codepipeline start-pipeline-execution --name dummy
+            aws codepipeline start-pipeline-execution --name ${{ inputs.pipeline }} --region us-west-2
           fi
