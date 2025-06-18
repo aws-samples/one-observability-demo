@@ -2,7 +2,7 @@ name: acceptance-testing
 
 on:
   # this will allow to run test on main and not modify the status badge when opening a PR
-  push:
+  # push:
   workflow_dispatch:
     inputs:
       pipeline:
@@ -32,6 +32,4 @@ jobs:
       - name: Run AWS Pipeline
         run: |
           echo "Triggering AWS Pipeline"
-          if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-            aws codepipeline start-pipeline-execution --name ${{ inputs.pipeline }} --region us-west-2
-          fi
+          aws codepipeline start-pipeline-execution --name ${{ inputs.pipeline }} --region us-west-2
