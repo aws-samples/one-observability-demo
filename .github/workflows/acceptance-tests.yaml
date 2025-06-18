@@ -34,9 +34,24 @@ jobs:
             --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
             --output text \
             --query 'pipelineExecutionId')
-          ./.github/workflows/monitor_pipelines.sh $PIPELINE_EXEC_ID
+          sleep 30
 
-      - name: Check Pipeline Status
+          # Check the status of the main pipeline execution
+          MAIN_STATUS=$(aws codepipeline get-pipeline-execution \
+              --pipeline-name "$MAIN_PIPELINE" \
+              --pipeline-execution-id "$EXECUTION_ID" \
+              --query 'pipelineExecution.status' \
+              --output text)
+
+          echo "Main pipeline status: $MAIN_STATUS"
+
+          # If the main pipeline is not successful, exit with error
+          if [ "$MAIN_STATUS" != "InProgress" ]; then
+              echo "Main pipeline failed. Exiting."
+              exit 1
+          fi
+
+      - name: Check CFN Status
         run: |
           while true; do
               # Check if the stack exists and get its status
