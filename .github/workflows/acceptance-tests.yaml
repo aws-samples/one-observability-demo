@@ -31,6 +31,6 @@ jobs:
           echo "Triggering AWS Pipeline"
           aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
             --region us-east-2 \
-            --variables GithubUser=${{ github.repository_owner }},GithubBranch=${{ github.ref_name }} \
+            --variables name=GithubUser,Value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
             --output text \
             --query 'pipelineExecutionId'
