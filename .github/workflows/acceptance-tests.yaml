@@ -29,12 +29,11 @@ jobs:
       - name: Run AWS Pipeline
         run: |
           echo "Triggering AWS Pipeline"
-          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
+          PIPELINE_EXECUTION_ID=(aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
             --region us-east-2 \
             --variables GithubUser=${{ github.repository_owner }},GithubBranch=${{ github.ref_name }} \
             --output text \
-            --query 'pipelineExecutionId' \
-            > $PIPELINE_EXECUTION_ID
+            --query 'pipelineExecutionId')
       - name: Wait for AWS Pipeline to complete
         run: |
           while true; do
