@@ -3,13 +3,6 @@ name: acceptance-testing
 on:
   # this will allow to run test on main and not modify the status badge when opening a PR
   push:
-  workflow_dispatch:
-    inputs:
-      pipeline:
-        description: "CodePipeline pipeline name"
-        type: string
-        default: "dummy"
-        required: true
 
 concurrency:
   group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
@@ -26,19 +19,24 @@ jobs:
         if: steps.changes.outputs.src== 'true'
         with:
           role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
-          aws-region: us-west-2
+          aws-region: us-east-2
           role-duration-seconds: 3600
           role-session-name: GithubActions-Session
 
       - name: Run AWS Pipeline
         run: |
           echo "Triggering AWS Pipeline"
-          aws codepipeline start-pipeline-execution --name ${{ inputs.pipeline }} --region us-west-2
-          //verify pipeline execution status
-          STATUS=$(aws codepipeline get-pipeline-execution --pipeline-name ${{ inputs.pipeline }} --pipeline-execution-id $PIPELINE_EXECUTION_ID --region us-west-2 | jq -r '.pipelineExecution.status')
-          if [ "$STATUS" = "Succeeded" ]; then
-            echo "Pipeline execution succeeded"
-          else
-            echo "Pipeline execution failed"
-            exit 1
-          fi
+          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} --region us-east-2
+      - name: Wait for AWS Pipeline to complete
+        run: |
+          while true; do
+            STATUS=$(aws codepipeline get-pipeline-execution --pipeline-name ${{ secrets.PIPELINE_NAME }} --pipeline-execution-id $PIPELINE_EXECUTION_ID --region us-east-2 | jq -r '.pipelineExecution.status')
+            if [ "$STATUS" = "Succeeded" ]; then
+              echo "Pipeline execution succeeded"
+              break
+            elif [ "$STATUS" = "Failed" ]; then
+              echo "Pipeline execution failed"
+              exit 1
+            fi
+            sleep 10
+          done
