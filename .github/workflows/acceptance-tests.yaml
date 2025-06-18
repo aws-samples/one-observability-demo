@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   trigger-code-pipeline:
+    runs-on: ubuntu-latest
+    name: Trigger AWS CodePipeline
     steps:
       - name: Generate token
         id: generate_token
@@ -26,15 +28,6 @@ jobs:
           approvers: aws-management-and-governance
           minimum-approvals: 1
 
-      - name: Trigger AWS CodePipeline
-        uses: rexsateesh/aws-codepipeline-action@v1.0
-        with:
-          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
-          aws-region: us-west-2
-          role-duration-seconds: 3600
-          role-session-name: GithubActions-Session
-
-
       - name: Configure AWS credentials from Test account
         uses: aws-actions/configure-aws-credentials@v2
         if: steps.changes.outputs.src== 'true'
@@ -44,9 +37,9 @@ jobs:
           role-duration-seconds: 3600
           role-session-name: GithubActions-Session
 
-       - name: Run AWS Pipeline
-         run: |
-           echo "Triggering AWS Pipeline"
-           if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-             aws codepipeline start-pipeline-execution --name dummy
-           fi
+      - name: Run AWS Pipeline
+        run: |
+          echo "Triggering AWS Pipeline"
+          if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            aws codepipeline start-pipeline-execution --name dummy
+          fi
