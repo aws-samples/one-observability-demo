@@ -33,3 +33,11 @@ jobs:
         run: |
           echo "Triggering AWS Pipeline"
           aws codepipeline start-pipeline-execution --name ${{ inputs.pipeline }} --region us-west-2
+          //verify pipeline execution status
+          STATUS=$(aws codepipeline get-pipeline-execution --pipeline-name ${{ inputs.pipeline }} --pipeline-execution-id $PIPELINE_EXECUTION_ID --region us-west-2 | jq -r '.pipelineExecution.status')
+          if [ "$STATUS" = "Succeeded" ]; then
+            echo "Pipeline execution succeeded"
+          else
+            echo "Pipeline execution failed"
+            exit 1
+          fi
