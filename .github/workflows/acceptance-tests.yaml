@@ -34,4 +34,4 @@ jobs:
             --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
             --output text \
             --query 'pipelineExecutionId')
-          .github/workflows/monitor_pipelines.sh $PIPELINE_EXEC_ID
+          ./.github/workflows/monitor_pipelines.sh $PIPELINE_EXEC_ID
