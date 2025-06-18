@@ -29,8 +29,9 @@ jobs:
       - name: Run AWS Pipeline
         run: |
           echo "Triggering AWS Pipeline"
-          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
+          PIPELINE_EXEC_ID=$(aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
             --region us-east-2 \
             --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
             --output text \
-            --query 'pipelineExecutionId'
+            --query 'pipelineExecutionId')
+          .github/workflows/monitor_pipelines.sh $PIPELINE_EXEC_ID
