@@ -38,7 +38,7 @@ jobs:
 
           # Check the status of the main pipeline execution
           MAIN_STATUS=$(aws codepipeline get-pipeline-execution \
-              --pipeline-name "$MAIN_PIPELINE" \
+              --pipeline-name ${{ secrets.PIPELINE_NAME }} \
               --pipeline-execution-id "$EXECUTION_ID" \
               --query 'pipelineExecution.status' \
               --output text)
@@ -79,7 +79,6 @@ jobs:
                       exit 1
                   fi
               fi
-
               echo "Waiting for stack deployment to complete..."
               sleep 30
           done
