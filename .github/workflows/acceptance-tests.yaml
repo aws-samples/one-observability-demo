@@ -19,6 +19,7 @@ jobs:
   trigger-code-pipeline:
     runs-on: ubuntu-latest
     name: Trigger AWS CodePipeline
+    environment: acceptance
     steps:
       - name: Configure AWS credentials from Test account
         uses: aws-actions/configure-aws-credentials@v2
