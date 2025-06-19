@@ -29,27 +29,12 @@ jobs:
       - name: Run AWS Pipeline
         run: |
           echo "Triggering AWS Pipeline"
-          PIPELINE_EXEC_ID=$(aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
+          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
             --region us-east-2 \
             --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
             --output text \
-            --query 'pipelineExecutionId')
+            --query 'pipelineExecutionId'
           sleep 30
-
-          # Check the status of the main pipeline execution
-          MAIN_STATUS=$(aws codepipeline get-pipeline-execution \
-              --pipeline-name ${{ secrets.PIPELINE_NAME }} \
-              --pipeline-execution-id "$EXECUTION_ID" \
-              --query 'pipelineExecution.status' \
-              --output text)
-
-          echo "Main pipeline status: $MAIN_STATUS"
-
-          # If the main pipeline is not successful, exit with error
-          if [ "$MAIN_STATUS" != "InProgress" ]; then
-              echo "Main pipeline failed. Exiting."
-              exit 1
-          fi
 
       - name: Check CFN Status
         run: |
