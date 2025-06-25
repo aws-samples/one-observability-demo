@@ -1,0 +1,313 @@
+{
+    "variables": [],
+    "widgets": [
+        {
+            "height": 6,
+            "width": 8,
+            "y": 0,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Bedrock", "InvocationLatency", "ModelId", "ai21.j2-mid-v1", { "region": "us-west-2", "yAxis": "right", "visible": false } ],
+                    [ "...", "anthropic.claude-v2", { "region": "us-west-2", "yAxis": "left", "period": 60 } ],
+                    [ "...", "stability.stable-diffusion-xl-v0", { "region": "us-west-2", "yAxis": "right", "visible": false } ],
+                    [ "...", "ai21.j2-ultra-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "amazon.titan-image-generator-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "amazon.titan-text-express-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "anthropic.claude-instant-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "anthropic.claude-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "anthropic.claude-v2:1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v1", { "region": "us-west-2", "period": 60 } ],
+                    [ "...", "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-instant-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "meta.llama2-13b-chat-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "meta.llama2-70b-chat-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "...", "stability.stable-diffusion-xl-v1", { "region": "us-west-2", "visible": false } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {
+                    "right": {
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "height": 6,
+            "width": 7,
+            "y": 0,
+            "x": 8,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Bedrock", "Invocations", "ModelId", "anthropic.claude-v2", { "region": "us-west-2" } ],
+                    [ "...", "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v1", { "region": "us-west-2" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": true,
+                "region": "us-west-2",
+                "period": 60,
+                "stat": "Sum",
+                "yAxis": {
+                    "left": {
+                        "label": "Count",
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "height": 5,
+            "width": 12,
+            "y": 6,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Bedrock", "InputTokenCount", { "region": "us-west-2" } ],
+                    [ ".", "OutputTokenCount", { "region": "us-west-2" } ]
+                ],
+                "sparkline": false,
+                "view": "gauge",
+                "region": "us-west-2",
+                "yAxis": {
+                    "left": {
+                        "min": 20,
+                        "max": 10000
+                    }
+                },
+                "period": 60,
+                "stat": "Sum",
+                "annotations": {
+                    "horizontal": [
+                        {
+                            "color": "#d62728",
+                            "label": "Above forecasts",
+                            "value": 7000,
+                            "fill": "above"
+                        },
+                        {
+                            "color": "#2ca02c",
+                            "label": "Untitled annotation",
+                            "value": 5000,
+                            "fill": "below"
+                        },
+                        [
+                            {
+                                "color": "#ff7f0e",
+                                "label": "Untitled annotation",
+                                "value": 5001
+                            },
+                            {
+                                "value": 6999,
+                                "label": "Untitled annotation"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+        {
+            "height": 5,
+            "width": 12,
+            "y": 6,
+            "x": 12,
+            "type": "log",
+            "properties": {
+                "query": "SOURCE '/test/textGeneration/Bedrock' | fields @timestamp, identity.arn, input.inputTokenCount, output.outputTokenCount\n| stats sum(input.inputTokenCount) as totalInputTokens, sum(output.outputTokenCount) as totalOutputTokens, count(*) as invocationCount by identity.arn",
+                "region": "us-west-2",
+                "stacked": false,
+                "title": "InvocationSummary by User",
+                "view": "table"
+            }
+        },
+        {
+            "height": 6,
+            "width": 6,
+            "y": 17,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/AOSS", "IndexingOCU", "ClientId", "731118248683", { "region": "us-west-2" } ],
+                    [ ".", "SearchOCU", ".", ".", { "region": "us-west-2" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": true,
+                "region": "us-west-2",
+                "legend": {
+                    "position": "bottom"
+                },
+                "title": "VectorDB - IndexingOCU, SearchOCU",
+                "period": 60,
+                "stat": "Average"
+            }
+        },
+        {
+            "height": 6,
+            "width": 6,
+            "y": 17,
+            "x": 6,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/AOSS", "IndexingOCU", "ClientId", "731118248683", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchOCU", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchableDocuments", "CollectionName", "bedrock-sample-rag-730", "CollectionId", "whmwiyf5sdsds41bl320", "ClientId", "731118248683", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchRequestRate", ".", ".", ".", ".", ".", ".", { "region": "us-west-2", "period": 60 } ],
+                    [ ".", "SearchRequestErrors", ".", ".", ".", ".", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "2xx", ".", ".", ".", ".", ".", ".", { "region": "us-west-2", "period": 60 } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "legend": {
+                    "position": "bottom"
+                },
+                "stat": "Average",
+                "period": 300,
+                "title": "VectorDB - 2xx, SearchRequestRate"
+            }
+        },
+        {
+            "height": 6,
+            "width": 6,
+            "y": 17,
+            "x": 18,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/AOSS", "IndexingOCU", "ClientId", "731118248683", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchOCU", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchableDocuments", "CollectionName", "bedrock-sample-rag-730", "CollectionId", "whmwiyf5sdsds41bl320", "ClientId", "731118248683", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchRequestRate", ".", ".", ".", ".", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchRequestErrors", ".", ".", ".", ".", ".", ".", { "region": "us-west-2", "period": 60 } ],
+                    [ ".", "2xx", ".", ".", ".", ".", ".", ".", { "visible": false, "region": "us-west-2" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "legend": {
+                    "position": "bottom"
+                },
+                "stat": "Average",
+                "period": 300,
+                "title": "SearchRequestErrors"
+            }
+        },
+        {
+            "height": 6,
+            "width": 6,
+            "y": 17,
+            "x": 12,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/AOSS", "IndexingOCU", "ClientId", "731118248683", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchOCU", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "SearchRequestLatency", "CollectionName", "bedrock-sample-rag-730", "CollectionId", "whmwiyf5sdsds41bl320", "ClientId", "731118248683", { "region": "us-west-2" } ],
+                    [ ".", "IngestionRequestLatency", ".", ".", ".", ".", ".", ".", { "region": "us-west-2" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "legend": {
+                    "position": "bottom"
+                },
+                "stat": "Average",
+                "period": 300,
+                "title": "RetreivalLatency"
+            }
+        },
+        {
+            "height": 6,
+            "width": 8,
+            "y": 11,
+            "x": 16,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "bedrock-petrecommend" ],
+                    [ ".", "Errors", ".", "." ],
+                    [ ".", "Throttles", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": true,
+                "region": "us-west-2",
+                "title": "PromptRecommender-Lambda Performance",
+                "period": 60,
+                "stat": "Sum"
+            }
+        },
+        {
+            "height": 6,
+            "width": 8,
+            "y": 11,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "promptAugmenter", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "Throttles", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "Errors", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ "AWS/ApiGateway", "Count", "ApiName", "promptAugmenter-API", { "region": "us-west-2", "period": 60, "stat": "Sum" } ],
+                    [ ".", "5XXError", ".", ".", { "region": "us-west-2", "period": 60, "stat": "Sum" } ],
+                    [ ".", "4XXError", ".", ".", { "region": "us-west-2", "period": 60, "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "title": "PetRecommenderAPI - Performance",
+                "stat": "Average",
+                "period": 300
+            }
+        },
+        {
+            "height": 6,
+            "width": 8,
+            "y": 11,
+            "x": 8,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "promptAugmenter", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "Throttles", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ ".", "Errors", ".", ".", { "visible": false, "region": "us-west-2" } ],
+                    [ "AWS/ApiGateway", "Latency", "ApiName", "promptAugmenter-API" ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-2",
+                "title": "PetRecommenderAPI - Latency",
+                "stat": "Average",
+                "period": 300
+            }
+        },
+        {
+            "height": 6,
+            "width": 9,
+            "y": 0,
+            "x": 15,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Bedrock", "OutputTokenCount", "ModelId", "meta.llama2-13b-chat-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "AWS/Bedrock", "OutputTokenCount", "ModelId", "anthropic.claude-v2", { "region": "us-west-2" } ],
+                    [ "AWS/Bedrock", "InputTokenCount", "ModelId", "meta.llama2-13b-chat-v1", { "region": "us-west-2", "visible": false } ],
+                    [ "AWS/Bedrock", "InputTokenCount", "ModelId", "anthropic.claude-v2", { "region": "us-west-2" } ],
+                    [ "AWS/Bedrock", "InputTokenCount", "ModelId", "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v1", { "region": "us-west-2", "visible": false } ]
+                ],
+                "view": "timeSeries",
+                "stacked": true,
+                "region": "us-west-2",
+                "title": "Token usage",
+                "period": 300,
+                "stat": "Average"
+            }
+        }
+    ]
+}
