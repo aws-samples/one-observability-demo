@@ -1,4 +1,4 @@
-Flask==2.0.2
+Flask==2.2.5
 boto3==1.37.10
 psycopg==3.2.5
 opentelemetry-distro==0.32b0
