@@ -2,9 +2,7 @@ name: acceptance-testing
 
 on:
   # this will allow to run test on main and not modify the status badge when opening a PR
-  pull_request:
-    branches:
-      - main
+  push:
 
 concurrency:
   group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
