@@ -22,11 +22,17 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: PetAdoptions/cdk/pet_stack/package-lock.json
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: PetAdoptions/cdk/pet_stack/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('PetAdoptions/cdk/pet_stack/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: PetAdoptions/cdk/pet_stack
 
       - name: Build TypeScript
@@ -64,11 +70,17 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: PetAdoptions/cdk/pet_stack/package-lock.json
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: PetAdoptions/cdk/pet_stack/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('PetAdoptions/cdk/pet_stack/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: PetAdoptions/cdk/pet_stack
 
       - name: Build TypeScript
@@ -90,11 +102,17 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: PetAdoptions/cdk/pet_stack/package-lock.json
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: PetAdoptions/cdk/pet_stack/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('PetAdoptions/cdk/pet_stack/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: PetAdoptions/cdk/pet_stack
 
       - name: TypeScript compilation check
