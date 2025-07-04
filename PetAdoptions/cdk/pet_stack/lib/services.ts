@@ -137,13 +137,17 @@ export class Services extends Stack {
             defaultDatabaseName: 'adoptions',
             databaseInsightsMode: rds.DatabaseInsightsMode.ADVANCED,
             performanceInsightRetention: rds.PerformanceInsightRetention.MONTHS_15,
-            writer: rds.ClusterInstance.serverlessV2('writer', {
-                autoMinorVersionUpgrade: true
+            writer: rds.ClusterInstance.provisioned('writer', {
+                autoMinorVersionUpgrade: true,
+                instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MEDIUM),
             }),
+
             readers: [
+                rds.ClusterInstance.provisioned('reader1', {
+                    promotionTier: 1,
+                    instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MEDIUM),
+                }),
             ],
-            serverlessV2MaxCapacity: 1,
-            serverlessV2MinCapacity: 0.5,
         });
 
 
