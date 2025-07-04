@@ -3,3 +3,6 @@ PetAdoptions/payforadoption-go/petadoptions
 **/.DS_Store
 **/assets
 **/.idea
+
+# editor settings
+.vscode/settings.json
