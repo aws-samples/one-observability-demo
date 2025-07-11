@@ -13,18 +13,18 @@ on:
 jobs:
   cdk-synth-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Cache node modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: PetAdoptions/cdk/pet_stack/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('PetAdoptions/cdk/pet_stack/package.json') }}
