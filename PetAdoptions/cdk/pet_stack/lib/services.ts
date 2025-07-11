@@ -130,20 +130,24 @@ export class Services extends Stack {
         }
 
         const auroraCluster = new rds.DatabaseCluster(this, 'Database', {
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_15 }),
-            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_16_6 }),
+            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql16'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
             databaseInsightsMode: rds.DatabaseInsightsMode.ADVANCED,
             performanceInsightRetention: rds.PerformanceInsightRetention.MONTHS_15,
-            writer: rds.ClusterInstance.serverlessV2('writer', {
-                autoMinorVersionUpgrade: true
+            writer: rds.ClusterInstance.provisioned('writer', {
+                autoMinorVersionUpgrade: true,
+                instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MEDIUM),
             }),
+
             readers: [
+                rds.ClusterInstance.provisioned('reader1', {
+                    promotionTier: 1,
+                    instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MEDIUM),
+                }),
             ],
-            serverlessV2MaxCapacity: 1,
-            serverlessV2MinCapacity: 0.5,
         });
 
 
@@ -516,24 +520,24 @@ export class Services extends Stack {
         // IAM Role for Network Flow Monitor
         const networkFlowMonitorRole = new iam.CfnRole(this, 'NetworkFlowMonitorRole', {
             assumeRolePolicyDocument: {
-              Version: '2012-10-17',
-              Statement: [
-                {
-                  Effect: 'Allow',
-                  Principal: {
-                    Service: 'pods.eks.amazonaws.com',
-                  },
-                  Action: [
-                    'sts:AssumeRole',
-                    'sts:TagSession',
-                  ],
-                },
-              ],
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: {
+                            Service: 'pods.eks.amazonaws.com',
+                        },
+                        Action: [
+                            'sts:AssumeRole',
+                            'sts:TagSession',
+                        ],
+                    },
+                ],
             },
             managedPolicyArns: [
-              'arn:aws:iam::aws:policy/CloudWatchNetworkFlowMonitorAgentPublishPolicy',
+                'arn:aws:iam::aws:policy/CloudWatchNetworkFlowMonitorAgentPublishPolicy',
             ],
-          });
+        });
 
         // Amazon EKS Pod Identity Agent Addon for Network Flow Monitor
         const podIdentityAgentAddon = new eks.CfnAddon(this, 'PodIdentityAgentAddon', {
@@ -542,7 +546,7 @@ export class Services extends Stack {
             clusterName: cluster.clusterName,
             resolveConflicts: 'OVERWRITE',
             preserveOnDelete: false,
-          });
+        });
 
         // Amazon EKS AWS Network Flow Monitor Agent add-on
         const networkFlowMonitoringAgentAddon = new eks.CfnAddon(this, 'NetworkFlowMonitoringAgentAddon', {
@@ -552,12 +556,12 @@ export class Services extends Stack {
             resolveConflicts: 'OVERWRITE',
             preserveOnDelete: false,
             podIdentityAssociations: [
-              {
-                roleArn: networkFlowMonitorRole.attrArn,
-                serviceAccount: 'aws-network-flow-monitor-agent-service-account',
-              },
+                {
+                    roleArn: networkFlowMonitorRole.attrArn,
+                    serviceAccount: 'aws-network-flow-monitor-agent-service-account',
+                },
             ],
-          });
+        });
 
         const customWidgetResourceControllerPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
@@ -682,6 +686,7 @@ export class Services extends Stack {
             '/petstore/petsearch-collector-manual-config': readFileSync("./resources/collector/ecs-xray-manual.yaml", "utf8"),
             '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
+            '/petstore/rds-reader-endpoint': auroraCluster.clusterReadEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
             '/petstore/pethistoryurl': `http://${alb.loadBalancerDnsName}/petadoptionshistory`,
