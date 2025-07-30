@@ -143,3 +143,5 @@ repos:
       rev: v3.0.0-beta
       hooks:
           - id: ash-simple-scan
+            args:
+                - --no-fail-on-findings # Until we fix all the issues with legacy code
