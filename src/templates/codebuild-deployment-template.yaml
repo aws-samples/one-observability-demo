@@ -1,0 +1,655 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+# Workshop deployment template for CDK projects - CloudFormation
+# Version: 1.0.0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  This CloudFormation template automates the deployment of AWS Cloud Development Kit (CDK) projects for workshop environments.
+  It creates the necessary infrastructure to bootstrap AWS accounts for CDK usage, clone source code repositories, and deploy
+  CDK applications in a consistent and repeatable manner. The template provisions an S3 bucket for configuration storage,
+  a CodeBuild project that handles the CDK deployment process, and monitoring resources to track deployment status.
+  This solution simplifies workshop setup by eliminating manual bootstrapping steps and ensuring consistent deployments
+  across multiple participant accounts. It supports both GitHub and CodeCommit repositories as source code locations and
+  includes error handling for failed deployments. The template is designed to be flexible enough to accommodate various
+  workshop scenarios while providing a standardized deployment experience for workshop facilitators and participants.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Repository Configuration"
+        Parameters:
+          - pConfigFileUrl
+          - pOrganizationName
+          - pRepositoryName
+          - pBranchName
+          - pWorkingFolder
+      - Label:
+          default: "User Defined Tags"
+        Parameters:
+          - pUserDefinedTagKey1
+          - pUserDefinedTagValue1
+          - pUserDefinedTagKey2
+          - pUserDefinedTagValue2
+          - pUserDefinedTagKey3
+          - pUserDefinedTagValue3
+          - pUserDefinedTagKey4
+          - pUserDefinedTagValue4
+          - pUserDefinedTagKey5
+          - pUserDefinedTagValue5
+
+Parameters:
+  pConfigFileUrl:
+    Type: String
+    Description: URL to the initial configuration file
+    AllowedPattern: "^https?://.*$"
+    ConstraintDescription: "Must be a valid HTTP or HTTPS URL"
+    Default: "https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/typedoc.json"
+
+  pOrganizationName:
+    Type: String
+    Description: GitHub/CodeCommit organization name
+    AllowedPattern: "[A-Za-z0-9_.-]+"
+    ConstraintDescription: "Must contain only alphanumeric characters, underscores, periods, or hyphens"
+    Default: "aws-samples"
+
+  pRepositoryName:
+    Type: String
+    Description: Repository containing the CDK code
+    AllowedPattern: "[A-Za-z0-9_.-]+"
+    ConstraintDescription: "Must contain only alphanumeric characters, underscores, periods, or hyphens"
+    Default: "one-observability-demo"
+
+  pBranchName:
+    Type: String
+    Description: Branch to deploy from
+    Default: "feat/cdkpipeline"
+    AllowedPattern: "[A-Za-z0-9_.-/]+"
+    ConstraintDescription: "Must contain only alphanumeric characters, underscores, periods, slashes, or hyphens"
+
+  pWorkingFolder:
+    Type: String
+    Description: Working folder for deployment
+    Default: "src/cdk"
+    AllowedPattern: "[A-Za-z0-9_.-/]+"
+    ConstraintDescription: "Must contain only alphanumeric characters, underscores, periods, or hyphens"
+
+  pUserDefinedTagKey1:
+    Type: String
+    Description: Key for user defined tag 1
+    AllowedPattern: "^(?!aws:)[A-Za-z0-9\\s_.:=+-@/]{0,128}"
+    ConstraintDescription: "Must match the allowable values for a Tag Key. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 128 characters"
+    Default: "WorkshopName"
+
+  pUserDefinedTagValue1:
+    Type: String
+    Description: Value for user defined tag 1
+    AllowedPattern: "^[\\w\\s_.:=+-@/]{0,256}$"
+    ConstraintDescription: "Must match the allowable values for a Tag Value. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 256 characters"
+    Default: "one-observability-demo"
+
+  pUserDefinedTagKey2:
+    Type: String
+    Description: Key for user defined tag 2
+    AllowedPattern: "^(?!aws:)[A-Za-z0-9\\s_.:=+-@/]{0,128}"
+    ConstraintDescription: "Must match the allowable values for a Tag Key. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 128 characters"
+    Default: "Version"
+
+  pUserDefinedTagValue2:
+    Type: String
+    Description: Value for user defined tag 2
+    AllowedPattern: "^[\\w\\s_.:=+-@/]{0,256}$"
+    ConstraintDescription: "Must match the allowable values for a Tag Value. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 256 characters"
+    Default: "1.0.0"
+
+  pUserDefinedTagKey3:
+    Type: String
+    Description: Key for user defined tag 3
+    AllowedPattern: "^(?!aws:)[A-Za-z0-9\\s_.:=+-@/]{0,128}"
+    ConstraintDescription: "Must match the allowable values for a Tag Key. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 128 characters"
+
+  pUserDefinedTagValue3:
+    Type: String
+    Description: Value for user defined tag 3
+    AllowedPattern: "^[\\w\\s_.:=+-@/]{0,256}$"
+    ConstraintDescription: "Must match the allowable values for a Tag Value. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 256 characters"
+
+  pUserDefinedTagKey4:
+    Type: String
+    Description: Key for user defined tag 4
+    AllowedPattern: "^(?!aws:)[A-Za-z0-9\\s_.:=+-@/]{0,128}"
+    ConstraintDescription: "Must match the allowable values for a Tag Key. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 128 characters"
+
+  pUserDefinedTagValue4:
+    Type: String
+    Description: Value for user defined tag 4
+    AllowedPattern: "^[\\w\\s_.:=+-@/]{0,256}$"
+    ConstraintDescription: "Must match the allowable values for a Tag Value. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 256 characters"
+
+  pUserDefinedTagKey5:
+    Type: String
+    Description: Key for user defined tag 5
+    AllowedPattern: "^(?!aws:)[A-Za-z0-9\\s_.:=+-@/]{0,128}"
+    ConstraintDescription: "Must match the allowable values for a Tag Key. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 128 characters"
+
+  pUserDefinedTagValue5:
+    Type: String
+    Description: Value for user defined tag 5
+    AllowedPattern: "^[\\w\\s_.:=+-@/]{0,256}$"
+    ConstraintDescription: "Must match the allowable values for a Tag Value. This can only contain alphanumeric characters or special characters ( _ . : / = + - or @) up to 256 characters"
+
+Conditions:
+  # Conditions to control creation of user-defined tags
+  cCreateTag1: !And
+    - !Not [!Equals [!Ref pUserDefinedTagKey1, '']]
+    - !Not [!Equals [!Ref pUserDefinedTagValue1, '']]
+
+  cCreateTag2: !And
+    - !Not [!Equals [!Ref pUserDefinedTagKey2, '']]
+    - !Not [!Equals [!Ref pUserDefinedTagValue2, '']]
+
+  cCreateTag3: !And
+    - !Not [!Equals [!Ref pUserDefinedTagKey3, '']]
+    - !Not [!Equals [!Ref pUserDefinedTagValue3, '']]
+
+  cCreateTag4: !And
+    - !Not [!Equals [!Ref pUserDefinedTagKey4, '']]
+    - !Not [!Equals [!Ref pUserDefinedTagValue4, '']]
+
+  cCreateTag5: !And
+    - !Not [!Equals [!Ref pUserDefinedTagKey5, '']]
+    - !Not [!Equals [!Ref pUserDefinedTagValue5, '']]
+
+Resources:
+  # Create S3 bucket to store configuration files
+  rConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create IAM role for CodeBuild project
+  rCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-codebuild-role
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create wait condition handle for signaling completion
+  rCDKDeploymentWaitConditionHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  # Create wait condition to ensure CodeBuild project completes successfully
+  rCDKDeploymentWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref rCDKDeploymentWaitConditionHandle
+      Timeout: 3600
+      Count: 1
+
+  # Create CodeBuild project to orchestrate CDK deployment
+  rCDKDeploymentProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub ${AWS::StackName}-cdk-deployment
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: CONFIG_FILE_URL
+            Value: !Ref pConfigFileUrl
+            Type: PLAINTEXT
+          - Name: CONFIG_BUCKET
+            Value: !Ref rConfigBucket
+            Type: PLAINTEXT
+          - Name: ORGANIZATION_NAME
+            Value: !Ref pOrganizationName
+            Type: PLAINTEXT
+          - Name: REPOSITORY_NAME
+            Value: !Ref pRepositoryName
+            Type: PLAINTEXT
+          - Name: BRANCH_NAME
+            Value: !Ref pBranchName
+            Type: PLAINTEXT
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 22
+              commands:
+                - npm install -g aws-cdk
+            pre_build:
+              commands:
+                # Download configuration file
+                - curl -o ./config.json ${pConfigFileUrl}
+                # Upload to our S3 bucket
+                - aws s3 cp ./config.json s3://${rConfigBucket}/config.json
+                # Check if account is bootstrapped
+                - |
+                  if ! aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then
+                    echo "Account not bootstrapped, bootstrapping now..."
+                    cdk bootstrap
+                  else
+                    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name CDKToolkit --query 'Stacks[0].StackStatus' --output text)
+                    if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+                      echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
+                      # Force remove ECR and S3 buckets
+                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
+                      aws s3 ls | grep cdk- | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                      # Delete the stack
+                      aws cloudformation delete-stack --stack-name CDKToolkit
+                      aws cloudformation wait stack-delete-complete --stack-name CDKToolkit
+                      # Bootstrap again
+                      cdk bootstrap
+                    fi
+                  fi
+            build:
+              commands:
+                # Clone repository
+                - git clone https://github.com/${pOrganizationName}/${pRepositoryName}.git -b ${pBranchName} ./repo
+                - cd ./repo/${pWorkingFolder}
+                # Install dependencies and deploy
+                - npm install
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                # Extract pipeline ARN for later use
+                - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
+                - |
+                  if [ -z "$PIPELINE_ARN" ] || [ "$PIPELINE_ARN" = "null" ]; then
+                    echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
+                    exit 1
+                  fi
+                - echo "Pipeline ARN $PIPELINE_ARN"
+                - echo "$PIPELINE_ARN" > /tmp/pipeline_arn.txt
+            post_build:
+              commands:
+                - |
+                  if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
+                    echo "Build failed, cleaning up S3 bucket for rollback"
+                    aws s3 rm s3://${rConfigBucket} --recursive
+                  else
+                    echo "CDK deployment completed"
+                    PIPELINE_ARN=$(cat /tmp/pipeline_arn.txt || echo "")
+                    echo "Pipeline ARN ${!PIPELINE_ARN:-not found}"
+                    aws cloudformation signal-resource --stack-name ${AWS::StackName} --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status SUCCESS --region ${AWS::Region}
+                  fi
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-deployment
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create IAM role for Lambda function
+  rPipelineStatusFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudFormationSignalAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:SignalResource
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                Resource: !GetAtt rCDKDeploymentProject.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-role
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create Lambda function to handle pipeline status events
+  rPipelineStatusFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt rPipelineStatusFunctionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const AWS = require('aws-sdk');
+            const cloudformation = new AWS.CloudFormation();
+
+            console.log('Event:', JSON.stringify(event, null, 2));
+
+            const pipelineState = event.detail.state;
+            const stackName = process.env.STACK_NAME;
+            const logicalResourceId = process.env.LOGICAL_RESOURCE_ID;
+
+            if (pipelineState === 'SUCCEEDED') {
+              // Signal success to CloudFormation
+              await cloudformation.signalResource({
+                StackName: stackName,
+                LogicalResourceId: logicalResourceId,
+                UniqueId: event.id,
+                Status: 'SUCCESS'
+              }).promise();
+
+              console.log('Signaled SUCCESS to CloudFormation');
+            } else if (pipelineState === 'FAILED') {
+              // Signal failure to CloudFormation
+              await cloudformation.signalResource({
+                StackName: stackName,
+                LogicalResourceId: logicalResourceId,
+                UniqueId: event.id,
+                Status: 'FAILURE'
+              }).promise();
+
+              console.log('Signaled FAILURE to CloudFormation');
+
+              // Run CodeBuild project to destroy resources
+              const codebuild = new AWS.CodeBuild();
+              await codebuild.startBuild({
+                projectName: process.env.CODEBUILD_PROJECT_NAME,
+                environmentVariablesOverride: [
+                  {
+                    name: 'DESTROY_MODE',
+                    value: 'true'
+                  }
+                ]
+              }).promise();
+
+              console.log('Started CodeBuild project to destroy resources');
+            }
+
+            return {
+              statusCode: 200,
+              body: JSON.stringify('Function executed successfully'),
+            };
+          };
+      Environment:
+        Variables:
+          STACK_NAME: !Ref AWS::StackName
+          LOGICAL_RESOURCE_ID: rCDKDeploymentWaitCondition
+          CODEBUILD_PROJECT_NAME: !Ref rCDKDeploymentProject
+      Timeout: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-pipeline-status-function
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create EventBridge rule to monitor CodeBuild failures
+  rCodeBuildFailureRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Monitor CodeBuild project failures"
+      EventPattern:
+        source:
+          - aws.codebuild
+        detail-type:
+          - "CodeBuild Build State Change"
+        detail:
+          build-status:
+            - FAILED
+            - FAULT
+            - STOPPED
+            - TIMED_OUT
+          project-name:
+            - !Ref rCDKDeploymentProject
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt rCodeBuildFailureFunction.Arn
+          Id: CodeBuildFailureFunction
+
+  # Create EventBridge rule to monitor pipeline status
+  rPipelineMonitorRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Monitor CDK-created pipeline execution status"
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - "CodePipeline Pipeline Execution State Change"
+        detail:
+          state:
+            - SUCCEEDED
+            - FAILED
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt rPipelineStatusFunction.Arn
+          Id: PipelineStatusFunction
+  # Create Lambda function to handle CodeBuild failures
+  rCodeBuildFailureFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt rPipelineStatusFunctionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const AWS = require('aws-sdk');
+            const cloudformation = new AWS.CloudFormation();
+
+            console.log('CodeBuild failure event:', JSON.stringify(event, null, 2));
+
+            const buildStatus = event.detail['build-status'];
+            const stackName = process.env.STACK_NAME;
+            const logicalResourceId = process.env.LOGICAL_RESOURCE_ID;
+
+            // Signal failure to CloudFormation to trigger rollback
+            await cloudformation.signalResource({
+              StackName: stackName,
+              LogicalResourceId: logicalResourceId,
+              UniqueId: event.id,
+              Status: 'FAILURE'
+            }).promise();
+
+            console.log('Signaled FAILURE to CloudFormation due to CodeBuild failure');
+
+            return {
+              statusCode: 200,
+              body: JSON.stringify('CodeBuild failure handled'),
+            };
+          };
+      Environment:
+        Variables:
+          STACK_NAME: !Ref AWS::StackName
+          LOGICAL_RESOURCE_ID: rCDKDeploymentWaitCondition
+      Timeout: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-codebuild-failure-function
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Allow EventBridge to invoke the CodeBuild failure Lambda function
+  rCodeBuildFailureFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref rCodeBuildFailureFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt rCodeBuildFailureRule.Arn
+
+  # Allow EventBridge to invoke the Lambda function
+  rPipelineStatusFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref rPipelineStatusFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt rPipelineMonitorRule.Arn
+
+  # Start the CodeBuild project to begin deployment
+  rStartDeployment:
+    Type: Custom::StartDeployment
+    DependsOn:
+      - rConfigBucket
+      - rCDKDeploymentWaitConditionHandle
+    Properties:
+      ServiceToken: !GetAtt rStartDeploymentFunction.Arn
+      CodeBuildProjectName: !Ref rCDKDeploymentProject
+
+  # Create Lambda function to start the CodeBuild project
+  rStartDeploymentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt rStartDeploymentFunctionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import time
+
+          def handler(event, context):
+              if event['RequestType'] in ['Create', 'Update']:
+                  try:
+                      codebuild = boto3.client('codebuild')
+                      project_name = event['ResourceProperties']['CodeBuildProjectName']
+
+                      # Start the CodeBuild project
+                      response = codebuild.start_build(projectName=project_name)
+                      build_id = response['build']['id']
+
+                      # Wait a few seconds to ensure the build starts
+                      time.sleep(5)
+
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                          'BuildId': build_id
+                      })
+                  except Exception as e:
+                      print(f"Error starting CodeBuild project: {str(e)}")
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {
+                          'Error': str(e)
+                      })
+              else:  # Delete
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+      Timeout: 30
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-function
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Create IAM role for start deployment Lambda function
+  rStartDeploymentFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                Resource: !GetAtt rCDKDeploymentProject.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-role
+        - !If [cCreateTag1, {Key: !Ref pUserDefinedTagKey1, Value: !Ref pUserDefinedTagValue1}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag2, {Key: !Ref pUserDefinedTagKey2, Value: !Ref pUserDefinedTagValue2}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
+        - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+Outputs:
+  oConfigBucketName:
+    Description: Name of the S3 bucket storing configuration files
+    Value: !Ref rConfigBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-ConfigBucketName
+
+  oCodeBuildProjectName:
+    Description: Name of the CodeBuild project orchestrating CDK deployment
+    Value: !Ref rCDKDeploymentProject
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeBuildProjectName
+
+  oDeploymentStatus:
+    Description: Status of the CDK deployment
+    Value: !Sub "Check CodeBuild project ${rCDKDeploymentProject} for deployment status"
+    Export:
+      Name: !Sub ${AWS::StackName}-DeploymentStatus
+
+  oRepositoryInfo:
+    Description: Repository information used for deployment
+    Value: !Sub "Organization: ${pOrganizationName}, Repository: ${pRepositoryName}, Branch: ${pBranchName}"
+    Export:
+      Name: !Sub ${AWS::StackName}-RepositoryInfo

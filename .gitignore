@@ -404,3 +404,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,visualstudiocode,node,python,git
+
+# Allow CDK lib folder
+!src/cdk/lib
