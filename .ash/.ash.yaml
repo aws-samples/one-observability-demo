@@ -1,0 +1,230 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/automated-security-helper/refs/heads/main/automated_security_helper/schemas/AshConfig.json
+project_name: one-observability-demo
+global_settings:
+    severity_threshold: MEDIUM
+    ignore_paths:
+        - path: src/cdk/cdk.out
+          reason: 'CDK Code is being reviewed by CDK Nag using the AWS Security best practices compliance pack. Additional tools will require duplicated suppressions'
+        - path: src/cdk/node_modules
+          reason: 'Skip node_modules folder'
+        - path: PetAdoptions
+          reason: 'Legacy application being migrated, for now only scan the new code'
+    suppressions: []
+fail_on_findings: true
+ash_plugin_modules: []
+external_reports_to_include: []
+build: null
+converters:
+    archive:
+        name: archive
+        enabled: true
+        options: {}
+    jupyter:
+        name: jupyter
+        enabled: true
+        options:
+            tool_version: '>=7.16.0,<8.0.0'
+            install_timeout: 300
+scanners:
+    bandit:
+        name: bandit
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            confidence_level: all
+            ignore_nosec: false
+            excluded_paths: []
+            additional_formats: []
+            tool_version: '>=1.7.0,<2.0.0'
+            install_timeout: 300
+    cdk-nag:
+        name: cdk-nag
+        enabled: true
+        options:
+            severity_threshold: null
+            nag_packs:
+                AwsSolutionsChecks: true
+                HIPAASecurityChecks: false
+                NIST80053R4Checks: false
+                NIST80053R5Checks: false
+                PCIDSS321Checks: false
+    cfn-nag:
+        name: cfn-nag
+        enabled: true
+        options:
+            severity_threshold: null
+    checkov:
+        name: checkov
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            skip_path: []
+            additional_formats:
+                - cyclonedx_json
+            offline: false
+            frameworks:
+                - all
+            skip_frameworks: []
+            tool_version: null
+            install_timeout: 300
+    detect-secrets:
+        name: detect-secrets
+        enabled: true
+        options:
+            severity_threshold: null
+            baseline_file: null
+            scan_settings:
+                version: null
+                generated_at: null
+                plugins_used: []
+                filters_used: []
+                results: {}
+    grype:
+        name: grype
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            offline: false
+    npm-audit:
+        name: npm-audit
+        enabled: true
+        options:
+            severity_threshold: null
+            offline: false
+    opengrep:
+        name: opengrep
+        enabled: false
+        options:
+            severity_threshold: null
+            config: auto
+            exclude:
+                - '*-converted.py'
+                - '*_report_result.txt'
+            exclude_rule: []
+            severity: []
+            metrics: auto
+            offline: false
+            patterns: []
+            version: v1.1.5
+    semgrep:
+        name: semgrep
+        enabled: true
+        options:
+            severity_threshold: null
+            config: auto
+            exclude:
+                - '*-converted.py'
+                - '*_report_result.txt'
+            exclude_rule: []
+            severity: []
+            metrics: auto
+            offline: false
+            tool_version: null
+            install_timeout: 300
+    syft:
+        name: syft
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            exclude: []
+            additional_outputs:
+                - syft-table
+reporters:
+    csv:
+        name: csv
+        enabled: true
+        options: {}
+        extension: csv
+    cyclonedx:
+        name: cyclonedx
+        enabled: true
+        options: {}
+        extension: cdx.json
+    html:
+        name: html
+        enabled: true
+        options: {}
+        extension: html
+    flat-json:
+        name: flat-json
+        enabled: true
+        options:
+            include_scanner_metrics: true
+            include_summary_metrics: true
+            include_metadata: true
+        extension: flat.json
+    gitlab-sast:
+        name: gitlab-sast
+        enabled: true
+        options: {}
+        extension: gl-sast-report.json
+    junitxml:
+        name: junitxml
+        enabled: true
+        options:
+            respect_severity_threshold: true
+        extension: junit.xml
+    markdown:
+        name: markdown
+        enabled: true
+        options:
+            include_summary: true
+            include_findings_table: false
+            include_detailed_findings: true
+            max_detailed_findings: 20
+            top_hotspots_limit: 10
+            use_collapsible_details: true
+        extension: summary.md
+    ocsf:
+        name: ocsf
+        enabled: true
+        options: {}
+        extension: ocsf.json
+    sarif:
+        name: sarif
+        enabled: true
+        options: {}
+        extension: sarif
+    spdx:
+        name: spdx
+        enabled: false
+        options: {}
+        extension: spdx.json
+    text:
+        name: text
+        enabled: true
+        options:
+            include_summary: true
+            include_findings_table: false
+            include_detailed_findings: false
+            max_detailed_findings: 20
+            top_hotspots_limit: 20
+        extension: summary.txt
+    yaml:
+        name: yaml
+        enabled: false
+        options: {}
+        extension: yaml
+mcp-resource-management:
+    max_concurrent_scans: 3
+    max_concurrent_tasks: 20
+    thread_pool_max_workers: 4
+    scan_timeout_seconds: 1800
+    operation_timeout_seconds: 180
+    shutdown_timeout_seconds: 30
+    memory_warning_threshold_mb: 1024
+    memory_critical_threshold_mb: 2048
+    task_count_warning_threshold: 15
+    max_message_size_bytes: 10485760
+    max_path_length: 4096
+    max_directory_size_mb: 1000
+    enable_health_checks: true
+    health_check_interval_seconds: 60
+    enable_resource_logging: true
+    log_resource_operations: false

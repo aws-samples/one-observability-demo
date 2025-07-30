@@ -1,0 +1,145 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# (c) 2023 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
+# This AWS Content is provided subject to the terms of the AWS Customer Agreement
+# available at http://aws.amazon.com/agreement or other written agreement between
+# Customer and either Amazon Web Services, Inc. or Amazon Web Services EMEA SARL
+# or both.
+
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_stages: [pre-commit]
+
+repos:
+    - repo: https://github.com/commitizen-tools/commitizen
+      rev: v4.8.3
+      hooks:
+          - id: commitizen
+            stages:
+                - commit-msg
+
+    # SECURITY
+    - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+      rev: v1.4.2
+      hooks:
+          - id: python-safety-dependencies-check
+    - repo: https://github.com/Yelp/detect-secrets
+      rev: v1.5.0
+      hooks:
+          - id: detect-secrets
+
+    # Formatting
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+          - id: check-json
+          - id: check-yaml
+          - id: check-case-conflict
+          - id: trailing-whitespace
+          - id: mixed-line-ending
+            args: ['--fix=lf']
+          - id: fix-byte-order-marker
+          - id: check-merge-conflict
+          - id: detect-private-key
+          - id: detect-aws-credentials
+            args:
+                - --allow-missing-credentials
+
+    - repo: https://github.com/codespell-project/codespell
+      rev: v2.4.1
+      hooks:
+          - id: codespell
+            entry: bash -c 'codespell "$@" || true' -- # Don't block, just alert
+            verbose: true
+    - repo: https://github.com/pre-commit/mirrors-eslint
+      rev: v9.32.0
+      hooks:
+          - id: eslint
+            files: \.[jt]sx?$
+            types: [file]
+            args:
+                - --fix
+            additional_dependencies:
+                - eslint-plugin-unicorn@v58.0.0
+                - eslint-plugin-prettier@v5.2.6
+    - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
+      rev: v1.1.2
+      hooks:
+          - id: dockerfile_lint
+    # PYTHON FORMATTING
+    - repo: https://github.com/ambv/black
+      rev: '25.1.0'
+      hooks:
+          - id: black
+    - repo: https://github.com/pycqa/flake8
+      rev: '7.3.0'
+      hooks:
+          - id: flake8
+            args: ['--max-line-length=88'] # Same max-length as black
+    - repo: https://github.com/asottile/reorder_python_imports
+      rev: v3.15.0
+      hooks:
+          - id: reorder-python-imports
+            args: [--py3-plus]
+    - repo: https://github.com/asottile/pyupgrade
+      rev: v3.20.0
+      hooks:
+          - id: pyupgrade
+            args: [--py36-plus]
+    - repo: https://github.com/asottile/add-trailing-comma
+      rev: v3.2.0
+      hooks:
+          - id: add-trailing-comma
+            args: [--py36-plus]
+    - repo: https://github.com/pre-commit/mirrors-mypy
+      rev: v1.17.0
+      hooks:
+          - id: mypy
+            entry: bash -c 'mypy "$@" || true' -- # Don't block, just alert
+            verbose: true
+    # CFN CHECKS & LINTING
+    - repo: https://github.com/aws-cloudformation/cfn-python-lint
+      rev: v1.38.0
+      hooks:
+          - id: cfn-python-lint
+            files: .*\.(ya?ml)$
+            exclude: (?x)^(
+                .pre-commit-config.yaml|
+                mkdocs.yml|
+                .github/workflows/.*|
+                .ash/.ash.yaml
+                )$
+
+      # Legal Text
+    - repo: https://github.com/dontirun/text-prepender
+      rev: v0.3.0
+      hooks:
+          - id: text-prepender
+            args:
+                - -t
+                - NOTICE
+      # unit testing
+    - repo: local
+      hooks:
+          - id: jest
+            name: Unit tests using jest
+            entry: bash -c 'cd src/cdk && npm run test'
+            language: system
+            types: [ts]
+            pass_filenames: false
+            always_run: true
+
+    - repo: local
+      hooks:
+          - id: typedoc
+            name: Typedoc markdown
+            entry: bash -c 'cd src/cdk && npm run docs:wiki'
+            language: system
+            types: [ts]
+            pass_filenames: false
+            always_run: true
+    - repo: https://github.com/awslabs/automated-security-helper
+      rev: v3.0.0-beta
+      hooks:
+          - id: ash-simple-scan

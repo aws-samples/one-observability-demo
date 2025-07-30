@@ -1,0 +1,39 @@
+{
+    "name": "cdk",
+    "version": "0.1.0",
+    "bin": {
+        "cdk": "bin/cdk.js"
+    },
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "test": "jest",
+        "cdk": "cdk",
+        "docs": "typedoc",
+        "docs:wiki": "typedoc --out ./wiki-docs"
+    },
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/node": "24.0.4",
+        "@typescript-eslint/eslint-plugin": "^8.35.0",
+        "aws-cdk": "2.1019.2",
+        "eslint-config-prettier": "^10.1.5",
+        "eslint-plugin-jest": "^29.0.1",
+        "eslint-plugin-prettier": "^5.5.1",
+        "eslint-plugin-unicorn": "^59.0.1",
+        "http-server": "^14.1.1",
+        "jest": "^30.0.3",
+        "jest-junit": "^16.0.0",
+        "ts-jest": "^29.4.0",
+        "ts-node": "^10.9.2",
+        "typedoc": "^0.28.7",
+        "typedoc-github-theme": "^0.3.0",
+        "typedoc-github-wiki-theme": "^2.1.0",
+        "typedoc-plugin-markdown": "^4.7.0",
+        "typescript": "~5.8.3"
+    },
+    "dependencies": {
+        "aws-cdk-lib": "2.206.0",
+        "constructs": "^10.0.0"
+    }
+}
