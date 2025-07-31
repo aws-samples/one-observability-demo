@@ -167,6 +167,13 @@ Conditions:
 Resources:
   # Create S3 bucket to store configuration files
   rConfigBucket:
+    # checkov:skip=CKV_AWS_18:Bucket used to trigger CodePipeline, access logs are not needed
+    # checkov:skip=CKV_AWS_21:Bucket used to trigger CodePipeline, object versioning is not needed
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-S1
+            reason: "Bucket used to trigger CodePipeline, access logs are not needed"
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
@@ -189,8 +196,31 @@ Resources:
         - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
         - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
 
+  # Bucket policy to enforce HTTPS-only access
+  rConfigBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "${rConfigBucket}/*"
+              - !GetAtt rConfigBucket.Arn
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "AWS managed policies are acceptable for a CodeBuild project"
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -225,6 +255,11 @@ Resources:
 
   # Create CodeBuild project to orchestrate CDK deployment
   rCDKDeploymentProject:
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-CB4
+            reason: "CodeBuild Project is used to kickoff the initial CDK deployment. AWS KMS is not required"
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
@@ -327,6 +362,13 @@ Resources:
 
   # Create IAM role for Lambda function
   rPipelineStatusFunctionRole:
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "AWS managed policies are acceptable for a Lambda function"
+          - id: AwsSolutions-IAM5
+            reason: "Wildcard is needed since stack name is automatically generated"
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -362,6 +404,10 @@ Resources:
 
   # Create Lambda function to handle pipeline status events
   rPipelineStatusFunction:
+    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
+    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
+    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
+    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       Runtime: nodejs22.x
@@ -478,6 +524,10 @@ Resources:
           Id: PipelineStatusFunction
   # Create Lambda function to handle CodeBuild failures
   rCodeBuildFailureFunction:
+    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
+    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
+    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
+    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       Runtime: nodejs22.x
@@ -554,9 +604,13 @@ Resources:
 
   # Create Lambda function to start the CodeBuild project
   rStartDeploymentFunction:
+    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
+    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
+    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
+    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
-      Runtime: python3.11
+      Runtime: python3.13
       Handler: index.handler
       Role: !GetAtt rStartDeploymentFunctionRole.Arn
       Code:
@@ -600,6 +654,11 @@ Resources:
 
   # Create IAM role for start deployment Lambda function
   rStartDeploymentFunctionRole:
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: 'AwsSolutions-IAM4'
+            reason: 'Use of AWSLambdaBasicExecutionRole is acceptable here'
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:

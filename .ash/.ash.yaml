@@ -9,8 +9,15 @@ global_settings:
           reason: 'CDK Code is being reviewed by CDK Nag using the AWS Security best practices compliance pack. Additional tools will require duplicated suppressions'
         - path: src/cdk/node_modules
           reason: 'Skip node_modules folder'
-        - path: PetAdoptions
+        - path: src/cdk/wiki-docs
+          reason: 'Skip wiki docs since it will be built in the pipeline'
+        - path: PetAdoptions/
           reason: 'Legacy application being migrated, for now only scan the new code'
+        - path: grafana-dashboards
+          reason: 'Skip legacy code during migration'
+        - path: codepipeline-stack.yaml
+          reason: 'Skip old pipeline since it will be migrated'
+
     suppressions: []
 fail_on_findings: true
 ash_plugin_modules: []
