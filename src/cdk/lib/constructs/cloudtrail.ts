@@ -74,7 +74,6 @@ export class WorkshopCloudTrail extends Construct {
         this.trail = new Trail(this, 'Trail', {
             trailName: properties.name,
             cloudWatchLogGroup: this.logGroup,
-            cloudWatchLogsRole: cloudTrailRole,
             includeGlobalServiceEvents: true,
             isMultiRegionTrail: false,
             enableFileValidation: true,
