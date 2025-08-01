@@ -284,8 +284,8 @@ Resources:
             Principal: "*"
             Action: "s3:*"
             Resource:
-              - !Sub "${rConfigBucket}/*"
               - !GetAtt rConfigBucket.Arn
+              - !Sub "${rConfigBucket.Arn}/*"
             Condition:
               Bool:
                 "aws:SecureTransport": "false"
@@ -443,7 +443,7 @@ Resources:
                 - cdk deploy --require-approval never --outputs-file cdk-outputs.json
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
-                - |q
+                - |
                   if [ -z "$PIPELINE_ARN" ] || [ "$PIPELINE_ARN" = "null" ]; then
                     echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
                     exit 1
