@@ -246,7 +246,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
-        Status: Suspended
+        Status: Enabled
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
