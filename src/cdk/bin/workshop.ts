@@ -15,17 +15,17 @@ import {
     BRANCH_NAME,
     ORGANIZATION_NAME,
     REPOSITORY_NAME,
-    CONFIG_BUCKET_KEY,
+    WORKING_FOLDER,
 } from './environment';
 
 const app = new App();
 
 new CDKPipeline(app, 'CDKPipeline', {
     configBucketName: app.node.tryGetContext('configBucketName') || CONFIG_BUCKET,
-    configBucketKey: app.node.tryGetContext('configBucketKey') || CONFIG_BUCKET_KEY,
     branchName: app.node.tryGetContext('branchName') || BRANCH_NAME,
     organizationName: app.node.tryGetContext('organizationName') || ORGANIZATION_NAME,
     repositoryName: app.node.tryGetContext('repositoryName') || REPOSITORY_NAME,
+    workingFolder: app.node.tryGetContext('workingFolder') || WORKING_FOLDER,
     env: {
         account: ACCOUNT_ID,
         region: REGION,

@@ -15,8 +15,8 @@ export const ACCOUNT_ID = process.env.AWS_ACCOUNT;
 export const REGION = process.env.AWS_REGION;
 
 export const CONFIG_BUCKET = process.env.CONFIG_BUCKET;
-export const CONFIG_BUCKET_KEY = process.env.CONFIG_BUCKET_KEY || 'repo.zip';
 
 export const ORGANIZATION_NAME = process.env.ORGANIZATION_NAME || 'aws-samples';
 export const REPOSITORY_NAME = process.env.REPOSITORY_NAME || 'one-observability-demo';
 export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline'; // TODO: Change to main on release
+export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';

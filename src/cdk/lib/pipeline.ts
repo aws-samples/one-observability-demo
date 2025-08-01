@@ -3,19 +3,20 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
+import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { IRole, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
-import { CodePipeline, CodePipelineSource, ShellStep } from 'aws-cdk-lib/pipelines';
+import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
-    configBucketKey: string;
     branchName: string;
     organizationName: string;
     repositoryName: string;
+    workingFolder: string;
 }
 
 export class CDKPipeline extends Stack {
@@ -33,7 +34,7 @@ export class CDKPipeline extends Stack {
         const configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
 
         // Use the configuration file as the pipeline trigger
-        const bucketSource = CodePipelineSource.s3(configBucket, properties.configBucketKey);
+        const bucketSource = CodePipelineSource.s3(configBucket, `repo/refs/heads/${properties.branchName}/repo.zip`);
         /**
          * Create an S3 bucket to store the pipeline artifacts.
          * The bucket has encryption at rest using a CMK and enforces encryption in transit.
@@ -64,6 +65,30 @@ export class CDKPipeline extends Stack {
         });
 
         /**
+         * Grant access to the source bucket for the pipeline role.
+         */
+        configBucket.grantRead(this.pipelineRole);
+
+        const synthStep = new CodeBuildStep('Synth', {
+            input: bucketSource,
+            primaryOutputDirectory: `${properties.workingFolder}/cdk.out`,
+            installCommands: ['npm i -g aws-cdk'],
+            // Using globally installed CDK due to this issue https://github.com/aws/aws-cdk/issues/28519
+            commands: ['. ./.env', `cd ${properties.workingFolder}`, 'npm ci', 'npm run build', 'cdk synth --all'],
+            buildEnvironment: {
+                buildImage: LinuxBuildImage.STANDARD_7_0,
+            },
+            partialBuildSpec: BuildSpec.fromObject({
+                phases: {
+                    install: {
+                        'runtime-versions': {
+                            nodejs: '22.x',
+                        },
+                    },
+                },
+            }),
+        });
+        /**
          * Create the CodePipeline with the following configuration:
          * - Synthesis step that builds and synthesizes the CDK app
          * - Custom artifact bucket with encryption
@@ -71,16 +96,24 @@ export class CDKPipeline extends Stack {
          * - Cross-account key support for multi-account deployments
          */
         const pipeline = new CodePipeline(this, 'Pipeline', {
-            synth: new ShellStep('Synth', {
-                input: bucketSource,
-                commands: ['source .env', 'cd $WORKING_FOLDER', 'npm ci', 'npm run build', 'npx cdk synth'],
-            }),
+            synth: synthStep,
             artifactBucket: pipelineArtifactBucket,
             crossAccountKeys: true,
             pipelineName: `${id}-pipeline`,
             usePipelineRoleForActions: true,
             pipelineType: PipelineType.V2,
             role: this.pipelineRole,
+            codeBuildDefaults: {
+                buildEnvironment: {
+                    buildImage: LinuxBuildImage.STANDARD_7_0,
+                    privileged: true,
+                    environmentVariables: {
+                        NODE_VERSION: {
+                            value: '22.x',
+                        },
+                    },
+                },
+            },
         });
 
         /**
