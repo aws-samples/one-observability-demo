@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { IRole, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
@@ -73,12 +73,7 @@ export class CDKPipeline extends Stack {
         const pipeline = new CodePipeline(this, 'Pipeline', {
             synth: new ShellStep('Synth', {
                 input: bucketSource,
-                commands: [
-                    `git clone https://github.com/${properties.organizationName}/${properties.repositoryName}`,
-                    'npm ci',
-                    'npm run build',
-                    'npx cdk synth',
-                ],
+                commands: ['source .env', 'cd $WORKING_FOLDER', 'npm ci', 'npm run build', 'npx cdk synth'],
             }),
             artifactBucket: pipelineArtifactBucket,
             crossAccountKeys: true,
@@ -101,5 +96,84 @@ export class CDKPipeline extends Stack {
         pipeline.synthProject.role?.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('AWSCodeArtifactReadOnlyAccess'),
         );
+
+        /**
+         * Add CDK-nag suppressions for the pipeline role.
+         */
+        NagSuppressions.addResourceSuppressions(
+            pipeline.pipeline.role,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'The pipeline role is not scoped to a specific resource',
+                },
+            ],
+            true,
+        );
+
+        /**
+         * Add CDK-nag suppressions for the synth project.
+         */
+        NagSuppressions.addResourceSuppressions(
+            pipeline.synthProject,
+            [
+                {
+                    id: 'AwsSolutions-CB4',
+                    reason: 'Ephemeral Synth Project not using KMS (for now)',
+                },
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'The pipeline role is not scoped to a specific resource',
+                },
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'AWS Managed policy is acceptable here',
+                    appliesTo: ['Policy::arn:<AWS::Partition>:iam::aws:policy/AWSCodeArtifactReadOnlyAccess'],
+                },
+            ],
+            true,
+        );
+
+        /**
+         * Add CDK-nag suppressions for the self-mutation project.
+         */
+        NagSuppressions.addResourceSuppressions(
+            pipeline.selfMutationProject,
+            [
+                {
+                    id: 'AwsSolutions-CB4',
+                    reason: 'Ephemeral Synth Project not using KMS (for now)',
+                },
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Ephemeral Synth Project not limited to specific resource or action',
+                },
+            ],
+            true,
+        );
+
+        /**
+         * Add stack-level CDK-nag suppressions.
+         * Added as stack suppression since path can change based on the context and repo name.
+         * Suppression can also be limited by path but must be updated every time the repo changes.
+         */
+        NagSuppressions.addStackSuppressions(
+            this,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Ephemeral Synth Project not limited to specific resource or action',
+                },
+            ],
+            true,
+        );
+
+        /**
+         * Generate PipelineArn Output with the self-mutating Pipeline ARN
+         */
+        new CfnOutput(this, 'PipelineArn', {
+            value: pipeline.pipeline.pipelineArn,
+            exportName: 'PipelineArn',
+        });
     }
 }

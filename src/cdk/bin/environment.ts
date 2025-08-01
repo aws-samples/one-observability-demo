@@ -8,6 +8,9 @@ SPDX-License-Identifier: Apache-2.0
 
 // Default values. These values can be overridden in the cdk.context file if needed.
 
+import dotenv from 'dotenv';
+dotenv.config(); // This loads the variables from .env into process.env
+
 export const ACCOUNT_ID = process.env.AWS_ACCOUNT;
 export const REGION = process.env.AWS_REGION;
 
