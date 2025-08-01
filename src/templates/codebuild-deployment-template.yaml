@@ -286,23 +286,60 @@ Resources:
           - Name: BRANCH_NAME
             Value: !Ref pBranchName
             Type: PLAINTEXT
+          - Name: WORKING_FOLDER
+            Value: !Ref pWorkingFolder
+            Type: PLAINTEXT
+          - Name: STACK_NAME
+            Value: !Ref AWS::StackName
+            Type: PLAINTEXT
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+            Type: PLAINTEXT
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+            Type: PLAINTEXT
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
-        BuildSpec: !Sub |
+        BuildSpec: |
           version: 0.2
           phases:
             install:
               runtime-versions:
                 nodejs: 22
+                python: 3.12
               commands:
                 - npm install -g aws-cdk
+                - pip3 install git-remote-s3
             pre_build:
               commands:
-                # Download configuration file
-                - curl -o ./config.json ${pConfigFileUrl}
-                # Upload to our S3 bucket
-                - aws s3 cp ./config.json s3://${rConfigBucket}/config.json
+                # Configure git with generic user info
+                - git config --global user.email "codebuild@aws.amazon.com"
+                - git config --global user.name "AWS CodeBuild"
+                # Clone repository with shallow clone
+                - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
+                - cd ./repo
+                # Download configuration file to repository root
+                - curl -o ./config.json "$CONFIG_FILE_URL"
+                # Create .env file with all environment variables
+                - |
+                  cat > .env << EOF
+                  CONFIG_FILE_URL=$CONFIG_FILE_URL
+                  CONFIG_BUCKET=$CONFIG_BUCKET
+                  ORGANIZATION_NAME=$ORGANIZATION_NAME
+                  REPOSITORY_NAME=$REPOSITORY_NAME
+                  BRANCH_NAME=$BRANCH_NAME
+                  WORKING_FOLDER=$WORKING_FOLDER
+                  STACK_NAME=$STACK_NAME
+                  AWS_REGION=$AWS_REGION
+                  AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+                  EOF
+                # Add config file and .env file to repository
+                - git add config.json .env -f
+                - git commit -m "Add configuration file from $CONFIG_FILE_URL and environment variables"
+                # Configure S3 remote with s3+zip protocol for CodePipeline
+                - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
+                - git push s3 $BRANCH_NAME
                 # Check if account is bootstrapped
                 - |
                   if ! aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then
@@ -324,9 +361,7 @@ Resources:
                   fi
             build:
               commands:
-                # Clone repository
-                - git clone https://github.com/${pOrganizationName}/${pRepositoryName}.git -b ${pBranchName} ./repo
-                - cd ./repo/${pWorkingFolder}
+                - cd $WORKING_FOLDER
                 # Install dependencies and deploy
                 - npm install
                 - cdk deploy --require-approval never --outputs-file cdk-outputs.json
@@ -344,12 +379,12 @@ Resources:
                 - |
                   if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
                     echo "Build failed, cleaning up S3 bucket for rollback"
-                    aws s3 rm s3://${rConfigBucket} --recursive
+                    aws s3 rm s3://$CONFIG_BUCKET --recursive
                   else
                     echo "CDK deployment completed"
                     PIPELINE_ARN=$(cat /tmp/pipeline_arn.txt || echo "")
-                    echo "Pipeline ARN ${!PIPELINE_ARN:-not found}"
-                    aws cloudformation signal-resource --stack-name ${AWS::StackName} --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status SUCCESS --region ${AWS::Region}
+                    echo "Pipeline ARN ${PIPELINE_ARN:-not found}"
+                    aws cloudformation signal-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status SUCCESS --region $AWS_REGION
                   fi
       Tags:
         - Key: Name
