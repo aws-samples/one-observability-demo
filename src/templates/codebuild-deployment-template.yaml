@@ -165,6 +165,75 @@ Conditions:
     - !Not [!Equals [!Ref pUserDefinedTagValue5, '']]
 
 Resources:
+  # Lambda execution role for bucket cleanup
+  rBucketCleanupRole:
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "AWS managed policies are acceptable for a Lambda function"
+          - id: AwsSolutions-IAM5
+            reason: "Wildcard is needed since stack name is automatically generated"
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3BucketCleanup
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                  - s3:ListBucketVersions
+                  - s3:DeleteObjectVersion
+                Resource:
+                  - !Sub "${rConfigBucket}/*"
+                  - !GetAtt rConfigBucket.Arn
+
+  # Lambda function to empty S3 bucket
+  rBucketCleanupFunction:
+    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
+    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
+    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
+    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rBucketCleanupRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              s3 = boto3.client('s3')
+              bucket = event['ResourceProperties']['BucketName']
+              try:
+                  if event['RequestType'] == 'Delete':
+                      paginator = s3.get_paginator('list_object_versions')
+                      for page in paginator.paginate(Bucket=bucket):
+                          delete_keys = []
+                          if 'Versions' in page:
+                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
+                          if 'DeleteMarkers' in page:
+                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
+                          if delete_keys:
+                              s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
   # Create S3 bucket to store configuration files
   rConfigBucket:
     # checkov:skip=CKV_AWS_18:Bucket used to trigger CodePipeline, access logs are not needed
@@ -177,7 +246,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
-        Status: Enabled
+        Status: Suspended
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -195,6 +264,13 @@ Resources:
         - !If [cCreateTag3, {Key: !Ref pUserDefinedTagKey3, Value: !Ref pUserDefinedTagValue3}, !Ref "AWS::NoValue"]
         - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
         - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
+
+  # Custom resource to empty bucket on deletion
+  rBucketCleanup:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt rBucketCleanupFunction.Arn
+      BucketName: !Ref rConfigBucket
 
   # Bucket policy to enforce HTTPS-only access
   rConfigBucketPolicy:
@@ -367,7 +443,7 @@ Resources:
                 - cdk deploy --require-approval never --outputs-file cdk-outputs.json
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
-                - |
+                - |q
                   if [ -z "$PIPELINE_ARN" ] || [ "$PIPELINE_ARN" = "null" ]; then
                     echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
                     exit 1

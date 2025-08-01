@@ -407,3 +407,4 @@ $RECYCLE.BIN/
 
 # Allow CDK lib folder
 !src/cdk/lib
+.ash/ash_output
