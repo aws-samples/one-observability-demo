@@ -20,7 +20,7 @@ import {
 
 const app = new App();
 
-new CDKPipeline(app, 'CDKPipeline', {
+new CDKPipeline(app, 'OneObservabilityWorkshopPipeline', {
     configBucketName: app.node.tryGetContext('configBucketName') || CONFIG_BUCKET,
     branchName: app.node.tryGetContext('branchName') || BRANCH_NAME,
     organizationName: app.node.tryGetContext('organizationName') || ORGANIZATION_NAME,
