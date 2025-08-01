@@ -165,8 +165,8 @@ Conditions:
     - !Not [!Equals [!Ref pUserDefinedTagValue5, '']]
 
 Resources:
-  # Lambda execution role for bucket cleanup
-  rBucketCleanupRole:
+  # Lambda execution role for resource cleanup
+  rResourceCleanupRole:
     Metadata:
       cdk_nag:
         rules_to_suppress:
@@ -186,7 +186,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: S3BucketCleanup
+        - PolicyName: ResourceCleanup
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -197,11 +197,21 @@ Resources:
                   - s3:ListBucketVersions
                   - s3:DeleteObjectVersion
                 Resource:
-                  - !Sub "${rConfigBucket}/*"
+                  - !Sub "${rConfigBucket.Arn}/*"
                   - !GetAtt rConfigBucket.Arn
+              - Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:RemoveTargets
+                  - events:ListTargetsByRule
+                Resource: !Sub "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-pipeline-monitor"
+              - Effect: Allow
+                Action:
+                  - lambda:RemovePermission
+                Resource: !GetAtt rPipelineStatusFunction.Arn
 
-  # Lambda function to empty S3 bucket
-  rBucketCleanupFunction:
+  # Lambda function to clean up resources
+  rResourceCleanupFunction:
     # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
     # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
     # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
@@ -210,17 +220,18 @@ Resources:
     Properties:
       Runtime: python3.13
       Handler: index.handler
-      Role: !GetAtt rBucketCleanupRole.Arn
+      Role: !GetAtt rResourceCleanupRole.Arn
       Timeout: 300
       Code:
         ZipFile: |
           import boto3
           import cfnresponse
           def handler(event, context):
-              s3 = boto3.client('s3')
-              bucket = event['ResourceProperties']['BucketName']
               try:
                   if event['RequestType'] == 'Delete':
+                      # Clean up S3 bucket
+                      s3 = boto3.client('s3')
+                      bucket = event['ResourceProperties']['BucketName']
                       paginator = s3.get_paginator('list_object_versions')
                       for page in paginator.paginate(Bucket=bucket):
                           delete_keys = []
@@ -230,6 +241,27 @@ Resources:
                               delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
                           if delete_keys:
                               s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
+
+                      # Clean up EventBridge rule
+                      events = boto3.client('events')
+                      lambda_client = boto3.client('lambda')
+                      stack_name = event['ResourceProperties']['StackName']
+                      rule_name = f"{stack_name}-pipeline-monitor"
+                      function_name = f"{stack_name}-pipeline-status-function"
+
+                      try:
+                          # Remove targets first
+                          events.remove_targets(Rule=rule_name, Ids=['1'])
+                          # Delete the rule
+                          events.delete_rule(Name=rule_name)
+                          # Remove Lambda permission
+                          lambda_client.remove_permission(
+                              FunctionName=function_name,
+                              StatementId=rule_name
+                          )
+                      except Exception as e:
+                          print(f"EventBridge cleanup error (non-fatal): {e}")
+
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
@@ -265,12 +297,13 @@ Resources:
         - !If [cCreateTag4, {Key: !Ref pUserDefinedTagKey4, Value: !Ref pUserDefinedTagValue4}, !Ref "AWS::NoValue"]
         - !If [cCreateTag5, {Key: !Ref pUserDefinedTagKey5, Value: !Ref pUserDefinedTagValue5}, !Ref "AWS::NoValue"]
 
-  # Custom resource to empty bucket on deletion
-  rBucketCleanup:
+  # Custom resource to clean up resources on deletion
+  rResourceCleanup:
     Type: AWS::CloudFormation::CustomResource
     Properties:
-      ServiceToken: !GetAtt rBucketCleanupFunction.Arn
+      ServiceToken: !GetAtt rResourceCleanupFunction.Arn
       BucketName: !Ref rConfigBucket
+      StackName: !Ref AWS::StackName
 
   # Bucket policy to enforce HTTPS-only access
   rConfigBucketPolicy:
@@ -449,7 +482,26 @@ Resources:
                     exit 1
                   fi
                 - echo "Pipeline ARN $PIPELINE_ARN"
-                - echo "$PIPELINE_ARN" > /tmp/pipeline_arn.txt
+                - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d'/' -f2)
+                - echo "Pipeline Name $PIPELINE_NAME"
+                # Create EventBridge rule for this specific pipeline
+                - |
+                  aws events put-rule \
+                    --name "${STACK_NAME}-pipeline-monitor" \
+                    --description "Monitor specific CDK pipeline execution status" \
+                    --event-pattern '{"source":["aws.codepipeline"],"detail-type":["CodePipeline Pipeline Execution State Change"],"detail":{"state":["SUCCEEDED","FAILED"],"pipeline":["'$PIPELINE_NAME'"]}}' \
+                    --state ENABLED
+                - |
+                  aws events put-targets \
+                    --rule "${STACK_NAME}-pipeline-monitor" \
+                    --targets "Id=1,Arn=arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:${STACK_NAME}-pipeline-status-function"
+                - |
+                  aws lambda add-permission \
+                    --function-name "${STACK_NAME}-pipeline-status-function" \
+                    --statement-id "${STACK_NAME}-pipeline-monitor" \
+                    --action lambda:InvokeFunction \
+                    --principal events.amazonaws.com \
+                    --source-arn "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/${STACK_NAME}-pipeline-monitor" || true
             post_build:
               commands:
                 - |
@@ -521,62 +573,61 @@ Resources:
     # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
-      Runtime: nodejs22.x
+      Runtime: python3.13
       Handler: index.handler
       Role: !GetAtt rPipelineStatusFunctionRole.Arn
       Code:
         ZipFile: |
-          exports.handler = async (event) => {
-            const AWS = require('aws-sdk');
-            const cloudformation = new AWS.CloudFormation();
+          import boto3
+          import json
+          import os
 
-            console.log('Event:', JSON.stringify(event, null, 2));
+          def handler(event, context):
+              cloudformation = boto3.client('cloudformation')
 
-            const pipelineState = event.detail.state;
-            const stackName = process.env.STACK_NAME;
-            const logicalResourceId = process.env.LOGICAL_RESOURCE_ID;
+              print('Event:', json.dumps(event, indent=2))
 
-            if (pipelineState === 'SUCCEEDED') {
-              // Signal success to CloudFormation
-              await cloudformation.signalResource({
-                StackName: stackName,
-                LogicalResourceId: logicalResourceId,
-                UniqueId: event.id,
-                Status: 'SUCCESS'
-              }).promise();
+              pipeline_state = event['detail']['state']
+              stack_name = os.environ['STACK_NAME']
+              logical_resource_id = os.environ['LOGICAL_RESOURCE_ID']
 
-              console.log('Signaled SUCCESS to CloudFormation');
-            } else if (pipelineState === 'FAILED') {
-              // Signal failure to CloudFormation
-              await cloudformation.signalResource({
-                StackName: stackName,
-                LogicalResourceId: logicalResourceId,
-                UniqueId: event.id,
-                Status: 'FAILURE'
-              }).promise();
+              if pipeline_state == 'SUCCEEDED':
+                  # Signal success to CloudFormation
+                  cloudformation.signal_resource(
+                      StackName=stack_name,
+                      LogicalResourceId=logical_resource_id,
+                      UniqueId=event['id'],
+                      Status='SUCCESS'
+                  )
+                  print('Signaled SUCCESS to CloudFormation')
 
-              console.log('Signaled FAILURE to CloudFormation');
+              elif pipeline_state == 'FAILED':
+                  # Signal failure to CloudFormation
+                  cloudformation.signal_resource(
+                      StackName=stack_name,
+                      LogicalResourceId=logical_resource_id,
+                      UniqueId=event['id'],
+                      Status='FAILURE'
+                  )
+                  print('Signaled FAILURE to CloudFormation')
 
-              // Run CodeBuild project to destroy resources
-              const codebuild = new AWS.CodeBuild();
-              await codebuild.startBuild({
-                projectName: process.env.CODEBUILD_PROJECT_NAME,
-                environmentVariablesOverride: [
-                  {
-                    name: 'DESTROY_MODE',
-                    value: 'true'
-                  }
-                ]
-              }).promise();
+                  # Run CodeBuild project to destroy resources
+                  codebuild = boto3.client('codebuild')
+                  codebuild.start_build(
+                      projectName=os.environ['CODEBUILD_PROJECT_NAME'],
+                      environmentVariablesOverride=[
+                          {
+                              'name': 'DESTROY_MODE',
+                              'value': 'true'
+                          }
+                      ]
+                  )
+                  print('Started CodeBuild project to destroy resources')
 
-              console.log('Started CodeBuild project to destroy resources');
-            }
-
-            return {
-              statusCode: 200,
-              body: JSON.stringify('Function executed successfully'),
-            };
-          };
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Function executed successfully')
+              }
       Environment:
         Variables:
           STACK_NAME: !Ref AWS::StackName
@@ -615,24 +666,7 @@ Resources:
         - Arn: !GetAtt rCodeBuildFailureFunction.Arn
           Id: CodeBuildFailureFunction
 
-  # Create EventBridge rule to monitor pipeline status
-  rPipelineMonitorRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: "Monitor CDK-created pipeline execution status"
-      EventPattern:
-        source:
-          - aws.codepipeline
-        detail-type:
-          - "CodePipeline Pipeline Execution State Change"
-        detail:
-          state:
-            - SUCCEEDED
-            - FAILED
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt rPipelineStatusFunction.Arn
-          Id: PipelineStatusFunction
+
   # Create Lambda function to handle CodeBuild failures
   rCodeBuildFailureFunction:
     # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
@@ -641,36 +675,38 @@ Resources:
     # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
-      Runtime: nodejs22.x
+      Runtime: python3.13
       Handler: index.handler
       Role: !GetAtt rPipelineStatusFunctionRole.Arn
       Code:
         ZipFile: |
-          exports.handler = async (event) => {
-            const AWS = require('aws-sdk');
-            const cloudformation = new AWS.CloudFormation();
+          import boto3
+          import json
+          import os
 
-            console.log('CodeBuild failure event:', JSON.stringify(event, null, 2));
+          def handler(event, context):
+              cloudformation = boto3.client('cloudformation')
 
-            const buildStatus = event.detail['build-status'];
-            const stackName = process.env.STACK_NAME;
-            const logicalResourceId = process.env.LOGICAL_RESOURCE_ID;
+              print('CodeBuild failure event:', json.dumps(event, indent=2))
 
-            // Signal failure to CloudFormation to trigger rollback
-            await cloudformation.signalResource({
-              StackName: stackName,
-              LogicalResourceId: logicalResourceId,
-              UniqueId: event.id,
-              Status: 'FAILURE'
-            }).promise();
+              build_status = event['detail']['build-status']
+              stack_name = os.environ['STACK_NAME']
+              logical_resource_id = os.environ['LOGICAL_RESOURCE_ID']
 
-            console.log('Signaled FAILURE to CloudFormation due to CodeBuild failure');
+              # Signal failure to CloudFormation to trigger rollback
+              cloudformation.signal_resource(
+                  StackName=stack_name,
+                  LogicalResourceId=logical_resource_id,
+                  UniqueId=event['id'],
+                  Status='FAILURE'
+              )
 
-            return {
-              statusCode: 200,
-              body: JSON.stringify('CodeBuild failure handled'),
-            };
-          };
+              print('Signaled FAILURE to CloudFormation due to CodeBuild failure')
+
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('CodeBuild failure handled')
+              }
       Environment:
         Variables:
           STACK_NAME: !Ref AWS::StackName
@@ -694,14 +730,7 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt rCodeBuildFailureRule.Arn
 
-  # Allow EventBridge to invoke the Lambda function
-  rPipelineStatusFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref rPipelineStatusFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt rPipelineMonitorRule.Arn
+
 
   # Start the CodeBuild project to begin deployment
   rStartDeployment:
