@@ -6,6 +6,10 @@ import { Construct } from 'constructs';
 import { Vpc, IpAddresses, FlowLog, FlowLogDestination, FlowLogResourceType, LogFormat } from 'aws-cdk-lib/aws-ec2';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import {
+    CfnResolverQueryLoggingConfig,
+    CfnResolverQueryLoggingConfigAssociation,
+} from 'aws-cdk-lib/aws-route53resolver';
 
 /**
  * Properties for the WorkshopNetwork construct
@@ -15,6 +19,12 @@ export interface WorkshopNetworkProperties {
     name: string;
     /** The CIDR range for the VPC (e.g., '10.0.0.0/16') */
     cidrRange: string;
+    /** Whether to enable VPC Flow Logs */
+    enableFlowLogs?: boolean;
+    /** Whether to enable DNS Query Resolver Logs for the VPC*/
+    enableDnsQueryResolverLogs?: boolean;
+    /** Default Log Retention */
+    logRetentionDays?: RetentionDays;
 }
 
 /**
@@ -42,9 +52,44 @@ export class WorkshopNetwork extends Construct {
             maxAzs: 2,
         });
 
+        if (properties.enableFlowLogs) {
+            this.enableFlowLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
+        }
+
+        if (properties.enableDnsQueryResolverLogs) {
+            this.enableDnsQueryResolverLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
+        }
+    }
+
+    /**
+     * Enables DNS query resolver logs for the VPC
+     * @param retention - Log retention period
+     */
+    private enableDnsQueryResolverLogs(retention: RetentionDays) {
+        const resolverLogGroup = new LogGroup(this, 'ResolverLogGroup', {
+            logGroupName: '/aws/vpc/dns-query-resolver-logs/' + this.vpc.vpcId,
+            retention: retention,
+        });
+
+        const cfnResovlerQueryConfig = new CfnResolverQueryLoggingConfig(this, 'ResolverQueryLogConfig', {
+            destinationArn: resolverLogGroup.logGroupArn,
+            name: 'ResolverQueryLogConfig',
+        });
+
+        new CfnResolverQueryLoggingConfigAssociation(this, 'ResolverQueryLogConfigAssociation', {
+            resolverQueryLogConfigId: cfnResovlerQueryConfig.ref,
+            resourceId: this.vpc.vpcId,
+        });
+    }
+
+    /**
+     * Enables VPC Flow Logs with comprehensive log format
+     * @param retention - Log retention period
+     */
+    private enableFlowLogs(retention: RetentionDays) {
         const flowLogGroup = new LogGroup(this, 'FlowLogGroup', {
             logGroupName: '/aws/vpcflowlogs/' + this.vpc.vpcId,
-            retention: RetentionDays.ONE_WEEK,
+            retention: retention,
         });
 
         const role = new Role(this, 'VPCFlowLogRole', {

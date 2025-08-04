@@ -94,6 +94,9 @@ export class CoreStack extends Stack {
             const vpc = new WorkshopNetwork(this, 'vpc', {
                 name: 'vpc',
                 cidrRange: properties.vpcCidr || '10.0.0.0/16',
+                logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
+                enableDnsQueryResolverLogs: true,
+                enableFlowLogs: true,
             });
             this.vpc = vpc.vpc;
         } else if (properties.vpcId) {
