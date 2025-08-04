@@ -13,6 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -45,6 +46,9 @@ export const TAGS = {
     application: 'One Observability Workshop',
 };
 
+/** Default retention period for logs */
+export const DEFAULT_RETENTION_DAYS = RetentionDays.ONE_WEEK; // TODO: Find a way to parametrize this
+
 /** Core infrastructure properties for the workshop */
 export const CORE_PROPERTIES = {
     /** Whether to create a new VPC or use existing one */
@@ -53,4 +57,8 @@ export const CORE_PROPERTIES = {
     vpcCider: process.env.VPC_CIDR || '10.0.0.0/16',
     /** Existing VPC ID to use instead of creating new one */
     vpcId: process.env.VPC_ID || undefined,
+    /** Create CloudTrail and Cloudwatch logs for events */
+    createCloudTrail: process.env.CREATE_CLOUDTRAIL == 'false' || true,
+    /** Default retention for logs in the core components */
+    defaultRetentionDays: DEFAULT_RETENTION_DAYS,
 };

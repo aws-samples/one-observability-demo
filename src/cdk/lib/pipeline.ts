@@ -12,6 +12,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { CoreStage, CoreStageProperties } from './stages/core';
 import { Utilities } from './utils/utilities';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -21,6 +22,7 @@ export interface CDKPipelineProperties extends StackProps {
     workingFolder: string;
     tags?: { [key: string]: string };
     coreStageProperties?: CoreStageProperties;
+    defaultRetentionPeriod?: RetentionDays;
 }
 
 export class CDKPipeline extends Stack {

@@ -17,6 +17,8 @@ import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { WorkshopNetwork } from '../constructs/network';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { WorkshopCloudTrail } from '../constructs/cloudtrail';
 
 /**
  * Configuration properties for the CoreStage.
@@ -30,6 +32,10 @@ export interface CoreStageProperties {
     vpcCidr?: string;
     /** Existing VPC ID to use instead of creating new one */
     vpcId?: string;
+    /** Whether to create a CloudTrail trail (default: true) */
+    createCloudTrail?: boolean;
+    /** Default Retention Period for logs */
+    defaultRetentionDays?: RetentionDays;
 }
 
 /**
@@ -98,6 +104,15 @@ export class CoreStack extends Stack {
             this.externalVpc = true;
         } else {
             throw new Error('Either createVpc or vpcId must be specified');
+        }
+
+        if (properties.createCloudTrail == true) {
+            // Create CloudTrail trail
+            new WorkshopCloudTrail(this, 'cloudtrail', {
+                name: 'workshop-trail',
+                includeS3DataEvents: true,
+                logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
+            });
         }
     }
 }
