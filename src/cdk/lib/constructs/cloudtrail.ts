@@ -17,6 +17,7 @@ import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { Names } from 'aws-cdk-lib';
+import { NagSuppressions } from 'cdk-nag';
 
 /**
  * Configuration properties for the WorkshopCloudTrail construct.
@@ -92,5 +93,16 @@ export class WorkshopCloudTrail extends Construct {
         if (properties.includeLambdaEvents) {
             this.trail.logAllLambdaDataEvents();
         }
+
+        NagSuppressions.addResourceSuppressions(
+            this.trail,
+            [
+                {
+                    id: 'AwsSolutions-S1',
+                    reason: 'CloudTrail Bucket, access logs are not required for the workshop',
+                },
+            ],
+            true,
+        );
     }
 }

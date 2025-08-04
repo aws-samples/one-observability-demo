@@ -13,6 +13,7 @@ import { Construct } from 'constructs';
 import { CoreStage, CoreStageProperties } from './stages/core';
 import { Utilities } from './utils/utilities';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -40,7 +41,9 @@ export class CDKPipeline extends Stack {
         const configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
 
         // Use the configuration file as the pipeline trigger
-        const bucketSource = CodePipelineSource.s3(configBucket, `repo/refs/heads/${properties.branchName}/repo.zip`);
+        const bucketSource = CodePipelineSource.s3(configBucket, `repo/refs/heads/${properties.branchName}/repo.zip`, {
+            trigger: S3Trigger.POLL,
+        });
         /**
          * Create an S3 bucket to store the pipeline artifacts.
          * The bucket has encryption at rest using a CMK and enforces encryption in transit.

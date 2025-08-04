@@ -120,6 +120,28 @@ cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" diff
 cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" destroy
 ```
 
+## Deployment Script
+
+The `scripts/deploy-check.sh` script validates your environment and prepares the repository for deployment.
+
+**Setup:**
+1. Copy `src/cdk/.env.sample` to `src/cdk/.env`
+2. Update the `.env` file with your AWS account details:
+   - `CONFIG_BUCKET`: Your S3 bucket name
+   - `BRANCH_NAME`: Your git branch name
+   - `AWS_ACCOUNT_ID`: Your AWS account ID
+   - `AWS_REGION`: Your target AWS region
+
+**Usage:**
+```bash
+./scripts/deploy-check.sh
+```
+
+The script will:
+- Validate AWS credentials and display current role/account
+- Check if the S3 bucket exists (create if needed)
+- Verify the repository archive exists in S3 (upload if needed)
+
 ## Security issue notifications
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
 

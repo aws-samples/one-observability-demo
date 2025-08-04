@@ -10,6 +10,7 @@ import {
     CfnResolverQueryLoggingConfig,
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
+import { RemovalPolicy } from 'aws-cdk-lib';
 
 /**
  * Properties for the WorkshopNetwork construct
@@ -90,6 +91,7 @@ export class WorkshopNetwork extends Construct {
         const flowLogGroup = new LogGroup(this, 'FlowLogGroup', {
             logGroupName: '/aws/vpcflowlogs/' + this.vpc.vpcId,
             retention: retention,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         const role = new Role(this, 'VPCFlowLogRole', {

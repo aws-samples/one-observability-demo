@@ -62,3 +62,48 @@ export const CORE_PROPERTIES = {
     /** Default retention for logs in the core components */
     defaultRetentionDays: DEFAULT_RETENTION_DAYS,
 };
+
+/** Microservices definitions */
+export const PAYFORADOPTION_GO = {
+    name: 'payforadoption-go',
+    dockerFilePath: 'PetAdoptions/payforadoption-go',
+};
+
+export const PETADOPTIONHISTORY_PY = {
+    name: 'petadoptionhistory-py',
+    dockerFilePath: 'PetAdoptions/petadoptionshistory-py',
+};
+
+export const PETLISTADOPTIONS_GO = {
+    name: 'petlistadoption-go',
+    dockerFilePath: 'PetAdoptions/petlistadoptions-go',
+};
+
+export const PETSEARCH_JAVA = {
+    name: 'petsearch-java',
+    dockerFilePath: 'PetAdoptions/petsearch-java',
+};
+
+export const PETSITE = {
+    name: 'petsite',
+    dockerFilePath: 'PetAdoptions/petsite/petsite',
+};
+
+export const PETSTATUSUPDATER = {
+    name: 'petstatusupdater',
+    dockerFilePath: 'PetAdoptions/petstatusupdater',
+};
+
+export const TRAFFICGENERATOR = {
+    name: 'trafficgenerator',
+    dockerFilePath: 'PetAdoptions/trafficgenerator/trafficgenerator',
+};
+
+export const APPLICATION_LIST = [
+    PAYFORADOPTION_GO,
+    PETADOPTIONHISTORY_PY,
+    PETLISTADOPTIONS_GO,
+    PETSEARCH_JAVA,
+    PETSITE,
+    TRAFFICGENERATOR,
+];
