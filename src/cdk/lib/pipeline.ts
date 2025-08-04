@@ -128,6 +128,8 @@ export class CDKPipeline extends Stack {
             },
         });
 
+        const coreWave = pipeline.addWave('Core');
+
         let stageSequence = 1;
         const coreStageTags = {
             ...properties.tags,
@@ -138,14 +140,14 @@ export class CDKPipeline extends Stack {
             ? { ...properties.coreStageProperties, tags: coreStageTags }
             : { tags: coreStageTags };
 
-        pipeline.addStage(new CoreStage(this, 'Core', coreProperties));
+        coreWave.addStage(new CoreStage(this, 'Core', coreProperties));
 
         const applicationsStageTags = {
             ...properties.tags,
             parent: this.stackName,
             sequence: (stageSequence++).toString(),
         };
-        pipeline.addStage(
+        coreWave.addStage(
             new ApplicationsPipelineStage(this, 'Applications', {
                 applicationList: properties.applicationList,
                 tags: applicationsStageTags,
