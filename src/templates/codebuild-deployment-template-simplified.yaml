@@ -565,6 +565,8 @@ Resources:
                   INITIAL_EXECUTION_ID=""
                   RETRY_COUNT=0
                   MAX_RETRIES=3
+                  RETRY_LOOP_COUNT=0
+                  MAX_RETRY_LOOPS=10
 
                   # Get the initial execution ID to track retries
                   INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
@@ -591,8 +593,7 @@ Resources:
                       RETRY_COUNT=$((RETRY_COUNT + 1))
                       echo "Detected new pipeline execution (retry #$RETRY_COUNT): $CURRENT_EXECUTION_ID"
                       INITIAL_EXECUTION_ID="$CURRENT_EXECUTION_ID"
-
-                      # Reset elapsed time for the new execution but keep overall timeout
+                      RETRY_LOOP_COUNT=0  # Reset retry loop counter for new execution
                       echo "Continuing to monitor new execution..."
                     fi
 
@@ -611,14 +612,16 @@ Resources:
                         ;;
                       "Failed")
                         echo "Pipeline execution failed with status: $EXECUTION_STATUS"
-                        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                          echo "Waiting for potential retry... (attempt $((RETRY_COUNT + 1)) of $((MAX_RETRIES + 1)))"
-                          # Wait longer for manual retry or automatic retry mechanisms
+                        RETRY_LOOP_COUNT=$((RETRY_LOOP_COUNT + 1))
+                        echo "Retry loop count: $RETRY_LOOP_COUNT/$MAX_RETRY_LOOPS"
+
+                        if [ $RETRY_LOOP_COUNT -lt $MAX_RETRY_LOOPS ]; then
+                          echo "Waiting for potential retry... (loop $RETRY_LOOP_COUNT of $MAX_RETRY_LOOPS)"
                           sleep 60
                           ELAPSED=$((ELAPSED + 60))
                           continue
                         else
-                          echo "Maximum retries ($MAX_RETRIES) reached. Pipeline deployment failed."
+                          echo "Maximum retry loops ($MAX_RETRY_LOOPS) reached without new execution. Build failed."
                           exit 1
                         fi
                         ;;
