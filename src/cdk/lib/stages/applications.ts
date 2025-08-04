@@ -16,32 +16,68 @@ import {
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { CompositePrincipal, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 
+/**
+ * Definition for an application to be built and deployed
+ */
 export interface ApplicationDefinition {
+    /** The name of the application */
     name: string;
+    /** Path to the Dockerfile for building the application */
     dockerFilePath: string;
 }
 
+/**
+ * Properties for S3 source configuration
+ */
 export interface S3SourceProperties {
+    /** Name of the S3 bucket containing source code */
     bucketName: string;
+    /** Key/path to the source code object in S3 */
     bucketKey: string;
 }
 
+/**
+ * Properties for the Applications Pipeline Stage
+ */
 export interface ApplicationsPipelineStageProperties extends StackProps {
+    /** S3 source configuration */
     source: S3SourceProperties;
+    /** List of applications to build and deploy */
     applicationList: ApplicationDefinition[];
 }
 
+/**
+ * CDK Stage for the Applications Pipeline
+ */
 export class ApplicationsPipelineStage extends Stage {
+    /**
+     * Creates a new Applications Pipeline Stage
+     * @param scope - The scope in which to define this construct
+     * @param id - The scoped construct ID
+     * @param properties - Configuration properties for the stage
+     */
     constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
         super(scope, id);
         new ApplicationsStack(this, 'ApplicationsStack', properties);
     }
 }
 
+/**
+ * Stack containing the applications build pipeline and ECR repositories
+ */
 export class ApplicationsStack extends Stack {
+    /** Map of application names to their ECR repositories */
     public applicationRepositories: Map<string, Repository> = new Map<string, Repository>();
+    /** The CodePipeline for building applications */
     public pipeline: Pipeline;
 
+    /**
+     * Creates a new Applications Stack
+     * @param scope - The scope in which to define this construct
+     * @param id - The scoped construct ID
+     * @param properties - Configuration properties for the stack
+     * @throws Error when source or applicationList properties are missing
+     */
     constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
         super(scope, id, properties);
 

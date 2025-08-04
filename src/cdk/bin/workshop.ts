@@ -30,6 +30,7 @@ import {
     TAGS,
     CORE_PROPERTIES,
     DEFAULT_RETENTION_DAYS,
+    APPLICATION_LIST,
 } from './environment';
 
 /** Main CDK application instance */
@@ -52,6 +53,7 @@ new CDKPipeline(app, 'OneObservabilityWorkshopPipeline', {
     tags: TAGS,
     coreStageProperties: CORE_PROPERTIES,
     defaultRetentionPeriod: DEFAULT_RETENTION_DAYS,
+    applicationList: APPLICATION_LIST,
 });
 
 // Apply tags to all resources in the application

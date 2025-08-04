@@ -14,6 +14,7 @@ import { CoreStage, CoreStageProperties } from './stages/core';
 import { Utilities } from './utils/utilities';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { ApplicationDefinition, ApplicationsPipelineStage } from './stages/applications';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -24,6 +25,7 @@ export interface CDKPipelineProperties extends StackProps {
     tags?: { [key: string]: string };
     coreStageProperties?: CoreStageProperties;
     defaultRetentionPeriod?: RetentionDays;
+    applicationList: ApplicationDefinition[];
 }
 
 export class CDKPipeline extends Stack {
@@ -39,9 +41,10 @@ export class CDKPipeline extends Stack {
 
         // Create a CodePipeline source using the Specified S3 Bucket
         const configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
+        const bucketKey = `repo/refs/heads/${properties.branchName}/repo.zip`;
 
         // Use the configuration file as the pipeline trigger
-        const bucketSource = CodePipelineSource.s3(configBucket, `repo/refs/heads/${properties.branchName}/repo.zip`, {
+        const bucketSource = CodePipelineSource.s3(configBucket, bucketKey, {
             trigger: S3Trigger.POLL,
         });
         /**
@@ -125,6 +128,8 @@ export class CDKPipeline extends Stack {
             },
         });
 
+        const coreWave = pipeline.addWave('Core');
+
         let stageSequence = 1;
         const coreStageTags = {
             ...properties.tags,
@@ -135,7 +140,23 @@ export class CDKPipeline extends Stack {
             ? { ...properties.coreStageProperties, tags: coreStageTags }
             : { tags: coreStageTags };
 
-        pipeline.addStage(new CoreStage(this, 'Core', coreProperties));
+        coreWave.addStage(new CoreStage(this, 'Core', coreProperties));
+
+        const applicationsStageTags = {
+            ...properties.tags,
+            parent: this.stackName,
+            sequence: (stageSequence++).toString(),
+        };
+        coreWave.addStage(
+            new ApplicationsPipelineStage(this, 'Applications', {
+                applicationList: properties.applicationList,
+                tags: applicationsStageTags,
+                source: {
+                    bucketName: properties.configBucketName,
+                    bucketKey: bucketKey,
+                },
+            }),
+        );
 
         /**
          * Build the pipeline to add suppressions and customizations.

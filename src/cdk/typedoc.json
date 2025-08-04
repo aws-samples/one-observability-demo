@@ -1,14 +1,13 @@
 {
-  "entryPoints": ["src/cdk/index.ts"],
-  "out": "./docs",
+  "entryPoints": ["index.ts"],
+  "out": "./wiki-docs",
   "theme": "default",
-  "name": "One Observability Workshop",
+  "name": "One Observability Workshop CDK",
   "includeVersion": true,
-  "excludePrivate": true,
+  "excludePrivate": false,
   "excludeProtected": false,
   "excludeExternals": true,
-  "readme": "./src/cdk/README.md",
-  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "./README.md",
   "gitRevision": "main",
   "hideGenerator": true,
   "sort": ["source-order"],
@@ -46,5 +45,12 @@
     "Functions",
     "Variables",
     "*"
-  ]
+  ],
+  "tsconfig": "./tsconfig.json",
+  "skipErrorChecking": true,
+  "validation": {
+    "notExported": false,
+    "invalidLink": false,
+    "notDocumented": false
+  }
 }
