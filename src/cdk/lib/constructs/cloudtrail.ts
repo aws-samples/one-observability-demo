@@ -16,6 +16,7 @@ import { Construct } from 'constructs';
 import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
+import { Names } from 'aws-cdk-lib';
 
 /**
  * Configuration properties for the WorkshopCloudTrail construct.
@@ -51,10 +52,11 @@ export class WorkshopCloudTrail extends Construct {
     constructor(scope: Construct, id: string, properties: WorkshopCloudTrailProperties) {
         super(scope, id);
 
+        const logName = Names.uniqueResourceName(this, {});
         // Create CloudWatch log group for CloudTrail
         this.logGroup = new LogGroup(this, 'CloudTrailLogGroup', {
-            logGroupName: `/aws/cloudtrail/${properties.name}`,
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
+            logGroupName: `/aws/cloudtrail/${logName}`,
         });
 
         // Create IAM role for CloudTrail to write to CloudWatch Logs
