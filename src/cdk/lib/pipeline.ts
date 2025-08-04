@@ -10,6 +10,8 @@ import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import { CoreStage, CoreStageProperties } from './stages/core';
+import { Utilities } from './utils/utilities';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -17,6 +19,8 @@ export interface CDKPipelineProperties extends StackProps {
     organizationName: string;
     repositoryName: string;
     workingFolder: string;
+    tags?: { [key: string]: string };
+    coreStageProperties?: CoreStageProperties;
 }
 
 export class CDKPipeline extends Stack {
@@ -116,6 +120,18 @@ export class CDKPipeline extends Stack {
             },
         });
 
+        let stageSequence = 1;
+        const coreStageTags = {
+            ...properties.tags,
+            parent: this.stackName,
+            sequence: (stageSequence++).toString(),
+        };
+        const coreProperties = properties.coreStageProperties
+            ? { ...properties.coreStageProperties, ...coreStageTags }
+            : { ...coreStageTags };
+
+        pipeline.addStage(new CoreStage(this, 'Core', coreProperties));
+
         /**
          * Build the pipeline to add suppressions and customizations.
          * This is required before adding additional configurations.
@@ -151,10 +167,6 @@ export class CDKPipeline extends Stack {
             pipeline.synthProject,
             [
                 {
-                    id: 'AwsSolutions-CB4',
-                    reason: 'Ephemeral Synth Project not using KMS (for now)',
-                },
-                {
                     id: 'AwsSolutions-IAM5',
                     reason: 'The pipeline role is not scoped to a specific resource',
                 },
@@ -173,10 +185,6 @@ export class CDKPipeline extends Stack {
         NagSuppressions.addResourceSuppressions(
             pipeline.selfMutationProject,
             [
-                {
-                    id: 'AwsSolutions-CB4',
-                    reason: 'Ephemeral Synth Project not using KMS (for now)',
-                },
                 {
                     id: 'AwsSolutions-IAM5',
                     reason: 'Ephemeral Synth Project not limited to specific resource or action',
@@ -197,6 +205,10 @@ export class CDKPipeline extends Stack {
                     id: 'AwsSolutions-IAM5',
                     reason: 'Ephemeral Synth Project not limited to specific resource or action',
                 },
+                {
+                    id: 'AwsSolutions-CB4',
+                    reason: 'CDK Pipelines uses CMKs with cross account / region. Omitted for simplicity.',
+                },
             ],
             true,
         );
@@ -208,5 +220,13 @@ export class CDKPipeline extends Stack {
             value: pipeline.pipeline.pipelineArn,
             exportName: 'PipelineArn',
         });
+
+        /**
+         * Tag all child resources of the application
+         */
+
+        if (properties.tags) {
+            Utilities.TagConstruct(this, properties.tags);
+        }
     }
 }
