@@ -129,8 +129,8 @@ export class CDKPipeline extends Stack {
             sequence: (stageSequence++).toString(),
         };
         const coreProperties = properties.coreStageProperties
-            ? { ...properties.coreStageProperties, ...coreStageTags }
-            : { ...coreStageTags };
+            ? { ...properties.coreStageProperties, tags: coreStageTags }
+            : { tags: coreStageTags };
 
         pipeline.addStage(new CoreStage(this, 'Core', coreProperties));
 
