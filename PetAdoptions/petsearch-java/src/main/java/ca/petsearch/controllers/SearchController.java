@@ -95,7 +95,9 @@ public class SearchController {
                             .withMethod(HttpMethod.GET)
                             .withExpiration(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)));
 
-            return s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
+            String s3signedUrl= s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
+            logger.info("S3 signed url: " + s3signedUrl);
+            return s3signedUrl;
 
         } catch (Exception e) {
             logger.error("Error while accessing S3 bucket", e);
