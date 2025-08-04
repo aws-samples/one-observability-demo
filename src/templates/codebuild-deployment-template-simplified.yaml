@@ -604,6 +604,9 @@ Resources:
                         if [ $RETRY_COUNT -gt 0 ]; then
                           echo "Success achieved after $RETRY_COUNT retry(ies)"
                         fi
+                        echo "Signaling CloudFormation SUCCESS"
+                        WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                        curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "SUCCESS","Reason" : "Pipeline completed successfully","UniqueId" : "'$(uuidgen)'","Data" : "Pipeline execution finished"}' "$WAIT_HANDLE_URL"
                         break
                         ;;
                       "Failed")
@@ -680,10 +683,10 @@ Resources:
                   if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
                     echo "Build failed, cleaning up S3 bucket for rollback"
                     aws s3 rm s3://$CONFIG_BUCKET --recursive
-                    aws cloudformation signal-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status FAILURE --region $AWS_REGION
+                    WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                    curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
                   else
-                    echo "CDK deployment and pipeline execution completed successfully"
-                    aws cloudformation signal-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status SUCCESS --region $AWS_REGION
+                    echo "Build completed - signal already sent during pipeline monitoring"
                   fi
       Tags:
         - Key: Name
