@@ -35,10 +35,8 @@ ENV OTEL_IMR_EXPORT_INTERVAL "10000"
 ENV OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:4317"
 
 # CloudWatch agent configuration for sending data to CloudWatch
-ENV AWS_DEFAULT_REGION=us-west-1
-ENV AWS_REGION=us-west-1
-ENV AWS_ACCESS_KEY_ID=dummyaccess
-ENV AWS_SECRET_ACCESS_KEY=dummysecret
+ENV AWS_DEFAULT_REGION=us-west-2
+
 
 # Start CloudWatch agent and application
 COPY start.sh /app/start.sh
