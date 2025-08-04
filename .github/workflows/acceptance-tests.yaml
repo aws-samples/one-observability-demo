@@ -1,0 +1,69 @@
+name: acceptance-testing
+
+on:
+  # this will allow to run test on main and not modify the status badge when opening a PR
+  push:
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  trigger-code-pipeline:
+    runs-on: ubuntu-latest
+    name: Trigger AWS CodePipeline
+    environment: acceptance
+    steps:
+      - name: Configure AWS credentials from Test account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: us-east-2
+          role-duration-seconds: 3600
+          role-session-name: GithubActions-Session
+
+      - name: Run AWS Pipeline
+        run: |
+          echo "Triggering AWS Pipeline"
+          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
+            --region us-east-2 \
+            --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
+            --output text \
+            --query 'pipelineExecutionId'
+          sleep 30
+
+      - name: Check CFN Status
+        run: |
+          while true; do
+              # Check if the stack exists and get its status
+              STACK_STATUS=$(aws cloudformation describe-stacks \
+                  --stack-name "Observability-Workshop" \
+                  --query 'Stacks[0].StackStatus' \
+                  --output text 2>/dev/null || echo "STACK_NOT_FOUND")
+
+              if [ "$STACK_STATUS" == "STACK_NOT_FOUND" ]; then
+                  echo "Stack 'Observability-Workshop' not found yet. Waiting..."
+              else
+                  echo "Stack 'Observability-Workshop' status: $STACK_STATUS"
+
+                  # Check if the stack is in a completed state
+                  if [[ "$STACK_STATUS" == *"COMPLETE"* ]]; then
+                      if [[ "$STACK_STATUS" == "CREATE_COMPLETE" || "$STACK_STATUS" == "UPDATE_COMPLETE" ]]; then
+                          echo "Stack deployment succeeded!"
+                          exit 0
+                      else
+                          echo "Stack deployment failed with status: $STACK_STATUS"
+                          exit 1
+                      fi
+                  elif [[ "$STACK_STATUS" == *"FAILED"* || "$STACK_STATUS" == *"ROLLBACK"* ]]; then
+                      echo "Stack deployment failed with status: $STACK_STATUS"
+                      exit 1
+                  fi
+              fi
+              echo "Waiting for stack deployment to complete..."
+              sleep 30
+          done

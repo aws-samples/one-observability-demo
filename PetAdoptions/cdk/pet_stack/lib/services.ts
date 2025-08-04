@@ -621,7 +621,7 @@ export class Services extends Stack {
         costControlDashboardBody = costControlDashboardBody.replaceAll("{{YOUR_LAMBDA_ARN}}", customWidgetFunction.functionArn);
 
         const petSiteCostControlDashboard = new cloudwatch.CfnDashboard(this, "PetSiteCostControlDashboard", {
-            dashboardName: "PetSite_Cost_Control_Dashboard",
+            dashboardName: `PetSite_Cost_Control_Dashboard_${region}`,
             dashboardBody: costControlDashboardBody
         });
 
