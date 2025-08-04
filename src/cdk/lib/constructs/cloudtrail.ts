@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { Trail, DataResourceType, ReadWriteType, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
+import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 
@@ -25,6 +25,8 @@ export interface WorkshopCloudTrailProperties {
     name: string;
     /** Whether to include S3 data events in the trail */
     includeS3DataEvents?: boolean;
+    /** Whether to include Lambda events in the trail */
+    includeLambdaEvents?: boolean;
     /** CloudWatch log retention period in days */
     logRetentionDays?: RetentionDays;
 }
@@ -56,7 +58,7 @@ export class WorkshopCloudTrail extends Construct {
         });
 
         // Create IAM role for CloudTrail to write to CloudWatch Logs
-        const cloudTrailRole = new Role(this, 'CloudTrailRole', {
+        new Role(this, 'CloudTrailRole', {
             assumedBy: new ServicePrincipal('cloudtrail.amazonaws.com'),
             inlinePolicies: {
                 CloudWatchLogsPolicy: new PolicyDocument({
@@ -81,12 +83,12 @@ export class WorkshopCloudTrail extends Construct {
             insightTypes: [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE],
         });
 
-        // Add S3 data events if requested
         if (properties.includeS3DataEvents) {
-            this.trail.addEventSelector(DataResourceType.S3_OBJECT, ['arn:aws:s3:::*/*'], {
-                readWriteType: ReadWriteType.ALL,
-                includeManagementEvents: false,
-            });
+            this.trail.logAllS3DataEvents();
+        }
+
+        if (properties.includeLambdaEvents) {
+            this.trail.logAllLambdaDataEvents();
         }
     }
 }
