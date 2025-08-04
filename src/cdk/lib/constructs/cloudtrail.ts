@@ -48,7 +48,7 @@ export class WorkshopCloudTrail extends Construct {
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
-     * @param props - Configuration properties for the CloudTrail
+     * @param properties - Configuration properties for the CloudTrail
      */
     constructor(scope: Construct, id: string, properties: WorkshopCloudTrailProperties) {
         super(scope, id);
