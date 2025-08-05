@@ -19,7 +19,7 @@ import { CompositePrincipal, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 /**
  * Definition for an application to be built and deployed
  */
-export interface ApplicationDefinition {
+export interface ContainerDefinition {
     /** The name of the application */
     name: string;
     /** Path to the Dockerfile for building the application */
@@ -37,48 +37,48 @@ export interface S3SourceProperties {
 }
 
 /**
- * Properties for the Applications Pipeline Stage
+ * Properties for the Containers Pipeline Stage
  */
-export interface ApplicationsPipelineStageProperties extends StackProps {
+export interface ContainersPipelineStageProperties extends StackProps {
     /** S3 source configuration */
     source: S3SourceProperties;
     /** List of applications to build and deploy */
-    applicationList: ApplicationDefinition[];
+    applicationList: ContainerDefinition[];
 }
 
 /**
- * CDK Stage for the Applications Pipeline
+ * CDK Stage for the Containers Pipeline
  */
-export class ApplicationsPipelineStage extends Stage {
+export class ContainersPipelineStage extends Stage {
     /**
-     * Creates a new Applications Pipeline Stage
+     * Creates a new Containers Pipeline Stage
      * @param scope - The scope in which to define this construct
      * @param id - The scoped construct ID
      * @param properties - Configuration properties for the stage
      */
-    constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
+    constructor(scope: Construct, id: string, properties?: ContainersPipelineStageProperties) {
         super(scope, id);
-        new ApplicationsStack(this, 'ApplicationsStack', properties);
+        new ContainersStack(this, 'ContainersStack', properties);
     }
 }
 
 /**
- * Stack containing the applications build pipeline and ECR repositories
+ * Stack containing the containers build pipeline and ECR repositories
  */
-export class ApplicationsStack extends Stack {
+export class ContainersStack extends Stack {
     /** Map of application names to their ECR repositories */
     public applicationRepositories: Map<string, Repository> = new Map<string, Repository>();
     /** The CodePipeline for building applications */
     public pipeline: Pipeline;
 
     /**
-     * Creates a new Applications Stack
+     * Creates a new Containers Stack
      * @param scope - The scope in which to define this construct
      * @param id - The scoped construct ID
      * @param properties - Configuration properties for the stack
      * @throws Error when source or applicationList properties are missing
      */
-    constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
+    constructor(scope: Construct, id: string, properties?: ContainersPipelineStageProperties) {
         super(scope, id, properties);
 
         if (!properties?.source || !properties?.applicationList) {
@@ -115,7 +115,7 @@ export class ApplicationsStack extends Stack {
         }
 
         // Create CodePipeline
-        this.pipeline = new Pipeline(this, 'ApplicationsPipeline', {
+        this.pipeline = new Pipeline(this, 'ContainersPipeline', {
             restartExecutionOnUpdate: true,
             pipelineType: PipelineType.V2,
             usePipelineRoleForActions: true,

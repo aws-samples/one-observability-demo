@@ -107,3 +107,20 @@ export const APPLICATION_LIST = [
     PETSITE,
     TRAFFICGENERATOR,
 ];
+
+export const PET_IMAGES = [
+    '../../PetAdoptions/cdk/pet_stack/resources/bunnies.zip',
+    '../../PetAdoptions/cdk/pet_stack/resources/kitten.zip',
+    '../../PetAdoptions/cdk/pet_stack/resources/puppies.zip',
+];
+
+export const MAX_AVAILABILITY_ZONES = 2;
+export const VPC_ID_EXPORT_NAME = 'WorkshopVPC';
+export const VPC_CIDR_EXPORT_NAME = 'WorkshopVPCCidr';
+export const VPC_PRIVATE_SUBNETS_EXPORT_NAME = 'WorkshopVPCPrivateSubnets';
+export const VPC_PUBLIC_SUBNETS_EXPORT_NAME = 'WorkshopVPCPublicSubnets';
+export const VPC_ISOLATED_SUBNETS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnets';
+export const VPC_AVAILABILITY_ZONES_EXPORT_NAME = 'WorkshopVPCAvailabilityZones';
+export const VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPrivateSubnetCidrs';
+export const VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPublicSubnetCidrs';
+export const VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnetCidrs';

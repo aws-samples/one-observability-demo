@@ -3,14 +3,35 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { Construct } from 'constructs';
-import { Vpc, IpAddresses, FlowLog, FlowLogDestination, FlowLogResourceType, LogFormat } from 'aws-cdk-lib/aws-ec2';
+import {
+    Vpc,
+    IpAddresses,
+    FlowLog,
+    FlowLogDestination,
+    FlowLogResourceType,
+    LogFormat,
+    SubnetType,
+    IVpc,
+} from 'aws-cdk-lib/aws-ec2';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import {
     CfnResolverQueryLoggingConfig,
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import {
+    MAX_AVAILABILITY_ZONES,
+    VPC_AVAILABILITY_ZONES_EXPORT_NAME,
+    VPC_CIDR_EXPORT_NAME,
+    VPC_ID_EXPORT_NAME,
+    VPC_ISOLATED_SUBNETS_EXPORT_NAME,
+    VPC_PRIVATE_SUBNETS_EXPORT_NAME,
+    VPC_PUBLIC_SUBNETS_EXPORT_NAME,
+    VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
+    VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
+    VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+} from '../../bin/environment';
 
 /**
  * Properties for the WorkshopNetwork construct
@@ -50,7 +71,24 @@ export class WorkshopNetwork extends Construct {
         this.vpc = new Vpc(this, 'VPC-' + properties.name, {
             ipAddresses: IpAddresses.cidr(properties.cidrRange),
             natGateways: 1,
-            maxAzs: 2,
+            maxAzs: MAX_AVAILABILITY_ZONES,
+            subnetConfiguration: [
+                {
+                    name: 'Public',
+                    cidrMask: 24,
+                    subnetType: SubnetType.PUBLIC,
+                },
+                {
+                    name: 'Private',
+                    cidrMask: 24,
+                    subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                },
+                {
+                    name: 'Isolated',
+                    cidrMask: 28,
+                    subnetType: SubnetType.PRIVATE_ISOLATED,
+                },
+            ],
         });
 
         if (properties.enableFlowLogs) {
@@ -60,6 +98,9 @@ export class WorkshopNetwork extends Construct {
         if (properties.enableDnsQueryResolverLogs) {
             this.enableDnsQueryResolverLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
         }
+
+        // Create CloudFormation outputs for VPC resources
+        this.createVpcOutputs();
     }
 
     /**
@@ -132,6 +173,93 @@ export class WorkshopNetwork extends Construct {
                 LogFormat.VERSION,
                 LogFormat.VPC_ID,
             ],
+        });
+    }
+
+    /**
+     * Imports a VPC from CloudFormation exports created by WorkshopNetwork
+     *
+     * This static method reconstructs a VPC instance from CloudFormation exports,
+     * allowing other stacks to reference and use the VPC created by the core infrastructure.
+     *
+     * @param scope - The construct scope where the VPC will be imported
+     * @param id - The construct identifier for the imported VPC
+     * @returns The imported VPC instance with all subnet and availability zone information
+     *
+     * @example
+     * ```typescript
+     * const vpc = WorkshopNetwork.importVpcFromExports(this, 'ImportedVpc');
+     * // Use vpc.privateSubnets, vpc.publicSubnets, etc.
+     * ```
+     */
+    public static importVpcFromExports(scope: Construct, id: string): IVpc {
+        const vpcId = Fn.importValue(VPC_ID_EXPORT_NAME);
+        const availabilityZones = Fn.importListValue(VPC_AVAILABILITY_ZONES_EXPORT_NAME, MAX_AVAILABILITY_ZONES, ',');
+
+        const publicSubnetIds = Fn.importListValue(VPC_PUBLIC_SUBNETS_EXPORT_NAME, MAX_AVAILABILITY_ZONES, ',');
+        const privateSubnetIds = Fn.importListValue(VPC_PRIVATE_SUBNETS_EXPORT_NAME, MAX_AVAILABILITY_ZONES, ',');
+        const isolatedSubnetIds = Fn.importListValue(VPC_ISOLATED_SUBNETS_EXPORT_NAME, MAX_AVAILABILITY_ZONES, ',');
+
+        const publicSubnetCidrs = Fn.importListValue(VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME, MAX_AVAILABILITY_ZONES, ',');
+        const privateSubnetCidrs = Fn.importListValue(
+            VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
+            MAX_AVAILABILITY_ZONES,
+            ',',
+        );
+        const isolatedSubnetCidrs = Fn.importListValue(
+            VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+            MAX_AVAILABILITY_ZONES,
+            ',',
+        );
+
+        const vpcCidrBlock = Fn.importValue(VPC_CIDR_EXPORT_NAME);
+
+        return Vpc.fromVpcAttributes(scope, id, {
+            vpcId: vpcId,
+            availabilityZones: availabilityZones,
+            privateSubnetIds: privateSubnetIds,
+            publicSubnetIds: publicSubnetIds,
+            isolatedSubnetIds: isolatedSubnetIds,
+            privateSubnetIpv4CidrBlocks: privateSubnetCidrs,
+            publicSubnetIpv4CidrBlocks: publicSubnetCidrs,
+            isolatedSubnetIpv4CidrBlocks: isolatedSubnetCidrs,
+            vpcCidrBlock: vpcCidrBlock,
+        });
+    }
+
+    /**
+     * Creates CloudFormation outputs for VPC resources
+     */
+    private createVpcOutputs() {
+        new CfnOutput(this, 'VpcId', { value: this.vpc.vpcId, exportName: VPC_ID_EXPORT_NAME });
+        new CfnOutput(this, 'VpcCidr', { value: this.vpc.vpcCidrBlock, exportName: VPC_CIDR_EXPORT_NAME });
+        new CfnOutput(this, 'VpcPrivateSubnets', {
+            value: this.vpc.privateSubnets.map((s) => s.subnetId).join(','),
+            exportName: VPC_PRIVATE_SUBNETS_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcPublicSubnets', {
+            value: this.vpc.publicSubnets.map((s) => s.subnetId).join(','),
+            exportName: VPC_PUBLIC_SUBNETS_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcIsolatedSubnets', {
+            value: this.vpc.isolatedSubnets.map((s) => s.subnetId).join(','),
+            exportName: VPC_ISOLATED_SUBNETS_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcAvailabilityZones', {
+            value: this.vpc.availabilityZones.join(','),
+            exportName: VPC_AVAILABILITY_ZONES_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcPrivateSubnetCidrs', {
+            value: this.vpc.privateSubnets.map((s) => s.ipv4CidrBlock).join(','),
+            exportName: VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcPublicSubnetCidrs', {
+            value: this.vpc.publicSubnets.map((s) => s.ipv4CidrBlock).join(','),
+            exportName: VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'VpcIsolatedSubnetCidrs', {
+            value: this.vpc.isolatedSubnets.map((s) => s.ipv4CidrBlock).join(','),
+            exportName: VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
         });
     }
 }

@@ -14,7 +14,9 @@ import { CoreStage, CoreStageProperties } from './stages/core';
 import { Utilities } from './utils/utilities';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
-import { ApplicationDefinition, ApplicationsPipelineStage } from './stages/applications';
+import { ContainerDefinition, ContainersPipelineStage } from './stages/containers';
+import { StorageStage } from './stages/storage';
+import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -25,7 +27,9 @@ export interface CDKPipelineProperties extends StackProps {
     tags?: { [key: string]: string };
     coreStageProperties?: CoreStageProperties;
     defaultRetentionPeriod?: RetentionDays;
-    applicationList: ApplicationDefinition[];
+    applicationList: ContainerDefinition[];
+    petImagesPaths: string[];
+    postgresEngineVersion?: AuroraPostgresEngineVersion;
 }
 
 export class CDKPipeline extends Stack {
@@ -140,7 +144,8 @@ export class CDKPipeline extends Stack {
             ? { ...properties.coreStageProperties, tags: coreStageTags }
             : { tags: coreStageTags };
 
-        coreWave.addStage(new CoreStage(this, 'Core', coreProperties));
+        const coreStage = new CoreStage(this, 'Core', coreProperties);
+        coreWave.addStage(coreStage);
 
         const applicationsStageTags = {
             ...properties.tags,
@@ -148,7 +153,7 @@ export class CDKPipeline extends Stack {
             sequence: (stageSequence++).toString(),
         };
         coreWave.addStage(
-            new ApplicationsPipelineStage(this, 'Applications', {
+            new ContainersPipelineStage(this, 'Applications', {
                 applicationList: properties.applicationList,
                 tags: applicationsStageTags,
                 source: {
@@ -157,6 +162,19 @@ export class CDKPipeline extends Stack {
                 },
             }),
         );
+
+        const backendWave = pipeline.addWave('Backend');
+
+        const storageStage = new StorageStage(this, 'Storage', {
+            assetsProperties: {
+                seedPaths: properties.petImagesPaths,
+            },
+            auroraDatabaseProperties: {
+                engineVersion: properties.postgresEngineVersion,
+            },
+        });
+
+        backendWave.addStage(storageStage);
 
         /**
          * Build the pipeline to add suppressions and customizations.

@@ -4,9 +4,10 @@ SPDX-License-Identifier: Apache-2.0
 */
 import { App, Aspects } from 'aws-cdk-lib';
 import { CoreStack } from '../lib/stages/core';
-import { APPLICATION_LIST, CORE_PROPERTIES, TAGS } from './environment';
-import { ApplicationsStack } from '../lib/stages/applications';
+import { APPLICATION_LIST, CORE_PROPERTIES, PET_IMAGES, TAGS } from './environment';
+import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
+import { StorageStack } from '../lib/stages/storage';
 
 const app = new App();
 
@@ -27,13 +28,20 @@ if (!branch_name) {
     throw new Error('BRANCH_NAME environment variable is not set');
 }
 
-new ApplicationsStack(app, 'ApplicationsStack', {
+new ContainersStack(app, 'ApplicationsStack', {
     source: {
         bucketName: s3BucketName,
         bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
     },
     tags: TAGS,
     applicationList: APPLICATION_LIST,
+});
+
+new StorageStack(app, 'StorageStack', {
+    tags: TAGS,
+    assetsProperties: {
+        seedPaths: PET_IMAGES,
+    },
 });
 
 // Add CDK-nag compliance checks for AWS Solutions best practices
