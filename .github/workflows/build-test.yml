@@ -3,8 +3,24 @@ name: Build Test
 on:
   pull_request:
     branches: [ main ]
+    paths:
+      - 'PetAdoptions/payforadoption-go/**'
+      - 'PetAdoptions/petadoptionshistory-py/**'
+      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petsearch-java/**'
+      - 'PetAdoptions/petsite/**'
+      - 'PetAdoptions/petstatusupdater/**'
+      - 'PetAdoptions/trafficgenerator/**'
   push:
     branches: [ main ]
+    paths:
+      - 'PetAdoptions/payforadoption-go/**'
+      - 'PetAdoptions/petadoptionshistory-py/**'
+      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petsearch-java/**'
+      - 'PetAdoptions/petsite/**'
+      - 'PetAdoptions/petstatusupdater/**'
+      - 'PetAdoptions/trafficgenerator/**'
 
 jobs:
   docker-builds:

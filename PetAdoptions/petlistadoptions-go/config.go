@@ -34,9 +34,10 @@ func fetchConfig(ctx context.Context, logger log.Logger) (petlistadoptions.Confi
 	}
 
 	cfg := petlistadoptions.Config{
-		PetSearchURL: viper.GetString("PET_SEARCH_URL"),
-		RDSSecretArn: viper.GetString("RDS_SECRET_ARN"),
-		AWSCfg:       awsCfg,
+		PetSearchURL:      viper.GetString("PET_SEARCH_URL"),
+		RDSSecretArn:      viper.GetString("RDS_SECRET_ARN"),
+		RDSReaderEndpoint: viper.GetString("RDS_READER_ENDPOINT"),
+		AWSCfg:            awsCfg,
 	}
 
 	if cfg.PetSearchURL == "" || cfg.RDSSecretArn == "" {
@@ -53,6 +54,7 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg petlistadoptions.Con
 		Names: []string{
 			"/petstore/rdssecretarn",
 			"/petstore/searchapiurl",
+			"/petstore/rds-reader-endpoint",
 		},
 	})
 
@@ -72,6 +74,8 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg petlistadoptions.Con
 			newCfg.RDSSecretArn = pValue
 		case "/petstore/searchapiurl":
 			newCfg.PetSearchURL = pValue
+		case "/petstore/rds-reader-endpoint":
+			newCfg.RDSReaderEndpoint = pValue
 		}
 	}
 
@@ -103,6 +107,7 @@ func getRDSConnectionString(ctx context.Context, cfg petlistadoptions.Config) (s
 	if err := json.Unmarshal([]byte(jsonstr), &c); err != nil {
 		return "", err
 	}
+	c.Host = cfg.RDSReaderEndpoint
 
 	query := url.Values{}
 	// database should be in config
