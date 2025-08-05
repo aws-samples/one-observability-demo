@@ -12,6 +12,9 @@ SPDX-License-Identifier: Apache-2.0
  */
 import { Annotations, CfnResource, Tags } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
+import { Function } from 'aws-cdk-lib/aws-lambda';
+import { Role } from 'aws-cdk-lib/aws-iam';
 
 /**
  * List of AWS CloudFormation resource types that support tagging.
@@ -810,6 +813,74 @@ export const Utilities = {
         // Recursively tag all child constructs
         for (const child of object.node.children) {
             this.TagConstruct(child, tags);
+        }
+    },
+
+    /**
+     * Recursively searches for child nodes in a construct by resource type and partial name match.
+     *
+     * @param construct - The root construct to search within
+     * @param resourceType - The CloudFormation resource type to search for (e.g., 'AWS::Lambda::Function')
+     * @param partialName - Partial match string for the resource name
+     * @returns Array of matching constructs
+     */
+    FindChildNodes(construct: Construct, resourceType: string, partialName: string): Construct[] {
+        const matches: Construct[] = [];
+
+        function searchRecursively(node: Construct) {
+            // Check if current node is a CfnResource with matching type and name
+            if (
+                node instanceof CfnResource &&
+                node.cfnResourceType === resourceType &&
+                node.logicalId.includes(partialName)
+            ) {
+                matches.push(node);
+            }
+
+            // Recursively search all children
+            for (const child of node.node.children) {
+                searchRecursively(child);
+            }
+        }
+
+        searchRecursively(construct);
+        return matches;
+    },
+
+    /**
+     * Applies NAG suppressions to log retention resources in a construct.
+     *
+     * @param construct - The construct to search for log retention resources
+     */
+    SuppressLogRetentionNagWarnings(construct: Construct) {
+        const logRetentionRole = this.FindChildNodes(construct, 'AWS::IAM::Role', 'LogRetention');
+        for (const role of logRetentionRole) {
+            const serviceRole = role as Role;
+            NagSuppressions.addResourceSuppressions(
+                serviceRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM4',
+                        reason: 'Log Retention lambda using managed policies is acceptable',
+                    },
+                ],
+                true,
+            );
+        }
+
+        const logRetentionPolicy = this.FindChildNodes(construct, 'AWS::IAM::Policy', 'LogRetention');
+        for (const policy of logRetentionPolicy) {
+            const serviceRole = policy as Function;
+            NagSuppressions.addResourceSuppressions(
+                serviceRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'Log Retention lambda using wildcard is acceptable',
+                    },
+                ],
+                true,
+            );
         }
     },
 };

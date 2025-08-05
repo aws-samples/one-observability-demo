@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { RemovalPolicy } from 'aws-cdk-lib';
-import { IVpc, Peer, Port, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { InstanceClass, InstanceSize, InstanceType, IVpc, Peer, Port, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
     AuroraPostgresEngineVersion,
@@ -14,6 +14,7 @@ import {
     ParameterGroup,
     PerformanceInsightRetention,
 } from 'aws-cdk-lib/aws-rds';
+import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 /**
@@ -69,20 +70,27 @@ export class AuroraDatabase extends Construct {
 
         this.cluster = new DatabaseCluster(this, 'Database', {
             engine: DatabaseClusterEngine.auroraPostgres({
-                version: properties.engineVersion || AuroraPostgresEngineVersion.VER_13_20,
+                version: properties.engineVersion || AuroraPostgresEngineVersion.VER_16_8,
             }),
             parameterGroup:
                 properties.parameterGroup ||
-                ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
+                ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql16'),
             vpc: properties.vpc,
             securityGroups: [databaseSecurityGroup],
             defaultDatabaseName: 'adoptions',
             databaseInsightsMode: DatabaseInsightsMode.ADVANCED,
             performanceInsightRetention: PerformanceInsightRetention.MONTHS_15,
-            writer: ClusterInstance.serverlessV2('writer', {
+            writer: ClusterInstance.provisioned('writer', {
                 autoMinorVersionUpgrade: true,
+                instanceType: InstanceType.of(InstanceClass.T4G, InstanceSize.MEDIUM),
             }),
-            readers: [],
+            readers: [
+                ClusterInstance.provisioned('reader1', {
+                    promotionTier: 1,
+                    instanceType: InstanceType.of(InstanceClass.T4G, InstanceSize.MEDIUM),
+                    autoMinorVersionUpgrade: true,
+                }),
+            ],
             serverlessV2MaxCapacity: 1,
             serverlessV2MinCapacity: 0.5,
             iamAuthentication: true,
@@ -92,6 +100,29 @@ export class AuroraDatabase extends Construct {
             vpcSubnets: {
                 subnetGroupName: 'Isolated',
             },
+            storageEncrypted: true,
         });
+
+        NagSuppressions.addResourceSuppressions(this.cluster, [
+            {
+                id: 'AwsSolutions-RDS10',
+                reason: 'Demo purposes only',
+            },
+        ]);
+
+        NagSuppressions.addResourceSuppressions(
+            this.cluster,
+            [
+                {
+                    id: 'AwsSolutions-SMG4',
+                    reason: 'Demo purposes only',
+                },
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'Log Retention lambda using managed policies is acceptable',
+                },
+            ],
+            true,
+        );
     }
 }

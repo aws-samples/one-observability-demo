@@ -64,10 +64,10 @@ repos:
             additional_dependencies:
                 - eslint-plugin-unicorn@v58.0.0
                 - eslint-plugin-prettier@v5.2.6
-    - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
-      rev: v1.1.2
-      hooks:
-          - id: dockerfile_lint
+    # - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
+    #   rev: v1.1.2
+    #   hooks:
+    #       - id: dockerfile_lint
     # PYTHON FORMATTING
     - repo: https://github.com/ambv/black
       rev: '25.1.0'
@@ -94,14 +94,14 @@ repos:
           - id: add-trailing-comma
             args: [--py36-plus]
     - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.17.0
+      rev: v1.17.1
       hooks:
           - id: mypy
             entry: bash -c 'mypy "$@" || true' -- # Don't block, just alert
             verbose: true
     # CFN CHECKS & LINTING
     - repo: https://github.com/aws-cloudformation/cfn-python-lint
-      rev: v1.38.0
+      rev: v1.38.2
       hooks:
           - id: cfn-python-lint
             files: .*\.(ya?ml)$
@@ -141,6 +141,6 @@ repos:
             pass_filenames: false
             always_run: true
     - repo: https://github.com/awslabs/automated-security-helper
-      rev: v3.0.0-beta
+      rev: v3.0.0
       hooks:
           - id: ash-simple-scan

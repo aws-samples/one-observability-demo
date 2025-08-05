@@ -14,6 +14,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -124,3 +125,5 @@ export const VPC_AVAILABILITY_ZONES_EXPORT_NAME = 'WorkshopVPCAvailabilityZones'
 export const VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPrivateSubnetCidrs';
 export const VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPublicSubnetCidrs';
 export const VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnetCidrs';
+
+export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

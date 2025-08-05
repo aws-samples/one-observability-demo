@@ -4,14 +4,14 @@ SPDX-License-Identifier: Apache-2.0
 */
 import { App, Aspects } from 'aws-cdk-lib';
 import { CoreStack } from '../lib/stages/core';
-import { APPLICATION_LIST, CORE_PROPERTIES, PET_IMAGES, TAGS } from './environment';
+import { APPLICATION_LIST, AURORA_POSTGRES_VERSION, CORE_PROPERTIES, PET_IMAGES, TAGS } from './environment';
 import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import { StorageStack } from '../lib/stages/storage';
 
 const app = new App();
 
-new CoreStack(app, 'CoreStack', {
+new CoreStack(app, 'DevCoreStack', {
     ...CORE_PROPERTIES,
     tags: TAGS,
 });
@@ -28,7 +28,7 @@ if (!branch_name) {
     throw new Error('BRANCH_NAME environment variable is not set');
 }
 
-new ContainersStack(app, 'ApplicationsStack', {
+new ContainersStack(app, 'DevApplicationsStack', {
     source: {
         bucketName: s3BucketName,
         bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
@@ -37,10 +37,13 @@ new ContainersStack(app, 'ApplicationsStack', {
     applicationList: APPLICATION_LIST,
 });
 
-new StorageStack(app, 'StorageStack', {
+new StorageStack(app, 'DevStorageStack', {
     tags: TAGS,
     assetsProperties: {
         seedPaths: PET_IMAGES,
+    },
+    auroraDatabaseProperties: {
+        engineVersion: AURORA_POSTGRES_VERSION,
     },
 });
 

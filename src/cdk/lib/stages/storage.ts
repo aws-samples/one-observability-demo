@@ -53,5 +53,7 @@ export class StorageStack extends Stack {
         }
         /** Add Database resource */
         new AuroraDatabase(this, 'AuroraDatabase', databaseProperties);
+
+        Utilities.SuppressLogRetentionNagWarnings(this);
     }
 }
