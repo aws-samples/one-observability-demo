@@ -126,4 +126,15 @@ export const VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPrivateSubnetCid
 export const VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPublicSubnetCidrs';
 export const VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnetCidrs';
 
+export const SNS_TOPIC_ARN_EXPORT_NAME = 'WorkshopSNSTopicArn';
+export const SQS_QUEUE_ARN_EXPORT_NAME = 'WorkshopSQSQueueArn';
+export const SQS_QUEUE_URL_EXPORT_NAME = 'WorkshopSQSQueueUrl';
+
+export const ECS_CLUSTER_ARN_EXPORT_NAME = 'WorkshopECSClusterArn';
+export const ECS_CLUSTER_NAME_EXPORT_NAME = 'WorkshopECSClusterName';
+export const ECS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopECSSecurityGroupId';
+export const EKS_CLUSTER_ARN_EXPORT_NAME = 'WorkshopEKSClusterArn';
+export const EKS_CLUSTER_NAME_EXPORT_NAME = 'WorkshopEKSClusterName';
+export const EKS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopEKSSecurityGroupId';
+
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

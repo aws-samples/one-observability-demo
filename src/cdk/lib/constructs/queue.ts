@@ -2,12 +2,13 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Duration } from 'aws-cdk-lib';
-import { Topic } from 'aws-cdk-lib/aws-sns';
+import { CfnOutput, Duration, Fn } from 'aws-cdk-lib';
+import { ITopic, Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
-import { Queue } from 'aws-cdk-lib/aws-sqs';
+import { IQueue, Queue } from 'aws-cdk-lib/aws-sqs';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import { SNS_TOPIC_ARN_EXPORT_NAME, SQS_QUEUE_ARN_EXPORT_NAME, SQS_QUEUE_URL_EXPORT_NAME } from '../../bin/environment';
 
 /**
  * Properties for configuring QueueResources construct
@@ -72,5 +73,47 @@ export class QueueResources extends Construct {
             displayName: 'Pet Adoption Notifications',
         });
         this.topic.addSubscription(new EmailSubscription(properties?.snsTopicEmail || 'someone@example.com'));
+
+        // Create CloudFormation outputs for queue resources
+        this.createQueueOutputs();
+    }
+
+    /**
+     * Imports queue resources from CloudFormation exports created by QueueResources
+     *
+     * @param scope - The construct scope where the resources will be imported
+     * @param id - The construct identifier for the imported resources
+     * @returns Object containing the imported SNS topic and SQS queue
+     */
+    public static importFromExports(scope: Construct, id: string): { topic: ITopic; queue: IQueue } {
+        const topicArn = Fn.importValue(SNS_TOPIC_ARN_EXPORT_NAME);
+        const queueArn = Fn.importValue(SQS_QUEUE_ARN_EXPORT_NAME);
+        const queueUrl = Fn.importValue(SQS_QUEUE_URL_EXPORT_NAME);
+
+        const topic = Topic.fromTopicArn(scope, `${id}-Topic`, topicArn);
+        const queue = Queue.fromQueueAttributes(scope, `${id}-Queue`, {
+            queueArn: queueArn,
+            queueUrl: queueUrl,
+        });
+
+        return { topic, queue };
+    }
+
+    /**
+     * Creates CloudFormation outputs for queue resources
+     */
+    private createQueueOutputs() {
+        new CfnOutput(this, 'SNSTopicArn', {
+            value: this.topic.topicArn,
+            exportName: SNS_TOPIC_ARN_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'SQSQueueArn', {
+            value: this.queue.queueArn,
+            exportName: SQS_QUEUE_ARN_EXPORT_NAME,
+        });
+        new CfnOutput(this, 'SQSQueueUrl', {
+            value: this.queue.queueUrl,
+            exportName: SQS_QUEUE_URL_EXPORT_NAME,
+        });
     }
 }

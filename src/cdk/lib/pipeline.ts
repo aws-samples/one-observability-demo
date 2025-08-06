@@ -17,6 +17,7 @@ import { S3Trigger } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { ContainerDefinition, ContainersPipelineStage } from './stages/containers';
 import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
+import { ComputeStage } from './stages/compute';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -172,9 +173,24 @@ export class CDKPipeline extends Stack {
             auroraDatabaseProperties: {
                 engineVersion: properties.postgresEngineVersion,
             },
+            tags: {
+                ...properties.tags,
+                parent: this.stackName,
+                sequence: (stageSequence++).toString(),
+            },
         });
 
         backendWave.addStage(storageStage);
+
+        const computeStage = new ComputeStage(this, 'Compute', {
+            tags: {
+                ...properties.tags,
+                parent: this.stackName,
+                sequence: (stageSequence++).toString(),
+            },
+        });
+
+        backendWave.addStage(computeStage);
 
         /**
          * Build the pipeline to add suppressions and customizations.

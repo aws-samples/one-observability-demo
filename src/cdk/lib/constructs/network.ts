@@ -77,6 +77,7 @@ export class WorkshopNetwork extends Construct {
                     name: 'Public',
                     cidrMask: 24,
                     subnetType: SubnetType.PUBLIC,
+                    mapPublicIpOnLaunch: false,
                 },
                 {
                     name: 'Private',

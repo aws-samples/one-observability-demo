@@ -8,6 +8,7 @@ import { APPLICATION_LIST, AURORA_POSTGRES_VERSION, CORE_PROPERTIES, PET_IMAGES,
 import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import { StorageStack } from '../lib/stages/storage';
+import { ComputeStack } from '../lib/stages/compute';
 
 const app = new App();
 
@@ -45,6 +46,10 @@ new StorageStack(app, 'DevStorageStack', {
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,
     },
+});
+
+new ComputeStack(app, 'DevComputeStack', {
+    tags: TAGS,
 });
 
 // Add CDK-nag compliance checks for AWS Solutions best practices
