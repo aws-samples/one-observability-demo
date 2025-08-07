@@ -10,11 +10,12 @@ SPDX-License-Identifier: Apache-2.0
  *
  * @packageDocumentation
  */
-import { Annotations, CfnResource, Tags } from 'aws-cdk-lib';
+import { Annotations, CfnOutput, CfnResource, Tags } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import { Role } from 'aws-cdk-lib/aws-iam';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 /**
  * List of AWS CloudFormation resource types that support tagging.
@@ -881,6 +882,20 @@ export const Utilities = {
                 ],
                 true,
             );
+        }
+    },
+
+    createSsmParameters(scope: Construct, prefix: string, parameters: Map<string, string>) {
+        for (const [key, value] of parameters.entries()) {
+            //const id = key.replace('/', '_');
+            const fullKey = `${prefix}/${key}`;
+            new StringParameter(scope, fullKey, { parameterName: fullKey, stringValue: value });
+        }
+    },
+
+    createOuputs(scope: Construct, parameters: Map<string, string>) {
+        for (const [key, value] of parameters.entries()) {
+            new CfnOutput(scope, key, { value: value });
         }
     },
 };

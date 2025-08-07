@@ -4,28 +4,24 @@ SPDX-License-Identifier: Apache-2.0
 */
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
-import { Construct } from 'constructs';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
+import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { Utilities } from '../utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
-import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { Utilities } from '../utils/utilities';
 
-export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
+export interface PetSearchServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
     secret: ISecret;
-    dynamoDbTable: ITable;
 }
 
-export class PayForAdoptionService extends EcsService {
-    constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
+export class PetSearchService extends EcsService {
+    constructor(scope: Construct, id: string, properties: PetSearchServiceProperties) {
         super(scope, id, properties);
     }
 
-    addTaskPermissions(properties: PayForAdoptionServiceProperties): void {
-        properties.secret?.grantRead(this.taskDefinition.taskRole);
-
+    addTaskPermissions(): void {
         this.taskDefinition.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('AmazonECSTaskExecutionRolePolicy'),
         );
@@ -35,12 +31,9 @@ export class PayForAdoptionService extends EcsService {
         );
 
         const taskPolicy = new Policy(this, 'taskPolicy', {
-            policyName: 'PayForAdoptionTaskPolicy',
+            policyName: 'PetSearchTaskPolicy',
             document: new PolicyDocument({
-                statements: [
-                    EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
-                    EcsService.getDefaultDynamoDBPolicy(this, properties.dynamoDbTable.tableName),
-                ],
+                statements: [EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
             }),
             roles: [this.taskDefinition.taskRole],
         });
@@ -76,7 +69,7 @@ export class PayForAdoptionService extends EcsService {
         );
     }
 
-    createOutputs(properties: PayForAdoptionServiceProperties): void {
+    createOutputs(properties: PetSearchServiceProperties): void {
         if (this.service && !properties.disableService) {
             throw new Error('Service is not defined');
         } else {
@@ -85,9 +78,7 @@ export class PayForAdoptionService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        paymentapiurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
-                        payforadoptionmetricsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        cleanupadoptionsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+                        searchapiurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/search?`,
                     }),
                 ),
             );

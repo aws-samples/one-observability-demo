@@ -2,11 +2,12 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
-import { AttributeType, Table } from 'aws-cdk-lib/aws-dynamodb';
+import { AttributeType, ITable, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import { DYNAMODB_TABLE_ARN_EXPORT_NAME, DYNAMODB_TABLE_NAME_EXPORT_NAME } from '../../bin/environment';
 
 /**
  * Properties for configuring DynamoDatabase construct
@@ -89,5 +90,29 @@ export class DynamoDatabase extends Construct {
             ],
             true,
         );
+
+        this.createExports();
+    }
+
+    private createExports(): void {
+        new CfnOutput(this, 'TableArn', {
+            value: this.table.tableArn,
+            exportName: DYNAMODB_TABLE_ARN_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'TableName', {
+            value: this.table.tableName,
+            exportName: DYNAMODB_TABLE_NAME_EXPORT_NAME,
+        });
+    }
+
+    public static importFromExports(scope: Construct, id: string): { table: ITable } {
+        const tableArn = Fn.importValue(DYNAMODB_TABLE_ARN_EXPORT_NAME);
+
+        const table = Table.fromTableAttributes(scope, `${id}-Table`, {
+            tableArn: tableArn,
+        });
+
+        return { table };
     }
 }

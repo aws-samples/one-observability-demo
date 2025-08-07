@@ -4,11 +4,20 @@ SPDX-License-Identifier: Apache-2.0
 */
 import { App, Aspects } from 'aws-cdk-lib';
 import { CoreStack } from '../lib/stages/core';
-import { APPLICATION_LIST, AURORA_POSTGRES_VERSION, CORE_PROPERTIES, PET_IMAGES, TAGS } from './environment';
+import {
+    APPLICATION_LIST,
+    AURORA_POSTGRES_VERSION,
+    CORE_PROPERTIES,
+    LAMBDA_FUNCTIONS,
+    MICROSERVICES_PLACEMENT,
+    PET_IMAGES,
+    TAGS,
+} from './environment';
 import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
+import { MicroservicesStack } from '../lib/stages/applications';
 
 const app = new App();
 
@@ -50,6 +59,12 @@ new StorageStack(app, 'DevStorageStack', {
 
 new ComputeStack(app, 'DevComputeStack', {
     tags: TAGS,
+});
+
+new MicroservicesStack(app, 'DevMicroservicesStack', {
+    tags: TAGS,
+    microservicesPlacement: MICROSERVICES_PLACEMENT,
+    lambdaFunctions: LAMBDA_FUNCTIONS,
 });
 
 // Add CDK-nag compliance checks for AWS Solutions best practices

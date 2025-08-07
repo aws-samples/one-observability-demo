@@ -5,10 +5,30 @@ SPDX-License-Identifier: Apache-2.0
 import { Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
+import { WorkshopNetwork } from '../constructs/network';
+import { WorkshopEcs } from '../constructs/ecs';
+import { MicroservicesNames } from '../constructs/microservice';
+import { ComputeType, HostType } from '../../bin/environment';
+import { PayForAdoptionService } from '../microservices/pay-for-adoption';
+import { AuroraDatabase } from '../constructs/database';
+import { DynamoDatabase } from '../constructs/dynamodb';
+import { ListAdoptionsService } from '../microservices/list-adoptions';
+import { PetSearchService } from '../microservices/pet-search';
+import { TrafficGeneratorService } from '../microservices/traffic-generator';
+import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
+import { StatusUpdatedService } from '../constructs/serverless/status-updater';
+
+export interface MicroserviceApplicationPlacement {
+    hostType: HostType;
+    computeType: ComputeType;
+    disableService: boolean;
+}
 
 export interface MicroserviceApplicationsProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
+    microservicesPlacement: Map<string, MicroserviceApplicationPlacement>;
+    lambdaFunctions: Map<string, WorkshopLambdaFunctionProperties>;
 }
 
 export class MicroservicesStage extends Stage {
@@ -16,7 +36,7 @@ export class MicroservicesStage extends Stage {
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
 
-        this.stack = new MicroservicesStack(this, 'ComputeStack', properties);
+        this.stack = new MicroservicesStack(this, 'MicroserviceStack', properties);
 
         if (properties.tags) {
             Utilities.TagConstruct(this.stack, properties.tags);
@@ -27,5 +47,111 @@ export class MicroservicesStage extends Stage {
 export class MicroservicesStack extends Stack {
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
+
+        /** Retrieve Network Exports */
+        const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
+
+        /** Retrieve ECS Cluster from Exports */
+        const ecsExports = WorkshopEcs.importFromExports(this, 'WorkshopEcs', vpc);
+        //const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
+        const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
+        const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
+
+        const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
+
+        for (const name of properties.microservicesPlacement.keys()) {
+            const service = properties.microservicesPlacement.get(name);
+            if (name == MicroservicesNames.PayForAdoption) {
+                if (service?.hostType == HostType.ECS) {
+                    new PayForAdoptionService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        dynamoDbTable: dynamodbExports.table,
+                        instrumentation: 'otel',
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetListAdoptions) {
+                if (service?.hostType == HostType.ECS) {
+                    new ListAdoptionsService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        instrumentation: 'otel',
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetSearch) {
+                if (service?.hostType == HostType.ECS) {
+                    new PetSearchService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        instrumentation: 'otel',
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.TrafficGenerator && service?.hostType == HostType.ECS) {
+                new TrafficGeneratorService(this, name, {
+                    hostType: service.hostType,
+                    computeType: service.computeType,
+                    securityGroup: ecsExports.securityGroup,
+                    ecsCluster: ecsExports.cluster,
+                    disableService: service.disableService,
+                    cpu: 1024,
+                    memoryLimitMiB: 2048,
+                    desiredTaskCount: 1,
+                    name: name,
+                    repositoryURI: `${baseURI}/${name}`,
+                    instrumentation: 'none',
+                });
+            }
+        }
+
+        for (const name of properties.lambdaFunctions.keys()) {
+            const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
+
+            if (name == LambdaFunctionNames.StatusUpdater) {
+                new StatusUpdatedService(this, name, {
+                    ...lambdafunction,
+                    name: name,
+                    table: dynamodbExports.table,
+                });
+            }
+        }
     }
 }

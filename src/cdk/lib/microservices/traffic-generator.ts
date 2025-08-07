@@ -2,30 +2,18 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
-import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { Utilities } from '../utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
-import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 
-export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
-    database: IDatabaseCluster;
-    secret: ISecret;
-    dynamoDbTable: ITable;
-}
-
-export class PayForAdoptionService extends EcsService {
-    constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
+export class TrafficGeneratorService extends EcsService {
+    constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
         super(scope, id, properties);
     }
 
-    addTaskPermissions(properties: PayForAdoptionServiceProperties): void {
-        properties.secret?.grantRead(this.taskDefinition.taskRole);
-
+    addTaskPermissions(): void {
         this.taskDefinition.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('AmazonECSTaskExecutionRolePolicy'),
         );
@@ -35,12 +23,9 @@ export class PayForAdoptionService extends EcsService {
         );
 
         const taskPolicy = new Policy(this, 'taskPolicy', {
-            policyName: 'PayForAdoptionTaskPolicy',
+            policyName: 'TrafficGeneratorTaskPolicy',
             document: new PolicyDocument({
-                statements: [
-                    EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
-                    EcsService.getDefaultDynamoDBPolicy(this, properties.dynamoDbTable.tableName),
-                ],
+                statements: [EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
             }),
             roles: [this.taskDefinition.taskRole],
         });
@@ -76,21 +61,5 @@ export class PayForAdoptionService extends EcsService {
         );
     }
 
-    createOutputs(properties: PayForAdoptionServiceProperties): void {
-        if (this.service && !properties.disableService) {
-            throw new Error('Service is not defined');
-        } else {
-            Utilities.createSsmParameters(
-                this,
-                PARAMETER_STORE_PREFIX,
-                new Map(
-                    Object.entries({
-                        paymentapiurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
-                        payforadoptionmetricsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        cleanupadoptionsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
-                    }),
-                ),
-            );
-        }
-    }
+    createOutputs(): void {}
 }

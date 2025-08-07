@@ -2,8 +2,9 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { ComputeType, Microservice, MicroserviceProperties } from './microservice';
+import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Microservice, MicroserviceProperties } from './microservice';
+import { ComputeType } from '../../bin/environment';
 import {
     AwsLogDriver,
     ContainerDefinition,
@@ -21,6 +22,7 @@ import {
 import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
@@ -35,39 +37,19 @@ export interface EcsServiceProperties extends MicroserviceProperties {
 }
 
 export abstract class EcsService extends Microservice {
-    private static ExecutionRolePolicy = new PolicyStatement({
-        effect: Effect.ALLOW,
-        resources: ['*'],
-        actions: [
-            'ecr:GetAuthorizationToken',
-            'ecr:BatchCheckLayerAvailability',
-            'ecr:GetDownloadUrlForLayer',
-            'ecr:BatchGetImage',
-            'logs:CreateLogGroup',
-            'logs:DescribeLogStreams',
-            'logs:CreateLogStream',
-            'logs:DescribeLogGroups',
-            'logs:PutLogEvents',
-            'xray:PutTraceSegments',
-            'xray:PutTelemetryRecords',
-            'xray:GetSamplingRules',
-            'xray:GetSamplingTargets',
-            'xray:GetSamplingStatisticSummaries',
-            'ssm:GetParameters',
-        ],
-    });
-
     public readonly taskDefinition: TaskDefinition;
     public readonly service?: ApplicationLoadBalancedServiceBase;
     public readonly container: ContainerDefinition;
 
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
-        super(scope, id, properties);
+        super(scope, id);
 
         const result = this.configureECSService(properties);
         this.taskDefinition = result.taskDefinition;
         this.service = result.service;
         this.container = result.container;
+
+        this.addTaskPermissions(properties);
     }
 
     configureEKSService(): void {
@@ -75,7 +57,6 @@ export abstract class EcsService extends Microservice {
     }
 
     configureECSService(properties: EcsServiceProperties) {
-        let taskDefinition: TaskDefinition;
         let service: ApplicationLoadBalancedServiceBase | undefined;
 
         const logging = new AwsLogDriver({
@@ -91,24 +72,21 @@ export abstract class EcsService extends Microservice {
             assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
         });
 
-        if (properties.computeType == ComputeType.Fargate) {
-            taskDefinition = new FargateTaskDefinition(this, 'taskDefinition', {
-                cpu: properties.cpu, // TODO: Some math is needed here so the value includes Container + Sidecars
-                taskRole: taskRole,
-                memoryLimitMiB: properties.memoryLimitMiB,
-            });
-            (taskDefinition as FargateTaskDefinition).addToExecutionRolePolicy(EcsService.ExecutionRolePolicy);
-        } else {
-            taskDefinition = new Ec2TaskDefinition(this, 'taskDefinition', {
-                taskRole: taskRole,
-                enableFaultInjection: true,
-            });
-            (taskDefinition as Ec2TaskDefinition).addToExecutionRolePolicy(EcsService.ExecutionRolePolicy);
-        }
+        const taskDefinition =
+            properties.computeType == ComputeType.Fargate
+                ? new FargateTaskDefinition(this, 'taskDefinition', {
+                      cpu: properties.cpu, // TODO: Some math is needed here so the value includes Container + Sidecars
+                      taskRole: taskRole,
+                      memoryLimitMiB: properties.memoryLimitMiB,
+                  })
+                : new Ec2TaskDefinition(this, 'taskDefinition', {
+                      taskRole: taskRole,
+                      enableFaultInjection: true,
+                  });
 
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
-        const container = this.taskDefinition.addContainer('container', {
+        const container = taskDefinition.addContainer('container', {
             image: image,
             memoryLimitMiB: 512,
             cpu: 256,
@@ -157,10 +135,13 @@ export abstract class EcsService extends Microservice {
                 service = new ApplicationLoadBalancedFargateService(this, 'ecs-service-fargate', {
                     cluster: properties.ecsCluster,
                     taskDefinition: taskDefinition as FargateTaskDefinition,
-                    publicLoadBalancer: true,
+                    publicLoadBalancer: false,
                     desiredCount: properties.desiredTaskCount,
                     listenerPort: 80,
-                    securityGroups: [properties.securityGroup],
+                    securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
+                    openListener: false,
+                    assignPublicIp: false,
+                    serviceName: properties.name,
                 });
 
                 if (properties.healthCheck) {
@@ -172,9 +153,11 @@ export abstract class EcsService extends Microservice {
                 service = new ApplicationLoadBalancedEc2Service(this, 'ecs-service-ec2', {
                     cluster: properties.ecsCluster,
                     taskDefinition: taskDefinition as FargateTaskDefinition,
-                    publicLoadBalancer: true,
+                    publicLoadBalancer: false,
                     desiredCount: properties.desiredTaskCount,
                     listenerPort: 80,
+                    openListener: false,
+                    serviceName: properties.name,
                 });
 
                 if (properties.healthCheck) {
@@ -184,6 +167,33 @@ export abstract class EcsService extends Microservice {
                 }
             }
         }
+
+        NagSuppressions.addResourceSuppressions(taskDefinition, [
+            {
+                id: 'AwsSolutions-ECS2',
+                reason: 'AWS_REGION is required by OTEL. TODO: Replace with proper environment variables ',
+            },
+        ]);
+
+        if (taskDefinition.executionRole) {
+            NagSuppressions.addResourceSuppressions(
+                taskDefinition.executionRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'Allowing * for ECR pull',
+                    },
+                ],
+                true,
+            );
+        }
+
+        NagSuppressions.addResourceSuppressions((service as ApplicationLoadBalancedServiceBase).loadBalancer, [
+            {
+                id: 'AwsSolutions-ELB2',
+                reason: 'Disabled access logs for now',
+            },
+        ]);
 
         return { taskDefinition, service, container };
     }

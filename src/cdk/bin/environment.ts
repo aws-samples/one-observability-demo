@@ -13,9 +13,22 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import dotenv from 'dotenv';
+import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
+import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
+
+export enum HostType {
+    ECS = 'ECS',
+    EKS = 'EKS',
+}
+
+export enum ComputeType {
+    EC2 = 'EC2',
+    Fargate = 'Fargate',
+}
 
 // Load environment variables from .env file
 dotenv.config();
@@ -68,52 +81,81 @@ export const CORE_PROPERTIES = {
 export const PAYFORADOPTION_GO = {
     name: 'payforadoption-go',
     dockerFilePath: 'PetAdoptions/payforadoption-go',
-};
-
-export const PETADOPTIONHISTORY_PY = {
-    name: 'petadoptionhistory-py',
-    dockerFilePath: 'PetAdoptions/petadoptionshistory-py',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
 export const PETLISTADOPTIONS_GO = {
     name: 'petlistadoption-go',
     dockerFilePath: 'PetAdoptions/petlistadoptions-go',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
 export const PETSEARCH_JAVA = {
     name: 'petsearch-java',
     dockerFilePath: 'PetAdoptions/petsearch-java',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
 export const PETSITE = {
     name: 'petsite',
     dockerFilePath: 'PetAdoptions/petsite/petsite',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
 export const PETSTATUSUPDATER = {
     name: 'petstatusupdater',
     dockerFilePath: 'PetAdoptions/petstatusupdater',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
 export const TRAFFICGENERATOR = {
     name: 'trafficgenerator',
     dockerFilePath: 'PetAdoptions/trafficgenerator/trafficgenerator',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
-export const APPLICATION_LIST = [
-    PAYFORADOPTION_GO,
-    PETADOPTIONHISTORY_PY,
-    PETLISTADOPTIONS_GO,
-    PETSEARCH_JAVA,
-    PETSITE,
-    TRAFFICGENERATOR,
-];
+export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_GO, PETSEARCH_JAVA, PETSITE, TRAFFICGENERATOR];
+
+export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
+    [PAYFORADOPTION_GO.name, PAYFORADOPTION_GO],
+    [PETLISTADOPTIONS_GO.name, PETLISTADOPTIONS_GO],
+    [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
+    [PETSITE.name, PETSITE],
+    [TRAFFICGENERATOR.name, TRAFFICGENERATOR],
+]);
 
 export const PET_IMAGES = [
     '../../PetAdoptions/cdk/pet_stack/resources/bunnies.zip',
     '../../PetAdoptions/cdk/pet_stack/resources/kitten.zip',
     '../../PetAdoptions/cdk/pet_stack/resources/puppies.zip',
 ];
+
+export const PARAMETER_STORE_PREFIX = '/petstore';
+
+export const STATUS_UPDATER_FUNCTION = {
+    name: 'petupdater',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../../PetAdoptions/petstatusupdater/package-lock.json',
+    entry: '../../PetAdoptions/petstatusupdater/index.js',
+    memorySize: 128,
+    handle: 'handler',
+};
+
+export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
+    [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
+]);
 
 export const MAX_AVAILABILITY_ZONES = 2;
 export const VPC_ID_EXPORT_NAME = 'WorkshopVPC';
@@ -136,5 +178,12 @@ export const ECS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopECSSecurityGroupId';
 export const EKS_CLUSTER_ARN_EXPORT_NAME = 'WorkshopEKSClusterArn';
 export const EKS_CLUSTER_NAME_EXPORT_NAME = 'WorkshopEKSClusterName';
 export const EKS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopEKSSecurityGroupId';
+
+export const AURORA_CLUSTER_ARN_EXPORT_NAME = 'WorkshopAuroraClusterArn';
+export const AURORA_CLUSTER_ENDPOINT_EXPORT_NAME = 'WorkshopAuroraClusterEndpoint';
+export const AURORA_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopAuroraSecurityGroupId';
+export const AURORA_ADMIN_SECRET_ARN_EXPORT_NAME = 'WorkshopAuroraAdminSecretArn'; //pragma: allowlist secret
+export const DYNAMODB_TABLE_ARN_EXPORT_NAME = 'WorkshopDynamoDBTableArn';
+export const DYNAMODB_TABLE_NAME_EXPORT_NAME = 'WorkshopDynamoDBTableName';
 
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

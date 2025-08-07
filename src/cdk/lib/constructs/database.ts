@@ -2,8 +2,17 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy } from 'aws-cdk-lib';
-import { InstanceClass, InstanceSize, InstanceType, IVpc, Peer, Port, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import {
+    InstanceClass,
+    InstanceSize,
+    InstanceType,
+    ISecurityGroup,
+    IVpc,
+    Peer,
+    Port,
+    SecurityGroup,
+} from 'aws-cdk-lib/aws-ec2';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
     AuroraPostgresEngineVersion,
@@ -11,11 +20,19 @@ import {
     DatabaseCluster,
     DatabaseClusterEngine,
     DatabaseInsightsMode,
+    IDatabaseCluster,
     ParameterGroup,
     PerformanceInsightRetention,
 } from 'aws-cdk-lib/aws-rds';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import {
+    AURORA_CLUSTER_ARN_EXPORT_NAME,
+    AURORA_CLUSTER_ENDPOINT_EXPORT_NAME,
+    AURORA_SECURITY_GROUP_ID_EXPORT_NAME,
+    AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
+} from '../../bin/environment';
+import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 /**
  * Properties for configuring Aurora PostgreSQL database cluster
@@ -58,14 +75,14 @@ export class AuroraDatabase extends Construct {
             throw new Error('VPC is required for Aurora PostgreSQL cluster');
         }
 
-        const databaseSecurityGroup = new SecurityGroup(this, 'dbSecurityGroup', {
+        this.databaseSecurityGroup = new SecurityGroup(this, 'dbSecurityGroup', {
             vpc: properties.vpc,
             description: 'Aurora Postgres Cluster Security Group',
         });
 
         /** Add ingress rules to Security Group for private Subnets */
         for (const subnet of properties.vpc.privateSubnets) {
-            databaseSecurityGroup.addIngressRule(Peer.ipv4(subnet.ipv4CidrBlock), Port.POSTGRES);
+            this.databaseSecurityGroup.addIngressRule(Peer.ipv4(subnet.ipv4CidrBlock), Port.POSTGRES);
         }
 
         this.cluster = new DatabaseCluster(this, 'Database', {
@@ -76,7 +93,7 @@ export class AuroraDatabase extends Construct {
                 properties.parameterGroup ||
                 ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql16'),
             vpc: properties.vpc,
-            securityGroups: [databaseSecurityGroup],
+            securityGroups: [this.databaseSecurityGroup],
             defaultDatabaseName: 'adoptions',
             databaseInsightsMode: DatabaseInsightsMode.ADVANCED,
             performanceInsightRetention: PerformanceInsightRetention.MONTHS_15,
@@ -124,5 +141,50 @@ export class AuroraDatabase extends Construct {
             ],
             true,
         );
+
+        this.createExports();
+    }
+
+    private createExports(): void {
+        new CfnOutput(this, 'ClusterArn', {
+            value: this.cluster.clusterArn,
+            exportName: AURORA_CLUSTER_ARN_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'ClusterEndpoint', {
+            value: this.cluster.clusterEndpoint.hostname,
+            exportName: AURORA_CLUSTER_ENDPOINT_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'SecurityGroupId', {
+            value: this.databaseSecurityGroup.securityGroupId,
+            exportName: AURORA_SECURITY_GROUP_ID_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'AdminSecretArn', {
+            value: this.cluster.secret!.secretArn,
+            exportName: AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
+        });
+    }
+
+    public static importFromExports(
+        scope: Construct,
+        id: string,
+    ): { cluster: IDatabaseCluster; securityGroup: ISecurityGroup; adminSecret: ISecret } {
+        const clusterArn = Fn.importValue(AURORA_CLUSTER_ARN_EXPORT_NAME);
+        const clusterEndpoint = Fn.importValue(AURORA_CLUSTER_ENDPOINT_EXPORT_NAME);
+        const securityGroupId = Fn.importValue(AURORA_SECURITY_GROUP_ID_EXPORT_NAME);
+        const adminSecretArn = Fn.importValue(AURORA_ADMIN_SECRET_ARN_EXPORT_NAME);
+
+        const cluster = DatabaseCluster.fromDatabaseClusterAttributes(scope, `${id}-Cluster`, {
+            clusterIdentifier: clusterArn.split(':')[6],
+            clusterEndpointAddress: clusterEndpoint,
+        });
+
+        const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);
+
+        const adminSecret = Secret.fromSecretCompleteArn(scope, `${id}-AdminSecret`, adminSecretArn);
+
+        return { cluster, securityGroup, adminSecret };
     }
 }

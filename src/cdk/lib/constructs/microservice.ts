@@ -2,45 +2,82 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-import { Cluster as EKSCluster } from 'aws-cdk-lib/aws-eks';
-import { Cluster as ECSCluster } from 'aws-cdk-lib/aws-ecs';
+import { ICluster as IEKSCluster } from 'aws-cdk-lib/aws-eks';
+import { ICluster as IECSCluster } from 'aws-cdk-lib/aws-ecs';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import {
+    PAYFORADOPTION_GO,
+    PETLISTADOPTIONS_GO,
+    PETSEARCH_JAVA,
+    PETSITE,
+    PETSTATUSUPDATER,
+    TRAFFICGENERATOR,
+    HostType,
+    ComputeType,
+} from '../../bin/environment';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Stack } from 'aws-cdk-lib';
 
-export enum HostType {
-    ECS = 'ECS',
-    EKS = 'EKS',
-}
-
-export enum ComputeType {
-    EC2 = 'EC2',
-    Fargate = 'Fargate',
-}
+export const MicroservicesNames = {
+    PayForAdoption: PAYFORADOPTION_GO.name,
+    PetListAdoptions: PETLISTADOPTIONS_GO.name,
+    PetSearch: PETSEARCH_JAVA.name,
+    PetSite: PETSITE.name,
+    PetStatusUpdater: PETSTATUSUPDATER.name,
+    TrafficGenerator: TRAFFICGENERATOR.name,
+} as const;
 
 export interface MicroserviceProperties {
     hostType: HostType;
     computeType: ComputeType;
     tags?: { [key: string]: string };
-    securityGroup: SecurityGroup;
-    eksCluster?: EKSCluster;
-    ecsCluster?: ECSCluster;
+    securityGroup?: ISecurityGroup;
+    eksCluster?: IEKSCluster;
+    ecsCluster?: IECSCluster;
     /** Default Log Retention */
     logRetentionDays?: RetentionDays;
 }
 
 export abstract class Microservice extends Construct {
-    constructor(scope: Construct, id: string, properties: MicroserviceProperties) {
+    constructor(scope: Construct, id: string) {
         super(scope, id);
-
-        if (properties.hostType == HostType.ECS) {
-            this.configureECSService(properties);
-        } else {
-            this.configureEKSService(properties);
-        }
     }
 
     abstract configureEKSService(properties: MicroserviceProperties): void;
 
     abstract configureECSService(properties: MicroserviceProperties): void;
+
+    abstract addTaskPermissions(properties: MicroserviceProperties): void;
+
+    abstract createOutputs(properties: MicroserviceProperties): void;
+
+    readonly ddbSeedPolicy = new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['dynamodb:BatchWriteItem', 'dynamodb:ListTables', 'dynamodb:Scan', 'dynamodb:Query'],
+        resources: ['*'],
+    });
+
+    public static getDefaultDynamoDBPolicy(scope: Construct, tableName: string) {
+        const readDDBTablesPolicy = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['dynamodb:ListTables', 'dynamodb:Scan', 'dynamodb:Query'],
+            resources: [`arn:aws}:dynamodb:${Stack.of(scope).region}:${Stack.of(scope).account}:table/${tableName}`],
+        });
+
+        return readDDBTablesPolicy;
+    }
+
+    public static getDefaultSSMPolicy(scope: Construct, prefix?: string) {
+        const readSMParametersPolicy = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['ssm:GetParametersByPath', 'ssm:GetParameters', 'ssm:GetParameter'],
+            resources: [
+                `arn:aws:ssm:${Stack.of(scope).region}:${Stack.of(scope).account}:parameter/${prefix || '/petstore/'}*`,
+            ],
+        });
+
+        return readSMParametersPolicy;
+    }
 }
