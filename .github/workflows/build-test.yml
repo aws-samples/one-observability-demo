@@ -17,8 +17,8 @@ jobs:
             path: PetAdoptions/payforadoption-go
           - name: petadoptionshistory-py
             path: PetAdoptions/petadoptionshistory-py
-          - name: petlistadoptions-go
-            path: PetAdoptions/petlistadoptions-go
+          - name: petlistadoptions-py
+            path: PetAdoptions/petlistadoptions-py
           - name: petsearch-java
             path: PetAdoptions/petsearch-java
           - name: petsite
