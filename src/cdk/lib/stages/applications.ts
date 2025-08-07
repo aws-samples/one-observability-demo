@@ -17,6 +17,7 @@ import { PetSearchService } from '../microservices/pet-search';
 import { TrafficGeneratorService } from '../microservices/traffic-generator';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
 import { StatusUpdatedService } from '../constructs/serverless/status-updater';
+import { VpcEndpoints } from '../constructs/vpc-endpoints';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -56,6 +57,7 @@ export class MicroservicesStack extends Stack {
         //const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
         const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
+        const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
@@ -150,8 +152,11 @@ export class MicroservicesStack extends Stack {
                     ...lambdafunction,
                     name: name,
                     table: dynamodbExports.table,
+                    vpcEndpoint: vpcEndpoints.apiGatewayEndpoint,
                 });
             }
         }
+
+        Utilities.SuppressLogRetentionNagWarnings(this);
     }
 }

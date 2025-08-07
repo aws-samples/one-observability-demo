@@ -186,4 +186,8 @@ export const AURORA_ADMIN_SECRET_ARN_EXPORT_NAME = 'WorkshopAuroraAdminSecretArn
 export const DYNAMODB_TABLE_ARN_EXPORT_NAME = 'WorkshopDynamoDBTableArn';
 export const DYNAMODB_TABLE_NAME_EXPORT_NAME = 'WorkshopDynamoDBTableName';
 
+export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
+export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';
+export const VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME = 'WorkshopVPCEndpointLambdaId';
+
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

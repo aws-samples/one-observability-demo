@@ -20,6 +20,7 @@ import {
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
 import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import { VpcEndpoints } from './vpc-endpoints';
 import {
     MAX_AVAILABILITY_ZONES,
     VPC_AVAILABILITY_ZONES_EXPORT_NAME,
@@ -56,6 +57,8 @@ export interface WorkshopNetworkProperties {
 export class WorkshopNetwork extends Construct {
     /** The VPC instance created by this construct */
     public readonly vpc: Vpc;
+    /** The VPC endpoints created by this construct */
+    public readonly vpcEndpoints: VpcEndpoints;
 
     /**
      * Creates a new WorkshopNetwork construct
@@ -99,6 +102,11 @@ export class WorkshopNetwork extends Construct {
         if (properties.enableDnsQueryResolverLogs) {
             this.enableDnsQueryResolverLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
         }
+
+        // Create VPC endpoints
+        this.vpcEndpoints = new VpcEndpoints(this, 'VpcEndpoints', {
+            vpc: this.vpc,
+        });
 
         // Create CloudFormation outputs for VPC resources
         this.createVpcOutputs();
