@@ -36,9 +36,8 @@ COPY --from=builder /app .
 # Make start script executable
 RUN chmod +x start.sh
 
-# Create non-root user (but don't switch to it for now to avoid port 80 permission issues)
+# Create non-root user for future use (but run as root for port 80 access)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-# USER appuser
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -46,5 +45,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 80
 
-# Use startup script
+# Use startup script (running as root for port 80 access)
 CMD ["./start.sh"] 
