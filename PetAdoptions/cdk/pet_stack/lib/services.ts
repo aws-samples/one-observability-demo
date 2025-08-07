@@ -130,8 +130,8 @@ export class Services extends Stack {
         }
 
         const auroraCluster = new rds.DatabaseCluster(this, 'Database', {
-            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_13_15 }),
-            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql13'),
+            engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_16_6 }),
+            parameterGroup: rds.ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql16'),
             vpc: theVPC,
             securityGroups: [rdssecuritygroup],
             defaultDatabaseName: 'adoptions',
