@@ -22,6 +22,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -132,12 +137,27 @@ public class SearchController {
 
 
     @GetMapping("/api/search")
-    public List<Pet> search(
+    public ResponseEntity<?> search(
             @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
         Span span = tracer.spanBuilder("Scanning DynamoDB Table").startSpan();
+
+        // Check if petType is dinosaur and return 404 error with custom message
+        if (petType != null && !petType.trim().isEmpty() && petType.equals("dinosaur")) {
+            logger.warn("Dinosaur pet type requested - returning 404 error");
+            span.setAttribute("error", true);
+            span.setAttribute("error.message", "Dinosaur pet type not found");
+            span.end();
+            ErrorResponse errorResponse = new ErrorResponse(
+                404, 
+                "Dinosaur pet type not found", 
+                "Dinosaur pet type not found", 
+                "/api/search"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
 
         // This line is intentional. Delays searches
         if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
@@ -151,7 +171,7 @@ public class SearchController {
                     .getItems().stream().map(this::mapToPet)
                     .collect(Collectors.toList());
             metricEmitter.emitPetsReturnedMetric(result.size());
-            return result;
+            return ResponseEntity.ok(result);
 
         } catch (Exception e) {
             span.recordException(e);
@@ -161,6 +181,18 @@ public class SearchController {
             span.end();
         }
 
+    }
+
+    // Simple test endpoint for dinosaur error
+    @GetMapping("/api/test-dinosaur")
+    public ResponseEntity<ErrorResponse> testDinosaur() {
+        ErrorResponse errorResponse = new ErrorResponse(
+            404, 
+            "Dinosaur pet type not found", 
+            "Dinosaur pet type not found", 
+            "/api/test-dinosaur"
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
     private ScanRequest buildScanRequest(String petType, String petColor, String petId) {
@@ -198,5 +230,7 @@ public class SearchController {
     private boolean isEmptyParameter(Map.Entry<String, String> e) {
         return e.getValue() == null || e.getValue().isEmpty();
     }
+
+
 
 }
