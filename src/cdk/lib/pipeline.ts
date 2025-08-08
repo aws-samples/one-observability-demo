@@ -18,6 +18,7 @@ import { ContainerDefinition, ContainersPipelineStage } from './stages/container
 import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
+import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
 
 export interface CDKPipelineProperties extends StackProps {
     configBucketName: string;
@@ -31,6 +32,7 @@ export interface CDKPipelineProperties extends StackProps {
     applicationList: ContainerDefinition[];
     petImagesPaths: string[];
     postgresEngineVersion?: AuroraPostgresEngineVersion;
+    microservicesProperties: MicroserviceApplicationsProperties;
 }
 
 export class CDKPipeline extends Stack {
@@ -191,6 +193,19 @@ export class CDKPipeline extends Stack {
         });
 
         backendWave.addStage(computeStage);
+
+        const microservicesStageTags = {
+            ...properties.tags,
+            parent: this.stackName,
+            sequence: (stageSequence++).toString(),
+        };
+
+        pipeline.addStage(
+            new MicroservicesStage(this, 'Microservices', {
+                ...properties.microservicesProperties,
+                tags: microservicesStageTags,
+            }),
+        );
 
         /**
          * Build the pipeline to add suppressions and customizations.

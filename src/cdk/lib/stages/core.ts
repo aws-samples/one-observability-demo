@@ -19,6 +19,7 @@ import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { WorkshopNetwork } from '../constructs/network';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { WorkshopCloudTrail } from '../constructs/cloudtrail';
+import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 
 /**
  * Configuration properties for the CoreStage.
@@ -36,6 +37,8 @@ export interface CoreStageProperties {
     createCloudTrail?: boolean;
     /** Default Retention Period for logs */
     defaultRetentionDays?: RetentionDays;
+    /** Queue Resources */
+    queueProperties?: QueueResourcesProperties;
 }
 
 /**
@@ -87,6 +90,9 @@ export class CoreStack extends Stack {
      */
     constructor(scope: Construct, id: string, properties: CoreStageProperties) {
         super(scope, id, properties);
+
+        /** Add Queue resources */
+        new QueueResources(this, 'QueueResources', properties.queueProperties);
 
         if (!properties.createVpc || properties.createVpc) {
             // Create a new VPC with workshop networking configuration

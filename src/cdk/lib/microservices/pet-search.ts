@@ -19,6 +19,13 @@ export interface PetSearchServiceProperties extends EcsServiceProperties {
 export class PetSearchService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetSearchServiceProperties) {
         super(scope, id, properties);
+        Utilities.TagConstruct(this, {
+            'app:owner': 'petstore',
+            'app:project': 'workshop',
+            'app:name': properties.name,
+            'app:computType': properties.computeType,
+            'app:hostType:': properties.hostType,
+        });
     }
 
     addPermissions(): void {

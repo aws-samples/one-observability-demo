@@ -7,10 +7,18 @@ import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
+import { Utilities } from '../utils/utilities';
 
 export class TrafficGeneratorService extends EcsService {
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
         super(scope, id, properties);
+        Utilities.TagConstruct(this, {
+            'app:owner': 'petstore',
+            'app:project': 'workshop',
+            'app:name': properties.name,
+            'app:computType': properties.computeType,
+            'app:hostType:': properties.hostType,
+        });
     }
 
     addPermissions(): void {

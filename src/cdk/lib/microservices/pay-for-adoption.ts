@@ -21,6 +21,13 @@ export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
 export class PayForAdoptionService extends EcsService {
     constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
         super(scope, id, properties);
+        Utilities.TagConstruct(this, {
+            'app:owner': 'petstore',
+            'app:project': 'workshop',
+            'app:name': properties.name,
+            'app:computType': properties.computeType,
+            'app:hostType:': properties.hostType,
+        });
     }
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {

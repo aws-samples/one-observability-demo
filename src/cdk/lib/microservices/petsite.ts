@@ -59,6 +59,13 @@ export class PetSite extends EKSDeployment {
             ],
             true,
         );
+        Utilities.TagConstruct(this, {
+            'app:owner': 'petstore',
+            'app:project': 'workshop',
+            'app:name': properties.name,
+            'app:computType': properties.computeType,
+            'app:hostType:': properties.hostType,
+        });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- this is how KubnernetesManifests defines it

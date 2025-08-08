@@ -4,7 +4,6 @@ SPDX-License-Identifier: Apache-2.0
 */
 import { Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { AssetsProperties, WorkshopAssets } from '../constructs/assets';
 import { DynamoDatabase as DynamoDatabase, DynamoDatabaseProperties } from '../constructs/dynamodb';
 import { Utilities } from '../utils/utilities';
@@ -12,7 +11,6 @@ import { AuroraDatabase, AuroraDBProperties } from '../constructs/database';
 import { WorkshopNetwork } from '../constructs/network';
 
 export interface StorageProperties extends StackProps {
-    queueProperties?: QueueResourcesProperties;
     assetsProperties?: AssetsProperties;
     dynamoDatabaseProperties?: DynamoDatabaseProperties;
     auroraDatabaseProperties?: AuroraDBProperties;
@@ -37,9 +35,6 @@ export class StorageStack extends Stack {
         super(scope, id, properties);
 
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'vpc');
-
-        /** Add Queue resources */
-        new QueueResources(this, 'QueueResources', properties.queueProperties);
 
         /** Add Assets resources */
         new WorkshopAssets(this, 'WorkshopAssets', properties.assetsProperties);

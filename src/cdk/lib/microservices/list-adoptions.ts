@@ -19,6 +19,14 @@ export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
 export class ListAdoptionsService extends EcsService {
     constructor(scope: Construct, id: string, properties: ListAdoptionsServiceProperties) {
         super(scope, id, properties);
+
+        Utilities.TagConstruct(this, {
+            'app:owner': 'petstore',
+            'app:project': 'workshop',
+            'app:name': properties.name,
+            'app:computType': properties.computeType,
+            'app:hostType:': properties.hostType,
+        });
     }
 
     addPermissions(): void {
