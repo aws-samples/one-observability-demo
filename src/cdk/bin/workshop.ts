@@ -32,6 +32,8 @@ import {
     DEFAULT_RETENTION_DAYS,
     APPLICATION_LIST,
     PET_IMAGES,
+    MICROSERVICES_PLACEMENT,
+    LAMBDA_FUNCTIONS,
 } from './environment';
 
 /** Main CDK application instance */
@@ -56,6 +58,10 @@ new CDKPipeline(app, 'OneObservabilityWorkshopPipeline', {
     defaultRetentionPeriod: DEFAULT_RETENTION_DAYS,
     applicationList: APPLICATION_LIST,
     petImagesPaths: PET_IMAGES,
+    microservicesProperties: {
+        microservicesPlacement: MICROSERVICES_PLACEMENT,
+        lambdaFunctions: LAMBDA_FUNCTIONS,
+    },
 });
 
 // Apply tags to all resources in the application
