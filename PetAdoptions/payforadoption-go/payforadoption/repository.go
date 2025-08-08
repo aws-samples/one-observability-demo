@@ -61,12 +61,12 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 
 	sql := `
-		INSERT INTO transactions (pet_id, transaction_id, adoption_date)
-		VALUES ($1, $2, $3)
+		INSERT INTO transactions (pet_id, transaction_id, adoption_date, user_id)
+		VALUES ($1, $2, $3, $4)
 	`
 
 	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate)
+	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate, a.UserID)
 
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		updateAdoptionStatusCtx, updateAdoptionStatusSpan := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
 		defer updateAdoptionStatusSpan.End()
 
-		body := &completeAdoptionRequest{a.PetID, a.PetType}
+		body := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
 		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
 		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
@@ -248,14 +248,16 @@ func (r *repo) CreateSQLTables(ctx context.Context) error {
 			id SERIAL PRIMARY KEY,
 			pet_id VARCHAR,
 			adoption_date DATE,
-			transaction_id VARCHAR
+			transaction_id VARCHAR,
+			user_id VARCHAR
 		);
 		`,
 		`CREATE TABLE IF NOT EXISTS transactions_history (
 			id SERIAL PRIMARY KEY,
 			pet_id VARCHAR,
 			adoption_date DATE,
-			transaction_id VARCHAR
+			transaction_id VARCHAR,
+			user_id VARCHAR
 		);
 		`}
 

@@ -16,13 +16,14 @@ type Adoption struct {
 	TransactionID string `json:"transactionid,omitempty"`
 	PetID         string `json:"petid,omitempty"`
 	PetType       string `json:"pettype,omitempty"`
+	UserID        string `json:"userid,omitempty"`
 	AdoptionDate  time.Time
 }
 
 // links endpoints to transport
 type Service interface {
 	HealthCheck(ctx context.Context) error
-	CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error)
+	CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error)
 	CleanupAdoptions(ctx context.Context) error
 	TriggerSeeding(ctx context.Context) error
 }
@@ -49,7 +50,7 @@ func (s service) HealthCheck(ctx context.Context) error {
 }
 
 // /api/completeadoption logic
-func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error) {
+func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error) {
 	logger := log.With(s.logger, "method", "CompleteAdoption")
 
 	uuid, _ := uuid.NewV4()
@@ -57,6 +58,7 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		TransactionID: uuid.String(),
 		PetID:         petId,
 		PetType:       petType,
+		UserID:        userID,
 		AdoptionDate:  time.Now(),
 	}
 
