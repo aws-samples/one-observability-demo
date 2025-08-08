@@ -183,18 +183,6 @@ public class SearchController {
 
     }
 
-    // Simple test endpoint for dinosaur error
-    @GetMapping("/api/test-dinosaur")
-    public ResponseEntity<ErrorResponse> testDinosaur() {
-        ErrorResponse errorResponse = new ErrorResponse(
-            404, 
-            "Dinosaur pet type not found", 
-            "Dinosaur pet type not found", 
-            "/api/test-dinosaur"
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-    }
-
     private ScanRequest buildScanRequest(String petType, String petColor, String petId) {
         return Map.of("pettype", petType,
                 "petcolor", petColor,
@@ -230,7 +218,5 @@ public class SearchController {
     private boolean isEmptyParameter(Map.Entry<String, String> e) {
         return e.getValue() == null || e.getValue().isEmpty();
     }
-
-
 
 }
