@@ -790,15 +790,25 @@ export const Utilities = {
 
         // For CfnResource objects, we need to explicitly set the Tags property
         if (object instanceof CfnResource) {
-            const cfnTags = Object.entries(tags).map(([key, value]) => ({
+            let cfnTags = Object.entries(tags).map(([key, value]) => ({
                 Key: key,
                 Value: value,
             }));
+
+            // Special handling for AutoScaling Groups
+            if (object.cfnResourceType === 'AWS::AutoScaling::AutoScalingGroup') {
+                cfnTags = Object.entries(tags).map(([key, value]) => ({
+                    Key: key,
+                    Value: value,
+                    PropagateAtLaunch: true,
+                }));
+            }
 
             // Only tag the resource if it's on the allowed list
             if (cfnTags.length > 0 && TAGGABLE_RESOURCE_TYPE_LIST.has(object.cfnResourceType)) {
                 if (EXCEPTIONS.has(object.cfnResourceType)) {
                     // For these resource types, Tags must by added as a Map not an array or CFN will fail to deploy
+
                     object.addPropertyOverride('Tags', tags);
                 } else {
                     object.addPropertyOverride('Tags', cfnTags);

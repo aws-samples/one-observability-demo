@@ -132,7 +132,7 @@ export class ContainersStack extends Stack {
             {
                 service: 'logs',
                 resource: 'log-group',
-                resourceName: '/aws/codepipeline/',
+                resourceName: '/aws/codepipeline*',
                 arnFormat: ArnFormat.COLON_RESOURCE_NAME,
                 account: this.account,
                 region: this.region,
@@ -145,7 +145,7 @@ export class ContainersStack extends Stack {
             statements: [
                 new PolicyStatement({
                     actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-                    resources: [pipelineLogArn, `${pipelineLogArn}:*`],
+                    resources: [pipelineLogArn],
                 }),
             ],
             roles: [pipelineRole],
