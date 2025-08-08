@@ -15,13 +15,15 @@ namespace PetSite.Controllers
 {
     public class PetListAdoptionsController : Controller
     {
-        private static HttpClient _httpClient;
-        private IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<PetListAdoptionsController> _logger;
 
-        public PetListAdoptionsController(IConfiguration configuration)
+        public PetListAdoptionsController(ILogger<PetListAdoptionsController> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory)
         {
             _configuration = configuration;
-            _httpClient = new HttpClient();
+            _httpClientFactory = httpClientFactory;
+            _logger=  logger;
         }
 
         // GET
@@ -31,7 +33,7 @@ namespace PetSite.Controllers
             var currentActivity = Activity.Current;
             if (currentActivity != null)
             {
-                Console.WriteLine("Calling PetListAdoptions API");
+                _logger.LogInformation("Calling PetListAdoptions API");
             }
 
             string result;
@@ -42,14 +44,15 @@ namespace PetSite.Controllers
                 // Create a new activity for the API call
                 using (var activity = new Activity("Calling PetListAdoptions").Start())
                 {
-                    string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"petlistadoptionsurl");
-                    result = await _httpClient.GetStringAsync($"{petlistadoptionsurl}");
+                    string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PET_LIST_ADOPTION_URL");
+                    using var httpClient = _httpClientFactory.CreateClient();
+                    result = await httpClient.GetStringAsync($"{petlistadoptionsurl}");
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error calling PetListAdoptions API: {e.Message}");
+                _logger.LogError(e, $"Error calling PetListAdoptions API: {e.Message}");
                 throw;
             }
 

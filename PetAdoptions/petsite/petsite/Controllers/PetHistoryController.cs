@@ -10,15 +10,14 @@ namespace PetSite.Controllers;
 
 public class PetHistoryController : Controller
 {
-    private IConfiguration _configuration;
-    private readonly ILogger<HomeController> _logger;
-    private static HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
+    private readonly IHttpClientFactory _httpClientFactory;
     private static string _pethistoryurl;
     
-    public PetHistoryController(IConfiguration configuration)
+    public PetHistoryController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
         _configuration = configuration;
-        _httpClient = new HttpClient();
+        _httpClientFactory = httpClientFactory;
         
         _pethistoryurl = _configuration["pethistoryurl"];
         //string _pethistoryurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"pethistoryurl");
@@ -43,7 +42,8 @@ public class PetHistoryController : Controller
             // Create a new activity for the API call
             using (var activity = new Activity("Calling GetPetAdoptionsHistory").Start())
             {
-                ViewData["pethistory"] = await _httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions");
+                using var httpClient = _httpClientFactory.CreateClient();
+                ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions");
             }
         }
         catch (Exception e)
@@ -74,7 +74,8 @@ public class PetHistoryController : Controller
             // Create a new activity for the API call
             using (var activity = new Activity("Calling DeletePetAdoptionsHistory").Start())
             {
-                ViewData["pethistory"] = await _httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions");
+                using var httpClient = _httpClientFactory.CreateClient();
+                ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions");
             }
         }
         catch (Exception e)
