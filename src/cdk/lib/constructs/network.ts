@@ -21,8 +21,8 @@ import {
 } from 'aws-cdk-lib/aws-route53resolver';
 import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import { VpcEndpoints } from './vpc-endpoints';
+import { MAX_AVAILABILITY_ZONES } from '../../bin/environment';
 import {
-    MAX_AVAILABILITY_ZONES,
     VPC_AVAILABILITY_ZONES_EXPORT_NAME,
     VPC_CIDR_EXPORT_NAME,
     VPC_ID_EXPORT_NAME,
@@ -32,7 +32,7 @@ import {
     VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
     VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
     VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
-} from '../../bin/environment';
+} from '../../bin/constants';
 
 /**
  * Properties for the WorkshopNetwork construct

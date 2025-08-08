@@ -31,7 +31,7 @@ import {
     AURORA_CLUSTER_ENDPOINT_EXPORT_NAME,
     AURORA_SECURITY_GROUP_ID_EXPORT_NAME,
     AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
-} from '../../bin/environment';
+} from '../../bin/constants';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 /**

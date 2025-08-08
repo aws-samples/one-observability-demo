@@ -23,7 +23,7 @@ export class PayForAdoptionService extends EcsService {
         super(scope, id, properties);
     }
 
-    addTaskPermissions(properties: PayForAdoptionServiceProperties): void {
+    addPermissions(properties: PayForAdoptionServiceProperties): void {
         properties.secret?.grantRead(this.taskDefinition.taskRole);
 
         this.taskDefinition.taskRole.addManagedPolicy(

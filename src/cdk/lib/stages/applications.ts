@@ -18,11 +18,14 @@ import { TrafficGeneratorService } from '../microservices/traffic-generator';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
 import { StatusUpdatedService } from '../constructs/serverless/status-updater';
 import { VpcEndpoints } from '../constructs/vpc-endpoints';
+import { PetSite } from '../microservices/petsite';
+import { WorkshopEks } from '../constructs/eks';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
     computeType: ComputeType;
     disableService: boolean;
+    manifestPath?: string;
 }
 
 export interface MicroserviceApplicationsProperties extends StackProps {
@@ -50,11 +53,11 @@ export class MicroservicesStack extends Stack {
         super(scope, id, properties);
 
         /** Retrieve Network Exports */
-        const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
+        const vpcExports = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
 
         /** Retrieve ECS Cluster from Exports */
-        const ecsExports = WorkshopEcs.importFromExports(this, 'WorkshopEcs', vpc);
-        //const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
+        const ecsExports = WorkshopEcs.importFromExports(this, 'WorkshopEcs', vpcExports);
+        const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
         const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
@@ -127,20 +130,41 @@ export class MicroservicesStack extends Stack {
                     throw new Error(`EKS is not supported for ${name}`);
                 }
             }
-            if (name == MicroservicesNames.TrafficGenerator && service?.hostType == HostType.ECS) {
-                new TrafficGeneratorService(this, name, {
-                    hostType: service.hostType,
-                    computeType: service.computeType,
-                    securityGroup: ecsExports.securityGroup,
-                    ecsCluster: ecsExports.cluster,
-                    disableService: service.disableService,
-                    cpu: 1024,
-                    memoryLimitMiB: 2048,
-                    desiredTaskCount: 1,
-                    name: name,
-                    repositoryURI: `${baseURI}/${name}`,
-                    instrumentation: 'none',
-                });
+            if (name == MicroservicesNames.TrafficGenerator) {
+                if (service?.hostType == HostType.ECS) {
+                    new TrafficGeneratorService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 1,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        instrumentation: 'none',
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetSite) {
+                if (service?.hostType == HostType.EKS) {
+                    new PetSite(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: eksExports.securityGroup,
+                        eksCluster: eksExports.cluster,
+                        disableService: service.disableService,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        manifestPath: service.manifestPath,
+                        vpc: vpcExports,
+                    });
+                } else {
+                    throw new Error(`ECS is not supported for ${name}`);
+                }
             }
         }
 
@@ -158,5 +182,6 @@ export class MicroservicesStack extends Stack {
         }
 
         Utilities.SuppressLogRetentionNagWarnings(this);
+        Utilities.SuppressKubectlProviderNagWarnings(this);
     }
 }

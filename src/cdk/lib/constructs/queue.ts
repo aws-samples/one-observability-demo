@@ -8,7 +8,7 @@ import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { IQueue, Queue } from 'aws-cdk-lib/aws-sqs';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
-import { SNS_TOPIC_ARN_EXPORT_NAME, SQS_QUEUE_ARN_EXPORT_NAME, SQS_QUEUE_URL_EXPORT_NAME } from '../../bin/environment';
+import { SNS_TOPIC_ARN_EXPORT_NAME, SQS_QUEUE_ARN_EXPORT_NAME, SQS_QUEUE_URL_EXPORT_NAME } from '../../bin/constants';
 
 /**
  * Properties for configuring QueueResources construct

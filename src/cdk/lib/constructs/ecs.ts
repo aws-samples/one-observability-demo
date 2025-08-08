@@ -13,7 +13,7 @@ import {
     ECS_CLUSTER_ARN_EXPORT_NAME,
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
-} from '../../bin/environment';
+} from '../../bin/constants';
 
 export interface EcsProperties {
     vpc: IVpc;

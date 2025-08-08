@@ -26,13 +26,16 @@ import {
     CfnNodegroup,
 } from 'aws-cdk-lib/aws-eks';
 import { KubectlV33Layer } from '@aws-cdk/lambda-layer-kubectl-v33';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Role, ServicePrincipal, OpenIdConnectProvider } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import {
     EKS_CLUSTER_ARN_EXPORT_NAME,
     EKS_CLUSTER_NAME_EXPORT_NAME,
     EKS_SECURITY_GROUP_ID_EXPORT_NAME,
-} from '../../bin/environment';
+    EKS_KUBECTL_ROLE_ARN_EXPORT_NAME,
+    EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME,
+    EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
+} from '../../bin/constants';
 
 export interface EksProperties {
     vpc: IVpc;
@@ -215,6 +218,21 @@ export class WorkshopEks extends Construct {
             value: this.cluster.clusterSecurityGroupId,
             exportName: EKS_SECURITY_GROUP_ID_EXPORT_NAME,
         });
+
+        new CfnOutput(this, 'KubectlRoleArn', {
+            value: this.cluster.kubectlRole!.roleArn,
+            exportName: EKS_KUBECTL_ROLE_ARN_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'OpenIdConnectProviderArn', {
+            value: this.cluster.openIdConnectProvider.openIdConnectProviderArn,
+            exportName: EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'KubectlSecurityGroupId', {
+            value: this.cluster.kubectlSecurityGroup!.securityGroupId,
+            exportName: EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
+        });
     }
 
     public static importFromExports(
@@ -223,9 +241,26 @@ export class WorkshopEks extends Construct {
     ): { cluster: ICluster; securityGroup: ISecurityGroup } {
         const clusterName = Fn.importValue(EKS_CLUSTER_NAME_EXPORT_NAME);
         const securityGroupId = Fn.importValue(EKS_SECURITY_GROUP_ID_EXPORT_NAME);
+        const kubectlRoleArn = Fn.importValue(EKS_KUBECTL_ROLE_ARN_EXPORT_NAME);
+        const openIdConnectProviderArn = Fn.importValue(EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME);
+        const kubectlSecurityGroupId = Fn.importValue(EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME);
+        const kubectlRole = Role.fromRoleArn(scope, `${id}-KubectlRole`, kubectlRoleArn);
+        const kubectlSecurityGroup = SecurityGroup.fromSecurityGroupId(
+            scope,
+            `${id}-KubectlSecurityGroup`,
+            kubectlSecurityGroupId,
+        );
+        const openIdConnectProvider = OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+            scope,
+            `${id}-OpenIdConnectProvider`,
+            openIdConnectProviderArn,
+        );
 
         const cluster = Cluster.fromClusterAttributes(scope, `${id}-Cluster`, {
             clusterName: clusterName,
+            kubectlRoleArn: kubectlRole.roleArn,
+            openIdConnectProvider: openIdConnectProvider,
+            kubectlSecurityGroupId: kubectlSecurityGroup.securityGroupId,
         });
 
         const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);

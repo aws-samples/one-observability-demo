@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { ICluster as IEKSCluster } from 'aws-cdk-lib/aws-eks';
 import { ICluster as IECSCluster } from 'aws-cdk-lib/aws-ecs';
@@ -34,22 +34,33 @@ export interface MicroserviceProperties {
     computeType: ComputeType;
     tags?: { [key: string]: string };
     securityGroup?: ISecurityGroup;
+    vpc?: IVpc;
     eksCluster?: IEKSCluster;
     ecsCluster?: IECSCluster;
     /** Default Log Retention */
     logRetentionDays?: RetentionDays;
+    name: string;
+    repositoryURI: string;
+    disableService?: boolean;
 }
 
 export abstract class Microservice extends Construct {
-    constructor(scope: Construct, id: string) {
+    constructor(scope: Construct, id: string, properties: MicroserviceProperties) {
         super(scope, id);
+
+        if (properties.hostType == HostType.ECS && !properties.ecsCluster) {
+            throw new Error('ecsCluster is required if host type is ECS');
+        }
+        if (properties.hostType == HostType.EKS && !properties.eksCluster) {
+            throw new Error('eksCluster is required if host type is EKS');
+        }
     }
 
     abstract configureEKSService(properties: MicroserviceProperties): void;
 
     abstract configureECSService(properties: MicroserviceProperties): void;
 
-    abstract addTaskPermissions(properties: MicroserviceProperties): void;
+    abstract addPermissions(properties: MicroserviceProperties): void;
 
     abstract createOutputs(properties: MicroserviceProperties): void;
 

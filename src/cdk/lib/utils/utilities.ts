@@ -13,8 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 import { Annotations, CfnOutput, CfnResource, Tags } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
-import { Function } from 'aws-cdk-lib/aws-lambda';
-import { Role } from 'aws-cdk-lib/aws-iam';
+import { Policy, Role } from 'aws-cdk-lib/aws-iam';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 /**
@@ -821,19 +820,19 @@ export const Utilities = {
      * Recursively searches for child nodes in a construct by resource type and partial name match.
      *
      * @param construct - The root construct to search within
-     * @param resourceType - The CloudFormation resource type to search for (e.g., 'AWS::Lambda::Function')
      * @param partialName - Partial match string for the resource name
+     * @param resourceType - Optional CloudFormation resource type to search for (e.g., 'AWS::Lambda::Function')
      * @returns Array of matching constructs
      */
-    FindChildNodes(construct: Construct, resourceType: string, partialName: string): Construct[] {
+    FindChildNodes(construct: Construct, partialName: string, resourceType?: string): Construct[] {
         const matches: Construct[] = [];
 
         function searchRecursively(node: Construct) {
-            // Check if current node is a CfnResource with matching type and name
+            // Check if current node is a CfnResource with matching name and optionally matching type
             if (
                 node instanceof CfnResource &&
-                node.cfnResourceType === resourceType &&
-                node.logicalId.includes(partialName)
+                node.toString().includes(partialName) &&
+                (!resourceType || node.cfnResourceType === resourceType)
             ) {
                 matches.push(node);
             }
@@ -854,7 +853,7 @@ export const Utilities = {
      * @param construct - The construct to search for log retention resources
      */
     SuppressLogRetentionNagWarnings(construct: Construct) {
-        const logRetentionRole = this.FindChildNodes(construct, 'AWS::IAM::Role', 'LogRetention');
+        const logRetentionRole = this.FindChildNodes(construct, 'LogRetention', 'AWS::IAM::Role');
         for (const role of logRetentionRole) {
             const serviceRole = role as Role;
             NagSuppressions.addResourceSuppressions(
@@ -869,15 +868,39 @@ export const Utilities = {
             );
         }
 
-        const logRetentionPolicy = this.FindChildNodes(construct, 'AWS::IAM::Policy', 'LogRetention');
+        const logRetentionPolicy = this.FindChildNodes(construct, 'LogRetention', 'AWS::IAM::Policy');
         for (const policy of logRetentionPolicy) {
-            const serviceRole = policy as Function;
+            const serviceRole = policy as Policy;
             NagSuppressions.addResourceSuppressions(
                 serviceRole,
                 [
                     {
                         id: 'AwsSolutions-IAM5',
                         reason: 'Log Retention lambda using wildcard is acceptable',
+                    },
+                ],
+                true,
+            );
+        }
+    },
+
+    SuppressKubectlProviderNagWarnings(construct: Construct) {
+        const kubectlProvider = this.FindChildNodes(construct, 'KubectlProvider');
+        for (const resource of kubectlProvider) {
+            NagSuppressions.addResourceSuppressions(
+                resource,
+                [
+                    {
+                        id: 'AwsSolutions-IAM4',
+                        reason: 'kubectl lambda using managed policies is acceptable',
+                    },
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'Kubectl lambda using wildcard is acceptable',
+                    },
+                    {
+                        id: 'AwsSolutions-L1',
+                        reason: 'Kubectl lambda managed by EKS Construct',
                     },
                 ],
                 true,

@@ -13,7 +13,7 @@ export class TrafficGeneratorService extends EcsService {
         super(scope, id, properties);
     }
 
-    addTaskPermissions(): void {
+    addPermissions(): void {
         this.taskDefinition.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('AmazonECSTaskExecutionRolePolicy'),
         );

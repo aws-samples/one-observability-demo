@@ -15,6 +15,7 @@
     "devDependencies": {
         "@types/jest": "^30.0.0",
         "@types/node": "^24.0.4",
+        "@types/nunjucks": "^3.2.6",
         "@typescript-eslint/eslint-plugin": "^8.35.0",
         "aws-cdk": "2.1019.2",
         "eslint-config-prettier": "^10.1.5",
@@ -34,9 +35,12 @@
     },
     "dependencies": {
         "@aws-cdk/lambda-layer-kubectl-v33": "^2.0.0",
+        "@types/yaml": "^1.9.6",
         "aws-cdk-lib": "2.206.0",
+        "nunjucks": "^3.2.4",
         "cdk-nag": "^2.36.32",
         "constructs": "^10.0.0",
-        "dotenv": "^17.2.1"
+        "dotenv": "^17.2.1",
+        "yaml": "^2.8.1"
     }
 }

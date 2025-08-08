@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
 import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
 
@@ -105,9 +105,10 @@ export const PETSEARCH_JAVA = {
 export const PETSITE = {
     name: 'petsite',
     dockerFilePath: 'PetAdoptions/petsite/petsite',
-    hostType: HostType.ECS,
+    hostType: HostType.EKS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    manifestPath: 'lib/microservices/manifests/petsite-deployment.yaml',
 };
 
 export const PETSTATUSUPDATER = {
@@ -158,36 +159,5 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
 ]);
 
 export const MAX_AVAILABILITY_ZONES = 2;
-export const VPC_ID_EXPORT_NAME = 'WorkshopVPC';
-export const VPC_CIDR_EXPORT_NAME = 'WorkshopVPCCidr';
-export const VPC_PRIVATE_SUBNETS_EXPORT_NAME = 'WorkshopVPCPrivateSubnets';
-export const VPC_PUBLIC_SUBNETS_EXPORT_NAME = 'WorkshopVPCPublicSubnets';
-export const VPC_ISOLATED_SUBNETS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnets';
-export const VPC_AVAILABILITY_ZONES_EXPORT_NAME = 'WorkshopVPCAvailabilityZones';
-export const VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPrivateSubnetCidrs';
-export const VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCPublicSubnetCidrs';
-export const VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME = 'WorkshopVPCIsolatedSubnetCidrs';
-
-export const SNS_TOPIC_ARN_EXPORT_NAME = 'WorkshopSNSTopicArn';
-export const SQS_QUEUE_ARN_EXPORT_NAME = 'WorkshopSQSQueueArn';
-export const SQS_QUEUE_URL_EXPORT_NAME = 'WorkshopSQSQueueUrl';
-
-export const ECS_CLUSTER_ARN_EXPORT_NAME = 'WorkshopECSClusterArn';
-export const ECS_CLUSTER_NAME_EXPORT_NAME = 'WorkshopECSClusterName';
-export const ECS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopECSSecurityGroupId';
-export const EKS_CLUSTER_ARN_EXPORT_NAME = 'WorkshopEKSClusterArn';
-export const EKS_CLUSTER_NAME_EXPORT_NAME = 'WorkshopEKSClusterName';
-export const EKS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopEKSSecurityGroupId';
-
-export const AURORA_CLUSTER_ARN_EXPORT_NAME = 'WorkshopAuroraClusterArn';
-export const AURORA_CLUSTER_ENDPOINT_EXPORT_NAME = 'WorkshopAuroraClusterEndpoint';
-export const AURORA_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopAuroraSecurityGroupId';
-export const AURORA_ADMIN_SECRET_ARN_EXPORT_NAME = 'WorkshopAuroraAdminSecretArn'; //pragma: allowlist secret
-export const DYNAMODB_TABLE_ARN_EXPORT_NAME = 'WorkshopDynamoDBTableArn';
-export const DYNAMODB_TABLE_NAME_EXPORT_NAME = 'WorkshopDynamoDBTableName';
-
-export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
-export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';
-export const VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME = 'WorkshopVPCEndpointLambdaId';
 
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

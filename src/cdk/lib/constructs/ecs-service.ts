@@ -29,11 +29,8 @@ export interface EcsServiceProperties extends MicroserviceProperties {
     memoryLimitMiB: number;
     logGroupName?: string;
     healthCheck?: string;
-    disableService?: boolean;
     instrumentation?: string;
-    repositoryURI: string;
     desiredTaskCount: number;
-    name: string;
 }
 
 export abstract class EcsService extends Microservice {
@@ -42,14 +39,14 @@ export abstract class EcsService extends Microservice {
     public readonly container: ContainerDefinition;
 
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
-        super(scope, id);
+        super(scope, id, properties);
 
         const result = this.configureECSService(properties);
         this.taskDefinition = result.taskDefinition;
         this.service = result.service;
         this.container = result.container;
 
-        this.addTaskPermissions(properties);
+        this.addPermissions(properties);
     }
 
     configureEKSService(): void {

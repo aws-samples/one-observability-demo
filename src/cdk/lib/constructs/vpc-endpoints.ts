@@ -9,7 +9,7 @@ import {
     VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME,
     VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME,
     VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME,
-} from '../../bin/environment';
+} from '../../bin/constants';
 
 export interface VpcEndpointsProperties {
     vpc: IVpc;

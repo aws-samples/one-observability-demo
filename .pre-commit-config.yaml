@@ -35,7 +35,8 @@ repos:
       hooks:
           - id: check-json
           - id: check-yaml
-            exclude: 'src/templates'
+            exclude: 'src/templates|src/cdk/lib/microservices/manifests'
+            args: [--allow-multiple-documents]
           - id: check-case-conflict
           - id: trailing-whitespace
           - id: mixed-line-ending
@@ -109,7 +110,8 @@ repos:
                 .pre-commit-config.yaml|
                 mkdocs.yml|
                 .github/workflows/.*|
-                .ash/.ash.yaml
+                .ash/.ash.yaml|
+                src/cdk/lib/microservices/manifests/.*|
                 )$
 
       # Legal Text

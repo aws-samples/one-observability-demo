@@ -7,7 +7,7 @@ import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch
 import { AttributeType, ITable, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
-import { DYNAMODB_TABLE_ARN_EXPORT_NAME, DYNAMODB_TABLE_NAME_EXPORT_NAME } from '../../bin/environment';
+import { DYNAMODB_TABLE_ARN_EXPORT_NAME, DYNAMODB_TABLE_NAME_EXPORT_NAME } from '../../bin/constants';
 
 /**
  * Properties for configuring DynamoDatabase construct
