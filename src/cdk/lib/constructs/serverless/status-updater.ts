@@ -7,7 +7,7 @@ import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../lamb
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { Arn, Stack } from 'aws-cdk-lib';
+import { Arn, ArnFormat, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
     EndpointType,
@@ -35,6 +35,7 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         const accesLogs = new LogGroup(this, 'access-logs', {
             logGroupName: `/aws/apigw/${properties.name}-api/access-logs`,
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         const authorizer = new RequestAuthorizer(this, `${properties.name}-authorizer`, {
@@ -112,14 +113,10 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
     addFunctionPermissions(properties: StatusUpdaterServiceProperties): void {
         if (this.function) {
             this.function.role?.addManagedPolicy(
-                ManagedPolicy.fromAwsManagedPolicyName(
-                    'arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy',
-                ),
+                ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLambdaInsightsExecutionRolePolicy'),
             );
             this.function.role?.addManagedPolicy(
-                ManagedPolicy.fromAwsManagedPolicyName(
-                    'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
-                ),
+                ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
             );
 
             properties.table.grantReadWriteData(this.function);
@@ -153,10 +150,11 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         const layerArn = Arn.format({
             account: '580247275435',
             resource: 'layer',
-            resourceName: 'LambdaInsightsExtension:21',
+            resourceName: 'LambdaInsightsExtension',
             region: Stack.of(this).region,
             service: 'lambda',
             partition: 'aws',
+            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
         });
 
         return [LayerVersion.fromLayerVersionArn(this, 'LambdaInsightsLayer', layerArn)];

@@ -27,18 +27,21 @@ export class VpcEndpoints extends Construct {
             vpc: properties.vpc,
             service: InterfaceVpcEndpointAwsService.APIGATEWAY,
             subnets: { subnets: properties.vpc.privateSubnets },
+            privateDnsEnabled: false,
         });
 
         this.dynamoDbEndpoint = new InterfaceVpcEndpoint(this, 'DynamoDbEndpoint', {
             vpc: properties.vpc,
             service: InterfaceVpcEndpointAwsService.DYNAMODB,
             subnets: { subnets: properties.vpc.privateSubnets },
+            privateDnsEnabled: false, // Not Supported by DynamoDB
         });
 
         this.lambdaEndpoint = new InterfaceVpcEndpoint(this, 'LambdaEndpoint', {
             vpc: properties.vpc,
             service: InterfaceVpcEndpointAwsService.LAMBDA,
             subnets: { subnets: properties.vpc.privateSubnets },
+            privateDnsEnabled: false,
         });
 
         this.createOutputs();

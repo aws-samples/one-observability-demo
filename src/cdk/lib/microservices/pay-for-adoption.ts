@@ -24,15 +24,13 @@ export class PayForAdoptionService extends EcsService {
     }
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {
-        properties.secret?.grantRead(this.taskDefinition.taskRole);
+        properties.secret?.grantRead(this.taskRole);
 
-        this.taskDefinition.taskRole.addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName('AmazonECSTaskExecutionRolePolicy'),
+        this.taskRole.addManagedPolicy(
+            ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
         );
 
-        this.taskDefinition.taskRole.addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'),
-        );
+        this.taskRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'));
 
         const taskPolicy = new Policy(this, 'taskPolicy', {
             policyName: 'PayForAdoptionTaskPolicy',
@@ -42,7 +40,7 @@ export class PayForAdoptionService extends EcsService {
                     EcsService.getDefaultDynamoDBPolicy(this, properties.dynamoDbTable.tableName),
                 ],
             }),
-            roles: [this.taskDefinition.taskRole],
+            roles: [this.taskRole],
         });
 
         NagSuppressions.addResourceSuppressions(
@@ -61,7 +59,7 @@ export class PayForAdoptionService extends EcsService {
         );
 
         NagSuppressions.addResourceSuppressions(
-            this.taskDefinition.taskRole,
+            this.taskRole,
             [
                 {
                     id: 'AwsSolutions-IAM4',

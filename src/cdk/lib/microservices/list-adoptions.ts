@@ -22,20 +22,18 @@ export class ListAdoptionsService extends EcsService {
     }
 
     addPermissions(): void {
-        this.taskDefinition.taskRole.addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName('AmazonECSTaskExecutionRolePolicy'),
+        this.taskRole.addManagedPolicy(
+            ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
         );
 
-        this.taskDefinition.taskRole.addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'),
-        );
+        this.taskRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'));
 
         const taskPolicy = new Policy(this, 'taskPolicy', {
             policyName: 'ListdoptionTaskPolicy',
             document: new PolicyDocument({
                 statements: [EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
             }),
-            roles: [this.taskDefinition.taskRole],
+            roles: [this.taskRole],
         });
 
         NagSuppressions.addResourceSuppressions(
@@ -54,7 +52,7 @@ export class ListAdoptionsService extends EcsService {
         );
 
         NagSuppressions.addResourceSuppressions(
-            this.taskDefinition.taskRole,
+            this.taskRole,
             [
                 {
                     id: 'AwsSolutions-IAM4',

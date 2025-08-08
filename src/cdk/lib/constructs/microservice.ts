@@ -74,7 +74,7 @@ export abstract class Microservice extends Construct {
         const readDDBTablesPolicy = new PolicyStatement({
             effect: Effect.ALLOW,
             actions: ['dynamodb:ListTables', 'dynamodb:Scan', 'dynamodb:Query'],
-            resources: [`arn:aws}:dynamodb:${Stack.of(scope).region}:${Stack.of(scope).account}:table/${tableName}`],
+            resources: [`arn:aws:dynamodb:${Stack.of(scope).region}:${Stack.of(scope).account}:table/${tableName}`],
         });
 
         return readDDBTablesPolicy;

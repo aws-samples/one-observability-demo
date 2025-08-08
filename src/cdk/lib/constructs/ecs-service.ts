@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { IRole, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Microservice, MicroserviceProperties } from './microservice';
 import { ComputeType } from '../../bin/environment';
 import {
@@ -37,6 +37,7 @@ export abstract class EcsService extends Microservice {
     public readonly taskDefinition: TaskDefinition;
     public readonly service?: ApplicationLoadBalancedServiceBase;
     public readonly container: ContainerDefinition;
+    public readonly taskRole: IRole;
 
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
         super(scope, id, properties);
@@ -45,6 +46,7 @@ export abstract class EcsService extends Microservice {
         this.taskDefinition = result.taskDefinition;
         this.service = result.service;
         this.container = result.container;
+        this.taskRole = result.taskRole;
 
         this.addPermissions(properties);
     }
@@ -192,7 +194,7 @@ export abstract class EcsService extends Microservice {
             },
         ]);
 
-        return { taskDefinition, service, container };
+        return { taskDefinition, service, container, taskRole };
     }
 
     private addXRayContainer(taskDefinition: TaskDefinition, logging: AwsLogDriver) {

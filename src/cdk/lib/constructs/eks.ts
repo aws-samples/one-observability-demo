@@ -261,6 +261,7 @@ export class WorkshopEks extends Construct {
             kubectlRoleArn: kubectlRole.roleArn,
             openIdConnectProvider: openIdConnectProvider,
             kubectlSecurityGroupId: kubectlSecurityGroup.securityGroupId,
+            kubectlLayer: new KubectlV33Layer(scope, 'kubectl'),
         });
 
         const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);
