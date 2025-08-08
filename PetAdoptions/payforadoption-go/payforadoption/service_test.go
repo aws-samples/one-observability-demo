@@ -12,7 +12,7 @@ import (
 // Mock repository for testing
 type mockRepository struct{}
 
-func (m *mockRepository) CreateTransaction(ctx context.Context, a Adoption) error {
+func (m *mockRepository) SendAdoptionMessage(ctx context.Context, a Adoption) error {
 	return nil
 }
 

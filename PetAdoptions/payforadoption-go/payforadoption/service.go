@@ -73,8 +73,8 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		}
 	}
 
-	if err := s.repository.CreateTransaction(ctx, a); err != nil {
-		level.Error(logger).Log("err", err)
+	if err := s.repository.SendAdoptionMessage(ctx, a); err != nil {
+		level.Error(logger).Log("err", err, "action", "send_adoption_message_failed")
 		return Adoption{}, err
 	}
 

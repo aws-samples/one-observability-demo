@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/log"
@@ -23,7 +25,7 @@ import (
 
 // Repository as an interface to define data store interactions
 type Repository interface {
-	CreateTransaction(ctx context.Context, a Adoption) error
+	SendAdoptionMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
@@ -36,6 +38,7 @@ type Config struct {
 	RDSSecretArn      string
 	S3BucketName      string
 	DynamoDBTable     string
+	SQSQueueURL       string
 	AWSRegion         string
 	Tracer            trace.Tracer
 	AWSCfg            aws.Config
@@ -58,19 +61,62 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 	}
 }
 
-func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
+func (r *repo) SendAdoptionMessage(ctx context.Context, a Adoption) error {
+	// Create SQS client
+	sqsClient := sqs.NewFromConfig(r.cfg.AWSCfg)
 
-	sql := `
-		INSERT INTO transactions (pet_id, transaction_id, adoption_date, user_id)
-		VALUES ($1, $2, $3, $4)
-	`
+	// Prepare the adoption message
+	adoptionMessage := map[string]interface{}{
+		"transactionId": a.TransactionID,
+		"petId":         a.PetID,
+		"petType":       a.PetType,
+		"userId":        a.UserID,
+		"adoptionDate":  a.AdoptionDate.Format(time.RFC3339),
+		"timestamp":     time.Now().Format(time.RFC3339),
+	}
 
-	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate, a.UserID)
-
+	// Convert to JSON
+	messageBody, err := json.Marshal(adoptionMessage)
 	if err != nil {
+		level.Error(r.logger).Log("error", "failed to marshal adoption message", "err", err)
 		return err
 	}
+
+	// Send message to SQS
+	input := &sqs.SendMessageInput{
+		QueueUrl:    aws.String(r.cfg.SQSQueueURL),
+		MessageBody: aws.String(string(messageBody)),
+		MessageAttributes: map[string]types.MessageAttributeValue{
+			"PetType": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.PetType),
+			},
+			"UserID": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.UserID),
+			},
+			"TransactionID": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.TransactionID),
+			},
+		},
+	}
+
+	result, err := sqsClient.SendMessage(ctx, input)
+	if err != nil {
+		level.Error(r.logger).Log("error", "failed to send adoption message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
+		return err
+	}
+
+	level.Info(r.logger).Log(
+		"action", "adoption_message_sent",
+		"messageId", aws.ToString(result.MessageId),
+		"queueUrl", r.cfg.SQSQueueURL,
+		"transactionId", a.TransactionID,
+		"petId", a.PetID,
+		"userId", a.UserID,
+	)
+
 	return nil
 }
 
