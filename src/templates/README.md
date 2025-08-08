@@ -8,8 +8,7 @@ This folder contains CloudFormation templates for the One Observability Demo pro
 
 ## Templates
 
-- **[codebuild-deployment-template-simplified.yaml](./codebuild-deployment-template-simplified.yaml)** - Simplified CodeBuild CDK deployment template with intelligent retry handling
-- **[codebuild-deployment-template.yaml](./codebuild-deployment-template.yaml)** - Original CodeBuild CDK deployment template
+- **[codebuild-deployment-template-simplified.yaml](./codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
 
 ## Documentation
 

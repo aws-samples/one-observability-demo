@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
@@ -128,14 +128,24 @@ export class ContainersStack extends Stack {
 
         sourceBucket.grantRead(pipelineRole);
 
+        const pipelineLogArn = Arn.format(
+            {
+                service: 'logs',
+                resource: 'log-group',
+                resourceName: '/aws/codepipeline/',
+                arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+                account: this.account,
+                region: this.region,
+                partition: 'aws',
+            },
+            Stack.of(this),
+        );
+
         new Policy(this, 'CloudwatchPolicy', {
             statements: [
                 new PolicyStatement({
                     actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-                    resources: [
-                        `/aws/codepipeline/${this.pipeline.pipelineName}`,
-                        `/aws/codepipeline/${this.pipeline.pipelineName}/*`,
-                    ],
+                    resources: [pipelineLogArn, `${pipelineLogArn}:*`],
                 }),
             ],
             roles: [pipelineRole],

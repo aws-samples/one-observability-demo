@@ -105,19 +105,19 @@ For faster development without waiting for the pipeline, you can use the local C
 
 **Usage:**
 ```bash
-cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" <cdk-command>
+cdk -a "npx ts-node bin/local.ts" <cdk-command>
 ```
 
 Example commands:
 ```bash
 # Deploy the stack
-cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" deploy
+cdk -a "npx ts-node bin/local.ts" deploy
 
 # Show differences
-cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" diff
+cdk -a "npx ts-node bin/local.ts" diff
 
 # Destroy the stack
-cdk -a "npx ts-node --prefer-ts-exts bin/local.ts" destroy
+cdk -a "npx ts-node bin/local.ts" destroy
 ```
 
 ## Deployment Script

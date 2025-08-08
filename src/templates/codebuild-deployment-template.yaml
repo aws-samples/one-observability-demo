@@ -4,7 +4,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 # Workshop deployment template for CDK projects - CloudFormation
-# Version: 1.0.0
+# Version: 1.0.0 - Simplified
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
@@ -243,16 +243,6 @@ Resources:
                 Resource:
                   - !Sub ${rConfigBucket.Arn}/*
                   - !GetAtt rConfigBucket.Arn
-              - Effect: Allow
-                Action:
-                  - events:DeleteRule
-                  - events:RemoveTargets
-                  - events:ListTargetsByRule
-                Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-pipeline-monitor
-              - Effect: Allow
-                Action:
-                  - lambda:RemovePermission
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${rPipelineStatusFunction}
 
   # Lambda function to clean up resources
   rResourceCleanupFunction:
@@ -285,27 +275,6 @@ Resources:
                               delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
                           if delete_keys:
                               s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
-
-                      # Clean up EventBridge rule
-                      events = boto3.client('events')
-                      lambda_client = boto3.client('lambda')
-                      stack_name = event['ResourceProperties']['StackName']
-                      rule_name = f"{stack_name}-pipeline-monitor"
-                      function_name = f"{stack_name}-pipeline-status-function"
-
-                      try:
-                          # Remove targets first
-                          events.remove_targets(Rule=rule_name, Ids=['1'])
-                          # Delete the rule
-                          events.delete_rule(Name=rule_name)
-                          # Remove Lambda permission
-                          lambda_client.remove_permission(
-                              FunctionName=function_name,
-                              StatementId=rule_name
-                          )
-                      except Exception as e:
-                          print(f"EventBridge cleanup error (non-fatal): {e}")
-
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
@@ -386,7 +355,6 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
-
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
     Metadata:
@@ -395,7 +363,7 @@ Resources:
           - id: AwsSolutions-IAM4
             reason: AWS managed policies are acceptable for a CodeBuild project
           - id: AwsSolutions-IAM5
-            reason: Wildcard is needed to clean up the bucket on failure
+            reason: Wildcard is needed since we have no control on the pipeline name
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -408,19 +376,20 @@ Resources:
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
       Policies:
-        - PolicyName: S3ConfigBucketAccess
+        - PolicyName: EnhancedPipelineMonitoring
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:ListBucket
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource:
-                  - !GetAtt rConfigBucket.Arn
-                  - !Sub "${rConfigBucket.Arn}/*"
+                  - codepipeline:ListPipelineExecutions
+                  - codepipeline:GetPipelineExecution
+                  - codepipeline:GetPipelineState
+                  - codepipeline:ListActionExecutions
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'aws:RequestedRegion': !Ref AWS::Region
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-codebuild-role
@@ -582,38 +551,145 @@ Resources:
                     echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
                     exit 1
                   fi
-                - echo "Pipeline ARN $PIPELINE_ARN"
-                - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d'/' -f2)
-                - echo "Pipeline Name $PIPELINE_NAME"
-                # Create EventBridge rule for this specific pipeline
                 - |
-                  aws events put-rule \
-                    --name "${STACK_NAME}-pipeline-monitor" \
-                    --description "Monitor specific CDK pipeline execution status" \
-                    --event-pattern '{"source":["aws.codepipeline"],"detail-type":["CodePipeline Pipeline Execution State Change"],"detail":{"state":["SUCCEEDED","FAILED"],"pipeline":["'$PIPELINE_NAME'"]}}' \
-                    --state ENABLED
+                  echo "Pipeline ARN: $PIPELINE_ARN"
+                - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
                 - |
-                  aws events put-targets \
-                    --rule "${STACK_NAME}-pipeline-monitor" \
-                    --targets "Id=1,Arn=arn:aws:lambda:${AWS_REGION}:${AWS_ACCOUNT_ID}:function:${STACK_NAME}-pipeline-status-function"
+                  echo "Pipeline Name: $PIPELINE_NAME"
+                # Wait for pipeline to complete using direct status checking with retry handling
                 - |
-                  aws lambda add-permission \
-                    --function-name "${STACK_NAME}-pipeline-status-function" \
-                    --statement-id "${STACK_NAME}-pipeline-monitor" \
-                    --action lambda:InvokeFunction \
-                    --principal events.amazonaws.com \
-                    --source-arn "arn:aws:events:${AWS_REGION}:${AWS_ACCOUNT_ID}:rule/${STACK_NAME}-pipeline-monitor" || true
+                  echo "Waiting for pipeline ${PIPELINE_NAME} execution to complete..."
+                  TIMEOUT=3600  # 1 hour timeout
+                  ELAPSED=0
+                  SLEEP_INTERVAL=30
+                  INITIAL_EXECUTION_ID=""
+                  RETRY_COUNT=0
+                  MAX_RETRIES=3
+                  RETRY_LOOP_COUNT=0
+                  MAX_RETRY_LOOPS=10
+
+                  # Get the initial execution ID to track retries
+                  INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
+                    --pipeline-name "$PIPELINE_NAME" \
+                    --max-items 1 \
+                    --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
+                    --output text)
+
+                  echo "Initial pipeline execution ID: $INITIAL_EXECUTION_ID"
+
+                  while [ $ELAPSED -lt $TIMEOUT ]; do
+                    # Get the most recent pipeline execution details
+                    EXECUTION_DETAILS=$(aws codepipeline list-pipeline-executions \
+                      --pipeline-name "$PIPELINE_NAME" \
+                      --max-items 1 \
+                      --query 'pipelineExecutionSummaries[0].[pipelineExecutionId,status]' \
+                      --output text)
+
+                    CURRENT_EXECUTION_ID=$(echo "$EXECUTION_DETAILS" | cut -f1)
+                    EXECUTION_STATUS=$(echo "$EXECUTION_DETAILS" | cut -f2)
+
+                    # Check if this is a new execution (retry scenario)
+                    if [ "$CURRENT_EXECUTION_ID" != "$INITIAL_EXECUTION_ID" ]; then
+                      RETRY_COUNT=$((RETRY_COUNT + 1))
+                      echo "Detected new pipeline execution (retry #$RETRY_COUNT): $CURRENT_EXECUTION_ID"
+                      INITIAL_EXECUTION_ID="$CURRENT_EXECUTION_ID"
+                      RETRY_LOOP_COUNT=0  # Reset retry loop counter for new execution
+                      echo "Continuing to monitor new execution..."
+                    fi
+
+                    echo "Current pipeline execution status: $EXECUTION_STATUS (ID: $CURRENT_EXECUTION_ID)"
+
+                    case "$EXECUTION_STATUS" in
+                      "Succeeded")
+                        echo "Pipeline execution completed successfully!"
+                        if [ $RETRY_COUNT -gt 0 ]; then
+                          echo "Success achieved after $RETRY_COUNT retry(ies)"
+                        fi
+                        echo "Signaling CloudFormation SUCCESS"
+                        WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                        curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "SUCCESS","Reason" : "Pipeline completed successfully","UniqueId" : "'$(uuidgen)'","Data" : "Pipeline execution finished"}' "$WAIT_HANDLE_URL"
+                        break
+                        ;;
+                      "Failed")
+                        echo "Pipeline execution failed with status: $EXECUTION_STATUS"
+                        RETRY_LOOP_COUNT=$((RETRY_LOOP_COUNT + 1))
+                        echo "Retry loop count: $RETRY_LOOP_COUNT/$MAX_RETRY_LOOPS"
+
+                        if [ $RETRY_LOOP_COUNT -lt $MAX_RETRY_LOOPS ]; then
+                          echo "Waiting for potential retry... (loop $RETRY_LOOP_COUNT of $MAX_RETRY_LOOPS)"
+                          sleep 60
+                          ELAPSED=$((ELAPSED + 60))
+                          continue
+                        else
+                          echo "Maximum retry loops ($MAX_RETRY_LOOPS) reached without new execution. Build failed."
+                          exit 1
+                        fi
+                        ;;
+                      "Cancelled"|"Stopped")
+                        echo "Pipeline execution was cancelled or stopped: $EXECUTION_STATUS"
+                        echo "This may indicate manual intervention or system issues."
+                        exit 1
+                        ;;
+                      "Superseded")
+                        echo "Pipeline execution was superseded by a newer execution"
+                        echo "Continuing to monitor the newer execution..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      "InProgress")
+                        echo "Pipeline execution in progress..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      "Stopping")
+                        echo "Pipeline execution is stopping..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      *)
+                        echo "Unknown pipeline status: $EXECUTION_STATUS"
+                        echo "Continuing to monitor..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                    esac
+
+                    # Additional safety check for stuck executions
+                    if [ $ELAPSED -gt 0 ] && [ $((ELAPSED % 300)) -eq 0 ]; then
+                      echo "Progress check: $((ELAPSED / 60)) minutes elapsed, status: $EXECUTION_STATUS"
+
+                      # Get detailed stage information for better visibility
+                      aws codepipeline get-pipeline-state \
+                        --name "$PIPELINE_NAME" \
+                        --query 'stageStates[*].[stageName,latestExecution.status]' \
+                        --output table || echo "Could not retrieve detailed stage information"
+                    fi
+                  done
+
+                  if [ $ELAPSED -ge $TIMEOUT ]; then
+                    echo "Timeout reached after $((TIMEOUT / 60)) minutes"
+                    echo "Final pipeline status: $EXECUTION_STATUS"
+                    echo "Total retries attempted: $RETRY_COUNT"
+
+                    # Get final pipeline state for debugging
+                    echo "Final pipeline state:"
+                    aws codepipeline get-pipeline-state \
+                      --name "$PIPELINE_NAME" \
+                      --query 'stageStates[*].[stageName,latestExecution.status,latestExecution.errorDetails.message]' \
+                      --output table || echo "Could not retrieve final pipeline state"
+
+                    exit 1
+                  fi
             post_build:
               commands:
                 - |
                   if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
                     echo "Build failed, cleaning up S3 bucket for rollback"
                     aws s3 rm s3://$CONFIG_BUCKET --recursive
+                    WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                    curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
                   else
-                    echo "CDK deployment completed"
-                    PIPELINE_ARN=$(cat /tmp/pipeline_arn.txt || echo "")
-                    echo "Pipeline ARN ${PIPELINE_ARN:-not found}"
-                    aws cloudformation signal-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitCondition --unique-id $(uuidgen) --status SUCCESS --region $AWS_REGION
+                    echo "Build completed - signal already sent during pipeline monitoring"
                   fi
       Tags:
         - Key: Name
@@ -643,274 +719,6 @@ Resources:
           - Key: !Ref pUserDefinedTagKey5
             Value: !Ref pUserDefinedTagValue5
           - !Ref AWS::NoValue
-
-  # Create IAM role for Lambda function
-  rPipelineStatusFunctionRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: AWS managed policies are acceptable for a Lambda function
-          - id: AwsSolutions-IAM5
-            reason: Wildcard is needed since stack name is automatically generated
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: CloudFormationSignalAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:SignalResource
-                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*
-              - Effect: Allow
-                Action:
-                  - codebuild:StartBuild
-                Resource: !GetAtt rCDKDeploymentProject.Arn
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-lambda-role
-        - !If
-          - cCreateTag1
-          - Key: !Ref pUserDefinedTagKey1
-            Value: !Ref pUserDefinedTagValue1
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag2
-          - Key: !Ref pUserDefinedTagKey2
-            Value: !Ref pUserDefinedTagValue2
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag3
-          - Key: !Ref pUserDefinedTagKey3
-            Value: !Ref pUserDefinedTagValue3
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag4
-          - Key: !Ref pUserDefinedTagKey4
-            Value: !Ref pUserDefinedTagValue4
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag5
-          - Key: !Ref pUserDefinedTagKey5
-            Value: !Ref pUserDefinedTagValue5
-          - !Ref AWS::NoValue
-
-  # Create Lambda function to handle pipeline status events
-  rPipelineStatusFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
-    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
-    Type: AWS::Lambda::Function
-    Properties:
-      Runtime: python3.13
-      Handler: index.handler
-      FunctionName: !Sub ${AWS::StackName}-pipeline-status-function # Required to prevent a circular dependency
-      Role: !GetAtt rPipelineStatusFunctionRole.Arn
-      Code:
-        ZipFile: |
-          import boto3
-          import json
-          import os
-
-          def handler(event, context):
-              cloudformation = boto3.client('cloudformation')
-
-              print('Event:', json.dumps(event, indent=2))
-
-              pipeline_state = event['detail']['state']
-              stack_name = os.environ['STACK_NAME']
-              logical_resource_id = os.environ['LOGICAL_RESOURCE_ID']
-
-              if pipeline_state == 'SUCCEEDED':
-                  # Signal success to CloudFormation
-                  cloudformation.signal_resource(
-                      StackName=stack_name,
-                      LogicalResourceId=logical_resource_id,
-                      UniqueId=event['id'],
-                      Status='SUCCESS'
-                  )
-                  print('Signaled SUCCESS to CloudFormation')
-
-              elif pipeline_state == 'FAILED':
-                  # Signal failure to CloudFormation
-                  cloudformation.signal_resource(
-                      StackName=stack_name,
-                      LogicalResourceId=logical_resource_id,
-                      UniqueId=event['id'],
-                      Status='FAILURE'
-                  )
-                  print('Signaled FAILURE to CloudFormation')
-
-                  # Run CodeBuild project to destroy resources
-                  codebuild = boto3.client('codebuild')
-                  codebuild.start_build(
-                      projectName=os.environ['CODEBUILD_PROJECT_NAME'],
-                      environmentVariablesOverride=[
-                          {
-                              'name': 'DESTROY_MODE',
-                              'value': 'true'
-                          }
-                      ]
-                  )
-                  print('Started CodeBuild project to destroy resources')
-
-              return {
-                  'statusCode': 200,
-                  'body': json.dumps('Function executed successfully')
-              }
-      Environment:
-        Variables:
-          STACK_NAME: !Ref AWS::StackName
-          LOGICAL_RESOURCE_ID: rCDKDeploymentWaitCondition
-          CODEBUILD_PROJECT_NAME: !Ref rCDKDeploymentProject
-      Timeout: 60
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-pipeline-status-function
-        - !If
-          - cCreateTag1
-          - Key: !Ref pUserDefinedTagKey1
-            Value: !Ref pUserDefinedTagValue1
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag2
-          - Key: !Ref pUserDefinedTagKey2
-            Value: !Ref pUserDefinedTagValue2
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag3
-          - Key: !Ref pUserDefinedTagKey3
-            Value: !Ref pUserDefinedTagValue3
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag4
-          - Key: !Ref pUserDefinedTagKey4
-            Value: !Ref pUserDefinedTagValue4
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag5
-          - Key: !Ref pUserDefinedTagKey5
-            Value: !Ref pUserDefinedTagValue5
-          - !Ref AWS::NoValue
-
-  # Create EventBridge rule to monitor CodeBuild failures
-  rCodeBuildFailureRule:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: Monitor CodeBuild project failures
-      EventPattern:
-        source:
-          - aws.codebuild
-        detail-type:
-          - CodeBuild Build State Change
-        detail:
-          build-status:
-            - FAILED
-            - FAULT
-            - STOPPED
-            - TIMED_OUT
-          project-name:
-            - !Ref rCDKDeploymentProject
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt rCodeBuildFailureFunction.Arn
-          Id: CodeBuildFailureFunction
-
-  # Create Lambda function to handle CodeBuild failures
-  rCodeBuildFailureFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
-    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
-    Type: AWS::Lambda::Function
-    Properties:
-      Runtime: python3.13
-      Handler: index.handler
-      Role: !GetAtt rPipelineStatusFunctionRole.Arn
-      Code:
-        ZipFile: |
-          import boto3
-          import json
-          import os
-
-          def handler(event, context):
-              cloudformation = boto3.client('cloudformation')
-
-              print('CodeBuild failure event:', json.dumps(event, indent=2))
-
-              build_status = event['detail']['build-status']
-              stack_name = os.environ['STACK_NAME']
-              logical_resource_id = os.environ['LOGICAL_RESOURCE_ID']
-
-              # Signal failure to CloudFormation to trigger rollback
-              cloudformation.signal_resource(
-                  StackName=stack_name,
-                  LogicalResourceId=logical_resource_id,
-                  UniqueId=event['id'],
-                  Status='FAILURE'
-              )
-
-              print('Signaled FAILURE to CloudFormation due to CodeBuild failure')
-
-              return {
-                  'statusCode': 200,
-                  'body': json.dumps('CodeBuild failure handled')
-              }
-      Environment:
-        Variables:
-          STACK_NAME: !Ref AWS::StackName
-          LOGICAL_RESOURCE_ID: rCDKDeploymentWaitCondition
-      Timeout: 60
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-codebuild-failure-function
-        - !If
-          - cCreateTag1
-          - Key: !Ref pUserDefinedTagKey1
-            Value: !Ref pUserDefinedTagValue1
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag2
-          - Key: !Ref pUserDefinedTagKey2
-            Value: !Ref pUserDefinedTagValue2
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag3
-          - Key: !Ref pUserDefinedTagKey3
-            Value: !Ref pUserDefinedTagValue3
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag4
-          - Key: !Ref pUserDefinedTagKey4
-            Value: !Ref pUserDefinedTagValue4
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag5
-          - Key: !Ref pUserDefinedTagKey5
-            Value: !Ref pUserDefinedTagValue5
-          - !Ref AWS::NoValue
-
-  # Allow EventBridge to invoke the CodeBuild failure Lambda function
-  rCodeBuildFailureFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref rCodeBuildFailureFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt rCodeBuildFailureRule.Arn
-
   # Start the CodeBuild project to begin deployment
   rStartDeployment:
     Type: Custom::StartDeployment
