@@ -14,7 +14,7 @@ import {
     S3Trigger,
 } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { CompositePrincipal, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { CompositePrincipal, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 
 /**
  * Definition for an application to be built and deployed
@@ -120,12 +120,26 @@ export class ContainersStack extends Stack {
             pipelineType: PipelineType.V2,
             usePipelineRoleForActions: true,
             role: pipelineRole,
+            pipelineName: `${this.stackName}-pipeline`,
         });
 
         const sourceOutput = new Artifact();
         const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
 
         sourceBucket.grantRead(pipelineRole);
+
+        new Policy(this, 'CloudwatchPolicy', {
+            statements: [
+                new PolicyStatement({
+                    actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+                    resources: [
+                        `/aws/codepipeline/${this.pipeline.pipelineName}`,
+                        `/aws/codepipeline/${this.pipeline.pipelineName}/*`,
+                    ],
+                }),
+            ],
+            roles: [pipelineRole],
+        });
 
         const sourceAction = new S3SourceAction({
             actionName: 'Source',

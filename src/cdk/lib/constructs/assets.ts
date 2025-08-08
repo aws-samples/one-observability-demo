@@ -67,6 +67,7 @@ export class WorkshopAssets extends Construct {
             const deployment = new BucketDeployment(this, 'petimagesdeployment', {
                 sources: sources,
                 destinationBucket: this.bucket,
+                retainOnDelete: false,
             });
 
             NagSuppressions.addResourceSuppressions(

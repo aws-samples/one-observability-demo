@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import {
     InstanceClass,
     InstanceSize,
@@ -122,6 +122,9 @@ export class AuroraDatabase extends Construct {
                 subnetGroupName: 'Isolated',
             },
             storageEncrypted: true,
+            backup: {
+                retention: Duration.days(1), // To minimize cost
+            },
         });
 
         NagSuppressions.addResourceSuppressions(this.cluster, [

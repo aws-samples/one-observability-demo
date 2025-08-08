@@ -98,7 +98,7 @@ export class CoreStack extends Stack {
             // Create a new VPC with workshop networking configuration
             this.externalVpc = false;
             const vpc = new WorkshopNetwork(this, 'vpc', {
-                name: 'vpc',
+                name: 'Workshop',
                 cidrRange: properties.vpcCidr || '10.0.0.0/16',
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
                 enableDnsQueryResolverLogs: true,

@@ -763,7 +763,7 @@ const TAGGABLE_RESOURCE_TYPE_LIST = new Set([
     'AWS::XRay::SamplingRule',
 ]);
 
-const EXCEPTIONS = new Set(['AWS::SSM::Parameter']);
+const EXCEPTIONS = new Set(['AWS::SSM::Parameter', 'AWS::EKS::Nodegroup']);
 
 /**
  * Utility class providing helper functions for common CDK operations.

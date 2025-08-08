@@ -18,6 +18,7 @@ import { AwsSolutionsChecks } from 'cdk-nag';
 import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
+import { Utilities } from '../lib/utils/utilities';
 
 const app = new App();
 
@@ -65,6 +66,10 @@ new MicroservicesStack(app, 'DevMicroservicesStack', {
     tags: TAGS,
     microservicesPlacement: MICROSERVICES_PLACEMENT,
     lambdaFunctions: LAMBDA_FUNCTIONS,
+});
+
+Utilities.TagConstruct(app, {
+    LocalDeployment: 'true',
 });
 
 // Add CDK-nag compliance checks for AWS Solutions best practices
