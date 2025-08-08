@@ -44,7 +44,7 @@ var jqxhr = $.getJSON( "/petfood", function() {
 
 <div class="container align-items-center">
     <div class="pet-items d-table-row">
-        <img class="pet-thumbnail" src="@Model.peturl" />
+        <img class="pet-thumbnail" src="@Model.peturl" style="border: 1px solid #000000; border-radius: 23px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
         <div class="pet-name">
             <span>@Model.pettype-@Model.petcolor</span>
         </div>
@@ -54,7 +54,7 @@ var jqxhr = $.getJSON( "/petfood", function() {
         <div class="pet-name">
             @for (int i = 0; i < Int32.Parse(Model.cuteness_rate); i++)
             {
-                <span style="color: red">☆</span>
+                <span style="color: #007bff">★</span>
             }
         </div>
 
@@ -66,77 +66,56 @@ var jqxhr = $.getJSON( "/petfood", function() {
         <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
     </div>
 </div>
-<hr />
-<div class="container align-items-center">
-    <div class="pet-items d-table-row">
-        <span class="alert-danger">Information entered on this page is neither stored nor processed.</span>
-    </div>
-    <div class="upsell" style="visibility: hidden; border: solid 1px; padding: 1em;">
-        <span id="upsell-span">Thank you for supporting our animal adoption agency!</span>
-        <span>
-            <input type="checkbox" id="upsell-checkbox" name="upsell-checkbox"/>
-        </span>
-    </div>
-</div>
-<div class="container">
-    <div class="row">
-        <div class="col-xs-12 col-md-4">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title">
-                        Payment Details
-                    </h3>
-                </div>
-                <div class="panel-body">
-                    <form role="form">
-                        <div class="form-group">
-                            <label for="cardNumber">
-                                CARD NUMBER
-                            </label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="cardNumber" placeholder="Valid Card Number" value="0001 1000 0001 1000"
-                                       required autofocus />
-                                <span class="input-group-addon"><span class="glyphicon glyphicon-lock"></span></span>
+
+<div class="container mt-4" >
+    <div class="row" >
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <!-- Demo payment form -->
+                    <h4 class="card-title mb-4">Payment Details</h4>
+                    <div class="alert alert-warning">
+                        This is a demo - no real payment will be processed
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="cardName">Name on Card</label>
+                        <input type="text" class="form-control" id="cardName" value="John Doe" readonly>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="cardNumber">Card Number</label>
+                        <input type="text" class="form-control" id="cardNumber" value="4111 1111 1111 1111" readonly>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="expiry">Expiry Date</label>
+                                <input type="text" class="form-control" id="expiry" value="12/25" readonly>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-xs-7 col-md-7">
-                                <div class="form-group">
-                                    <label for="expityMonth">
-                                        EXPIRY DATE
-                                    </label>
-                                    <div class="col-xs-6 col-lg-6 pl-ziro">
-                                        <input type="text" class="form-control" id="expityMonth" placeholder="MM" required value="12" />
-                                    </div>
-                                    <div class="col-xs-6 col-lg-6 pl-ziro">
-                                        <input type="text" class="form-control" id="expityYear" placeholder="YY" required  value="2025"/>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xs-5 col-md-5 pull-right">
-                                <div class="form-group">
-                                    <label for="cvCode">
-                                        CV CODE
-                                    </label>
-                                    <input type="password" class="form-control" id="cvCode" placeholder="CV" value="987" required />
-                                </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="cvv">CVV</label>
+                                <input type="text" class="form-control" id="cvv" value="123" readonly>
                             </div>
                         </div>
-                    </form>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <form asp-controller="Payment" asp-action="MakePayment" method="post">
+                                    <input class="btn btn-success btn-lg btn-block" type="submit" value="Pay" />
+                                    <input type="hidden" asp-for="@Model.petid" name="petid" />    
+                                    <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <ul class="nav nav-pills nav-stacked">
-                <li class="active">
-                    <a href="#"><span class="badge pull-right"><span class="glyphicon glyphicon-usd"></span>@Model.price</span> Final Payment</a>
-                </li>
-            </ul>
-            <br />
-            <form asp-controller="Payment" asp-action="MakePayment" method="post">
-                <input class="btn btn-success btn-lg btn-block" type="submit" value="Pay" />
-                <input type="hidden" asp-for="@Model.petid" name="petid" />    
-                <input type="hidden" asp-for="@Model.pettype" name="pettype" />
-            </form>
         </div>
     </div>
 </div>
+
+
 

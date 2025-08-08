@@ -11,17 +11,18 @@ using System.Text.Json;
 using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 using Prometheus;
 
 namespace PetSite.Controllers
 {
-    public class HomeController : Controller
+    public class HomeController : BaseController
     {
         private readonly ILogger<HomeController> _logger;
-        private static HttpClient _httpClient;
+        private readonly PetSite.Services.IPetSearchService _petSearchService;
+        private readonly IHttpClientFactory _httpClientFactory;
         private static Variety _variety = new Variety();
-
-        private IConfiguration _configuration;
+        private readonly IConfiguration _configuration;
 
         //Prometheus metric to count the number of searches performed
         private static readonly Counter PetSearchCount =
@@ -42,10 +43,13 @@ namespace PetSite.Controllers
         private static readonly Gauge PetsWaitingForAdoption = Metrics
             .CreateGauge("petsite_pets_waiting_for_adoption", "Number of pets waiting for adoption.");
 
-        public HomeController(ILogger<HomeController> logger, IConfiguration configuration)
+
+
+        public HomeController(ILogger<HomeController> logger, IConfiguration configuration, PetSite.Services.IPetSearchService petSearchService, IHttpClientFactory httpClientFactory)
         {
             _configuration = configuration;
-            _httpClient = new HttpClient();
+            _petSearchService = petSearchService;
+            _httpClientFactory = httpClientFactory;
             _logger = logger;
 
             _variety.PetTypes = new List<SelectListItem>()
@@ -65,42 +69,18 @@ namespace PetSite.Controllers
             };
         }
 
-        private async Task<string> GetPetDetails(string pettype, string petcolor, string petid)
-        {
-            string searchUri = string.Empty;
 
-            if (!String.IsNullOrEmpty(pettype) && pettype != "all") searchUri = $"pettype={pettype}";
-            if (!String.IsNullOrEmpty(petcolor) && petcolor != "all") searchUri = $"&{searchUri}&petcolor={petcolor}";
-            if (!String.IsNullOrEmpty(petid) && petid != "all") searchUri = $"&{searchUri}&petid={petid}";
-
-            switch (pettype)
-            {
-                case "puppy":
-                    PuppySearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-                case "kitten":
-                    KittenSearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-                case "bunny":
-                    BunnySearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-            }
-            
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
-            return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
-        }
 
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
-            Console.WriteLine("In Housekeeping, trying to reset the app.");
+            EnsureUserId();
+            _logger.LogInformation("In Housekeeping, trying to reset the app.");
             
-            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
+            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
             
-            await _httpClient.PostAsync(cleanupadoptionsurl, null);
+            using var httpClient = _httpClientFactory.CreateClient();
+            await httpClient.PostAsync(cleanupadoptionsurl, null);
 
             return View();
         }
@@ -108,6 +88,7 @@ namespace PetSite.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(string selectedPetType, string selectedPetColor, string petid)
         {
+            EnsureUserId();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -116,15 +97,15 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.color", selectedPetColor);
                 currentActivity.SetTag("pet.id", petid);
                 
-                Console.WriteLine($"Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
+                _logger.LogInformation($"Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
             }
             
-            string result;
+            List<Pet> Pets;
 
             try
             {
                 // Create a new activity for the API call
-                using (var activity = new Activity("Calling Search API").Start())
+                using (var activity = new Activity("Calling PetSearch API").Start())
                 {
                     if (activity != null)
                     {
@@ -133,16 +114,27 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.id", petid);
                     }
                     
-                    result = await GetPetDetails(selectedPetType, selectedPetColor, petid);
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid);
                 }
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.LogError(e, "HTTP error received after calling PetSearch API");
+                ViewBag.ErrorMessage = $"Unable to search pets at this time. Please try again later. \nError message received - {e.Message}";
+                Pets = new List<Pet>();
+            }
+            catch (TaskCanceledException e)
+            {
+                _logger.LogError(e, "Timeout calling PetSearch API");
+                ViewBag.ErrorMessage = "Search request timed out. Please try again.";
+                Pets = new List<Pet>();
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error calling search API: {e.Message}");
-                throw;
+                _logger.LogError(e, "Unexpected error calling PetSearch API");
+                ViewBag.ErrorMessage = "An unexpected error occurred. Please try again.";
+                Pets = new List<Pet>();
             }
-
-            var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
 
             var PetDetails = new PetDetails()
             {
@@ -156,7 +148,7 @@ namespace PetSite.Controllers
                 }
             };
             
-            Console.WriteLine($"{JsonSerializer.Serialize(PetDetails)}");
+            _logger.LogInformation("Search completed with {PetCount} pets found", Pets.Count);
 
             // Sets the metric value to the number of pets available for adoption at the moment
             PetsWaitingForAdoption.Set(Pets.Where(pet => pet.availability == "yes").Count());

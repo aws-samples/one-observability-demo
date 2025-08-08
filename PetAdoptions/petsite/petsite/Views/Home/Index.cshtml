@@ -1,24 +1,27 @@
-﻿@using PetSite.ViewModels;
+@using PetSite.ViewModels;
 
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
     @model PetDetails;
 }
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
     </div>
 </section>
 
 <section class="pet-filters">
     <div class="container">
+
         <form method="get">
             <label class="pet-label" data-title="Type">
-                <select name="selectedPetType" asp-for="@Model.Varieties.SelectedPetType" asp-items="@Model.Varieties.PetTypes" class="pet-filter"></select>
+                <select name="selectedPetType" asp-for="@Model.Varieties.SelectedPetType"
+                        asp-items="@Model.Varieties.PetTypes" class="pet-filter"></select>
             </label>
             <label class="pet-label" data-title="Color">
-                <select name="selectedPetColor" asp-for="@Model.Varieties.SelectedPetColor" asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
+                <select name="selectedPetColor" asp-for="@Model.Varieties.SelectedPetColor"
+                        asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
             </label>
             <input id="searchpets" type="submit" value="Search" class="rounded-lg"/>
 
@@ -34,15 +37,31 @@
             @foreach (var pet in Model.Pets)
             {
                 <div class="pet-item col-md-4">
-                    <partial name="_PetItem" for="@pet" />
+                    <partial name="_PetItem" for="@pet"/>
                 </div>
             }
         </div>
     }
+    else if (ViewBag.ErrorMessage != null)
+    {
+        <br/>
+        <div class="container align-items-center">
+            <div class="alert alert-danger" role="alert">
+                <h4 class="alert-heading">Error</h4>
+                <hr/>
+                <p class="mb-0">@Html.Raw(ViewBag.ErrorMessage.Replace("\n", "<br>"))</p>
+            </div>
+        </div>
+    }
     else
     {
-        <div class="pet-items row">
-            NO PETS AVAILABLE WITH THAT SEARCH CONDITION
+        <br/>
+        <div class="container align-items-center">
+            <div class="alert alert-warning" role="alert">
+                <h4 class="alert-heading">No result</h4>
+                <hr>
+                <p class="mb-0">No Pets found for that search criteria!</p>
+            </div>
         </div>
     }
 </div>

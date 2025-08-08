@@ -79,35 +79,20 @@ namespace PetSite
             }
         }
 
-        /*Amazon.Extensions.Configuration.SystemsManager doesn't support AssumeRoleWithWebIdentity see issue here. As a temporary solution, environment variables where provided to override configurations read from Parameter store as those were empty. Long term solution needs to update class SystemsManagerConfigurationProviderWithReloadExtensions 
-        using a different base class or wait for the issue to be solved.
-        The workaround is to provide a way to inject the ParameterValues as environment variables*/
-                
-        private static Dictionary<string,string> ConfigurationMapping = new Dictionary<string, string> {
-            { "searchapiurl", "SEARCH_API_URL"},
-            { "updateadoptionstatusurl", "UPDATE_ADOPTION_STATUS_URL"},
-            { "cleanupadoptionsurl", "CLEANUP_ADOPTIONS_URL"},
-            { "paymentapiurl", "PAYMENT_API_URL"},
-            { "queueurl", "QUEUE_URL"},
-            { "snsarn", "SNS_ARN"},
-            { "petlistadoptionsurl", "PET_LIST_ADOPTION_URL"},
-            { "petadoptionsstepfnarn", "PET_ADOPTION_STEPFN_URL"}
-        };
-        
-        public static string GetConfiguration(IConfiguration _configuration, string value)
+        // Optimized configuration retrieval - directly use IConfiguration instead of environment variables
+        public static string GetConfiguration(IConfiguration configuration, string key)
         {
-            string retVal = _configuration[value];
+            // Try direct configuration lookup first (supports appsettings.json values)
+            var value = configuration[key.ToUpperInvariant()];
+            if (!string.IsNullOrEmpty(value))
+                return value;
 
-            string envVar = ConfigurationMapping[value];
-            if (!string.IsNullOrEmpty(envVar))
-            {
-              if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar)))
-                {
-                    retVal = Environment.GetEnvironmentVariable(envVar);
-                }  
-            }
-            return retVal;
-  
+            // Fallback to environment variable with standard naming convention
+            var envValue = Environment.GetEnvironmentVariable(key.ToUpperInvariant());
+            if (!string.IsNullOrEmpty(envValue))
+                return envValue;
+
+            throw new InvalidOperationException($"Configuration key '{key}' not found in configuration or environment variables.");
         }
     }
 }
