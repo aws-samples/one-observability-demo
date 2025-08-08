@@ -40,6 +40,7 @@ export const EKS_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopEKSSecurityGroupId';
 export const EKS_KUBECTL_ROLE_ARN_EXPORT_NAME = 'WorkshopEKSKubectlRoleArn';
 export const EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME = 'WorkshopEKSOpenIdConnectProviderArn';
 export const EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME = 'WorkshopEKSKubectlSecurityGroupId';
+export const EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME = 'WorkshopEKSKubectlLambdaRoleArn';
 
 // Aurora Database Export Names
 export const AURORA_CLUSTER_ARN_EXPORT_NAME = 'WorkshopAuroraClusterArn';
@@ -55,3 +56,10 @@ export const DYNAMODB_TABLE_NAME_EXPORT_NAME = 'WorkshopDynamoDBTableName';
 export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
 export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';
 export const VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME = 'WorkshopVPCEndpointLambdaId';
+export const VPC_ENDPOINT_SERVICEDISCOVERY_ID_EXPORT_NAME = 'WorkshopVPCEndpointServiceDiscoveryId';
+export const VPC_ENDPOINT_DATA_SERVICEDISCOVERY_ID_EXPORT_NAME = 'WorkshopVPCEndpointDataServiceDiscoveryId';
+
+// CloudMap Export Names
+export const CLOUDMAP_NAMESPACE_ID_EXPORT_NAME = 'WorkshopCloudMapNamespaceId';
+export const CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME = 'WorkshopCloudMapNamespaceName';
+export const CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME = 'WorkshopCloudMapNamespaceArn';

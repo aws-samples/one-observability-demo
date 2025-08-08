@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
+import { ISecurityGroup, IVpc, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { ICluster as IEKSCluster } from 'aws-cdk-lib/aws-eks';
 import { ICluster as IECSCluster } from 'aws-cdk-lib/aws-ecs';
@@ -42,6 +42,11 @@ export interface MicroserviceProperties {
     name: string;
     repositoryURI: string;
     disableService?: boolean;
+    logGroupName?: string;
+    healthCheck?: string;
+    subnetType?: SubnetType;
+    port?: number;
+    createLoadBalancer?: boolean;
 }
 
 export abstract class Microservice extends Construct {
@@ -81,12 +86,13 @@ export abstract class Microservice extends Construct {
     }
 
     public static getDefaultSSMPolicy(scope: Construct, prefix?: string) {
+        const cleanPrefix = (prefix || '/petstore/').startsWith('/')
+            ? (prefix || '/petstore/').slice(1)
+            : prefix || '/petstore/';
         const readSMParametersPolicy = new PolicyStatement({
             effect: Effect.ALLOW,
             actions: ['ssm:GetParametersByPath', 'ssm:GetParameters', 'ssm:GetParameter'],
-            resources: [
-                `arn:aws:ssm:${Stack.of(scope).region}:${Stack.of(scope).account}:parameter/${prefix || '/petstore/'}*`,
-            ],
+            resources: [`arn:aws:ssm:${Stack.of(scope).region}:${Stack.of(scope).account}:parameter/${cleanPrefix}*`],
         });
 
         return readSMParametersPolicy;

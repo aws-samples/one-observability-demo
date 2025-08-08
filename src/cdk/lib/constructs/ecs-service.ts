@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { IRole, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Effect, IRole, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Microservice, MicroserviceProperties } from './microservice';
 import { ComputeType } from '../../bin/environment';
 import {
@@ -13,6 +13,9 @@ import {
     FargateTaskDefinition,
     Protocol,
     TaskDefinition,
+    Ec2Service,
+    FargateService,
+    BaseService,
 } from 'aws-cdk-lib/aws-ecs';
 import {
     ApplicationLoadBalancedEc2Service,
@@ -23,19 +26,21 @@ import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
+import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
-    logGroupName?: string;
-    healthCheck?: string;
     instrumentation?: string;
     desiredTaskCount: number;
+    cloudMapNamespace?: IPrivateDnsNamespace;
 }
 
 export abstract class EcsService extends Microservice {
     public readonly taskDefinition: TaskDefinition;
-    public readonly service?: ApplicationLoadBalancedServiceBase;
+    public readonly loadBalancedService?: ApplicationLoadBalancedServiceBase;
+    public readonly service?: BaseService;
     public readonly container: ContainerDefinition;
     public readonly taskRole: IRole;
 
@@ -44,11 +49,13 @@ export abstract class EcsService extends Microservice {
 
         const result = this.configureECSService(properties);
         this.taskDefinition = result.taskDefinition;
+        this.loadBalancedService = result.loadBalancedService;
         this.service = result.service;
         this.container = result.container;
         this.taskRole = result.taskRole;
 
         this.addPermissions(properties);
+        this.createOutputs(properties);
     }
 
     configureEKSService(): void {
@@ -56,7 +63,8 @@ export abstract class EcsService extends Microservice {
     }
 
     configureECSService(properties: EcsServiceProperties) {
-        let service: ApplicationLoadBalancedServiceBase | undefined;
+        let loadBalancedService: ApplicationLoadBalancedServiceBase | undefined;
+        let service: BaseService | undefined;
 
         const logging = new AwsLogDriver({
             streamPrefix: 'logs',
@@ -83,6 +91,21 @@ export abstract class EcsService extends Microservice {
                       enableFaultInjection: true,
                   });
 
+        taskDefinition.addToExecutionRolePolicy(
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: [
+                    'ecr:GetAuthorizationToken',
+                    'ecr:BatchCheckLayerAvailability',
+                    'ecr:GetDownloadUrlForLayer',
+                    'ecr:BatchGetImage',
+                    'logs:CreateLogStream',
+                    'logs:PutLogEvents',
+                ],
+                resources: ['*'],
+            }),
+        );
+
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
         const container = taskDefinition.addContainer('container', {
@@ -97,7 +120,7 @@ export abstract class EcsService extends Microservice {
         });
 
         container.addPortMappings({
-            containerPort: 80,
+            containerPort: properties.port || 80,
             protocol: Protocol.TCP,
         });
 
@@ -130,39 +153,115 @@ export abstract class EcsService extends Microservice {
         }
 
         if (!properties.disableService) {
-            if (properties.computeType == ComputeType.Fargate) {
-                service = new ApplicationLoadBalancedFargateService(this, 'ecs-service-fargate', {
-                    cluster: properties.ecsCluster,
-                    taskDefinition: taskDefinition as FargateTaskDefinition,
-                    publicLoadBalancer: false,
-                    desiredCount: properties.desiredTaskCount,
-                    listenerPort: 80,
-                    securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
-                    openListener: false,
-                    assignPublicIp: false,
-                    serviceName: properties.name,
-                });
-
-                if (properties.healthCheck) {
-                    service.targetGroup.configureHealthCheck({
-                        path: properties.healthCheck,
-                    });
-                }
+            if (properties.createLoadBalancer === false) {
+                // Create service without load balancer
+                service =
+                    properties.computeType == ComputeType.Fargate
+                        ? new FargateService(this, 'ecs-service-fargate-no-lb', {
+                              cluster: properties.ecsCluster!,
+                              taskDefinition: taskDefinition as FargateTaskDefinition,
+                              desiredCount: properties.desiredTaskCount,
+                              serviceName: properties.name,
+                              securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
+                              assignPublicIp: false,
+                              cloudMapOptions: properties.cloudMapNamespace
+                                  ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
+                                  : undefined,
+                          })
+                        : new Ec2Service(this, 'ecs-service-ec2-no-lb', {
+                              cluster: properties.ecsCluster!,
+                              taskDefinition: taskDefinition as Ec2TaskDefinition,
+                              desiredCount: properties.desiredTaskCount,
+                              serviceName: properties.name,
+                              cloudMapOptions: properties.cloudMapNamespace
+                                  ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
+                                  : undefined,
+                          });
             } else {
-                service = new ApplicationLoadBalancedEc2Service(this, 'ecs-service-ec2', {
-                    cluster: properties.ecsCluster,
-                    taskDefinition: taskDefinition as FargateTaskDefinition,
-                    publicLoadBalancer: false,
-                    desiredCount: properties.desiredTaskCount,
-                    listenerPort: 80,
-                    openListener: false,
-                    serviceName: properties.name,
-                });
-
-                if (properties.healthCheck) {
-                    service.targetGroup.configureHealthCheck({
-                        path: properties.healthCheck,
+                if (properties.computeType == ComputeType.Fargate) {
+                    loadBalancedService = new ApplicationLoadBalancedFargateService(this, 'ecs-service-fargate', {
+                        cluster: properties.ecsCluster,
+                        taskDefinition: taskDefinition as FargateTaskDefinition,
+                        publicLoadBalancer: false,
+                        desiredCount: properties.desiredTaskCount,
+                        listenerPort: properties.port || 80,
+                        securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
+                        openListener: false,
+                        assignPublicIp: false,
+                        serviceName: properties.name,
+                        loadBalancerName: `LB-${properties.name}`,
                     });
+
+                    if (properties.healthCheck) {
+                        loadBalancedService.targetGroup.configureHealthCheck({
+                            path: properties.healthCheck,
+                        });
+                    }
+
+                    // Allow load balancer to communicate with ECS tasks
+                    if (properties.securityGroup) {
+                        properties.securityGroup.addIngressRule(
+                            loadBalancedService.loadBalancer.connections.securityGroups[0],
+                            Port.tcp(properties.port || 80),
+                            'Allow load balancer to reach ECS tasks',
+                        );
+                    }
+
+                    // Allow traffic from specified subnet type to load balancer
+                    if (properties.vpc && loadBalancedService) {
+                        const subnets =
+                            properties.subnetType === SubnetType.PUBLIC
+                                ? properties.vpc.publicSubnets
+                                : properties.vpc.privateSubnets;
+                        for (const [index, subnet] of subnets.entries()) {
+                            loadBalancedService.loadBalancer.connections.allowFrom(
+                                Peer.ipv4(subnet.ipv4CidrBlock),
+                                Port.tcp(properties.port || 80),
+                                `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
+                            );
+                        }
+                    }
+                } else {
+                    loadBalancedService = new ApplicationLoadBalancedEc2Service(this, 'ecs-service-ec2', {
+                        cluster: properties.ecsCluster,
+                        taskDefinition: taskDefinition as FargateTaskDefinition,
+                        publicLoadBalancer: false,
+                        desiredCount: properties.desiredTaskCount,
+                        listenerPort: properties.port || 80,
+                        openListener: false,
+                        serviceName: properties.name,
+                        loadBalancerName: `LB-${properties.name}`,
+                    });
+
+                    if (properties.healthCheck) {
+                        loadBalancedService.targetGroup.configureHealthCheck({
+                            path: properties.healthCheck,
+                        });
+                    }
+
+                    // Allow load balancer to communicate with ECS tasks
+                    if (properties.securityGroup) {
+                        properties.securityGroup.addIngressRule(
+                            loadBalancedService.loadBalancer.connections.securityGroups[0],
+                            Port.tcp(properties.port || 80),
+                            'Allow load balancer to reach ECS tasks',
+                        );
+                    }
+
+                    // Allow traffic from specified subnet type to load balancer
+                    if (properties.vpc && loadBalancedService) {
+                        const subnets =
+                            properties.subnetType === SubnetType.PUBLIC
+                                ? properties.vpc.publicSubnets
+                                : properties.vpc.privateSubnets;
+                        for (const [index, subnet] of subnets.entries()) {
+                            loadBalancedService.loadBalancer.connections.allowFrom(
+                                Peer.ipv4(subnet.ipv4CidrBlock),
+                                Port.tcp(properties.port || 80),
+                                `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -187,14 +286,16 @@ export abstract class EcsService extends Microservice {
             );
         }
 
-        NagSuppressions.addResourceSuppressions((service as ApplicationLoadBalancedServiceBase).loadBalancer, [
-            {
-                id: 'AwsSolutions-ELB2',
-                reason: 'Disabled access logs for now',
-            },
-        ]);
+        if (loadBalancedService) {
+            NagSuppressions.addResourceSuppressions(loadBalancedService.loadBalancer, [
+                {
+                    id: 'AwsSolutions-ELB2',
+                    reason: 'Disabled access logs for now',
+                },
+            ]);
+        }
 
-        return { taskDefinition, service, container, taskRole };
+        return { taskDefinition, loadBalancedService, service, container, taskRole };
     }
 
     private addXRayContainer(taskDefinition: TaskDefinition, logging: AwsLogDriver) {

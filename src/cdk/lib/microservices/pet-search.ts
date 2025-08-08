@@ -68,7 +68,7 @@ export class PetSearchService extends EcsService {
     }
 
     createOutputs(properties: PetSearchServiceProperties): void {
-        if (this.service && !properties.disableService) {
+        if (!this.loadBalancedService && !properties.disableService) {
             throw new Error('Service is not defined');
         } else {
             Utilities.createSsmParameters(
@@ -76,7 +76,7 @@ export class PetSearchService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        searchapiurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/search?`,
+                        searchapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/search?`,
                     }),
                 ),
             );

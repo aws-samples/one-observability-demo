@@ -68,7 +68,7 @@ export class ListAdoptionsService extends EcsService {
     }
 
     createOutputs(properties: ListAdoptionsServiceProperties): void {
-        if (this.service && !properties.disableService) {
+        if (!this.loadBalancedService && !properties.disableService) {
             throw new Error('Service is not defined');
         } else {
             Utilities.createSsmParameters(
@@ -76,8 +76,8 @@ export class ListAdoptionsService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        petlistadoptionsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
-                        petlistadoptionsmetricsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/metrics`,
+                        petlistadoptionsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
+                        petlistadoptionsmetricsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
                     }),
                 ),
             );

@@ -75,7 +75,7 @@ export class PayForAdoptionService extends EcsService {
     }
 
     createOutputs(properties: PayForAdoptionServiceProperties): void {
-        if (this.service && !properties.disableService) {
+        if (!this.loadBalancedService && !properties.disableService) {
             throw new Error('Service is not defined');
         } else {
             Utilities.createSsmParameters(
@@ -83,9 +83,9 @@ export class PayForAdoptionService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        paymentapiurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
-                        payforadoptionmetricsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        cleanupadoptionsurl: `http://${this.service?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+                        paymentapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
+                        payforadoptionmetricsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
+                        cleanupadoptionsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
                     }),
                 ),
             );

@@ -32,7 +32,11 @@ import {
     VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
     VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
     VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+    CLOUDMAP_NAMESPACE_ID_EXPORT_NAME,
+    CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
+    CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
+import { PrivateDnsNamespace, IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 
 /**
  * Properties for the WorkshopNetwork construct
@@ -59,6 +63,8 @@ export class WorkshopNetwork extends Construct {
     public readonly vpc: Vpc;
     /** The VPC endpoints created by this construct */
     public readonly vpcEndpoints: VpcEndpoints;
+    /** Cloud Map domain */
+    public readonly cloudMapNamespace: PrivateDnsNamespace;
 
     /**
      * Creates a new WorkshopNetwork construct
@@ -108,8 +114,16 @@ export class WorkshopNetwork extends Construct {
             vpc: this.vpc,
         });
 
+        // Create Cloudmap namespace
+        this.cloudMapNamespace = new PrivateDnsNamespace(this, 'CloudMapNamespace', {
+            name: `${properties.name}-space`,
+            description: 'Cloud Map namespace for ' + properties.name,
+            vpc: this.vpc,
+        });
+
         // Create CloudFormation outputs for VPC resources
         this.createVpcOutputs();
+        this.createCloudMapOutputs();
     }
 
     /**
@@ -269,6 +283,44 @@ export class WorkshopNetwork extends Construct {
         new CfnOutput(this, 'VpcIsolatedSubnetCidrs', {
             value: this.vpc.isolatedSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+        });
+    }
+
+    /**
+     * Creates CloudFormation outputs for CloudMap namespace resources
+     */
+    private createCloudMapOutputs() {
+        new CfnOutput(this, 'CloudMapNamespaceId', {
+            value: this.cloudMapNamespace.namespaceId,
+            exportName: CLOUDMAP_NAMESPACE_ID_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'CloudMapNamespaceName', {
+            value: this.cloudMapNamespace.namespaceName,
+            exportName: CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'CloudMapNamespaceArn', {
+            value: this.cloudMapNamespace.namespaceArn,
+            exportName: CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
+        });
+    }
+
+    /**
+     * Imports a CloudMap namespace from CloudFormation exports
+     * @param scope - The construct scope
+     * @param id - The construct identifier
+     * @returns The imported CloudMap namespace
+     */
+    public static importCloudMapNamespaceFromExports(scope: Construct, id: string): IPrivateDnsNamespace {
+        const namespaceId = Fn.importValue(CLOUDMAP_NAMESPACE_ID_EXPORT_NAME);
+        const namespaceName = Fn.importValue(CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME);
+        const namespaceArn = Fn.importValue(CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME);
+
+        return PrivateDnsNamespace.fromPrivateDnsNamespaceAttributes(scope, id, {
+            namespaceId: namespaceId,
+            namespaceName: namespaceName,
+            namespaceArn: namespaceArn,
         });
     }
 }

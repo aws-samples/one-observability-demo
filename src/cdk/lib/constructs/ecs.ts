@@ -34,11 +34,13 @@ export class WorkshopEcs extends Construct {
             vpc: properties.vpc,
             description: 'Security group for ECS cluster resources',
             allowAllOutbound: true,
+            securityGroupName: `${id}-ecs-security-group`,
         });
 
         this.cluster = new Cluster(this, 'Cluster', {
             containerInsightsV2: ContainerInsights.ENHANCED,
             vpc: properties.vpc,
+            clusterName: `${id}-cluster`,
         });
 
         this.autoScalingGroup = new AutoScalingGroup(this, 'AutoScalingGroup', {
@@ -62,6 +64,7 @@ export class WorkshopEcs extends Construct {
                     scalingEvents: ScalingEvents.ALL,
                 },
             ],
+            autoScalingGroupName: `${id}-ecs-asg`,
         });
 
         this.cluster.addAsgCapacityProvider(

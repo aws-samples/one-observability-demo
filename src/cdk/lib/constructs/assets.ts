@@ -7,6 +7,8 @@ import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { NagSuppressions } from 'cdk-nag';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 /**
  * Properties for configuring Assets construct
@@ -90,5 +92,16 @@ export class WorkshopAssets extends Construct {
                 },
             ]);
         }
+    }
+    createOutputs(): void {
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map(
+                Object.entries({
+                    s3bucketname: this.bucket.bucketName,
+                }),
+            ),
+        );
     }
 }

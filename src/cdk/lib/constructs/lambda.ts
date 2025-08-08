@@ -46,7 +46,6 @@ export abstract class WokshopLambdaFunction extends Construct {
         }
 
         this.addFunctionPermissions(properties);
-        this.createOutputs(properties);
     }
     abstract addFunctionPermissions(properties: WorkshopLambdaFunctionProperties): void;
 

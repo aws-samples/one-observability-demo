@@ -20,6 +20,7 @@ import { StatusUpdatedService } from '../constructs/serverless/status-updater';
 import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
+import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -61,6 +62,7 @@ export class MicroservicesStack extends Stack {
         const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
+        const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
@@ -83,6 +85,11 @@ export class MicroservicesStack extends Stack {
                         secret: rdsExports.adminSecret,
                         dynamoDbTable: dynamodbExports.table,
                         instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -104,6 +111,11 @@ export class MicroservicesStack extends Stack {
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
                         instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -125,6 +137,11 @@ export class MicroservicesStack extends Stack {
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
                         instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -144,6 +161,10 @@ export class MicroservicesStack extends Stack {
                         name: name,
                         repositoryURI: `${baseURI}/${name}`,
                         instrumentation: 'none',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: false,
+                        cloudMapNamespace: cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -161,6 +182,7 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         manifestPath: service.manifestPath,
                         vpc: vpcExports,
+                        subnetType: SubnetType.PUBLIC,
                     });
                 } else {
                     throw new Error(`ECS is not supported for ${name}`);

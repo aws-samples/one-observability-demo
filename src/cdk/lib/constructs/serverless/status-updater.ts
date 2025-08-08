@@ -19,6 +19,8 @@ import {
 import { NagSuppressions } from 'cdk-nag';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
+import { Utilities } from '../../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../../bin/environment';
 
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
     table: ITable;
@@ -109,6 +111,8 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
             ],
             true,
         );
+
+        this.createOutputs();
     }
     addFunctionPermissions(properties: StatusUpdaterServiceProperties): void {
         if (this.function) {
@@ -138,7 +142,19 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         }
     }
     createOutputs(): void {
-        // No outputs to create
+        if (this.api) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        updateadoptionstatusurl: this.api.url,
+                    }),
+                ),
+            );
+        } else {
+            throw new Error('Service is not defined');
+        }
     }
     getEnvironmentVariables(properties: StatusUpdaterServiceProperties): { [key: string]: string } | undefined {
         // No environment variables to create
@@ -150,7 +166,7 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         const layerArn = Arn.format({
             account: '580247275435',
             resource: 'layer',
-            resourceName: 'LambdaInsightsExtension',
+            resourceName: 'LambdaInsightsExtension:56',
             region: Stack.of(this).region,
             service: 'lambda',
             partition: 'aws',

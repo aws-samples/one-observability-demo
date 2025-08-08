@@ -35,6 +35,7 @@ import {
     EKS_KUBECTL_ROLE_ARN_EXPORT_NAME,
     EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME,
     EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
+    EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
 
 export interface EksProperties {
@@ -73,6 +74,7 @@ export class WorkshopEks extends Construct {
                     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                 },
             ],
+            clusterName: `${id}-cluster`,
         });
 
         this.setupAddons();
@@ -233,6 +235,11 @@ export class WorkshopEks extends Construct {
             value: this.cluster.kubectlSecurityGroup!.securityGroupId,
             exportName: EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
         });
+
+        new CfnOutput(this, 'KubectlLambdaRoleArn', {
+            value: this.cluster.kubectlLambdaRole!.roleArn,
+            exportName: EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
+        });
     }
 
     public static importFromExports(
@@ -242,9 +249,11 @@ export class WorkshopEks extends Construct {
         const clusterName = Fn.importValue(EKS_CLUSTER_NAME_EXPORT_NAME);
         const securityGroupId = Fn.importValue(EKS_SECURITY_GROUP_ID_EXPORT_NAME);
         const kubectlRoleArn = Fn.importValue(EKS_KUBECTL_ROLE_ARN_EXPORT_NAME);
+        const kubectlLambdaRoleArn = Fn.importValue(EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME);
         const openIdConnectProviderArn = Fn.importValue(EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME);
         const kubectlSecurityGroupId = Fn.importValue(EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME);
         const kubectlRole = Role.fromRoleArn(scope, `${id}-KubectlRole`, kubectlRoleArn);
+        const kubectlLambdaRole = Role.fromRoleArn(scope, `${id}-KubectlLambdaRole`, kubectlLambdaRoleArn);
         const kubectlSecurityGroup = SecurityGroup.fromSecurityGroupId(
             scope,
             `${id}-KubectlSecurityGroup`,
@@ -259,6 +268,7 @@ export class WorkshopEks extends Construct {
         const cluster = Cluster.fromClusterAttributes(scope, `${id}-Cluster`, {
             clusterName: clusterName,
             kubectlRoleArn: kubectlRole.roleArn,
+            kubectlLambdaRole: kubectlLambdaRole,
             openIdConnectProvider: openIdConnectProvider,
             kubectlSecurityGroupId: kubectlSecurityGroup.securityGroupId,
             kubectlLayer: new KubectlV33Layer(scope, 'kubectl'),

@@ -33,6 +33,10 @@ import {
     AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
 } from '../../bin/constants';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+
+const databaseName = 'adoptions';
 
 /**
  * Properties for configuring Aurora PostgreSQL database cluster
@@ -94,7 +98,7 @@ export class AuroraDatabase extends Construct {
                 ParameterGroup.fromParameterGroupName(this, 'ParameterGroup', 'default.aurora-postgresql16'),
             vpc: properties.vpc,
             securityGroups: [this.databaseSecurityGroup],
-            defaultDatabaseName: 'adoptions',
+            defaultDatabaseName: databaseName,
             databaseInsightsMode: DatabaseInsightsMode.ADVANCED,
             performanceInsightRetention: PerformanceInsightRetention.MONTHS_15,
             writer: ClusterInstance.provisioned('writer', {
@@ -143,6 +147,7 @@ export class AuroraDatabase extends Construct {
         );
 
         this.createExports();
+        this.createOutputs();
     }
 
     private createExports(): void {
@@ -186,5 +191,24 @@ export class AuroraDatabase extends Construct {
         const adminSecret = Secret.fromSecretCompleteArn(scope, `${id}-AdminSecret`, adminSecretArn);
 
         return { cluster, securityGroup, adminSecret };
+    }
+
+    createOutputs(): void {
+        if (this.cluster.secret) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        rdssecretarn: this.cluster.secret?.secretArn,
+                        'rds-reader-endpoint': this.cluster.clusterReadEndpoint.hostname,
+                        'rds-writer-endpoint': this.cluster.clusterEndpoint.hostname,
+                        'rds-database-name': databaseName,
+                    }),
+                ),
+            );
+        } else {
+            throw new Error('Cluster secret is not available');
+        }
     }
 }

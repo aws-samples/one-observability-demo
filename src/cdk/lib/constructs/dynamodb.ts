@@ -8,6 +8,8 @@ import { AttributeType, ITable, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { DYNAMODB_TABLE_ARN_EXPORT_NAME, DYNAMODB_TABLE_NAME_EXPORT_NAME } from '../../bin/constants';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 /**
  * Properties for configuring DynamoDatabase construct
@@ -92,6 +94,7 @@ export class DynamoDatabase extends Construct {
         );
 
         this.createExports();
+        this.createOutputs();
     }
 
     private createExports(): void {
@@ -114,5 +117,21 @@ export class DynamoDatabase extends Construct {
         });
 
         return { table };
+    }
+
+    createOutputs(): void {
+        if (this.table) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        dynamodbtablename: this.table.tableName,
+                    }),
+                ),
+            );
+        } else {
+            throw new Error('Table is not available');
+        }
     }
 }
