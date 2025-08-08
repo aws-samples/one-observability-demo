@@ -2,29 +2,73 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Lambda function constructs for the One Observability Workshop.
+ *
+ * This module provides abstract base classes and interfaces for creating
+ * Lambda functions with consistent configuration and best practices for
+ * observability, security, and performance.
+ *
+ * @packageDocumentation
+ */
+
 import { Runtime, Function, ILayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions, NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { STATUS_UPDATER_FUNCTION } from '../../bin/environment';
 
+/**
+ * Properties for configuring a workshop Lambda function.
+ */
 export interface WorkshopLambdaFunctionProperties {
+    /** Unique name for the Lambda function */
     name: string;
+    /** Runtime environment for the function */
     runtime: Runtime;
+    /** Path to the dependencies lock file (for Node.js functions) */
     depsLockFilePath?: string;
+    /** Entry point file for the function code */
     entry: string;
+    /** Memory allocation for the function in MB */
     memorySize: number;
+    /** Handler method name within the entry file */
     handle: string;
+    /** Log retention period for CloudWatch logs */
     logRetentionDays?: RetentionDays;
+    /** Description of the function's purpose */
     description?: string;
 }
 
+/**
+ * Predefined Lambda function names used throughout the workshop.
+ */
 export const LambdaFunctionNames = {
+    /** Pet status updater function name */
     StatusUpdater: STATUS_UPDATER_FUNCTION.name,
 } as const;
 
+/**
+ * Abstract base class for workshop Lambda functions.
+ *
+ * This class provides a common foundation for creating Lambda functions
+ * with consistent configuration, observability features, and security
+ * best practices. Concrete implementations must provide specific
+ * permissions, environment variables, and bundling configurations.
+ */
 export abstract class WokshopLambdaFunction extends Construct {
+    /** The Lambda function instance */
     public function: Function;
+
+    /**
+     * Creates a new workshop Lambda function.
+     *
+     * @param scope - The parent construct
+     * @param id - The construct identifier
+     * @param properties - Configuration properties for the function
+     * @throws Error if the runtime is not supported
+     */
     constructor(scope: Construct, id: string, properties: WorkshopLambdaFunctionProperties) {
         super(scope, id);
 
@@ -47,15 +91,49 @@ export abstract class WokshopLambdaFunction extends Construct {
 
         this.addFunctionPermissions(properties);
     }
+
+    /**
+     * Adds IAM permissions required by the Lambda function.
+     * Must be implemented by concrete subclasses.
+     *
+     * @param properties - Function configuration properties
+     */
     abstract addFunctionPermissions(properties: WorkshopLambdaFunctionProperties): void;
 
+    /**
+     * Creates CloudFormation outputs for the Lambda function.
+     * Must be implemented by concrete subclasses.
+     *
+     * @param properties - Function configuration properties
+     */
     abstract createOutputs(properties: WorkshopLambdaFunctionProperties): void;
 
+    /**
+     * Returns environment variables for the Lambda function.
+     * Must be implemented by concrete subclasses.
+     *
+     * @param properties - Function configuration properties
+     * @returns Map of environment variable names to values
+     */
     abstract getEnvironmentVariables(
         properties: WorkshopLambdaFunctionProperties,
     ): { [key: string]: string } | undefined;
 
+    /**
+     * Returns Lambda layers to be attached to the function.
+     * Must be implemented by concrete subclasses.
+     *
+     * @param properties - Function configuration properties
+     * @returns Array of Lambda layer versions
+     */
     abstract getLayers(properties: WorkshopLambdaFunctionProperties): ILayerVersion[];
 
+    /**
+     * Returns bundling options for the Lambda function code.
+     * Must be implemented by concrete subclasses.
+     *
+     * @param properties - Function configuration properties
+     * @returns Bundling configuration options
+     */
     abstract getBundling(properties: WorkshopLambdaFunctionProperties): BundlingOptions;
 }

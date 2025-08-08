@@ -10,7 +10,15 @@ SPDX-License-Identifier: Apache-2.0
  *
  * This file creates the main CDK app and instantiates the pipeline stack
  * with configuration from environment variables and CDK context.
- * It also applies resource tagging and AWS Solutions compliance checks.
+ * The pipeline deploys the complete workshop infrastructure including:
+ * - Core networking and security components
+ * - Container orchestration platforms (ECS/EKS)
+ * - Storage services (S3, Aurora, DynamoDB)
+ * - Compute services (Lambda, EC2)
+ * - Sample microservices for the pet adoption application
+ *
+ * Configuration is resolved from CDK context first, then falls back to
+ * environment variables for flexibility in different deployment scenarios.
  *
  * @packageDocumentation
  */
@@ -64,8 +72,8 @@ new CDKPipeline(app, 'OneObservabilityWorkshopPipeline', {
     },
 });
 
-// Apply tags to all resources in the application
+/** Apply tags to all resources in the application */
 Utilities.TagConstruct(app, TAGS);
 
-// Add CDK-nag compliance checks for AWS Solutions best practices
+/** Add CDK-nag compliance checks for AWS Solutions best practices */
 Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
