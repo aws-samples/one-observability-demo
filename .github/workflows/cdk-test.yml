@@ -4,11 +4,11 @@ permissions:
 
 on:
     pull_request:
-        branches: [main]
+        branches: [main, staging]
         paths:
             - 'src/cdk/**'
     push:
-        branches: [main]
+        branches: [main, staging]
         paths:
             - 'src/cdk/**'
 

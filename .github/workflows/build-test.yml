@@ -3,7 +3,7 @@ permissions:
     contents: read
 on:
     pull_request:
-        branches: [main]
+        branches: [main, staging]
         paths:
             - 'PetAdoptions/payforadoption-go/**'
             - 'PetAdoptions/petadoptionshistory-py/**'
@@ -13,7 +13,7 @@ on:
             - 'PetAdoptions/petstatusupdater/**'
             - 'PetAdoptions/trafficgenerator/**'
     push:
-        branches: [main]
+        branches: [main, staging]
         paths:
             - 'PetAdoptions/payforadoption-go/**'
             - 'PetAdoptions/petadoptionshistory-py/**'
