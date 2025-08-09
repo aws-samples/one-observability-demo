@@ -68,9 +68,7 @@ sam deploy \
     #     "VpcId=${VPC_ID}" \
     #     "SubnetIds=${SUBNET_IDS}" \
     #     "SecurityGroupId=${SECURITY_GROUP_ID}" \
-    --resolve-s3 \
-    --confirm-changeset
-
+    
 # Get outputs
 echo -e "${GREEN}📋 Deployment completed! Getting stack outputs...${NC}"
 aws cloudformation describe-stacks \
