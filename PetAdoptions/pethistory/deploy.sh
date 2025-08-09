@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Pet Adopter Lambda Deployment Script using AWS SAM
+# Pet history Lambda Deployment Script using AWS SAM
 
 set -e
 
@@ -11,10 +11,10 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-STACK_NAME="pet-adopter-stack"
+STACK_NAME="pet-history-stack"
 REGION="us-west-2"
 
-echo -e "${GREEN}🚀 Pet Adopter Lambda Deployment${NC}"
+echo -e "${GREEN}🚀 Pet history Lambda Deployment${NC}"
 echo "=================================="
 
 # Check if AWS CLI is configured
@@ -77,7 +77,7 @@ aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs' \
     --output table
 
-echo -e "${GREEN}✅ Pet Adopter Lambda function deployed successfully!${NC}"
+echo -e "${GREEN}✅ Pet history Lambda function deployed successfully!${NC}"
 echo -e "${GREEN}🔍 Check CloudWatch Application Signals for observability data.${NC}"
 echo -e "${GREEN}📊 Application Signals will automatically detect the service and create service maps.${NC}"
 echo -e "${GREEN}🎯 X-Ray tracing is enabled for distributed tracing across services.${NC}"

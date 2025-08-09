@@ -1,5 +1,5 @@
 {
-  "name": "petadopter",
+  "name": "pethistory",
   "version": "1.0.0",
   "description": "Lambda function to process adoption messages from SQS and write to database",
   "main": "index.js",
