@@ -47,7 +47,7 @@ jobs:
 
             - name: Generate environment variables
               run: |
-                  cp .env.example .env
+                  cp .env.sample .env
               working-directory: src/cdk
 
             - name: CDK context validation
