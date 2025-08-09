@@ -13,11 +13,11 @@ import (
 )
 
 type Adoption struct {
-	TransactionID string `json:"transactionid,omitempty"`
-	PetID         string `json:"petid,omitempty"`
-	PetType       string `json:"pettype,omitempty"`
-	UserID        string `json:"userid,omitempty"`
-	AdoptionDate  time.Time
+	TransactionID string    `json:"transactionid,omitempty"`
+	PetID         string    `json:"petid,omitempty"`
+	PetType       string    `json:"pettype,omitempty"`
+	UserID        string    `json:"userid,omitempty"`
+	AdoptionDate  time.Time `json:"adoptiondate,omitempty"`
 }
 
 // links endpoints to transport
