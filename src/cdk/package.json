@@ -14,28 +14,33 @@
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",
-        "@types/node": "^24.0.4",
-        "@typescript-eslint/eslint-plugin": "^8.35.0",
-        "aws-cdk": "2.1019.2",
-        "eslint-config-prettier": "^10.1.5",
+        "@types/node": "^24.2.1",
+        "@types/nunjucks": "^3.2.6",
+        "@typescript-eslint/eslint-plugin": "^8.39.0",
+        "aws-cdk": "2.1024.0",
+        "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-jest": "^29.0.1",
-        "eslint-plugin-prettier": "^5.5.1",
-        "eslint-plugin-unicorn": "^59.0.1",
+        "eslint-plugin-prettier": "^5.5.4",
+        "eslint-plugin-unicorn": "^60.0.0",
         "http-server": "^14.1.1",
-        "jest": "^30.0.3",
+        "jest": "^30.0.5",
         "jest-junit": "^16.0.0",
-        "ts-jest": "^29.4.0",
+        "ts-jest": "^29.4.1",
         "ts-node": "^10.9.2",
-        "typedoc": "^0.28.7",
+        "typedoc": "^0.28.9",
         "typedoc-github-theme": "^0.3.0",
         "typedoc-github-wiki-theme": "^2.1.0",
-        "typedoc-plugin-markdown": "^4.7.0",
-        "typescript": "~5.8.3"
+        "typedoc-plugin-markdown": "^4.8.0",
+        "typescript": "~5.9.2"
     },
     "dependencies": {
-        "aws-cdk-lib": "2.206.0",
-        "cdk-nag": "^2.36.32",
-        "constructs": "^10.0.0",
-        "dotenv": "^17.2.1"
+        "@aws-cdk/lambda-layer-kubectl-v33": "^2.0.0",
+        "@types/yaml": "^1.9.7",
+        "aws-cdk-lib": "2.210.0",
+        "nunjucks": "^3.2.4",
+        "cdk-nag": "^2.37.0",
+        "constructs": "^10.4.2",
+        "dotenv": "^17.2.1",
+        "yaml": "^2.8.1"
     }
 }

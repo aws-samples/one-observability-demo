@@ -1,4 +1,4 @@
-FROM rust:latest as builder
+FROM public.ecr.aws/docker/library/rust:latest:latest as builder
 WORKDIR /app
 RUN
 COPY . .

@@ -2,185 +2,208 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
-import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
+import { Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { NagSuppressions } from 'cdk-nag';
-import {
-    EcrBuildAndPublishAction,
-    RegistryType,
-    S3SourceAction,
-    S3Trigger,
-} from 'aws-cdk-lib/aws-codepipeline-actions';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { CompositePrincipal, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Utilities } from '../utils/utilities';
+import { WorkshopNetwork } from '../constructs/network';
+import { WorkshopEcs } from '../constructs/ecs';
+import { MicroservicesNames } from '../constructs/microservice';
+import { ComputeType, HostType } from '../../bin/environment';
+import { PayForAdoptionService } from '../microservices/pay-for-adoption';
+import { AuroraDatabase } from '../constructs/database';
+import { DynamoDatabase } from '../constructs/dynamodb';
+import { ListAdoptionsService } from '../microservices/list-adoptions';
+import { PetSearchService } from '../microservices/pet-search';
+import { TrafficGeneratorService } from '../microservices/traffic-generator';
+import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
+import { StatusUpdatedService } from '../constructs/serverless/status-updater';
+import { VpcEndpoints } from '../constructs/vpc-endpoints';
+import { PetSite } from '../microservices/petsite';
+import { WorkshopEks } from '../constructs/eks';
+import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 
-/**
- * Definition for an application to be built and deployed
- */
-export interface ApplicationDefinition {
-    /** The name of the application */
-    name: string;
-    /** Path to the Dockerfile for building the application */
-    dockerFilePath: string;
+export interface MicroserviceApplicationPlacement {
+    hostType: HostType;
+    computeType: ComputeType;
+    disableService: boolean;
+    manifestPath?: string;
 }
 
-/**
- * Properties for S3 source configuration
- */
-export interface S3SourceProperties {
-    /** Name of the S3 bucket containing source code */
-    bucketName: string;
-    /** Key/path to the source code object in S3 */
-    bucketKey: string;
+export interface MicroserviceApplicationsProperties extends StackProps {
+    /** Tags to apply to all resources in the stage */
+    tags?: { [key: string]: string };
+    microservicesPlacement: Map<string, MicroserviceApplicationPlacement>;
+    lambdaFunctions: Map<string, WorkshopLambdaFunctionProperties>;
 }
 
-/**
- * Properties for the Applications Pipeline Stage
- */
-export interface ApplicationsPipelineStageProperties extends StackProps {
-    /** S3 source configuration */
-    source: S3SourceProperties;
-    /** List of applications to build and deploy */
-    applicationList: ApplicationDefinition[];
-}
+export class MicroservicesStage extends Stage {
+    public stack: MicroservicesStack;
+    constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
+        super(scope, id, properties);
 
-/**
- * CDK Stage for the Applications Pipeline
- */
-export class ApplicationsPipelineStage extends Stage {
-    /**
-     * Creates a new Applications Pipeline Stage
-     * @param scope - The scope in which to define this construct
-     * @param id - The scoped construct ID
-     * @param properties - Configuration properties for the stage
-     */
-    constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
-        super(scope, id);
-        new ApplicationsStack(this, 'ApplicationsStack', properties);
+        this.stack = new MicroservicesStack(this, 'MicroserviceStack', properties);
+
+        if (properties.tags) {
+            Utilities.TagConstruct(this.stack, properties.tags);
+        }
     }
 }
 
-/**
- * Stack containing the applications build pipeline and ECR repositories
- */
-export class ApplicationsStack extends Stack {
-    /** Map of application names to their ECR repositories */
-    public applicationRepositories: Map<string, Repository> = new Map<string, Repository>();
-    /** The CodePipeline for building applications */
-    public pipeline: Pipeline;
-
-    /**
-     * Creates a new Applications Stack
-     * @param scope - The scope in which to define this construct
-     * @param id - The scoped construct ID
-     * @param properties - Configuration properties for the stack
-     * @throws Error when source or applicationList properties are missing
-     */
-    constructor(scope: Construct, id: string, properties?: ApplicationsPipelineStageProperties) {
+export class MicroservicesStack extends Stack {
+    constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
 
-        if (!properties?.source || !properties?.applicationList) {
-            throw new Error('Source and applicationList are required');
+        /** Retrieve Network Exports */
+        const vpcExports = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
+
+        /** Retrieve ECS Cluster from Exports */
+        const ecsExports = WorkshopEcs.importFromExports(this, 'WorkshopEcs', vpcExports);
+        const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
+        const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
+        const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
+        const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
+        const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
+
+        const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
+
+        for (const name of properties.microservicesPlacement.keys()) {
+            const service = properties.microservicesPlacement.get(name);
+            if (name == MicroservicesNames.PayForAdoption) {
+                if (service?.hostType == HostType.ECS) {
+                    new PayForAdoptionService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        dynamoDbTable: dynamodbExports.table,
+                        instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetListAdoptions) {
+                if (service?.hostType == HostType.ECS) {
+                    new ListAdoptionsService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetSearch) {
+                if (service?.hostType == HostType.ECS) {
+                    new PetSearchService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        database: rdsExports.cluster,
+                        secret: rdsExports.adminSecret,
+                        instrumentation: 'otel',
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.TrafficGenerator) {
+                if (service?.hostType == HostType.ECS) {
+                    new TrafficGeneratorService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 1,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        instrumentation: 'none',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: false,
+                        cloudMapNamespace: cloudMap,
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+            }
+            if (name == MicroservicesNames.PetSite) {
+                if (service?.hostType == HostType.EKS) {
+                    new PetSite(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: eksExports.securityGroup,
+                        eksCluster: eksExports.cluster,
+                        disableService: service.disableService,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        manifestPath: service.manifestPath,
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PUBLIC,
+                    });
+                } else {
+                    throw new Error(`ECS is not supported for ${name}`);
+                }
+            }
         }
 
-        const pipelineRole = new Role(this, 'PipelineRole', {
-            assumedBy: new ServicePrincipal('codepipeline.amazonaws.com'),
-        });
+        for (const name of properties.lambdaFunctions.keys()) {
+            const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
 
-        const codeBuildRole = new Role(this, 'CodeBuildRole', {
-            assumedBy: new CompositePrincipal(new ServicePrincipal('codebuild.amazonaws.com'), pipelineRole),
-        });
-
-        // Create ECR repositories for each application
-        for (const app of properties.applicationList) {
-            const repository = new Repository(this, `${app.name}Repository`, {
-                repositoryName: app.name.toLowerCase(),
-                imageScanOnPush: true,
-                emptyOnDelete: true,
-                imageTagMutability: TagMutability.MUTABLE,
-                removalPolicy: RemovalPolicy.DESTROY,
-            });
-
-            repository.grantPullPush(codeBuildRole);
-            NagSuppressions.addResourceSuppressions(repository, [
-                {
-                    id: 'AwsSolutions-ECR1',
-                    reason: 'This is a sample application, so no access logging is required',
-                },
-            ]);
-
-            this.applicationRepositories.set(app.name, repository);
+            if (name == LambdaFunctionNames.StatusUpdater) {
+                new StatusUpdatedService(this, name, {
+                    ...lambdafunction,
+                    name: name,
+                    table: dynamodbExports.table,
+                    vpcEndpoint: vpcEndpoints.apiGatewayEndpoint,
+                });
+            }
         }
 
-        // Create CodePipeline
-        this.pipeline = new Pipeline(this, 'ApplicationsPipeline', {
-            restartExecutionOnUpdate: true,
-            pipelineType: PipelineType.V2,
-            usePipelineRoleForActions: true,
-            role: pipelineRole,
-        });
-
-        const sourceOutput = new Artifact();
-        const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
-
-        sourceBucket.grantRead(pipelineRole);
-
-        const sourceAction = new S3SourceAction({
-            actionName: 'Source',
-            bucket: sourceBucket,
-            bucketKey: properties.source.bucketKey,
-            output: sourceOutput,
-            trigger: S3Trigger.POLL,
-        });
-
-        this.pipeline.addStage({
-            stageName: 'Source',
-            actions: [sourceAction],
-        });
-
-        // Create build steps for each application (parallel execution)
-        const buildSteps = properties.applicationList.map((app) => {
-            const repository = this.applicationRepositories.get(app.name)!;
-
-            return new EcrBuildAndPublishAction({
-                actionName: `Build-${app.name}`,
-                repositoryName: repository.repositoryName,
-                registryType: RegistryType.PRIVATE,
-                dockerfileDirectoryPath: app.dockerFilePath,
-                input: sourceOutput,
-                imageTags: ['latest'],
-                role: codeBuildRole,
-            });
-        });
-
-        // Add build stage with all steps running in parallel
-        this.pipeline.addStage({
-            stageName: 'build',
-            actions: buildSteps,
-        });
-
-        NagSuppressions.addResourceSuppressions(
-            this.pipeline.artifactBucket,
-            [
-                {
-                    id: 'AwsSolutions-S1',
-                    reason: 'Artifact Bucket for application pipeline, access logs not needed',
-                },
-            ],
-            true,
-        );
-
-        NagSuppressions.addResourceSuppressions(
-            [codeBuildRole, this.pipeline.role],
-            [
-                {
-                    id: 'AwsSolutions-IAM5',
-                    reason: 'Allow access to repositories and Artifact bucket',
-                },
-            ],
-            true,
-        );
+        Utilities.SuppressLogRetentionNagWarnings(this);
+        Utilities.SuppressKubectlProviderNagWarnings(this);
     }
 }

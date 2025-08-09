@@ -1,0 +1,60 @@
+name: Documentation
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/cdk/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: src/cdk
+
+      - name: Build TypeScript
+        run: npm run build
+        working-directory: src/cdk
+
+      - name: Create ASH scan link
+        run: |
+          echo "# Security Scan Results" > ASH_SCAN.md
+          echo "" >> ASH_SCAN.md
+          echo "[Latest ASH Security Scan Results](https://github.com/${{ github.repository }}/actions/workflows/run-ash-security-scan.yaml)" >> ASH_SCAN.md
+          sed -i 's/"ARCHITECTURE.md"]/"ARCHITECTURE.md", "ASH_SCAN.md"]/g' typedoc.json
+
+      - name: Generate documentation
+        run: npx typedoc
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: wiki-docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -10,8 +10,11 @@ SPDX-License-Identifier: Apache-2.0
  *
  * @packageDocumentation
  */
-import { Annotations, CfnResource, Tags } from 'aws-cdk-lib';
+import { Annotations, CfnOutput, CfnResource, Tags } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
+import { Policy, Role } from 'aws-cdk-lib/aws-iam';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 /**
  * List of AWS CloudFormation resource types that support tagging.
@@ -760,7 +763,7 @@ const TAGGABLE_RESOURCE_TYPE_LIST = new Set([
     'AWS::XRay::SamplingRule',
 ]);
 
-const EXCEPTIONS = new Set(['AWS::SSM::Parameter']);
+const EXCEPTIONS = new Set(['AWS::SSM::Parameter', 'AWS::EKS::Nodegroup']);
 
 /**
  * Utility class providing helper functions for common CDK operations.
@@ -787,15 +790,25 @@ export const Utilities = {
 
         // For CfnResource objects, we need to explicitly set the Tags property
         if (object instanceof CfnResource) {
-            const cfnTags = Object.entries(tags).map(([key, value]) => ({
+            let cfnTags = Object.entries(tags).map(([key, value]) => ({
                 Key: key,
                 Value: value,
             }));
+
+            // Special handling for AutoScaling Groups
+            if (object.cfnResourceType === 'AWS::AutoScaling::AutoScalingGroup') {
+                cfnTags = Object.entries(tags).map(([key, value]) => ({
+                    Key: key,
+                    Value: value,
+                    PropagateAtLaunch: true,
+                }));
+            }
 
             // Only tag the resource if it's on the allowed list
             if (cfnTags.length > 0 && TAGGABLE_RESOURCE_TYPE_LIST.has(object.cfnResourceType)) {
                 if (EXCEPTIONS.has(object.cfnResourceType)) {
                     // For these resource types, Tags must by added as a Map not an array or CFN will fail to deploy
+
                     object.addPropertyOverride('Tags', tags);
                 } else {
                     object.addPropertyOverride('Tags', cfnTags);
@@ -810,6 +823,112 @@ export const Utilities = {
         // Recursively tag all child constructs
         for (const child of object.node.children) {
             this.TagConstruct(child, tags);
+        }
+    },
+
+    /**
+     * Recursively searches for child nodes in a construct by resource type and partial name match.
+     *
+     * @param construct - The root construct to search within
+     * @param partialName - Partial match string for the resource name
+     * @param resourceType - Optional CloudFormation resource type to search for (e.g., 'AWS::Lambda::Function')
+     * @returns Array of matching constructs
+     */
+    FindChildNodes(construct: Construct, partialName: string, resourceType?: string): Construct[] {
+        const matches: Construct[] = [];
+
+        function searchRecursively(node: Construct) {
+            // Check if current node is a CfnResource with matching name and optionally matching type
+            if (
+                node instanceof CfnResource &&
+                node.toString().includes(partialName) &&
+                (!resourceType || node.cfnResourceType === resourceType)
+            ) {
+                matches.push(node);
+            }
+
+            // Recursively search all children
+            for (const child of node.node.children) {
+                searchRecursively(child);
+            }
+        }
+
+        searchRecursively(construct);
+        return matches;
+    },
+
+    /**
+     * Applies NAG suppressions to log retention resources in a construct.
+     *
+     * @param construct - The construct to search for log retention resources
+     */
+    SuppressLogRetentionNagWarnings(construct: Construct) {
+        const logRetentionRole = this.FindChildNodes(construct, 'LogRetention', 'AWS::IAM::Role');
+        for (const role of logRetentionRole) {
+            const serviceRole = role as Role;
+            NagSuppressions.addResourceSuppressions(
+                serviceRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM4',
+                        reason: 'Log Retention lambda using managed policies is acceptable',
+                    },
+                ],
+                true,
+            );
+        }
+
+        const logRetentionPolicy = this.FindChildNodes(construct, 'LogRetention', 'AWS::IAM::Policy');
+        for (const policy of logRetentionPolicy) {
+            const serviceRole = policy as Policy;
+            NagSuppressions.addResourceSuppressions(
+                serviceRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'Log Retention lambda using wildcard is acceptable',
+                    },
+                ],
+                true,
+            );
+        }
+    },
+
+    SuppressKubectlProviderNagWarnings(construct: Construct) {
+        const kubectlProvider = this.FindChildNodes(construct, 'KubectlProvider');
+        for (const resource of kubectlProvider) {
+            NagSuppressions.addResourceSuppressions(
+                resource,
+                [
+                    {
+                        id: 'AwsSolutions-IAM4',
+                        reason: 'kubectl lambda using managed policies is acceptable',
+                    },
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'Kubectl lambda using wildcard is acceptable',
+                    },
+                    {
+                        id: 'AwsSolutions-L1',
+                        reason: 'Kubectl lambda managed by EKS Construct',
+                    },
+                ],
+                true,
+            );
+        }
+    },
+
+    createSsmParameters(scope: Construct, prefix: string, parameters: Map<string, string>) {
+        for (const [key, value] of parameters.entries()) {
+            //const id = key.replace('/', '_');
+            const fullKey = `${prefix}/${key}`;
+            new StringParameter(scope, fullKey, { parameterName: fullKey, stringValue: value });
+        }
+    },
+
+    createOuputs(scope: Construct, parameters: Map<string, string>) {
+        for (const [key, value] of parameters.entries()) {
+            new CfnOutput(scope, key, { value: value });
         }
     },
 };

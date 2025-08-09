@@ -18,7 +18,10 @@ global_settings:
         - path: codepipeline-stack.yaml
           reason: 'Skip old pipeline since it will be migrated'
 
-    suppressions: []
+    suppressions:
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: '.github/workflows/cdk-test.yml'
+          reason: 'Dummy secret'
 fail_on_findings: true
 ash_plugin_modules: []
 external_reports_to_include: []

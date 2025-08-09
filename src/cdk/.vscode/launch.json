@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug CDK Synth",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/node_modules/.bin/cdk",
+            "args": [
+                "-a",
+                "npx ts-node --prefer-ts-exts bin/local.ts",
+                "synth"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "NODE_OPTIONS": "--inspect"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ]
+}

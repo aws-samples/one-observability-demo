@@ -24,10 +24,11 @@ type Repository interface {
 }
 
 type Config struct {
-	PetSearchURL string
-	RDSSecretArn string
-	Tracer       trace.Tracer
-	AWSCfg       aws.Config
+	PetSearchURL      string
+	RDSSecretArn      string
+	RDSReaderEndpoint string
+	Tracer            trace.Tracer
+	AWSCfg            aws.Config
 }
 
 // repo as an implementation of Repository with dependency injection

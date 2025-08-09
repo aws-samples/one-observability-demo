@@ -4,6 +4,16 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 /**
+ * Environment configuration module for the One Observability Workshop.
+ *
+ * This module defines environment-specific constants and configuration values
+ * used throughout the CDK application for consistent deployment across different
+ * AWS environments and regions.
+ *
+ * @packageDocumentation
+ */
+
+/**
  * Environment configuration and defaults for the One Observability Workshop.
  *
  * This module provides configuration constants that can be overridden via environment
@@ -13,8 +23,34 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
-import dotenv from 'dotenv';
+import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
+import * as dotenv from 'dotenv';
+import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
+import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
+
+/**
+ * Host type enumeration for microservice deployment.
+ * Defines where microservices can be deployed.
+ */
+export enum HostType {
+    /** Amazon Elastic Container Service */
+    ECS = 'ECS',
+    /** Amazon Elastic Kubernetes Service */
+    EKS = 'EKS',
+}
+
+/**
+ * Compute type enumeration for container workloads.
+ * Defines the compute platform for running containers.
+ */
+export enum ComputeType {
+    /** Amazon EC2 instances */
+    EC2 = 'EC2',
+    /** AWS Fargate serverless compute */
+    Fargate = 'Fargate',
+}
 
 // Load environment variables from .env file
 dotenv.config();
@@ -64,46 +100,102 @@ export const CORE_PROPERTIES = {
 };
 
 /** Microservices definitions */
+/** Microservices definitions for the pet adoption application */
+
+/** Pay for Adoption microservice configuration (Go implementation) */
 export const PAYFORADOPTION_GO = {
     name: 'payforadoption-go',
     dockerFilePath: 'PetAdoptions/payforadoption-go',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
-export const PETADOPTIONHISTORY_PY = {
-    name: 'petadoptionhistory-py',
-    dockerFilePath: 'PetAdoptions/petadoptionshistory-py',
-};
-
+/** Pet List Adoptions microservice configuration (Go implementation) */
 export const PETLISTADOPTIONS_GO = {
     name: 'petlistadoption-go',
     dockerFilePath: 'PetAdoptions/petlistadoptions-go',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
+/** Pet Search microservice configuration (Java implementation) */
 export const PETSEARCH_JAVA = {
     name: 'petsearch-java',
     dockerFilePath: 'PetAdoptions/petsearch-java',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
+/** Pet Site frontend application configuration (deployed on EKS) */
 export const PETSITE = {
     name: 'petsite',
     dockerFilePath: 'PetAdoptions/petsite/petsite',
+    hostType: HostType.EKS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
+    manifestPath: 'lib/microservices/manifests/petsite-deployment.yaml',
 };
 
+/** Pet Status Updater microservice configuration */
 export const PETSTATUSUPDATER = {
     name: 'petstatusupdater',
     dockerFilePath: 'PetAdoptions/petstatusupdater',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
+/** Traffic Generator service for load testing */
 export const TRAFFICGENERATOR = {
     name: 'trafficgenerator',
     dockerFilePath: 'PetAdoptions/trafficgenerator/trafficgenerator',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
 };
 
-export const APPLICATION_LIST = [
-    PAYFORADOPTION_GO,
-    PETADOPTIONHISTORY_PY,
-    PETLISTADOPTIONS_GO,
-    PETSEARCH_JAVA,
-    PETSITE,
-    TRAFFICGENERATOR,
+/** Complete list of all microservice applications */
+export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_GO, PETSEARCH_JAVA, PETSITE, TRAFFICGENERATOR];
+
+/** Map of microservice names to their deployment configurations */
+export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
+    [PAYFORADOPTION_GO.name, PAYFORADOPTION_GO],
+    [PETLISTADOPTIONS_GO.name, PETLISTADOPTIONS_GO],
+    [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
+    [PETSITE.name, PETSITE],
+    [TRAFFICGENERATOR.name, TRAFFICGENERATOR],
+]);
+
+/** Paths to pet image assets for seeding the application */
+export const PET_IMAGES = [
+    '../../PetAdoptions/cdk/pet_stack/resources/bunnies.zip',
+    '../../PetAdoptions/cdk/pet_stack/resources/kitten.zip',
+    '../../PetAdoptions/cdk/pet_stack/resources/puppies.zip',
 ];
+
+/** Prefix for AWS Systems Manager Parameter Store parameters */
+export const PARAMETER_STORE_PREFIX = '/petstore';
+
+/** Lambda function configuration for pet status updater */
+export const STATUS_UPDATER_FUNCTION = {
+    name: 'petupdater',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../../PetAdoptions/petstatusupdater/package-lock.json',
+    entry: '../../PetAdoptions/petstatusupdater/index.js',
+    memorySize: 128,
+    handle: 'handler',
+};
+
+/** Map of Lambda function names to their configurations */
+export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
+    [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
+]);
+
+/** Maximum number of Availability Zones to use for high availability */
+export const MAX_AVAILABILITY_ZONES = 2;
+
+/** Aurora PostgreSQL engine version for the workshop database */
+export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;

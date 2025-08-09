@@ -408,3 +408,6 @@ $RECYCLE.BIN/
 # Allow CDK lib folder
 !src/cdk/lib
 .ash/ash_output
+# editor settings
+.vscode/settings.json
+wiki-docs/

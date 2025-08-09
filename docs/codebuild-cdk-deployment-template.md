@@ -125,7 +125,7 @@ flowchart TD
 ```bash
 aws cloudformation create-stack \
   --stack-name MyWorkshop-CDK-Deployment \
-  --template-body file://codebuild-deployment-template-simplified.yaml \
+  --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
     ParameterKey=pOrganizationName,ParameterValue=my-org \
@@ -139,7 +139,7 @@ aws cloudformation create-stack \
 ```bash
 aws cloudformation create-stack \
   --stack-name MyWorkshop-CDK-Deployment \
-  --template-body file://codebuild-deployment-template-simplified.yaml \
+  --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
     ParameterKey=pConfigFileUrl,ParameterValue=https://example.com/config.json \
