@@ -10,6 +10,18 @@ on:
     branches: [main, staging]
     paths:
       - 'src/cdk/**'
+      - 'typedoc.json'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'src/cdk/**'
+      - 'typedoc.json'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
