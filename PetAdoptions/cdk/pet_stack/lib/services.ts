@@ -18,6 +18,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
+import * as applicationsignals from 'aws-cdk-lib/aws-applicationsignals';
 
 import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -43,6 +44,11 @@ export class Services extends Stack {
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
             visibilityTimeout: Duration.seconds(300)
         });
+
+        // Enable Application Signals in the account
+        const cfnDiscovery = new applicationsignals.CfnDiscovery(this,
+            'ApplicationSignalsServiceRole', { }
+        );
 
         // Create SNS and an email topic to send notifications to
         const topic_petadoption = new sns.Topic(this, 'topic_petadoption');
@@ -393,6 +399,8 @@ export class Services extends Stack {
         });
         cwserviceaccount.assumeRolePolicy?.addStatements(cw_trustRelationship);
 
+        // Comment out X-Ray service account for petsite
+        /*
         const xray_federatedPrincipal = new iam.FederatedPrincipal(
             cluster.openIdConnectProvider.openIdConnectProviderArn,
             {
@@ -418,6 +426,7 @@ export class Services extends Stack {
             ],
         });
         xrayserviceaccount.assumeRolePolicy?.addStatements(xray_trustRelationship);
+        */
 
         const loadbalancer_federatedPrincipal = new iam.FederatedPrincipal(
             cluster.openIdConnectProvider.openIdConnectProviderArn,
@@ -455,6 +464,8 @@ export class Services extends Stack {
             ]);
         }
 
+        // Comment out X-Ray deployment for petsite
+        /*
         var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml", "utf8")) as Record<string, any>[];
 
         xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value: `${xrayserviceaccount.roleArn}` });
@@ -463,6 +474,7 @@ export class Services extends Stack {
             cluster: cluster,
             manifest: xRayYaml
         });
+        */
 
         var loadBalancerServiceAccountYaml = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml", "utf8")) as Record<string, any>[];
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value: `${loadBalancerserviceaccount.roleArn}` });
@@ -507,7 +519,7 @@ export class Services extends Stack {
 
 
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
-        const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
+        const cwAddon = new eks.CfnAddon(this, 'CloudWatchObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
             addonVersion: 'v3.3.0-eksbuild.1',
             clusterName: cluster.clusterName,
@@ -657,7 +669,7 @@ export class Services extends Stack {
         this.createOuputs(new Map(Object.entries({
             'CWServiceAccountArn': cwserviceaccount.roleArn,
             'NetworkFlowMonitorServiceAccountArn': networkFlowMonitorRole.attrArn,
-            'XRayServiceAccountArn': xrayserviceaccount.roleArn,
+            //'XRayServiceAccountArn': xrayserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             'PetSiteUrl': `http://${alb.loadBalancerDnsName}`,

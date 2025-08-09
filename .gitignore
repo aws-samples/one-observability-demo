@@ -411,3 +411,6 @@ $RECYCLE.BIN/
 # editor settings
 .vscode/settings.json
 wiki-docs/
+# Go binaries
+PetAdoptions/payforadoption-go/petadoptions
+PetAdoptions/petsite/petsite/appsettings.Development.json

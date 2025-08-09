@@ -3,29 +3,24 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Amazon.XRay.Recorder.Core;
-using Amazon.XRay.Recorder.Handlers.System.Net;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace PetSite.Controllers;
 
 public class PetHistoryController : Controller
 {
-    private IConfiguration _configuration;
-    private readonly ILogger<HomeController> _logger;
-    private static HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
+    private readonly IHttpClientFactory _httpClientFactory;
     private static string _pethistoryurl;
     
-    public PetHistoryController(IConfiguration configuration)
+    public PetHistoryController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
-        AWSSDKHandler.RegisterXRayForAllServices();
         _configuration = configuration;
-        _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
+        _httpClientFactory = httpClientFactory;
         
         _pethistoryurl = _configuration["pethistoryurl"];
         //string _pethistoryurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"pethistoryurl");
-
     }
     
     /// <summary>
@@ -35,9 +30,28 @@ public class PetHistoryController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        AWSXRayRecorder.Instance.BeginSubsegment("Calling GetPetAdoptionsHistory");
-        ViewData["pethistory"] = await _httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions");
-        AWSXRayRecorder.Instance.EndSubsegment();
+        // Add custom span attributes using Activity API
+        var currentActivity = Activity.Current;
+        if (currentActivity != null)
+        {
+            currentActivity.SetTag("operation", "GetPetAdoptionsHistory");
+        }
+        
+        try
+        {
+            // Create a new activity for the API call
+            using (var activity = new Activity("Calling GetPetAdoptionsHistory").Start())
+            {
+                using var httpClient = _httpClientFactory.CreateClient();
+                ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions");
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error calling GetPetAdoptionsHistory: {e.Message}");
+            throw;
+        }
+        
         return View();
     }
 
@@ -48,10 +62,28 @@ public class PetHistoryController : Controller
     [HttpDelete]
     public async Task<IActionResult> DeletePetAdoptionsHistory()
     {
-        AWSXRayRecorder.Instance.BeginSubsegment("Calling DeletePetAdoptionsHistory");
-        ViewData["pethistory"] = await _httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions");
-        AWSXRayRecorder.Instance.EndSubsegment();
+        // Add custom span attributes using Activity API
+        var currentActivity = Activity.Current;
+        if (currentActivity != null)
+        {
+            currentActivity.SetTag("operation", "DeletePetAdoptionsHistory");
+        }
+        
+        try
+        {
+            // Create a new activity for the API call
+            using (var activity = new Activity("Calling DeletePetAdoptionsHistory").Start())
+            {
+                using var httpClient = _httpClientFactory.CreateClient();
+                ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions");
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error calling DeletePetAdoptionsHistory: {e.Message}");
+            throw;
+        }
+        
         return View("Index");
     }
-    
 }
