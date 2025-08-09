@@ -13,8 +13,6 @@ Parameters:
     Default: "arn:aws:secretsmanager:REGION:ACCOUNTID:secret:SECRET_NAME"
     Description: ARN of the RDS secret in Secrets Manager
 
-
-
   VpcId:
     Type: String
     Default: "vpc-123abc"
@@ -29,11 +27,6 @@ Parameters:
     Type: String
     Default: "sg-123abc"
     Description: Security group ID for Lambda function
-
-  OtelLayerVersion:
-    Type: String
-    Default: "3"
-    Description: Version number of the AWS OTEL Lambda layer (check AWS docs for latest)
 
 Globals:
   Function:
