@@ -132,7 +132,7 @@ export class ContainersStack extends Stack {
             {
                 service: 'logs',
                 resource: 'log-group',
-                resourceName: '/aws/codepipeline*',
+                resourceName: '/aws/codepipeline/*',
                 arnFormat: ArnFormat.COLON_RESOURCE_NAME,
                 account: this.account,
                 region: this.region,
@@ -141,7 +141,7 @@ export class ContainersStack extends Stack {
             Stack.of(this),
         );
 
-        new Policy(this, 'CloudwatchPolicy', {
+        const cloudWatchPolicy = new Policy(this, 'CloudwatchPolicy', {
             statements: [
                 new PolicyStatement({
                     actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
@@ -202,6 +202,17 @@ export class ContainersStack extends Stack {
                 {
                     id: 'AwsSolutions-IAM5',
                     reason: 'Allow access to repositories and Artifact bucket',
+                },
+            ],
+            true,
+        );
+
+        NagSuppressions.addResourceSuppressions(
+            cloudWatchPolicy,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Allow access to Cloudwatch Log Groups for pipeline execution',
                 },
             ],
             true,

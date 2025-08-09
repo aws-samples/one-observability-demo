@@ -137,7 +137,7 @@ repos:
       hooks:
           - id: typedoc
             name: Typedoc markdown
-            entry: bash -c 'cd src/cdk && npm run docs:wiki'
+            entry: bash -c 'npx typedoc'
             language: system
             types: [ts]
             pass_filenames: false

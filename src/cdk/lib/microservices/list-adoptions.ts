@@ -29,7 +29,9 @@ export class ListAdoptionsService extends EcsService {
         });
     }
 
-    addPermissions(): void {
+    addPermissions(properties: ListAdoptionsServiceProperties): void {
+        properties.secret?.grantRead(this.taskRole);
+
         this.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
         );

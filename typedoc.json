@@ -1,14 +1,16 @@
 {
-  "entryPoints": ["src/cdk/index.ts"],
-  "out": "./docs",
+  "entryPoints": ["src/cdk/lib"],
+  "entryPointStrategy": "expand",
+  "out": "./wiki-docs",
   "theme": "default",
   "name": "One Observability Workshop",
   "includeVersion": true,
   "excludePrivate": true,
   "excludeProtected": false,
   "excludeExternals": true,
-  "readme": "./src/cdk/README.md",
+  "readme": "./README.md",
   "plugin": ["typedoc-plugin-markdown"],
+  "projectDocuments": ["CONTRIBUTING.md", "ARCHITECTURE.md", "docs/codebuild-cdk-deployment-template.md", "docs/diagrams/README.md"],
   "gitRevision": "main",
   "hideGenerator": true,
   "sort": ["source-order"],
@@ -46,5 +48,7 @@
     "Functions",
     "Variables",
     "*"
-  ]
+  ],
+  "tsconfig": "src/cdk/tsconfig.json",
+  "treatWarningsAsErrors": false
 }
