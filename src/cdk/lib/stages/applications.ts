@@ -41,7 +41,7 @@ export class MicroservicesStage extends Stage {
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
 
-        this.stack = new MicroservicesStack(this, 'MicroserviceStack', properties);
+        this.stack = new MicroservicesStack(this, 'Microservice', properties);
 
         if (properties.tags) {
             Utilities.TagConstruct(this.stack, properties.tags);

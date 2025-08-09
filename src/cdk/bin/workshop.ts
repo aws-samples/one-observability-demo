@@ -51,7 +51,7 @@ const app = new App();
  * Create the main pipeline stack for the One Observability Workshop.
  * Configuration values are resolved from CDK context first, then fall back to environment variables.
  */
-new CDKPipeline(app, 'OneObservabilityWorkshopPipeline', {
+new CDKPipeline(app, 'OneObservability', {
     configBucketName: app.node.tryGetContext('configBucketName') || CONFIG_BUCKET,
     branchName: app.node.tryGetContext('branchName') || BRANCH_NAME,
     organizationName: app.node.tryGetContext('organizationName') || ORGANIZATION_NAME,
