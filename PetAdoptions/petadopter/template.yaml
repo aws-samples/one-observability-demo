@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pet Adopter Lambda function for processing adoption messages from SQS
+
+Parameters:
+  SQSQueueArn:
+    Type: String
+    Default: "arn:aws:sqs:REGION:ACCOUNTID:QUEUE_NAME"
+    Description: ARN of the SQS queue for adoption messages
+  
+  RDSSecretArn:
+    Type: String
+    Default: "arn:aws:secretsmanager:REGION:ACCOUNTID:secret:SECRET_NAME"
+    Description: ARN of the RDS secret in Secrets Manager
+  
+  UpdateAdoptionURL:
+    Type: String
+    Default: "API_GATEWAY_ENDPOINT"
+    Description: URL of the pet status updater service
+  
+  VpcId:
+    Type: String
+    Default: "vpc-123abc"
+    Description: VPC ID for Lambda deployment
+  
+  SubnetIds:
+    Type: CommaDelimitedList
+    Default: "subnet-123abc,subnet-456def"
+    Description: Comma-delimited list of subnet IDs for Lambda deployment
+  
+  SecurityGroupId:
+    Type: String
+    Default: "sg-123abc"
+    Description: Security group ID for Lambda function
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures:
+      - x86_64
+    Timeout: 60
+    MemorySize: 512
+    LoggingConfig:
+      LogFormat: JSON
+    Environment:
+      Variables:
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+
+Resources:
+  PetAdopterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pet-adopter
+      Description: Lambda function to process adoption messages from SQS and write to database
+      CodeUri: ./
+      Handler: index.handler
+      
+      # VPC Configuration for RDS access
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds: !Ref SubnetIds
+      
+      # Environment Variables
+      Environment:
+        Variables:
+          RDS_SECRET_ARN: !Ref RDSSecretArn
+          UPDATE_ADOPTION_URL: !Ref UpdateAdoptionURL
+          # Enable CloudWatch Application Signals auto-instrumentation
+          AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+          OTEL_SERVICE_NAME: pet-adopter
+      
+      # AWS Distro for OpenTelemetry Layer for auto-instrumentation
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:901920570463:layer:aws-otel-nodejs-amd64-ver-1-18-1:4"
+      
+      # SQS Event Source
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !Ref SQSQueueArn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+      
+      # IAM Policies
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaVPCAccessExecutionRole
+        
+        # Secrets Manager access
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref RDSSecretArn
+        
+        # RDS access (if using RDS Proxy or IAM database authentication)
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - rds-db:connect
+              Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/lambda-user"
+        
+        # CloudWatch Application Signals permissions (automatically included with OTEL layer)
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource: "*"
+
+  # CloudWatch Log Group with retention
+  PetAdopterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${PetAdopterFunction}"
+      RetentionInDays: 14
+
+Outputs:
+  PetAdopterFunctionArn:
+    Description: "Pet Adopter Lambda Function ARN"
+    Value: !GetAtt PetAdopterFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-PetAdopterFunctionArn"
+  
+  PetAdopterFunctionName:
+    Description: "Pet Adopter Lambda Function Name"
+    Value: !Ref PetAdopterFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-PetAdopterFunctionName"
