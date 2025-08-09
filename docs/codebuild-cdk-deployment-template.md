@@ -33,7 +33,7 @@ This template creates a complete infrastructure for automated CDK deployments, i
 
 ## Architecture
 
-![Architecture Diagram](diagrams/architecture-diagram.png)
+![Architecture Diagram](docs/diagrams/architecture-diagram.png)
 
 The architecture consists of several key components:
 
@@ -43,7 +43,7 @@ The architecture consists of several key components:
 
 ## Deployment Flow
 
-![Deployment Flow](diagrams/deployment-flow.png)
+![Deployment Flow](docs/diagrams/deployment-flow.png)
 
 The deployment follows this detailed flow:
 

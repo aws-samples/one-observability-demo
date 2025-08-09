@@ -57,5 +57,5 @@
     "invalidLink": false,
     "notDocumented": false
   },
-  "blockTags": ["@optional", "@extends", "@param", "@returns", "@throws", "@see", "@example", "@deprecated", "@since", "@author"]
+  "blockTags": ["@optional", "@extends", "@param", "@returns", "@throws", "@see", "@example", "@deprecated", "@since", "@author", "@default"]
 }
