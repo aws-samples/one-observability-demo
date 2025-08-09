@@ -6,11 +6,11 @@ on:
     pull_request:
         branches: [main]
         paths:
-            - 'PetAdoptions/cdk/**'
+            - 'src/cdk/**'
     push:
         branches: [main]
         paths:
-            - 'PetAdoptions/cdk/**'
+            - 'src/cdk/**'
 
 jobs:
     cdk-synth-test:
@@ -28,29 +28,29 @@ jobs:
             - name: Cache node modules
               uses: actions/cache@v4
               with:
-                  path: PetAdoptions/cdk/pet_stack/node_modules
-                  key: ${{ runner.os }}-node-${{ hashFiles('PetAdoptions/cdk/pet_stack/package.json') }}
+                  path: src/cdk/node_modules
+                  key: ${{ runner.os }}-node-${{ hashFiles('src/cdk/package.json') }}
                   restore-keys: |
                       ${{ runner.os }}-node-
 
             - name: Install dependencies
               run: npm install
-              working-directory: PetAdoptions/cdk/pet_stack
+              working-directory: src/cdk
 
             - name: Build TypeScript
               run: npm run build
-              working-directory: PetAdoptions/cdk/pet_stack
+              working-directory: src/cdk
 
             - name: TypeScript compilation check
               run: npx tsc --noEmit
-              working-directory: PetAdoptions/cdk/pet_stack
+              working-directory: src/cdk
 
             - name: CDK context validation
               run: |
                   echo "Validating CDK context and configuration..."
                   npx cdk context --clear
                   npx cdk ls
-              working-directory: PetAdoptions/cdk/pet_stack
+              working-directory: src/cdk
               env:
                   AWS_DEFAULT_REGION: us-east-1
                   AWS_REGION: us-east-1
@@ -58,8 +58,10 @@ jobs:
                   AWS_SECRET_ACCESS_KEY: dummy. #pragma: allowlist secret
 
             - name: Run CDK synth (dry run)
-              run: npx cdk synth --no-staging
-              working-directory: PetAdoptions/cdk/pet_stack
+              run: |
+                  cp .env.example .env
+                  npx cdk synth --no-staging
+              working-directory: src/cdk
               env:
                   # Set required AWS environment variables for synth
                   AWS_DEFAULT_REGION: us-east-1
@@ -69,7 +71,7 @@ jobs:
                   AWS_SECRET_ACCESS_KEY: dummy #pragma: allowlist secret
             - name: Run CDK diff (if applicable)
               run: npx cdk diff --no-staging || true
-              working-directory: PetAdoptions/cdk/pet_stack
+              working-directory: src/cdk
               env:
                   AWS_DEFAULT_REGION: us-east-1
                   AWS_REGION: us-east-1
