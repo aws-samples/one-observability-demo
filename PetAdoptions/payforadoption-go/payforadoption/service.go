@@ -73,14 +73,25 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		}
 	}
 
-	if err := s.repository.SendAdoptionMessage(ctx, a); err != nil {
-		level.Error(logger).Log("err", err, "action", "send_adoption_message_failed")
+	// Step 1: Create transaction in database (synchronous)
+	if err := s.repository.CreateTransaction(ctx, a); err != nil {
+		level.Error(logger).Log("err", err, "action", "create_transaction_failed")
 		return Adoption{}, err
 	}
 
-	err := s.repository.UpdateAvailability(ctx, a)
+	// Step 2: Update pet availability (synchronous)
+	if err := s.repository.UpdateAvailability(ctx, a); err != nil {
+		level.Error(logger).Log("err", err, "action", "update_availability_failed")
+		return Adoption{}, err
+	}
 
-	return a, err
+	// Step 3: Send history message to SQS (asynchronous - don't fail if this fails)
+	if err := s.repository.SendHistoryMessage(ctx, a); err != nil {
+		level.Warn(logger).Log("err", err, "action", "send_history_message_failed", "note", "continuing despite history message failure")
+		// Don't return error - history tracking is not critical for adoption success
+	}
+
+	return a, nil
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {

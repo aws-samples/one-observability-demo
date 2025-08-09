@@ -25,7 +25,8 @@ import (
 
 // Repository as an interface to define data store interactions
 type Repository interface {
-	SendAdoptionMessage(ctx context.Context, a Adoption) error
+	CreateTransaction(ctx context.Context, a Adoption) error
+	SendHistoryMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
@@ -61,12 +62,36 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 	}
 }
 
-func (r *repo) SendAdoptionMessage(ctx context.Context, a Adoption) error {
+func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("creating transaction in PG DB")
+
+	sql := `INSERT INTO transactions (pet_id, adoption_date, transaction_id, user_id) VALUES ($1, $2, $3, $4)`
+
+	r.logger.Log("sql", sql)
+	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.AdoptionDate, a.TransactionID, a.UserID)
+	if err != nil {
+		span.RecordError(err)
+		level.Error(r.logger).Log("error", "failed to create transaction", "err", err)
+		return err
+	}
+
+	level.Info(r.logger).Log(
+		"action", "transaction_created",
+		"transactionId", a.TransactionID,
+		"petId", a.PetID,
+		"userId", a.UserID,
+	)
+
+	return nil
+}
+
+func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 	// Create SQS client
 	sqsClient := sqs.NewFromConfig(r.cfg.AWSCfg)
 
-	// Prepare the adoption message
-	adoptionMessage := map[string]interface{}{
+	// Prepare the adoption history message
+	historyMessage := map[string]interface{}{
 		"transactionId": a.TransactionID,
 		"petId":         a.PetID,
 		"petType":       a.PetType,
@@ -76,9 +101,9 @@ func (r *repo) SendAdoptionMessage(ctx context.Context, a Adoption) error {
 	}
 
 	// Convert to JSON
-	messageBody, err := json.Marshal(adoptionMessage)
+	messageBody, err := json.Marshal(historyMessage)
 	if err != nil {
-		level.Error(r.logger).Log("error", "failed to marshal adoption message", "err", err)
+		level.Error(r.logger).Log("error", "failed to marshal history message", "err", err)
 		return err
 	}
 
@@ -104,12 +129,12 @@ func (r *repo) SendAdoptionMessage(ctx context.Context, a Adoption) error {
 
 	result, err := sqsClient.SendMessage(ctx, input)
 	if err != nil {
-		level.Error(r.logger).Log("error", "failed to send adoption message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
+		level.Error(r.logger).Log("error", "failed to send history message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
 		return err
 	}
 
 	level.Info(r.logger).Log(
-		"action", "adoption_message_sent",
+		"action", "history_message_sent",
 		"messageId", aws.ToString(result.MessageId),
 		"queueUrl", r.cfg.SQSQueueURL,
 		"transactionId", a.TransactionID,
@@ -122,18 +147,15 @@ func (r *repo) SendAdoptionMessage(ctx context.Context, a Adoption) error {
 
 func (r *repo) DropTransactions(ctx context.Context) error {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("saving history and removing transctions in PG DB")
+	span.AddEvent("removing transactions in PG DB")
 
-	sql := []string{`INSERT INTO transactions_history SELECT * FROM transactions`,
-		`DELETE FROM transactions`}
+	sql := `DELETE FROM transactions`
 
-	for _, s := range sql {
-		r.logger.Log("sql", s)
-		_, err := r.db.ExecContext(ctx, s)
-		if err != nil {
-			span.RecordError(err)
-			return err
-		}
+	r.logger.Log("sql", sql)
+	_, err := r.db.ExecContext(ctx, sql)
+	if err != nil {
+		span.RecordError(err)
+		return err
 	}
 
 	return nil
@@ -289,33 +311,20 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 }
 
 func (r *repo) CreateSQLTables(ctx context.Context) error {
-	sql := []string{
-		`CREATE TABLE IF NOT EXISTS transactions (
-			id SERIAL PRIMARY KEY,
-			pet_id VARCHAR,
-			adoption_date DATE,
-			transaction_id VARCHAR,
-			user_id VARCHAR
-		);
-		`,
-		`CREATE TABLE IF NOT EXISTS transactions_history (
-			id SERIAL PRIMARY KEY,
-			pet_id VARCHAR,
-			adoption_date DATE,
-			transaction_id VARCHAR,
-			user_id VARCHAR
-		);
-		`}
+	// cSpell:ignore VARCHAR
+	sql := `CREATE TABLE IF NOT EXISTS transactions (
+		id SERIAL PRIMARY KEY,
+		pet_id VARCHAR,
+		adoption_date DATE,
+		transaction_id VARCHAR,
+		user_id VARCHAR
+	);`
 
-	var err error = nil
-
-	for _, s := range sql {
-		r.logger.Log("sql", s)
-		_, err = r.db.ExecContext(ctx, s)
-		if err != nil {
-			return err
-		}
+	r.logger.Log("sql", sql)
+	_, err := r.db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
 	}
 
-	return err
+	return nil
 }
