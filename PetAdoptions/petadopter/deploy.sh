@@ -81,29 +81,7 @@ aws cloudformation describe-stacks \
 
 echo -e "${GREEN}✅ Pet Adopter Lambda function deployed successfully!${NC}"
 echo -e "${GREEN}🔍 Check CloudWatch Application Signals for observability data.${NC}"
-
-# Test the deployment
-echo -e "${YELLOW}🧪 Would you like to send a test message to verify the deployment? (y/N)${NC}"
-read -r TEST_CONFIRM
-if [[ $TEST_CONFIRM =~ ^[Yy]$ ]]; then
-    echo -e "${GREEN}📤 Sending test message to SQS queue...${NC}"
-    
-    TEST_MESSAGE='{
-        "transactionId": "'$(uuidgen | tr '[:upper:]' '[:lower:]')'",
-        "petId": "test-pet-123",
-        "petType": "dog",
-        "userId": "test-user-456",
-        "adoptiondate": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-        "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-    }'
-    
-    aws sqs send-message \
-        --queue-url "${SQS_QUEUE_ARN#*:sqs:*:*:}" \
-        --message-body "${TEST_MESSAGE}" \
-        --region "${REGION}"
-    
-    echo -e "${GREEN}✅ Test message sent! Check CloudWatch Logs for processing results.${NC}"
-    echo -e "${GREEN}📊 Monitor the function at: https://console.aws.amazon.com/lambda/home?region=${REGION}#/functions/pet-adopter${NC}"
-fi
+echo -e "${GREEN}📊 Application Signals will automatically detect the service and create service maps.${NC}"
+echo -e "${GREEN}🎯 X-Ray tracing is enabled for distributed tracing across services.${NC}"
 
 echo -e "${GREEN}🎉 Deployment complete!${NC}"

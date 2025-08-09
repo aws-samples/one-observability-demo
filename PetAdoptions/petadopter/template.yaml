@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Pet Adopter Lambda function for processing adoption messages from SQS
 
@@ -7,35 +7,40 @@ Parameters:
     Type: String
     Default: "arn:aws:sqs:REGION:ACCOUNTID:QUEUE_NAME"
     Description: ARN of the SQS queue for adoption messages
-  
+
   RDSSecretArn:
     Type: String
     Default: "arn:aws:secretsmanager:REGION:ACCOUNTID:secret:SECRET_NAME"
     Description: ARN of the RDS secret in Secrets Manager
-  
+
   UpdateAdoptionURL:
     Type: String
     Default: "API_GATEWAY_ENDPOINT"
     Description: URL of the pet status updater service
-  
+
   VpcId:
     Type: String
     Default: "vpc-123abc"
     Description: VPC ID for Lambda deployment
-  
+
   SubnetIds:
     Type: CommaDelimitedList
     Default: "subnet-123abc,subnet-456def"
     Description: Comma-delimited list of subnet IDs for Lambda deployment
-  
+
   SecurityGroupId:
     Type: String
     Default: "sg-123abc"
     Description: Security group ID for Lambda function
 
+  OtelLayerVersion:
+    Type: String
+    Default: "3"
+    Description: Version number of the AWS OTEL Lambda layer (check AWS docs for latest)
+
 Globals:
   Function:
-    Runtime: nodejs22.x
+    Runtime: nodejs18.x
     Architectures:
       - x86_64
     Timeout: 60
@@ -45,6 +50,8 @@ Globals:
     Environment:
       Variables:
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    # Enable X-Ray tracing for Application Signals
+    Tracing: Active
 
 Resources:
   PetAdopterFunction:
@@ -54,26 +61,35 @@ Resources:
       Description: Lambda function to process adoption messages from SQS and write to database
       CodeUri: ./
       Handler: index.handler
-      
+
       # VPC Configuration for RDS access
       VpcConfig:
         SecurityGroupIds:
           - !Ref SecurityGroupId
         SubnetIds: !Ref SubnetIds
-      
+
       # Environment Variables
       Environment:
         Variables:
           RDS_SECRET_ARN: !Ref RDSSecretArn
           UPDATE_ADOPTION_URL: !Ref UpdateAdoptionURL
-          # Enable CloudWatch Application Signals auto-instrumentation
+          # CloudWatch Application Signals configuration
           AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
-          OTEL_SERVICE_NAME: pet-adopter
-      
+          OTEL_SERVICE_NAME: petadopter
+          OTEL_SERVICE_VERSION: "1.0.0"
+          OTEL_PROPAGATORS: tracecontext,baggage,b3,xray
+          OTEL_NODE_DISABLED_INSTRUMENTATIONS: none
+          # Enable Application Signals
+          OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+          LAMBDA_APPLICATION_SIGNALS_REMOTE_ENVIRONMENT: lambda:default
+          OTEL_METRICS_EXPORTER: none
+          OTEL_LOGS_EXPORTER: none
+
       # AWS Distro for OpenTelemetry Layer for auto-instrumentation
+      # Using the correct AWS-managed OTEL layer for us-west-2
       Layers:
-        - !Sub "arn:aws:lambda:${AWS::Region}:901920570463:layer:aws-otel-nodejs-amd64-ver-1-18-1:4"
-      
+        - arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroJs:8
+
       # SQS Event Source
       Events:
         SQSEvent:
@@ -84,35 +100,49 @@ Resources:
             MaximumBatchingWindowInSeconds: 5
             FunctionResponseTypes:
               - ReportBatchItemFailures
-      
+
       # IAM Policies
       Policies:
         - AWSLambdaBasicExecutionRole
         - AWSLambdaVPCAccessExecutionRole
-        
+
         # Secrets Manager access
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref RDSSecretArn
-        
+
         # RDS access (if using RDS Proxy or IAM database authentication)
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action:
                 - rds-db:connect
               Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/lambda-user"
-        
-        # CloudWatch Application Signals permissions (automatically included with OTEL layer)
-        - Version: '2012-10-17'
+
+        # X-Ray and CloudWatch Application Signals permissions
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action:
                 - xray:PutTraceSegments
                 - xray:PutTelemetryRecords
+                - cloudwatch:PutMetricData
+                - logs:PutLogEvents
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+              Resource: "*"
+
+        # Application Signals specific permissions
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - application-signals:PutServiceLevelObjective
+                - application-signals:GetServiceLevelObjective
+                - application-signals:ListServiceLevelObjectives
               Resource: "*"
 
   # CloudWatch Log Group with retention
@@ -122,13 +152,48 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${PetAdopterFunction}"
       RetentionInDays: 14
 
+  # CloudWatch Alarms for monitoring
+  PetAdopterErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${PetAdopterFunction}-Errors"
+      AlarmDescription: "Pet Adopter Lambda function error rate is too high"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetAdopterFunction
+      TreatMissingData: notBreaching
+
+  PetAdopterDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${PetAdopterFunction}-Duration"
+      AlarmDescription: "Pet Adopter Lambda function duration is too high"
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 50000 # 50 seconds
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetAdopterFunction
+      TreatMissingData: notBreaching
+
 Outputs:
   PetAdopterFunctionArn:
     Description: "Pet Adopter Lambda Function ARN"
     Value: !GetAtt PetAdopterFunction.Arn
     Export:
       Name: !Sub "${AWS::StackName}-PetAdopterFunctionArn"
-  
+
   PetAdopterFunctionName:
     Description: "Pet Adopter Lambda Function Name"
     Value: !Ref PetAdopterFunction
