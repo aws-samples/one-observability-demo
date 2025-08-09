@@ -45,10 +45,6 @@ jobs:
         run: npm ci
         working-directory: src/cdk
 
-      - name: Build TypeScript
-        run: npm run build
-        working-directory: src/cdk
-
       - name: Create ASH scan link
         run: |
           echo "# Security Scan Results" > ASH_SCAN.md

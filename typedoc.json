@@ -10,7 +10,8 @@
   "excludeExternals": true,
   "readme": "./README.md",
   "plugin": ["typedoc-plugin-markdown"],
-  "projectDocuments": ["CONTRIBUTING.md", "ARCHITECTURE.md", "docs/codebuild-cdk-deployment-template.md", "docs/diagrams/README.md"],
+  "projectDocuments": ["CONTRIBUTING.md", "docs/codebuild-cdk-deployment-template.md"],
+  "exclude": ["**/*.d.ts", "**/node_modules/**", "**/cdk.out/**"],
   "gitRevision": "main",
   "hideGenerator": true,
   "sort": ["source-order"],
@@ -50,5 +51,11 @@
     "*"
   ],
   "tsconfig": "src/cdk/tsconfig.json",
-  "treatWarningsAsErrors": false
+  "treatWarningsAsErrors": false,
+  "validation": {
+    "notExported": false,
+    "invalidLink": false,
+    "notDocumented": false
+  },
+  "blockTags": ["@optional"]
 }
