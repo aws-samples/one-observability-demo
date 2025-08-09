@@ -45,6 +45,11 @@ jobs:
               run: npx tsc --noEmit
               working-directory: src/cdk
 
+            - name: Generate environment variables
+              run: |
+                  cp .env.example .env
+              working-directory: src/cdk
+
             - name: CDK context validation
               run: |
                   echo "Validating CDK context and configuration..."
@@ -59,7 +64,6 @@ jobs:
 
             - name: Run CDK synth (dry run)
               run: |
-                  cp .env.example .env
                   npx cdk synth --no-staging
               working-directory: src/cdk
               env:
