@@ -66,9 +66,6 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - name: petstatusupdater
-            path: PetAdoptions/petstatusupdater
-            node-version: '16'
           - name: pethistory
             path: PetAdoptions/pethistory
             node-version: '18'
@@ -112,7 +109,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore ${{ matrix.project.path }}
