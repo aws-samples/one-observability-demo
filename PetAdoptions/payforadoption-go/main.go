@@ -126,14 +126,6 @@ func main() {
 			os.Exit(-1)
 		}
 
-		// Register DB stats to meter
-		err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
-			semconv.DBSystemMySQL,
-		))
-		if err != nil {
-			level.Error(logger).Log("RegisterDBStatsMetrics error", err)
-		}
-
 		defer db.Close()
 	}
 
