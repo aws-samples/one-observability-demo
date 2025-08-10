@@ -1,5 +1,6 @@
 # Go binaries
-PetAdoptions/payforadoption-go/petadoptions
+# cspell:ignore petadoptions
+petadoptions
 **/.DS_Store
 **/assets
 **/.idea
