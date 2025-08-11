@@ -211,13 +211,6 @@ Conditions:
 Resources:
   # Lambda execution role for resource cleanup
   rResourceCleanupRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: AWS managed policies are acceptable for a Lambda function
-          - id: AwsSolutions-IAM5
-            reason: Wildcard is needed since stack name is automatically generated
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -246,10 +239,6 @@ Resources:
 
   # Lambda function to clean up resources
   rResourceCleanupFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
-    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       Runtime: python3.13
@@ -281,13 +270,6 @@ Resources:
 
   # Create S3 bucket to store configuration files
   rConfigBucket:
-    # checkov:skip=CKV_AWS_18:Bucket used to trigger CodePipeline, access logs are not needed
-    # checkov:skip=CKV_AWS_21:Bucket used to trigger CodePipeline, object versioning is not needed
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-S1
-            reason: Bucket used to trigger CodePipeline, access logs are not needed
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
@@ -357,13 +339,6 @@ Resources:
                 aws:SecureTransport: 'false'
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: AWS managed policies are acceptable for a CodeBuild project
-          - id: AwsSolutions-IAM5
-            reason: Wildcard is needed since we have no control on the pipeline name
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -433,12 +408,6 @@ Resources:
 
   # Create CodeBuild project to orchestrate CDK deployment
   rCDKDeploymentProject:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-CB4
-            reason: CodeBuild Project is used to kickoff the initial CDK deployment. AWS KMS
-              is not required
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
@@ -541,11 +510,20 @@ Resources:
             build:
               commands:
                 - cd $WORKING_FOLDER
-                # Install dependencies and deploy
+                # Install dependencies and synthesize CDK
                 - npm install
+                - cdk synth
                 # Get list of stacks and store in Parameter Store
-                - STACK_LIST=$(cdk list --json | jq -r '.[]' | tr '\n' ',' | sed 's/,$//')
-                - aws ssm put-parameter --name "/cdk-cleanup/$STACK_NAME/stacks" --value "$STACK_LIST" --type "String" --overwrite
+                - |
+                  STACK_LIST=$(cdk list | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+
+                  if [ -z "$STACK_LIST" ]; then
+                    echo "ERROR: Could not get stack list from cdk list"
+                    exit 1
+                  fi
+
+                  echo "Stack list: $STACK_LIST"
+                  aws ssm put-parameter --name "/cdk-cleanup/$STACK_NAME/stacks" --value "$STACK_LIST" --type "String" --overwrite
                 - cdk deploy --require-approval never --outputs-file cdk-outputs.json
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
@@ -738,10 +716,6 @@ Resources:
 
   # Create Lambda function to start the CodeBuild project
   rStartDeploymentFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out
-    # checkov:skip=CKV_AWS_173:Custom Resource Lambda, encryption is not included for simplicity
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       Runtime: python3.13
@@ -808,11 +782,6 @@ Resources:
 
   # Create IAM role for start deployment Lambda function
   rStartDeploymentFunctionRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: Use of AWSLambdaBasicExecutionRole is acceptable here
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -865,13 +834,6 @@ Resources:
   # Step Function for CDK Stack Cleanup
   rCDKCleanupStateMachine:
     Type: AWS::StepFunctions::StateMachine
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-SF1
-            reason: The purpose of the step function is to clean up all resources, additional logs not needed
-          - id: AwsSolutions-SF2
-            reason: X-Ray is not needed for this function since only CFN endpoint is used
     Properties:
       StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
       RoleArn: !GetAtt rCDKCleanupRole.Arn
@@ -1015,11 +977,6 @@ Resources:
 
   # IAM Role for Step Function
   rCDKCleanupRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM5
-            reason: Wildcard is acceptable for describe stack action
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -1056,9 +1013,6 @@ Resources:
 
   # Lambda function to check if CDK stack exists
   rCDKStackCheckerFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to check CFN stack status
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cdk-stack-checker
@@ -1087,13 +1041,6 @@ Resources:
 
   # IAM Role for CDK Stack Checker Lambda
   rCDKStackCheckerRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: AWS managed policies are acceptable for Lambda function
-          - id: AwsSolutions-IAM5
-            reason: Wildcard is acceptable for describe stack action
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -1180,9 +1127,6 @@ Resources:
 
   # Lambda function to clean up Parameter Store parameter
   rParameterCleanupFunction:
-    # checkov:skip=CKV_AWS_117:Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed
-    # checkov:skip=CKV_AWS_116:DLQ will increase complexity, this is not needed just to delete the parameter
-    # checkov:skip=CKV_AWS_115:Function is executed only once, no need for concurrency configurations
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-parameter-cleanup
@@ -1214,11 +1158,6 @@ Resources:
 
   # IAM Role for Parameter Cleanup Lambda
   rParameterCleanupRole:
-    Metadata:
-      cdk_nag:
-        rules_to_suppress:
-          - id: AwsSolutions-IAM4
-            reason: AWS managed policies are acceptable for Lambda function
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:

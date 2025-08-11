@@ -22,6 +22,124 @@ global_settings:
         - rule_id: SECRET-SECRET-KEYWORD
           path: '.github/workflows/cdk-test.yml'
           reason: 'Dummy secret'
+        # CDK-Nag suppressions moved from inline in codebuild-deployment-template.yaml
+        - rule_id: AwsSolutions-S1
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, access logs are not needed'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupRole'
+          reason: 'AWS managed policies are acceptable for a Lambda function'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupRole'
+          reason: 'Wildcard is needed since stack name is automatically generated'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCodeBuildServiceRole'
+          reason: 'AWS managed policies are acceptable for a CodeBuild project'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCodeBuildServiceRole'
+          reason: 'Wildcard is needed since we have no control on the pipeline name'
+        - rule_id: AwsSolutions-CB4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKDeploymentProject'
+          reason: 'CodeBuild Project is used to kickoff the initial CDK deployment. AWS KMS is not required'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunctionRole'
+          reason: 'Use of AWSLambdaBasicExecutionRole is acceptable here'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackCheckerRole'
+          reason: 'AWS managed policies are acceptable for Lambda function'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackCheckerRole'
+          reason: 'Wildcard is acceptable for describe stack action'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupRole'
+          reason: 'Wildcard is acceptable for describe stack action'
+        - rule_id: AwsSolutions-SF1
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupStateMachine'
+          reason: 'The purpose of the step function is to clean up all resources, additional logs not needed'
+        - rule_id: AwsSolutions-SF2
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupStateMachine'
+          reason: 'X-Ray is not needed for this function since only CFN endpoint is used'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rParameterCleanupRole'
+          reason: 'AWS managed policies are acceptable for Lambda function'
+        # Checkov suppressions moved from inline comments in codebuild-deployment-template.yaml
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out'
+        - rule_id: CKV_AWS_173
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Custom Resource Lambda, encryption is not included for simplicity'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+        - rule_id: CKV_AWS_18
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, access logs are not needed'
+        - rule_id: CKV_AWS_21
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, object versioning is not needed'
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out'
+        - rule_id: CKV_AWS_173
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Custom Resource Lambda, encryption is not included for simplicity'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackCheckerFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackCheckerFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to check CFN stack status'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackCheckerFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rParameterCleanupFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rParameterCleanupFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to delete the parameter'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rParameterCleanupFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
 fail_on_findings: true
 ash_plugin_modules: []
 external_reports_to_include: []
