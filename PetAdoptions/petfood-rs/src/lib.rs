@@ -4,4 +4,4 @@ pub mod models;
 pub mod repositories;
 pub mod services;
 
-pub use config::Config;
+pub use config::{Config, ConfigError, ParameterStoreConfig};
