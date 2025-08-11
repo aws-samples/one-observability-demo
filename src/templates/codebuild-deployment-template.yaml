@@ -513,18 +513,19 @@ Resources:
                 # Install dependencies and synthesize CDK
                 - npm install
                 - cdk synth
-                # Get list of stacks and store in Parameter Store
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                # Get list of actual deployed stack names after deployment
                 - |
-                  STACK_LIST=$(cdk list | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+                  echo "Getting deployed stack names..."
+                  STACK_LIST=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE --query 'StackSummaries[?contains(StackName, `OneObservability`) || contains(StackName, `Core-Stack`) || contains(StackName, `Applications-`) || contains(StackName, `Storage-`) || contains(StackName, `Compute-`) || contains(StackName, `Microservices-`)].StackName' --output text | tr '\t' ',' | sed 's/,$//')
 
                   if [ -z "$STACK_LIST" ]; then
-                    echo "ERROR: Could not get stack list from cdk list"
+                    echo "ERROR: Could not get deployed stack list"
                     exit 1
                   fi
 
-                  echo "Stack list: $STACK_LIST"
+                  echo "Deployed stack list: $STACK_LIST"
                   aws ssm put-parameter --name "/cdk-cleanup/$STACK_NAME/stacks" --value "$STACK_LIST" --type "String" --overwrite
-                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
