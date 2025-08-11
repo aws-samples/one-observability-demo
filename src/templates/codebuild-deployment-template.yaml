@@ -8,7 +8,7 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
-  This CloudFormation template automates the deployment of AWS Cloud Development Kit (CDK) projects for workshop environments. It creates the necessary infrastructure to bootstrap AWS accounts for CDK usage, clone source code repositories, and deploy CDK applications in a consistent and repeatable manner. The template provisions an S3 bucket for configuration storage, a CodeBuild project that handles the CDK deployment process, and monitoring resources to track deployment status. This solution simplifies workshop setup by eliminating manual bootstrapping steps and ensuring consistent deployments across multiple participant accounts. It supports both GitHub and CodeCommit repositories as source code locations and includes error handling for failed deployments. The template is designed to be flexible enough to accommodate various workshop scenarios while providing a standardized deployment experience for workshop facilitators and participants.
+  Automates CDK project deployment for workshop environments. Provisions S3 storage, CodeBuild project, and monitoring resources to bootstrap AWS accounts and deploy CDK applications consistently. Includes error handling and cleanup mechanisms for failed deployments. For more details, see: https://github.com/aws-samples/one-observability-demo
 
 Metadata:
   AWS::CloudFormation::Interface:
