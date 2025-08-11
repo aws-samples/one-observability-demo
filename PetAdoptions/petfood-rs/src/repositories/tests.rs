@@ -484,5 +484,5 @@ mod repository_tests {
 }
 
 // Re-export test helpers for integration tests
-#[cfg(test)]
-pub use repository_tests::integration_test_helpers;
+// #[cfg(test)]
+// pub use repository_tests::integration_test_helpers;

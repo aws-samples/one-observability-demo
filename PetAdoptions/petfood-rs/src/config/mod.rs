@@ -72,12 +72,14 @@ pub struct ObservabilityConfig {
     pub service_name: String,
     #[serde(default = "default_service_version")]
     pub service_version: String,
-    #[serde(default = "default_otlp_endpoint")]
-    pub otlp_endpoint: String,
+    #[serde(default = "default_otlp_endpoint_option")]
+    pub otlp_endpoint: Option<String>,
     #[serde(default = "default_metrics_port")]
     pub metrics_port: u16,
     #[serde(default = "default_log_level")]
     pub log_level: String,
+    #[serde(default = "default_enable_json_logging")]
+    pub enable_json_logging: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -382,8 +384,14 @@ pub(crate) fn default_service_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-pub(crate) fn default_otlp_endpoint() -> String {
-    "http://localhost:4317".to_string()
+pub(crate) fn default_otlp_endpoint_option() -> Option<String> {
+    std::env::var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT").ok()
+}
+
+pub(crate) fn default_enable_json_logging() -> bool {
+    std::env::var("PETFOOD_OBSERVABILITY_ENABLE_JSON_LOGGING")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false)
 }
 
 pub(crate) fn default_metrics_port() -> u16 {

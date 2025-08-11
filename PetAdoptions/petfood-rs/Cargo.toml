@@ -21,7 +21,7 @@ aws-sdk-ssm = "1.0"
 
 # Observability - OpenTelemetry
 opentelemetry = "0.21"
-opentelemetry_sdk = "0.21"
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.14"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

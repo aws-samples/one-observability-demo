@@ -5,7 +5,7 @@ mod tests {
         ParameterStoreConfig, ServerConfig,
         default_cache_ttl, default_carts_table, default_error_mode_enabled,
         default_foods_table, default_host, default_log_level, default_max_request_size,
-        default_metrics_port, default_otlp_endpoint, default_parameter_prefix,
+        default_metrics_port, default_otlp_endpoint_option, default_parameter_prefix,
         default_port, default_region, default_service_name, default_timeout,
     };
     use aws_sdk_ssm::Client as SsmClient;
@@ -14,6 +14,12 @@ mod tests {
 
     #[test]
     fn test_server_config_from_env() {
+        // Clean up first to ensure clean state
+        env::remove_var("PETFOOD_SERVER_HOST");
+        env::remove_var("PETFOOD_SERVER_PORT");
+        env::remove_var("PETFOOD_SERVER_REQUEST_TIMEOUT_SECONDS");
+        env::remove_var("PETFOOD_SERVER_MAX_REQUEST_SIZE");
+        
         // Set environment variables
         env::set_var("PETFOOD_SERVER_HOST", "127.0.0.1");
         env::set_var("PETFOOD_SERVER_PORT", "8080");
@@ -83,7 +89,7 @@ mod tests {
 
         assert_eq!(config.service_name, "test-service");
         assert_eq!(config.service_version, "1.0.0");
-        assert_eq!(config.otlp_endpoint, "http://test:4317");
+        assert_eq!(config.otlp_endpoint, Some("http://test:4317".to_string()));
         assert_eq!(config.metrics_port, 9091);
         assert_eq!(config.log_level, "debug");
 
@@ -181,6 +187,10 @@ mod tests {
 
     #[test]
     fn test_default_values() {
+        // Clean up any environment variables that might affect defaults
+        env::remove_var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT");
+        env::remove_var("PETFOOD_OBSERVABILITY_ENABLE_JSON_LOGGING");
+        
         assert_eq!(default_host(), "0.0.0.0");
         assert_eq!(default_port(), 80);
         assert_eq!(default_timeout(), 30);
@@ -189,7 +199,7 @@ mod tests {
         assert_eq!(default_carts_table(), "PetFoodCarts");
         assert_eq!(default_region(), "us-west-2");
         assert_eq!(default_service_name(), "petfood-rs");
-        assert_eq!(default_otlp_endpoint(), "http://localhost:4317");
+        assert_eq!(default_otlp_endpoint_option(), None);
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
         assert_eq!(default_error_mode_enabled(), false);
