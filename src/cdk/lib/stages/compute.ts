@@ -53,14 +53,14 @@ export class ComputeStack extends Stack {
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
         const { topic } = QueueResources.importFromExports(this, 'ImportedQueueResources');
 
-        this.ecs = new WorkshopEcs(this, 'ECS', {
+        this.ecs = new WorkshopEcs(this, 'PetsiteECS', {
             vpc,
             topic,
             ecsEc2Capacity: properties?.ecsEc2Capacity,
             ecsEc2InstanceType: properties?.ecsEc2InstanceType,
         });
 
-        this.eks = new WorkshopEks(this, 'EKS', {
+        this.eks = new WorkshopEks(this, 'PetsiteEKS', {
             vpc,
             eksEc2Capacity: properties?.eksEc2Capacity,
             eksEc2InstanceType: properties?.eksEc2InstanceType,

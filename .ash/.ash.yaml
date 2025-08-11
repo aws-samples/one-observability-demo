@@ -53,11 +53,11 @@ global_settings:
           reason: 'Use of AWSLambdaBasicExecutionRole is acceptable here'
         - rule_id: AwsSolutions-IAM4
           path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rCDKStackCheckerRole'
+          resource_id: 'rCDKStackListerRole'
           reason: 'AWS managed policies are acceptable for Lambda function'
         - rule_id: AwsSolutions-IAM5
           path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rCDKStackCheckerRole'
+          resource_id: 'rCDKStackListerRole'
           reason: 'Wildcard is acceptable for describe stack action'
         - rule_id: AwsSolutions-IAM5
           path: 'src/templates/codebuild-deployment-template.yaml'
@@ -71,10 +71,6 @@ global_settings:
           path: 'src/templates/codebuild-deployment-template.yaml'
           resource_id: 'rCDKCleanupStateMachine'
           reason: 'X-Ray is not needed for this function since only CFN endpoint is used'
-        - rule_id: AwsSolutions-IAM4
-          path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rParameterCleanupRole'
-          reason: 'AWS managed policies are acceptable for Lambda function'
         # Checkov suppressions moved from inline comments in codebuild-deployment-template.yaml
         - rule_id: CKV_AWS_117
           path: 'src/templates/codebuild-deployment-template.yaml'
@@ -118,27 +114,15 @@ global_settings:
           reason: 'Function is executed only once, no need for concurrency configurations'
         - rule_id: CKV_AWS_117
           path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rCDKStackCheckerFunction'
+          resource_id: 'rCDKStackListerFunction'
           reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
         - rule_id: CKV_AWS_116
           path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rCDKStackCheckerFunction'
+          resource_id: 'rCDKStackListerFunction'
           reason: 'DLQ will increase complexity, this is not needed just to check CFN stack status'
         - rule_id: CKV_AWS_115
           path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rCDKStackCheckerFunction'
-          reason: 'Function is executed only once, no need for concurrency configurations'
-        - rule_id: CKV_AWS_117
-          path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rParameterCleanupFunction'
-          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
-        - rule_id: CKV_AWS_116
-          path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rParameterCleanupFunction'
-          reason: 'DLQ will increase complexity, this is not needed just to delete the parameter'
-        - rule_id: CKV_AWS_115
-          path: 'src/templates/codebuild-deployment-template.yaml'
-          resource_id: 'rParameterCleanupFunction'
+          resource_id: 'rCDKStackListerFunction'
           reason: 'Function is executed only once, no need for concurrency configurations'
 fail_on_findings: true
 ash_plugin_modules: []

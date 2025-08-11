@@ -72,6 +72,13 @@ Parameters:
     AllowedPattern: '[A-Za-z0-9_.-/]+'
     ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
 
+  pApplicationName:
+    Type: String
+    Description: Application name used for tagging deployed stacks
+    Default: One Observability Workshop
+    AllowedPattern: ^[A-Za-z0-9\s_.-]+$
+    ConstraintDescription: Must contain only alphanumeric characters, spaces, underscores, periods, or hyphens
+
   pUserDefinedTagKey1:
     Type: String
     Description: Key for user defined tag 1
@@ -514,18 +521,6 @@ Resources:
                 - npm install
                 - cdk synth
                 - cdk deploy --require-approval never --outputs-file cdk-outputs.json
-                # Get list of actual deployed stack names after deployment
-                - |
-                  echo "Getting deployed stack names..."
-                  STACK_LIST=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE --query 'StackSummaries[?contains(StackName, `OneObservability`) || contains(StackName, `Core-Stack`) || contains(StackName, `Applications-`) || contains(StackName, `Storage-`) || contains(StackName, `Compute-`) || contains(StackName, `Microservices-`)].StackName' --output text | tr '\t' ',' | sed 's/,$//')
-
-                  if [ -z "$STACK_LIST" ]; then
-                    echo "ERROR: Could not get deployed stack list"
-                    exit 1
-                  fi
-
-                  echo "Deployed stack list: $STACK_LIST"
-                  aws ssm put-parameter --name "/cdk-cleanup/$STACK_NAME/stacks" --value "$STACK_LIST" --type "String" --overwrite
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
@@ -841,60 +836,36 @@ Resources:
       DefinitionString: !Sub |
         {
           "Comment": "CDK Stack Cleanup State Machine",
-          "StartAt": "GetStackList",
+          "StartAt": "ListTaggedStacks",
           "States": {
-            "GetStackList": {
+            "ListTaggedStacks": {
               "Type": "Task",
-              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
-                "Name": "/cdk-cleanup/${AWS::StackName}/stacks"
+                "FunctionName": "${rCDKStackListerFunction}",
+                "Payload": {}
               },
-              "ResultPath": "$.stacksParam",
-              "Next": "ParseStacks",
-              "Catch": [
-                {
-                  "ErrorEquals": ["States.ALL"],
-                  "Next": "NoStacksToClean"
-                }
-              ]
+              "ResultPath": "$.stackList",
+              "Next": "CheckStacksFound"
             },
-            "ParseStacks": {
-              "Type": "Pass",
-              "Parameters": {
-                "stacks.$": "States.StringSplit($.stacksParam.Parameter.Value, ',')"
-              },
-              "Next": "DeleteStacks"
+            "CheckStacksFound": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.stackList.Payload.stacks",
+                  "IsPresent": true,
+                  "Next": "DeleteStacks"
+                }
+              ],
+              "Default": "NoStacksToClean"
             },
             "DeleteStacks": {
               "Type": "Map",
-              "ItemsPath": "$.stacks",
+              "ItemsPath": "$.stackList.Payload.stacks",
               "MaxConcurrency": 1,
               "Iterator": {
-                "StartAt": "CheckStackExists",
+                "StartAt": "DeleteStack",
                 "States": {
-                  "CheckStackExists": {
-                    "Type": "Task",
-                    "Resource": "arn:aws:states:::lambda:invoke",
-                    "Parameters": {
-                      "FunctionName": "${rCDKStackCheckerFunction}",
-                      "Payload": {
-                        "stackName.$": "$"
-                      }
-                    },
-                    "ResultPath": "$.stackCheck",
-                    "Next": "StackExistsChoice"
-                  },
-                  "StackExistsChoice": {
-                    "Type": "Choice",
-                    "Choices": [
-                      {
-                        "Variable": "$.stackCheck.Payload.exists",
-                        "BooleanEquals": true,
-                        "Next": "DeleteStack"
-                      }
-                    ],
-                    "Default": "StackNotFound"
-                  },
                   "DeleteStack": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
@@ -949,11 +920,6 @@ Resources:
                     "Result": "Stack deleted successfully",
                     "End": true
                   },
-                  "StackNotFound": {
-                    "Type": "Pass",
-                    "Result": "Stack does not exist",
-                    "End": true
-                  },
                   "DeletionFailed": {
                     "Type": "Pass",
                     "Result": "Stack deletion failed or cancelled",
@@ -965,7 +931,7 @@ Resources:
             },
             "NoStacksToClean": {
               "Type": "Pass",
-              "Result": "No stacks found to clean up",
+              "Result": "No tagged stacks found to clean up",
               "End": true
             },
             "CleanupComplete": {
@@ -994,12 +960,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:GetParameter
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-cleanup/${AWS::StackName}/stacks
-              - Effect: Allow
-                Action:
                   - lambda:InvokeFunction
-                Resource: !GetAtt rCDKStackCheckerFunction.Arn
+                Resource: !GetAtt rCDKStackListerFunction.Arn
               - Effect: Allow
                 Action:
                   - cloudformation:DescribeStacks
@@ -1010,38 +972,50 @@ Resources:
                 Resource: "*"
                 Condition:
                   StringEquals:
-                    "cloudformation:TemplateTag/application": "One Observability Workshop"
+                    "cloudformation:TemplateTag/application": !Ref pApplicationName
 
-  # Lambda function to check if CDK stack exists
-  rCDKStackCheckerFunction:
+  # Lambda function to list CDK stacks by tag
+  rCDKStackListerFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-cdk-stack-checker
+      FunctionName: !Sub ${AWS::StackName}-cdk-stack-lister
       Runtime: python3.13
       Handler: index.handler
-      Role: !GetAtt rCDKStackCheckerRole.Arn
+      Role: !GetAtt rCDKStackListerRole.Arn
       Timeout: 60
       Code:
-        ZipFile: |
+        ZipFile: !Sub |
           import boto3
 
           def handler(event, context):
-              stack_name = event['stackName'].strip()
-              if not stack_name:
-                  return {'exists': False}
-
               cf_client = boto3.client('cloudformation')
+              stacks = []
 
               try:
-                  cf_client.describe_stacks(StackName=stack_name)
-                  return {'exists': True}
-              except cf_client.exceptions.ClientError as e:
-                  if 'does not exist' in str(e):
-                      return {'exists': False}
-                  raise
+                  paginator = cf_client.get_paginator('list_stacks')
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE']):
+                      for stack in page['StackSummaries']:
+                          try:
+                              # Get stack tags
+                              stack_detail = cf_client.describe_stacks(StackName=stack['StackName'])
+                              tags = stack_detail['Stacks'][0].get('Tags', [])
 
-  # IAM Role for CDK Stack Checker Lambda
-  rCDKStackCheckerRole:
+                              # Check if stack has the required tag
+                              for tag in tags:
+                                  if tag['Key'] == 'application' and tag['Value'] == '${pApplicationName}':
+                                      stacks.append(stack['StackName'])
+                                      break
+                          except Exception as e:
+                              print(f"Error checking stack {stack['StackName']}: {str(e)}")
+                              continue
+
+                  return {'stacks': stacks}
+              except Exception as e:
+                  print(f"Error listing stacks: {str(e)}")
+                  return {'stacks': []}
+
+  # IAM Role for CDK Stack Lister Lambda
+  rCDKStackListerRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -1054,12 +1028,13 @@ Resources:
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: CDKStackCheckerPolicy
+        - PolicyName: CDKStackListerPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
+                  - cloudformation:ListStacks
                   - cloudformation:DescribeStacks
                 Resource: "*"
 
@@ -1119,66 +1094,6 @@ Resources:
                   - states:StartExecution
                 Resource: !GetAtt rCDKCleanupStateMachine.Arn
 
-  # Custom resource to clean up Parameter Store parameter
-  rParameterCleanup:
-    Type: Custom::ParameterCleanup
-    Properties:
-      ServiceToken: !GetAtt rParameterCleanupFunction.Arn
-      ParameterName: !Sub /cdk-cleanup/${AWS::StackName}/stacks
-
-  # Lambda function to clean up Parameter Store parameter
-  rParameterCleanupFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub ${AWS::StackName}-parameter-cleanup
-      Runtime: python3.13
-      Handler: index.handler
-      Role: !GetAtt rParameterCleanupRole.Arn
-      Timeout: 60
-      Code:
-        ZipFile: |
-          import boto3
-          import cfnresponse
-
-          def handler(event, context):
-              try:
-                  ssm_client = boto3.client('ssm')
-                  parameter_name = event['ResourceProperties']['ParameterName']
-
-                  if event['RequestType'] == 'Delete':
-                      try:
-                          ssm_client.delete_parameter(Name=parameter_name)
-                          print(f"Deleted parameter: {parameter_name}")
-                      except ssm_client.exceptions.ParameterNotFound:
-                          print(f"Parameter {parameter_name} not found, nothing to delete")
-
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except Exception as e:
-                  print(f"Error: {str(e)}")
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
-
-  # IAM Role for Parameter Cleanup Lambda
-  rParameterCleanupRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: ParameterCleanupPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:DeleteParameter
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-cleanup/${AWS::StackName}/stacks
 
 Outputs:
   oConfigBucketName:
