@@ -320,7 +320,7 @@ impl RecommendationService {
 }
 
 /// Statistics about recommendations for a pet type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct RecommendationStats {
     pub total_count: usize,
     pub dry_food_count: usize,

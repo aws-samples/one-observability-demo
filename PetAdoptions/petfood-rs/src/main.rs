@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::get,
+    routing::{get, post, put},
     Router,
 };
 use std::{net::SocketAddr, sync::Arc};
@@ -8,8 +8,13 @@ use tokio::net::TcpListener;
 use tracing::info;
 
 use petfood_rs::{
-    handlers::{health_check, metrics_handler},
+    handlers::{
+        health_check, metrics_handler, api,
+        request_validation_middleware, cors_middleware, security_headers_middleware,
+    },
     observability::{observability_middleware, Metrics},
+    repositories::{DynamoDbFoodRepository, DynamoDbCartRepository},
+    services::{FoodService, RecommendationService, CartService},
     Config, init_observability, shutdown_observability,
 };
 
@@ -38,8 +43,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics = Arc::new(Metrics::new()?);
     info!("Metrics initialized successfully");
 
+    // Initialize AWS clients
+    let aws_config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    let dynamodb_client = Arc::new(aws_sdk_dynamodb::Client::new(&aws_config));
+    info!("AWS clients initialized successfully");
+
+    // Initialize repositories
+    let food_repository = Arc::new(DynamoDbFoodRepository::new(
+        dynamodb_client.clone(),
+        config.database.foods_table_name.clone(),
+    ));
+    let cart_repository = Arc::new(DynamoDbCartRepository::new(
+        dynamodb_client.clone(),
+        config.database.carts_table_name.clone(),
+    ));
+    info!("Repositories initialized successfully");
+
+    // Initialize services
+    let food_service = Arc::new(FoodService::new(food_repository.clone()));
+    let recommendation_service = Arc::new(RecommendationService::new(food_repository.clone()));
+    let cart_service = Arc::new(CartService::new(cart_repository, food_repository));
+    info!("Services initialized successfully");
+
     // Build the application router
-    let app = create_app(metrics);
+    let app = create_app(metrics, food_service, recommendation_service, cart_service);
 
     // Create socket address
     let addr = SocketAddr::new(
@@ -70,15 +97,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn create_app(metrics: Arc<Metrics>) -> Router {
+fn create_app(
+    metrics: Arc<Metrics>,
+    food_service: Arc<FoodService>,
+    recommendation_service: Arc<RecommendationService>,
+    cart_service: Arc<CartService>,
+) -> Router {
     let metrics_for_middleware = metrics.clone();
     
+    // Create the API state
+    let api_state = api::ApiState {
+        food_service,
+        recommendation_service,
+        cart_service,
+    };
+    
     Router::new()
+        // Health and metrics endpoints (with metrics state)
         .route("/health/status", get(health_check))
         .route("/metrics", get(metrics_handler))
+        .with_state(metrics)
+        
+        // API endpoints (with API state)
+        .route("/api/foods", get(api::list_foods).post(api::create_food))
+        .route("/api/foods/:food_id", 
+               get(api::get_food)
+               .put(api::update_food)
+               .delete(api::delete_food))
+        .route("/api/recommendations/:pet_type", get(api::get_recommendations))
+        .route("/api/cart/:user_id", 
+               get(api::get_cart)
+               .delete(api::delete_cart))
+        .route("/api/cart/:user_id/items", post(api::add_cart_item))
+        .route("/api/cart/:user_id/items/:food_id", 
+               put(api::update_cart_item)
+               .delete(api::remove_cart_item))
+        .route("/api/cart/:user_id/clear", post(api::clear_cart))
+        .with_state(api_state)
+        
+        // Add middleware layers (order matters - outer to inner)
+        .layer(middleware::from_fn(security_headers_middleware))
+        .layer(middleware::from_fn(cors_middleware))
+        .layer(middleware::from_fn(request_validation_middleware))
         .layer(middleware::from_fn(move |req, next| {
             observability_middleware(metrics_for_middleware.clone(), req, next)
         }))
-        .with_state(metrics)
 }
 
