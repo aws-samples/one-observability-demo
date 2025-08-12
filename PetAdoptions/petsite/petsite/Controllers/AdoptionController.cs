@@ -49,7 +49,7 @@ namespace PetSite.Controllers
         public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams)
         {
             EnsureUserId();
-            // Add custom span attributes using Activity API (compatible with Application Signals auto-instrumentation)
+            // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
             {
@@ -65,8 +65,8 @@ namespace PetSite.Controllers
             
             try
             {
-                // Create a new activity for the API call
-                using (var activity = new Activity("Calling PetSearch API").Start())
+                // Create tracing span for Search API operation
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Search API"))
                 {
                     if (activity != null)
                     {
