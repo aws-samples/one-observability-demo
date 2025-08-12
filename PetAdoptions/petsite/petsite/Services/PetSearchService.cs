@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using PetSite.Models;
 using PetSite.ViewModels;
 using Prometheus;
@@ -32,11 +33,14 @@ namespace PetSite.Services
         private static readonly Counter BunnySearchCount =
             Metrics.CreateCounter("petsite_pet_bunny_searches_total", "Count the number of bunny searches performed");
 
-        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger)
+        private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor;
+
+        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger, Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid)
@@ -69,7 +73,9 @@ namespace PetSite.Services
 
             try
             {
-                var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}");
+                var userId = _httpContextAccessor.HttpContext?.Session.GetString("userId") ?? "unknown";
+                var separator = string.IsNullOrEmpty(searchUri) ? "?" : "&";
+                var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}{separator}userId={userId}");
                 if (!response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();

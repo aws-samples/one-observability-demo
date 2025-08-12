@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Amazon.SQS;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -43,6 +44,13 @@ namespace PetSite.Controllers
                 ViewData["error"] = TempData["error"];
             }
             
+            // Handle food purchase status
+            if (TempData["FoodPurchaseStatus"] != null)
+            {
+                ViewData["FoodPurchaseStatus"] = TempData["FoodPurchaseStatus"];
+                ViewData["PurchasedFoodId"] = TempData["PurchasedFoodId"];
+            }
+            
             return View();
         }
 
@@ -64,8 +72,8 @@ namespace PetSite.Controllers
 
             try
             {
-                // Create a new activity for the Payment API call
-                using (var activity = new Activity("Call Payment API").Start())
+                // Create tracing span for Payment API operation
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Payment API"))
                 {
                     if (activity != null)
                     {
@@ -79,7 +87,7 @@ namespace PetSite.Controllers
                 //Increase purchase metric count
                 PetAdoptionCount.Inc();
                 TempData["txStatus"] = "success";
-                return RedirectToAction("Index", new { userid = ViewBag.UserId });
+                return RedirectToAction("Index", new { userId = ViewBag.UserId });
             }
             catch (Exception ex)
             {
@@ -89,14 +97,15 @@ namespace PetSite.Controllers
                 // Log the exception
                 _logger.LogError(ex, $"Error in MakePayment: {ex.Message}");
                 
-                return RedirectToAction("Index", new { userid = ViewBag.UserId });
+                return RedirectToAction("Index", new { userId = ViewBag.UserId });
             }
         }
 
         private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
         {
             using var httpClient = _httpClientFactory.CreateClient();
-            return await httpClient.PostAsync($"{SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PAYMENT_API_URL")}?petId={petId}&petType={pettype}",
+            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+            return await httpClient.PostAsync($"{SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PAYMENT_API_URL")}?petId={petId}&petType={pettype}&userId={userId}",
                 null);
         }
         

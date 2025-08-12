@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 
@@ -19,24 +21,32 @@ namespace PetSite.Controllers
 
         protected bool EnsureUserId()
         {
-            string userid = Request.Query["userid"];
+            string userId = Request.Query["userId"];
             
-            if (string.IsNullOrEmpty(userid))
+            if (string.IsNullOrEmpty(userId))
             {
-                userid = HttpContext.Session.GetString("userid");
-                if (string.IsNullOrEmpty(userid))
+                userId = HttpContext.Session.GetString("userId");
+                if (string.IsNullOrEmpty(userId))
                 {
-                    userid = UserIds[Random.Next(UserIds.Count)];
-                    HttpContext.Session.SetString("userid", userid);
+                    userId = UserIds[Random.Next(UserIds.Count)];
+                    HttpContext.Session.SetString("userId", userId);
                 }
                 
-                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userid=" + userid : "?userid=" + userid;
+                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
                 Response.Redirect(Request.Path + queryString);
                 return true; // Indicates redirect happened
             }
             
-            HttpContext.Session.SetString("userid", userid);
-            ViewBag.UserId = userid;
+            HttpContext.Session.SetString("userId", userId);
+            ViewBag.UserId = userId;
+            
+            // Add userId to OpenTelemetry trace context if not present
+            var currentActivity = Activity.Current;
+            if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
+            {
+                currentActivity.SetTag("userId", userId);
+            }
+            
             return false; // No redirect needed
         }
     }
