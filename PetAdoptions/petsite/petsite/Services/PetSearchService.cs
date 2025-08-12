@@ -62,11 +62,11 @@ namespace PetSite.Services
                     PetSearchCount.Inc();
                     break;
             }
-            
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"SEARCH_API_URL");
+
+            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration, "SEARCH_API_URL");
             using var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
+
             try
             {
                 var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}");
@@ -85,7 +85,7 @@ namespace PetSite.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Exception occurred while fetching pet details.");
-                throw ex;
+                throw;
             }
         }
     }

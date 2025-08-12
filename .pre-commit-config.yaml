@@ -112,6 +112,7 @@ repos:
                 .github/workflows/.*|
                 .ash/.ash.yaml|
                 src/cdk/lib/microservices/manifests/.*|
+                src/cdk/resources/.*|
                 )$
 
       # Legal Text

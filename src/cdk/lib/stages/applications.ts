@@ -182,7 +182,9 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         manifestPath: service.manifestPath,
                         vpc: vpcExports,
-                        subnetType: SubnetType.PUBLIC,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        port: 80,
+                        healthCheck: '/',
                     });
                 } else {
                     throw new Error(`ECS is not supported for ${name}`);

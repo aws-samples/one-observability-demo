@@ -265,6 +265,12 @@ export class WorkshopEks extends Construct {
             openIdConnectProviderArn,
         );
 
+        const clusterSecurityGroup = SecurityGroup.fromSecurityGroupId(
+            scope,
+            `${id}-ClusterSecurityGroup`,
+            securityGroupId,
+        );
+
         const cluster = Cluster.fromClusterAttributes(scope, `${id}-Cluster`, {
             clusterName: clusterName,
             kubectlRoleArn: kubectlRole.roleArn,
@@ -272,6 +278,7 @@ export class WorkshopEks extends Construct {
             openIdConnectProvider: openIdConnectProvider,
             kubectlSecurityGroupId: kubectlSecurityGroup.securityGroupId,
             kubectlLayer: new KubectlV33Layer(scope, 'kubectl'),
+            clusterSecurityGroupId: clusterSecurityGroup.securityGroupId,
         });
 
         const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);
