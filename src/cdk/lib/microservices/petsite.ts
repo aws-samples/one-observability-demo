@@ -68,7 +68,7 @@ export class PetSite extends EKSDeployment {
             port: properties.port || 80,
             protocol: ApplicationProtocol.HTTP,
             defaultTargetGroups: [this.targetGroup],
-            open: true,
+            open: false,
         });
 
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {

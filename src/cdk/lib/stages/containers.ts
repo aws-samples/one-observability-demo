@@ -252,10 +252,11 @@ export class ContainersStack extends Stack {
         new Rule(this, 'PipelineFailureRule', {
             eventPattern: {
                 source: ['aws.codepipeline'],
-                detailType: ['CodePipeline Pipeline Execution State Change'],
+                detailType: ['CodePipeline Stage Execution State Change'],
                 detail: {
                     state: ['FAILED'],
                     pipeline: [this.pipeline.pipelineName],
+                    stage: ['build'],
                 },
             } as EventPattern,
             targets: [new LambdaFunction(retryFunction)],

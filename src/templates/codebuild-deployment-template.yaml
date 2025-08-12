@@ -872,6 +872,7 @@ Resources:
                     "Parameters": {
                       "StackName.$": "$"
                     },
+                    "ResultPath": "$.deleteResult",
                     "Next": "WaitForDeletion",
                     "Catch": [
                       {
@@ -891,6 +892,7 @@ Resources:
                     "Parameters": {
                       "StackName.$": "$"
                     },
+                    "ResultPath": "$.stackStatus",
                     "Next": "EvaluateDeletionStatus",
                     "Catch": [
                       {
@@ -903,12 +905,12 @@ Resources:
                     "Type": "Choice",
                     "Choices": [
                       {
-                        "Variable": "$.Stacks[0].StackStatus",
+                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
                         "StringEquals": "DELETE_IN_PROGRESS",
                         "Next": "WaitForDeletion"
                       },
                       {
-                        "Variable": "$.Stacks[0].StackStatus",
+                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
                         "StringEquals": "DELETE_COMPLETE",
                         "Next": "DeletionComplete"
                       }
@@ -972,7 +974,7 @@ Resources:
                 Resource: "*"
                 Condition:
                   StringEquals:
-                    "cloudformation:TemplateTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/application": !Ref pApplicationName
 
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
@@ -993,23 +995,44 @@ Resources:
 
               try:
                   paginator = cf_client.get_paginator('list_stacks')
-                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE']):
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
                       for stack in page['StackSummaries']:
+                          # Skip nested stacks
+                          if 'ParentId' in stack:
+                              continue
+
                           try:
                               # Get stack tags
                               stack_detail = cf_client.describe_stacks(StackName=stack['StackName'])
                               tags = stack_detail['Stacks'][0].get('Tags', [])
 
-                              # Check if stack has the required tag
+                              # Check if stack has the required application tag
+                              has_app_tag = False
+                              sequence_value = 1  # Default sequence value
+
                               for tag in tags:
                                   if tag['Key'] == 'application' and tag['Value'] == '${pApplicationName}':
-                                      stacks.append(stack['StackName'])
-                                      break
+                                      has_app_tag = True
+                                  elif tag['Key'] == 'sequence':
+                                      try:
+                                          sequence_value = int(tag['Value'])
+                                      except ValueError:
+                                          sequence_value = 1
+
+                              if has_app_tag:
+                                  stacks.append({
+                                      'name': stack['StackName'],
+                                      'sequence': sequence_value
+                                  })
                           except Exception as e:
                               print(f"Error checking stack {stack['StackName']}: {str(e)}")
                               continue
 
-                  return {'stacks': stacks}
+                  # Sort stacks by sequence in descending order (highest first)
+                  stacks.sort(key=lambda x: x['sequence'], reverse=True)
+
+                  # Return just the stack names in sorted order
+                  return {'stacks': [stack['name'] for stack in stacks]}
               except Exception as e:
                   print(f"Error listing stacks: {str(e)}")
                   return {'stacks': []}
