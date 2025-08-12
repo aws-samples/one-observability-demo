@@ -81,6 +81,7 @@ type errorer interface {
 type completeAdoptionRequest struct {
 	PetId   string `json:"petid"`
 	PetType string `json:"pettype"`
+	UserID  string `json:"userid"`
 }
 
 var (
@@ -96,12 +97,13 @@ func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interfac
 
 	petId := r.URL.Query().Get("petId")
 	petType := r.URL.Query().Get("petType")
+	userID := r.URL.Query().Get("userId")
 
-	if petId == "" || petType == "" {
+	if petId == "" || petType == "" || userID == "" {
 		return nil, ErrBadRequest
 	}
 
-	return completeAdoptionRequest{petId, petType}, nil
+	return completeAdoptionRequest{petId, petType, userID}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

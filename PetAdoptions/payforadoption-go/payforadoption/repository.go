@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/log"
@@ -24,6 +26,7 @@ import (
 // Repository as an interface to define data store interactions
 type Repository interface {
 	CreateTransaction(ctx context.Context, a Adoption) error
+	SendHistoryMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
@@ -36,6 +39,7 @@ type Config struct {
 	RDSSecretArn      string
 	S3BucketName      string
 	DynamoDBTable     string
+	SQSQueueURL       string
 	AWSRegion         string
 	Tracer            trace.Tracer
 	AWSCfg            aws.Config
@@ -59,35 +63,99 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 }
 
 func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("creating transaction in PG DB")
 
-	sql := `
-		INSERT INTO transactions (pet_id, transaction_id, adoption_date)
-		VALUES ($1, $2, $3)
-	`
+	sql := `INSERT INTO transactions (pet_id, adoption_date, transaction_id, user_id) VALUES ($1, $2, $3, $4)`
 
 	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.TransactionID, a.AdoptionDate)
-
+	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.AdoptionDate, a.TransactionID, a.UserID)
 	if err != nil {
+		span.RecordError(err)
+		level.Error(r.logger).Log("error", "failed to create transaction", "err", err)
 		return err
 	}
+
+	level.Info(r.logger).Log(
+		"action", "transaction_created",
+		"transactionId", a.TransactionID,
+		"petId", a.PetID,
+		"userId", a.UserID,
+	)
+
+	return nil
+}
+
+func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
+	// Create SQS client
+	sqsClient := sqs.NewFromConfig(r.cfg.AWSCfg)
+
+	// Prepare the adoption history message
+	historyMessage := map[string]interface{}{
+		"transactionId": a.TransactionID,
+		"petId":         a.PetID,
+		"petType":       a.PetType,
+		"userId":        a.UserID,
+		"adoptionDate":  a.AdoptionDate.Format(time.RFC3339),
+		"timestamp":     time.Now().Format(time.RFC3339),
+	}
+
+	// Convert to JSON
+	messageBody, err := json.Marshal(historyMessage)
+	if err != nil {
+		level.Error(r.logger).Log("error", "failed to marshal history message", "err", err)
+		return err
+	}
+
+	// Send message to SQS
+	input := &sqs.SendMessageInput{
+		QueueUrl:    aws.String(r.cfg.SQSQueueURL),
+		MessageBody: aws.String(string(messageBody)),
+		MessageAttributes: map[string]types.MessageAttributeValue{
+			"PetType": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.PetType),
+			},
+			"UserID": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.UserID),
+			},
+			"TransactionID": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(a.TransactionID),
+			},
+		},
+	}
+
+	result, err := sqsClient.SendMessage(ctx, input)
+	if err != nil {
+		level.Error(r.logger).Log("error", "failed to send history message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
+		return err
+	}
+
+	level.Info(r.logger).Log(
+		"action", "history_message_sent",
+		"messageId", aws.ToString(result.MessageId),
+		"queueUrl", r.cfg.SQSQueueURL,
+		"transactionId", a.TransactionID,
+		"petId", a.PetID,
+		"userId", a.UserID,
+	)
+
 	return nil
 }
 
 func (r *repo) DropTransactions(ctx context.Context) error {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("saving history and removing transctions in PG DB")
+	span.AddEvent("removing transactions in PG DB")
 
-	sql := []string{`INSERT INTO transactions_history SELECT * FROM transactions`,
-		`DELETE FROM transactions`}
+	sql := `DELETE FROM transactions`
 
-	for _, s := range sql {
-		r.logger.Log("sql", s)
-		_, err := r.db.ExecContext(ctx, s)
-		if err != nil {
-			span.RecordError(err)
-			return err
-		}
+	r.logger.Log("sql", sql)
+	_, err := r.db.ExecContext(ctx, sql)
+	if err != nil {
+		span.RecordError(err)
+		return err
 	}
 
 	return nil
@@ -110,7 +178,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		updateAdoptionStatusCtx, updateAdoptionStatusSpan := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
 		defer updateAdoptionStatusSpan.End()
 
-		body := &completeAdoptionRequest{a.PetID, a.PetType}
+		body := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
 		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
 		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
@@ -243,31 +311,20 @@ func (r *repo) ErrorModeOn(ctx context.Context) bool {
 }
 
 func (r *repo) CreateSQLTables(ctx context.Context) error {
-	sql := []string{
-		`CREATE TABLE IF NOT EXISTS transactions (
-			id SERIAL PRIMARY KEY,
-			pet_id VARCHAR,
-			adoption_date DATE,
-			transaction_id VARCHAR
-		);
-		`,
-		`CREATE TABLE IF NOT EXISTS transactions_history (
-			id SERIAL PRIMARY KEY,
-			pet_id VARCHAR,
-			adoption_date DATE,
-			transaction_id VARCHAR
-		);
-		`}
+	// cSpell:ignore VARCHAR
+	sql := `CREATE TABLE IF NOT EXISTS transactions (
+		id SERIAL PRIMARY KEY,
+		pet_id VARCHAR,
+		adoption_date DATE,
+		transaction_id VARCHAR,
+		user_id VARCHAR
+	);`
 
-	var err error = nil
-
-	for _, s := range sql {
-		r.logger.Log("sql", s)
-		_, err = r.db.ExecContext(ctx, s)
-		if err != nil {
-			return err
-		}
+	r.logger.Log("sql", sql)
+	_, err := r.db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
 	}
 
-	return err
+	return nil
 }
