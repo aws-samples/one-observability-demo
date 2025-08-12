@@ -30,6 +30,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="prometheus-net" Version="8.0.1" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.0.1" />
     <PackageReference Include="prometheus-net.DotNetRuntime" Version="4.4.0" />

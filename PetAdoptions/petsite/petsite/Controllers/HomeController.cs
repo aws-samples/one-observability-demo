@@ -80,7 +80,8 @@ namespace PetSite.Controllers
             string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
             
             using var httpClient = _httpClientFactory.CreateClient();
-            await httpClient.PostAsync(cleanupadoptionsurl, null);
+            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
 
             return View();
         }
