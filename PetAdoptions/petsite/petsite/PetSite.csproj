@@ -23,7 +23,6 @@
     <PackageReference Include="AWSSDK.SQS" Version="3.7.400" />
     <PackageReference Include="AWSSDK.StepFunctions" Version="3.7.400" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.400" />
-
     <PackageReference Include="BuildBundlerMinifier" Version="3.2.449" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
