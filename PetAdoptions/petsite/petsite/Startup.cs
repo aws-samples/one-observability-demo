@@ -32,6 +32,7 @@ namespace PetSite
             services.AddControllersWithViews();
             services.AddHttpClient();
             services.AddSession();
+            services.AddHttpContextAccessor();
             services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
             
             // Configure AWS Services

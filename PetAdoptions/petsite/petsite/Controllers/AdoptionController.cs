@@ -90,7 +90,7 @@ namespace PetSite.Controllers
             {
                 TempData["SelectedPet"] = JsonSerializer.Serialize(selectedPet);
             }
-            return RedirectToAction("Index", new { userid = ViewBag.UserId });
+            return RedirectToAction("Index", new { userId = ViewBag.UserId });
         }
     }
 }
