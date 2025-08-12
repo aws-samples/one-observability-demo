@@ -34,11 +34,12 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 	cfg := payforadoption.Config{
 		UpdateAdoptionURL: viper.GetString("UPDATE_ADOPTION_URL"),
 		RDSSecretArn:      viper.GetString("RDS_SECRET_ARN"),
+		SQSQueueURL:       viper.GetString("SQS_QUEUE_URL"),
 		AWSRegion:         viper.GetString("AWS_REGION"),
 		AWSCfg:            awsCfg,
 	}
 
-	if cfg.UpdateAdoptionURL == "" || cfg.RDSSecretArn == "" {
+	if cfg.UpdateAdoptionURL == "" || cfg.RDSSecretArn == "" || cfg.SQSQueueURL == "" {
 		return fetchConfigFromParameterStore(ctx, cfg)
 	}
 
@@ -54,6 +55,7 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 			"/petstore/rdssecretarn",
 			"/petstore/s3bucketname",
 			"/petstore/dynamodbtablename",
+			"/petstore/queueurl",
 		},
 	})
 
@@ -77,6 +79,8 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 			newCfg.S3BucketName = pValue
 		case "/petstore/dynamodbtablename":
 			newCfg.DynamoDBTable = pValue
+		case "/petstore/queueurl":
+			newCfg.SQSQueueURL = pValue
 		}
 	}
 

@@ -43,8 +43,8 @@ namespace PetSite.Controllers
 
             try
             {
-                // Create a new activity for the API call
-                using (var activity = new Activity("Calling PetListAdoptions").Start())
+                // Begin activity span to track PetListAdoptions API call
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling PetListAdoptions API"))
                 {
                     string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PET_LIST_ADOPTION_URL");
                     using var httpClient = _httpClientFactory.CreateClient();

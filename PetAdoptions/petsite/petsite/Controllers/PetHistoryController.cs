@@ -41,8 +41,8 @@ public class PetHistoryController : BaseController
         
         try
         {
-            // Create a new activity for the API call
-            using (var activity = new Activity("Calling GetPetAdoptionsHistory").Start())
+            // Begin activity span to track GetPetAdoptionsHistory API call
+            using (var activity = Activity.Current?.Source?.StartActivity("Calling GetPetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = HttpContext.Session.GetString("userId") ?? "unknown";
@@ -75,8 +75,8 @@ public class PetHistoryController : BaseController
         
         try
         {
-            // Create a new activity for the API call
-            using (var activity = new Activity("Calling DeletePetAdoptionsHistory").Start())
+            // Begin activity span to track DeletePetAdoptionsHistory API call
+            using (var activity = Activity.Current?.Source?.StartActivity("Calling DeletePetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = HttpContext.Session.GetString("userId") ?? "unknown";

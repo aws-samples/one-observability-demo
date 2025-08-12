@@ -72,8 +72,8 @@ namespace PetSite.Controllers
 
             try
             {
-                // Create a new activity for the Payment API call
-                using (var activity = new Activity("Call Payment API").Start())
+                // Create tracing span for Payment API operation
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Payment API"))
                 {
                     if (activity != null)
                     {

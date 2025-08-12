@@ -33,8 +33,8 @@ namespace PetSite.Controllers
             
             try
             {
-                // Create a new activity for the API call
-                using (var activity = new Activity("Calling PetFood").Start())
+                // Begin activity to monitor PetFood
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling PetFood"))
                 {
                     // Get our data from petfood
                     result = await httpClient.GetStringAsync("http://petfood");
@@ -68,8 +68,8 @@ namespace PetSite.Controllers
             
             try
             {
-                // Create a new activity for the API call
-                using (var activity = new Activity("Calling PetFood metric").Start())
+                // Begin activity to monitor PetFood metrics retrieval
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling PetFood metrics"))
                 {
                     if (activity != null)
                     {
