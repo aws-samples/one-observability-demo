@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace PetSite.Controllers
 {
-    public class PetListAdoptionsController : Controller
+    public class PetListAdoptionsController : BaseController
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
@@ -30,6 +30,7 @@ namespace PetSite.Controllers
         // GET
         public async Task<IActionResult> Index()
         {
+            if (EnsureUserId()) return new EmptyResult();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)

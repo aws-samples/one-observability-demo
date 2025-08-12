@@ -59,7 +59,7 @@ namespace PetSite.Controllers
         // [ValidateAntiForgeryToken]
         public async Task<IActionResult> MakePayment(string petId, string pettype)
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)

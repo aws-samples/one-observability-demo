@@ -74,7 +74,7 @@ namespace PetSite.Controllers
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
             
             string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
@@ -89,7 +89,7 @@ namespace PetSite.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(string selectedPetType, string selectedPetColor, string petid)
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
