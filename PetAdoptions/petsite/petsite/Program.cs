@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Prometheus.DotNetRuntime;
 using System.Diagnostics;
+using Amazon.Extensions.Configuration.SystemsManager;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PetSite
 {
@@ -33,12 +35,18 @@ namespace PetSite
                             .AddJsonFile($"appsettings.{env.EnvironmentName}.json",
                                 optional: true, reloadOnChange: true);
                     else
-                        config.AddSystemsManagerWithReload(configureSource =>
+                    {
+                        config.AddSystemsManager(configureSource =>
                         {
                             configureSource.Path = "/petstore";
                             configureSource.Optional = true;
                             configureSource.ReloadAfter = TimeSpan.FromMinutes(5);
                         });
+                    }
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
                 })
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
     }

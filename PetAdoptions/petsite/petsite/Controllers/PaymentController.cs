@@ -105,7 +105,7 @@ namespace PetSite.Controllers
         {
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-            return await httpClient.PostAsync($"{SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PAYMENT_API_URL")}?petId={petId}&petType={pettype}&userId={userId}",
+            return await httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}&userId={userId}",
                 null);
         }
         

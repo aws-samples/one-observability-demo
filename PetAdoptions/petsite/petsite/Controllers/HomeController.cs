@@ -69,15 +69,13 @@ namespace PetSite.Controllers
             };
         }
 
-
-
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
             if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
-            
-            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
+
+            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");

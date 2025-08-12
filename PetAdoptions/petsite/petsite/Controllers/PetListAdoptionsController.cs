@@ -46,7 +46,7 @@ namespace PetSite.Controllers
                 // Begin activity span to track PetListAdoptions API call
                 using (var activity = Activity.Current?.Source?.StartActivity("Calling PetListAdoptions API"))
                 {
-                    string petlistadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"PET_LIST_ADOPTION_URL");
+                    string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
                     result = await httpClient.GetStringAsync($"{petlistadoptionsurl}?userId={userId}");

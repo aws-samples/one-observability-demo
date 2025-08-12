@@ -67,7 +67,7 @@ namespace PetSite.Services
                     break;
             }
             
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"SEARCH_API_URL");
+            string searchapiurl = _configuration["searchapiurl"];
             using var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
             
