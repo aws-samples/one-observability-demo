@@ -13,16 +13,17 @@ import (
 )
 
 type Adoption struct {
-	TransactionID string `json:"transactionid,omitempty"`
-	PetID         string `json:"petid,omitempty"`
-	PetType       string `json:"pettype,omitempty"`
-	AdoptionDate  time.Time
+	TransactionID string    `json:"transactionid,omitempty"`
+	PetID         string    `json:"petid,omitempty"`
+	PetType       string    `json:"pettype,omitempty"`
+	UserID        string    `json:"userid,omitempty"`
+	AdoptionDate  time.Time `json:"adoptiondate,omitempty"`
 }
 
 // links endpoints to transport
 type Service interface {
 	HealthCheck(ctx context.Context) error
-	CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error)
+	CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error)
 	CleanupAdoptions(ctx context.Context) error
 	TriggerSeeding(ctx context.Context) error
 }
@@ -49,7 +50,7 @@ func (s service) HealthCheck(ctx context.Context) error {
 }
 
 // /api/completeadoption logic
-func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error) {
+func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error) {
 	logger := log.With(s.logger, "method", "CompleteAdoption")
 
 	uuid, _ := uuid.NewV4()
@@ -57,6 +58,7 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		TransactionID: uuid.String(),
 		PetID:         petId,
 		PetType:       petType,
+		UserID:        userID,
 		AdoptionDate:  time.Now(),
 	}
 
@@ -71,14 +73,25 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		}
 	}
 
+	// Step 1: Create transaction in database (synchronous)
 	if err := s.repository.CreateTransaction(ctx, a); err != nil {
-		level.Error(logger).Log("err", err)
+		level.Error(logger).Log("err", err, "action", "create_transaction_failed")
 		return Adoption{}, err
 	}
 
-	err := s.repository.UpdateAvailability(ctx, a)
+	// Step 2: Update pet availability (synchronous)
+	if err := s.repository.UpdateAvailability(ctx, a); err != nil {
+		level.Error(logger).Log("err", err, "action", "update_availability_failed")
+		return Adoption{}, err
+	}
 
-	return a, err
+	// Step 3: Send history message to SQS (asynchronous - don't fail if this fails)
+	if err := s.repository.SendHistoryMessage(ctx, a); err != nil {
+		level.Warn(logger).Log("err", err, "action", "send_history_message_failed", "note", "continuing despite history message failure")
+		// Don't return error - history tracking is not critical for adoption success
+	}
+
+	return a, nil
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {

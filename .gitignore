@@ -3,3 +3,9 @@ PetAdoptions/payforadoption-go/petadoptions
 **/.DS_Store
 **/assets
 **/.idea
+
+# editor settings
+.vscode/settings.json
+PetAdoptions/petsite/petsite/appsettings.Development.json
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/indexLayout.xml
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml

@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon;
 using Prometheus;
 
 namespace PetSite
@@ -28,12 +30,20 @@ namespace PetSite
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllersWithViews();
+            services.AddHttpClient();
+            services.AddSession();
+            services.AddHttpContextAccessor();
+            services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
+            
+            // Configure AWS Services
+            services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
+            services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            app.UseXRay("PetSite", Configuration);
+            // Removed X-Ray middleware
 
             if (env.IsDevelopment())
             {
@@ -49,8 +59,9 @@ namespace PetSite
             app.UseStaticFiles();
 
             app.UseRouting();
+            app.UseSession();
             app.UseHttpMetrics();
-
+            
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>

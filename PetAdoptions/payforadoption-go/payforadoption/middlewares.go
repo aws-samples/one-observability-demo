@@ -38,7 +38,7 @@ func NewInstrumenting(logger log.Logger, s Service) Service {
 	}
 }
 
-func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType string) (a Adoption, err error) {
+func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType, userID string) (a Adoption, err error) {
 	defer func(begin time.Time) {
 
 		labelValues := []string{
@@ -54,6 +54,7 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 		span.SetAttributes(
 			attribute.String("PetId", petId),
 			attribute.String("PetType", petType),
+			attribute.String("UserID", userID),
 			attribute.Float64("TimeTakenSeconds", time.Since(begin).Seconds()),
 		)
 
@@ -62,12 +63,13 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType strin
 			"traceId", span.SpanContext().SpanID(),
 			"PetId", petId,
 			"PetType", petType,
+			"UserID", userID,
 			"took", time.Since(begin),
 			"customer", getFakeCustomer(),
 			"err", err)
 	}(time.Now())
 
-	return mw.Service.CompleteAdoption(ctx, petId, petType)
+	return mw.Service.CompleteAdoption(ctx, petId, petType, userID)
 }
 
 func (mw *middleware) CleanupAdoptions(ctx context.Context) (err error) {

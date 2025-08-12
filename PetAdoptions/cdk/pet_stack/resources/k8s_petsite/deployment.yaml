@@ -39,6 +39,8 @@ spec:
     metadata:
       labels:
         app: petsite
+      annotations:
+        instrumentation.opentelemetry.io/inject-dotnet: "true"
     spec:
       serviceAccountName: petsite-sa
       containers:
@@ -48,9 +50,6 @@ spec:
         ports:
         - containerPort: 80
           protocol: TCP
-        env:
-        - name: AWS_XRAY_DAEMON_ADDRESS
-          value: xray-service.default:2000
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
