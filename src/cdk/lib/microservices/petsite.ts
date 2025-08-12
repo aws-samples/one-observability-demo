@@ -84,7 +84,7 @@ export class PetSite extends EKSDeployment {
                     protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
                 }),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                originRequestPolicy: OriginRequestPolicy.CORS_S3_ORIGIN,
+                originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
             },
             enableLogging: true,
             logBucket: cloudfrontAccessBucket,

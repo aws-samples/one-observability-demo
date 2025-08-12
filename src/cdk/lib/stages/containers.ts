@@ -129,8 +129,6 @@ export class ContainersStack extends Stack {
         const sourceOutput = new Artifact();
         const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
 
-        sourceBucket.grantRead(pipelineRole);
-
         const pipelineLogArn = Arn.format(
             {
                 service: 'logs',
@@ -153,6 +151,9 @@ export class ContainersStack extends Stack {
             ],
             roles: [pipelineRole],
         });
+
+        sourceBucket.grantRead(pipelineRole);
+        this.pipeline.node.addDependency(cloudWatchPolicy);
 
         const sourceAction = new S3SourceAction({
             actionName: 'Source',
@@ -236,7 +237,12 @@ export class ContainersStack extends Stack {
 
         retryLambdaRole.addToPolicy(
             new PolicyStatement({
-                actions: ['codepipeline:RetryStageExecution', 'codepipeline:GetPipelineExecution'],
+                actions: [
+                    'codepipeline:RetryStageExecution',
+                    'codepipeline:GetPipelineExecution',
+                    'codepipeline:GetPipelineState',
+                    'codepipeline:ListPipelineExecutions',
+                ],
                 resources: [this.pipeline.pipelineArn],
             }),
         );

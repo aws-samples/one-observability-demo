@@ -165,6 +165,7 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: false,
                         cloudMapNamespace: cloudMap,
+                        healthCheck: '/',
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -184,7 +185,7 @@ export class MicroservicesStack extends Stack {
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         port: 80,
-                        healthCheck: '/',
+                        healthCheck: '/health/status',
                     });
                 } else {
                     throw new Error(`ECS is not supported for ${name}`);
