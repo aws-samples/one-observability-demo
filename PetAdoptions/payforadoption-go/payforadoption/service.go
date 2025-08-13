@@ -2,8 +2,6 @@ package payforadoption
 
 import (
 	"context"
-	"errors"
-	"runtime"
 	"time"
 
 	"github.com/go-kit/log"
@@ -62,15 +60,22 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		AdoptionDate:  time.Now(),
 	}
 
-	// Introduce memory leaks for pettype bunnies. Sorry bunnies :)
-	if petType == "bunny" {
-		if s.repository.ErrorModeOn(ctx) {
-			level.Error(logger).Log("errorMode", "On")
-			memoryLeak()
-			return a, errors.New("illegal memory allocation")
-		} else {
-			level.Error(logger).Log("errorMode", "Off")
+	// Introduce degraded experience when error mode is enabled
+	if s.repository.ErrorModeOn(ctx) {
+		level.Error(logger).Log("errorMode", "On", "petType", petType, "userID", userID)
+
+		startTime := time.Now()
+
+		// Apply different degradation strategies
+		result := handleDefaultDegradation(ctx, logger, a, startTime, s.repository)
+
+		// Return the result from the degradation scenario
+		if result.Error != nil {
+			return result.Adoption, result.Error
 		}
+
+		// Update the adoption with any modifications from degradation
+		a = result.Adoption
 	}
 
 	// Step 1: Create transaction in database (synchronous)
@@ -123,27 +128,4 @@ func (s service) TriggerSeeding(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func memoryLeak() {
-
-	// loosing time
-	time.Sleep(time.Duration(1000 * time.Millisecond))
-
-	type T struct {
-		v [2 << 20]int
-		t *T
-	}
-
-	var finalizer = func(t *T) {}
-
-	var x, y T
-
-	// The SetFinalizer call makes x escape to heap.
-	runtime.SetFinalizer(&x, finalizer)
-
-	// The following line forms a cyclic reference
-	// group with two members, x and y.
-	// This causes x and y are not collectable.
-	x.t, y.t = &y, &x // y also escapes to heap.
 }
