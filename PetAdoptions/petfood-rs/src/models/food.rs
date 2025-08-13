@@ -68,7 +68,7 @@ pub struct UpdateFoodRequest {
 }
 
 /// Filters for querying food products
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct FoodFilters {
     pub pet_type: Option<PetType>,
     pub food_type: Option<FoodType>,

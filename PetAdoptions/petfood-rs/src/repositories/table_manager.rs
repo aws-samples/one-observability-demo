@@ -223,13 +223,24 @@ impl TableManager {
                 Ok(true)
             }
             Err(e) => {
-                let error_message = e.to_string();
-                if error_message.contains("ResourceNotFoundException") {
+                // Check if this is a ResourceNotFoundException (table doesn't exist)
+                let error_string = e.to_string();
+                let error_debug = format!("{:?}", e);
+                
+                info!("DynamoDB error details: {}", error_string);
+                info!("DynamoDB error debug: {}", error_debug);
+                
+                // Check for various forms of "table not found" errors
+                if error_string.contains("ResourceNotFoundException") 
+                    || error_string.contains("Requested resource not found")
+                    || error_string.contains("Table: ") && error_string.contains("not found")
+                    || error_debug.contains("ResourceNotFoundException") {
                     info!("Table {} does not exist", table_name);
                     Ok(false)
                 } else {
-                    error!("Error checking table existence: {}", error_message);
-                    Err(self.map_dynamodb_error(e.into()))
+                    // For any other error, log and return the error
+                    error!("Error checking table existence: {}", e);
+                    Err(RepositoryError::ConnectionFailed)
                 }
             }
         }

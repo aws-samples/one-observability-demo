@@ -9,11 +9,11 @@ use tracing::info;
 
 use petfood_rs::{
     handlers::{
-        health_check, metrics_handler, api,
+        health_check, metrics_handler, api, admin,
         request_validation_middleware, cors_middleware, security_headers_middleware,
     },
     observability::{observability_middleware, Metrics},
-    repositories::{DynamoDbFoodRepository, DynamoDbCartRepository},
+    repositories::{DynamoDbFoodRepository, DynamoDbCartRepository, TableManager},
     services::{FoodService, RecommendationService, CartService},
     Config, init_observability, shutdown_observability,
 };
@@ -48,6 +48,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dynamodb_client = Arc::new(aws_sdk_dynamodb::Client::new(&aws_config));
     info!("AWS clients initialized successfully");
 
+    // Initialize table manager
+    let table_manager = Arc::new(TableManager::new(dynamodb_client.clone()));
+    info!("Table manager initialized successfully");
+
     // Initialize repositories
     let food_repository = Arc::new(DynamoDbFoodRepository::new(
         dynamodb_client.clone(),
@@ -66,7 +70,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Services initialized successfully");
 
     // Build the application router
-    let app = create_app(metrics, food_service, recommendation_service, cart_service);
+    let app = create_app(
+        metrics, 
+        food_service, 
+        recommendation_service, 
+        cart_service,
+        table_manager,
+        config.database.foods_table_name.clone(),
+        config.database.carts_table_name.clone(),
+    );
 
     // Create socket address
     let addr = SocketAddr::new(
@@ -102,14 +114,25 @@ fn create_app(
     food_service: Arc<FoodService>,
     recommendation_service: Arc<RecommendationService>,
     cart_service: Arc<CartService>,
+    table_manager: Arc<TableManager>,
+    foods_table_name: String,
+    carts_table_name: String,
 ) -> Router {
     let metrics_for_middleware = metrics.clone();
     
     // Create the API state
     let api_state = api::ApiState {
-        food_service,
+        food_service: food_service.clone(),
         recommendation_service,
         cart_service,
+    };
+    
+    // Create the admin state
+    let admin_state = admin::AdminState {
+        food_service: food_service.clone(),
+        table_manager,
+        foods_table_name,
+        carts_table_name,
     };
     
     Router::new()
@@ -134,6 +157,12 @@ fn create_app(
                .delete(api::remove_cart_item))
         .route("/api/cart/:user_id/clear", post(api::clear_cart))
         .with_state(api_state)
+        
+        // Admin endpoints (with admin state)
+        .route("/api/admin/setup-tables", post(admin::setup_tables))
+        .route("/api/admin/seed", post(admin::seed_database))
+        .route("/api/admin/cleanup", post(admin::cleanup_database))
+        .with_state(admin_state)
         
         // Add middleware layers (order matters - outer to inner)
         .layer(middleware::from_fn(security_headers_middleware))
