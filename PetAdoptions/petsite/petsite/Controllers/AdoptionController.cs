@@ -31,9 +31,14 @@ namespace PetSite.Controllers
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
+            _logger.LogInformation($"Before Adoption/Index EnsureUserId");
             if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
+            _logger.LogInformation($"After Adoption/Index EnsureUserId");
             
             // Check if pet data exists in TempData (from TakeMeHome redirect)
+            _logger.LogInformation($"Adoption/Index - Before checking if TempData is null: {TempData["SelectedPet"]}");
+            _logger.LogInformation($"Adoption/Index - Before checking if TempData is null (as String): {TempData["SelectedPet"].ToString()}");
+            
             if (TempData["SelectedPet"] != null)
             {
                 var petJson = TempData["SelectedPet"].ToString();
@@ -91,7 +96,7 @@ namespace PetSite.Controllers
             {
                 TempData["SelectedPet"] = JsonSerializer.Serialize(selectedPet);
             }
-            _logger.LogInformation($"Redirecting to Index page with : {JsonSerializer.Serialize(selectedPet)}");
+            _logger.LogInformation($"Redirecting to Index page with : {TempData["SelectedPet"]}");
             
             return RedirectToAction("Index", new { userId = ViewBag.UserId });
         }
