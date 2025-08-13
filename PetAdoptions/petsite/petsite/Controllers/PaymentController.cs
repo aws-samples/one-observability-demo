@@ -80,8 +80,12 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.id", petId);
                         activity.SetTag("pet.type", pettype);
                     }
-                    
-                    var result = await PostTransaction(petId, pettype);
+                    var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+
+                    using var httpClient = _httpClientFactory.CreateClient();
+
+                    await httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}&userId={userId}",
+                        null);
                 }
 
                 //Increase purchase metric count
@@ -100,14 +104,5 @@ namespace PetSite.Controllers
                 return RedirectToAction("Index", new { userId = ViewBag.UserId });
             }
         }
-
-        private async Task<HttpResponseMessage> PostTransaction(string petId, string pettype)
-        {
-            using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-            return await httpClient.PostAsync($"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}&userId={userId}",
-                null);
-        }
-        
     }
 }
