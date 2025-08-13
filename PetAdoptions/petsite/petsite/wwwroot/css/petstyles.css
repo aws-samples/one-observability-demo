@@ -98,7 +98,7 @@
     position: relative;
     z-index: 0; }
 .pet-label::before {
-    color: rgb(228, 239, 68);
+    color: rgb(237, 233, 11);
     content: attr(data-title);
     font-size: .8rem;
     font-weight: bold;
