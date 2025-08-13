@@ -21,33 +21,40 @@ namespace PetSite.Controllers
 
         protected bool EnsureUserId()
         {
-            string userId = Request.Query["userId"];
+            string userId = Request.Query["userId"].ToString();
+            bool needsRedirect = false;
             
+            // Get or generate userId
             if (string.IsNullOrEmpty(userId))
             {
                 userId = HttpContext.Session.GetString("userId");
                 if (string.IsNullOrEmpty(userId))
                 {
                     userId = UserIds[Random.Next(UserIds.Count)];
-                    HttpContext.Session.SetString("userId", userId);
                 }
-                
-                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
-                Response.Redirect(Request.Path + queryString);
-                return true; // Indicates redirect happened
+                // Only redirect for GET requests, not POST
+                needsRedirect = Request.Method == "GET";
             }
             
+            // Always set session, ViewBag, and OTEL
             HttpContext.Session.SetString("userId", userId);
             ViewBag.UserId = userId;
             
-            // Add userId to OpenTelemetry trace context if not present
             var currentActivity = Activity.Current;
             if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
             {
                 currentActivity.SetTag("userId", userId);
             }
             
-            return false; // No redirect needed
+            // Redirect only for GET requests
+            if (needsRedirect)
+            {
+                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
+                Response.Redirect(Request.Path + queryString);
+                return true;
+            }
+            
+            return false;
         }
     }
 }

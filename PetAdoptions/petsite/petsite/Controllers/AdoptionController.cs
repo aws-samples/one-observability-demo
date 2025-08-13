@@ -40,6 +40,8 @@ namespace PetSite.Controllers
                 pet = JsonSerializer.Deserialize<Pet>(petJson);
             }
             
+            _logger.LogInformation($"In Index Adoption/Index method and about to render the View with: {TempData["SelectedPet"]}");
+            
             return View(pet);
         }
         
@@ -58,7 +60,6 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.color", searchParams.petcolor);
                 
                 _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
-                
             }
             
             List<Pet> pets;
@@ -74,7 +75,7 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.type", searchParams.pettype);
                         activity.SetTag("pet.color", searchParams.petcolor);
                     }
-                    
+                    _logger.LogInformation($"Inside Adoption/TakeMeHome with - pettype: {searchParams.pettype}, petcolor: {searchParams.petcolor}, petid: {searchParams.petid}");
                     pets = await _petSearchService.GetPetDetails(searchParams.pettype, searchParams.petcolor, searchParams.petid);
                 }
             }
@@ -82,7 +83,7 @@ namespace PetSite.Controllers
             {
                 // Log the exception
                 _logger.LogError(e, "Error calling PetSearch API");
-                pets = new List<Pet>();
+                throw e;
             }
 
             var selectedPet = pets.FirstOrDefault();
@@ -90,6 +91,8 @@ namespace PetSite.Controllers
             {
                 TempData["SelectedPet"] = JsonSerializer.Serialize(selectedPet);
             }
+            _logger.LogInformation($"Redirecting to Index page with : {JsonSerializer.Serialize(selectedPet)}");
+            
             return RedirectToAction("Index", new { userId = ViewBag.UserId });
         }
     }
