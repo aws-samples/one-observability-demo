@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon;
 using Prometheus;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace PetSite
 {
@@ -35,6 +36,11 @@ namespace PetSite
             services.AddHttpContextAccessor();
             services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
             
+            // Configure data protection for containers
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/tmp/keys"))
+                .SetDefaultKeyLifetime(TimeSpan.FromDays(14));
+            
             // Configure AWS Services
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
@@ -51,28 +57,9 @@ namespace PetSite
             }
             else
             {
-                app.UseExceptionHandler("/Error");
+                app.UseExceptionHandler("/Home/Error");
                 app.UseHsts();
             }
-            
-            // Custom exception handling for all controllers except Home/Index
-            app.Use(async (context, next) =>
-            {
-                try
-                {
-                    await next();
-                }
-                catch (Exception ex)
-                {
-                    var path = context.Request.Path.Value?.ToLower();
-                    //if (path != "/" && !path.StartsWith("/home/index"))
-                    {
-                        context.Response.Redirect($"/Error?message={Uri.EscapeDataString(ex.Message)}");
-                        return;
-                    }
-                    throw;
-                }
-            });
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
