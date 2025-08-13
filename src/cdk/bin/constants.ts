@@ -57,6 +57,10 @@ export const OPENSEARCH_COLLECTION_ARN_EXPORT_NAME = 'WorkshopOpenSearchCollecti
 export const OPENSEARCH_COLLECTION_ID_EXPORT_NAME = 'WorkshopOpenSearchCollectionId';
 export const OPENSEARCH_COLLECTION_ENDPOINT_EXPORT_NAME = 'WorkshopOpenSearchCollectionEndpoint';
 
+// OpenSearch Application Export Names
+export const OPENSEARCH_APPLICATION_ARN_EXPORT_NAME = 'WorkshopOpenSearchApplicationArn';
+export const OPENSEARCH_APPLICATION_ID_EXPORT_NAME = 'WorkshopOpenSearchApplicationId';
+
 // VPC Endpoint Export Names
 export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
 export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';

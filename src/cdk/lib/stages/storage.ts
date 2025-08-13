@@ -10,12 +10,14 @@ import { Utilities } from '../utils/utilities';
 import { AuroraDatabase, AuroraDBProperties } from '../constructs/database';
 import { WorkshopNetwork } from '../constructs/network';
 import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
+import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
     dynamoDatabaseProperties?: DynamoDatabaseProperties;
     auroraDatabaseProperties?: AuroraDBProperties;
     opensearchCollectionProperties?: OpenSearchCollectionProperties;
+    opensearchApplicationProperties?: Omit<OpenSearchApplicationProperties, 'collection'>;
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
 }
@@ -51,8 +53,18 @@ export class StorageStack extends Stack {
         /** Add Database resource */
         new AuroraDatabase(this, 'AuroraDatabase', databaseProperties);
 
-        /** Add OpenSearch resource */
-        new OpenSearchCollection(this, 'OpenSearchCollection', properties.opensearchCollectionProperties);
+        /** Add OpenSearch Collection resource */
+        const openSearchCollection = new OpenSearchCollection(
+            this,
+            'OpenSearchCollection',
+            properties.opensearchCollectionProperties,
+        );
+
+        /** Add OpenSearch Application resource */
+        new OpenSearchApplication(this, 'OpenSearchUiApplication', {
+            collection: openSearchCollection,
+            ...properties.opensearchApplicationProperties,
+        });
 
         Utilities.SuppressLogRetentionNagWarnings(this);
     }
