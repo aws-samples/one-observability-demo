@@ -75,6 +75,9 @@ namespace PetSite.Services
             {
                 var userId = _httpContextAccessor.HttpContext?.Session.GetString("userId") ?? "unknown";
                 var separator = string.IsNullOrEmpty(searchUri) ? "?" : "&";
+                
+                _logger.LogInformation($"Calling the PetSearch API with: {searchapiurl}{searchUri}{separator}userId={userId}");
+                
                 var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}{separator}userId={userId}");
                 if (!response.IsSuccessStatusCode)
                 {
@@ -83,6 +86,9 @@ namespace PetSite.Services
                 }
 
                 var jsonContent = await response.Content.ReadAsStringAsync();
+                
+                _logger.LogInformation($"PetSearch API responded with: {jsonContent}");
+                
                 if (string.IsNullOrEmpty(jsonContent))
                     return new List<Pet>();
 
