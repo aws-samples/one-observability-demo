@@ -51,9 +51,28 @@ namespace PetSite
             }
             else
             {
-                app.UseExceptionHandler("/Home/Error");
+                app.UseExceptionHandler("/Error");
                 app.UseHsts();
             }
+            
+            // Custom exception handling for all controllers except Home/Index
+            app.Use(async (context, next) =>
+            {
+                try
+                {
+                    await next();
+                }
+                catch (Exception ex)
+                {
+                    var path = context.Request.Path.Value?.ToLower();
+                    //if (path != "/" && !path.StartsWith("/home/index"))
+                    {
+                        context.Response.Redirect($"/Error?message={Uri.EscapeDataString(ex.Message)}");
+                        return;
+                    }
+                    throw;
+                }
+            });
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();

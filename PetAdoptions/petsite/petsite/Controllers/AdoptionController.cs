@@ -83,7 +83,7 @@ namespace PetSite.Controllers
             {
                 // Log the exception
                 _logger.LogError(e, "Error calling PetSearch API");
-                pets = new List<Pet>();
+                throw e;
             }
 
             var selectedPet = pets.FirstOrDefault();
