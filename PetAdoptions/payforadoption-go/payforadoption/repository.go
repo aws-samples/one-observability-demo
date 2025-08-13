@@ -32,6 +32,7 @@ type Repository interface {
 	TriggerSeeding(ctx context.Context) error
 	CreateSQLTables(ctx context.Context) error
 	ErrorModeOn(ctx context.Context) bool
+	GetConnectionString(ctx context.Context) (string, error)
 }
 
 type Config struct {
@@ -52,6 +53,7 @@ type repo struct {
 	db     *sql.DB
 	cfg    Config
 	logger log.Logger
+	dbSvc  *DatabaseConfigService
 }
 
 func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
@@ -59,6 +61,7 @@ func NewRepository(db *sql.DB, cfg Config, logger log.Logger) Repository {
 		db:     db,
 		cfg:    cfg,
 		logger: log.With(logger, "repo", "sql"),
+		dbSvc:  NewDatabaseConfigService(cfg),
 	}
 }
 
@@ -327,4 +330,9 @@ func (r *repo) CreateSQLTables(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// GetConnectionString retrieves the database connection string for error mode scenarios
+func (r *repo) GetConnectionString(ctx context.Context) (string, error) {
+	return r.dbSvc.GetConnectionString(ctx)
 }
