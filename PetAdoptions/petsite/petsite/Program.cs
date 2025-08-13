@@ -30,23 +30,39 @@ namespace PetSite
                 {
                     var env = hostingContext.HostingEnvironment;
                     Console.WriteLine($"ENVIRONMENT NAME IS: {env.EnvironmentName}");
-                    if (env.EnvironmentName.ToLower() == "development")
-                        config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                            .AddJsonFile($"appsettings.{env.EnvironmentName}.json",
-                                optional: true, reloadOnChange: true);
-                    else
+                    
+                    // Add base configuration first
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                          .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                    
+                    if (env.EnvironmentName.ToLower() != "development")
                     {
+                        Console.WriteLine("[DEBUG] Loading Systems Manager configuration...");
+                        // Build intermediate configuration to get AWS options
+                        var tempConfig = config.Build();
+                        var awsOptions = tempConfig.GetAWSOptions();
+                        Console.WriteLine($"[DEBUG] AWS Region: {awsOptions.Region}");
+                        
                         config.AddSystemsManager(configureSource =>
                         {
                             configureSource.Path = "/petstore";
                             configureSource.Optional = true;
                             configureSource.ReloadAfter = TimeSpan.FromMinutes(5);
+                            configureSource.AwsOptions = awsOptions;
                         });
+                        Console.WriteLine("[DEBUG] Systems Manager configuration added.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("[DEBUG] Development mode - skipping Systems Manager.");
                     }
                 })
                 .ConfigureServices((context, services) =>
                 {
-                    services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
+                    if (context.HostingEnvironment.EnvironmentName.ToLower() != "development")
+                    {
+                        services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
+                    }
                 })
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
     }
