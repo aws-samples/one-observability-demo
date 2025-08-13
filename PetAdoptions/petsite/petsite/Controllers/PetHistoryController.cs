@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace PetSite.Controllers;
 
-public class PetHistoryController : Controller
+public class PetHistoryController : BaseController
 {
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -31,6 +31,7 @@ public class PetHistoryController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
@@ -64,6 +65,7 @@ public class PetHistoryController : Controller
     [HttpDelete]
     public async Task<IActionResult> DeletePetAdoptionsHistory()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
