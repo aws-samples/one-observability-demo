@@ -7,7 +7,7 @@ import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { WorkshopNetwork } from '../constructs/network';
 import { WorkshopEcs } from '../constructs/ecs';
-import { MicroservicesNames } from '../constructs/microservice';
+import { Microservice, MicroservicesNames } from '../constructs/microservice';
 import { ComputeType, HostType } from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
@@ -50,6 +50,7 @@ export class MicroservicesStage extends Stage {
 }
 
 export class MicroservicesStack extends Stack {
+    public microservices: Map<string, Microservice>;
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
 
@@ -66,11 +67,14 @@ export class MicroservicesStack extends Stack {
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
+        this.microservices = new Map<string, Microservice>();
+
         for (const name of properties.microservicesPlacement.keys()) {
             const service = properties.microservicesPlacement.get(name);
+            let svc;
             if (name == MicroservicesNames.PayForAdoption) {
                 if (service?.hostType == HostType.ECS) {
-                    new PayForAdoptionService(this, name, {
+                    svc = new PayForAdoptionService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
                         securityGroup: ecsExports.securityGroup,
@@ -94,10 +98,13 @@ export class MicroservicesStack extends Stack {
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
                 }
+                if (svc) {
+                    this.microservices.set(name, svc);
+                }
             }
             if (name == MicroservicesNames.PetListAdoptions) {
                 if (service?.hostType == HostType.ECS) {
-                    new ListAdoptionsService(this, name, {
+                    svc = new ListAdoptionsService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
                         securityGroup: ecsExports.securityGroup,
@@ -119,11 +126,14 @@ export class MicroservicesStack extends Stack {
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
+                }
+                if (svc) {
+                    this.microservices.set(name, svc);
                 }
             }
             if (name == MicroservicesNames.PetSearch) {
                 if (service?.hostType == HostType.ECS) {
-                    new PetSearchService(this, name, {
+                    svc = new PetSearchService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
                         securityGroup: ecsExports.securityGroup,
@@ -146,10 +156,13 @@ export class MicroservicesStack extends Stack {
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
                 }
+                if (svc) {
+                    this.microservices.set(name, svc);
+                }
             }
             if (name == MicroservicesNames.TrafficGenerator) {
                 if (service?.hostType == HostType.ECS) {
-                    new TrafficGeneratorService(this, name, {
+                    svc = new TrafficGeneratorService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
                         securityGroup: ecsExports.securityGroup,
@@ -170,10 +183,13 @@ export class MicroservicesStack extends Stack {
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
                 }
+                if (svc) {
+                    this.microservices.set(name, svc);
+                }
             }
             if (name == MicroservicesNames.PetSite) {
                 if (service?.hostType == HostType.EKS) {
-                    new PetSite(this, name, {
+                    svc = new PetSite(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
                         securityGroup: eksExports.securityGroup,
@@ -190,6 +206,9 @@ export class MicroservicesStack extends Stack {
                 } else {
                     throw new Error(`ECS is not supported for ${name}`);
                 }
+                if (svc) {
+                    this.microservices.set(name, svc);
+                }
             }
         }
 
@@ -205,6 +224,10 @@ export class MicroservicesStack extends Stack {
                 });
             }
         }
+
+        /** Grant access between Microservices */
+        //const petsite = this.microservices.get(MicroservicesNames.PetSite) as PetSite;
+        // TODO
 
         Utilities.SuppressLogRetentionNagWarnings(this);
         Utilities.SuppressKubectlProviderNagWarnings(this);
