@@ -864,15 +864,31 @@ Resources:
               "ItemsPath": "$.stackList.Payload.stacks",
               "MaxConcurrency": 1,
               "Iterator": {
-                "StartAt": "DeleteStack",
+                "StartAt": "DescribeStack",
                 "States": {
+                  "DescribeStack": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                    "Parameters": {
+                      "StackName.$": "$"
+                    },
+                    "Assign": {
+                      "stackInfo.$": "$.Stacks[0]"
+                    },
+                    "Next": "DeleteStack",
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["CloudFormation.CloudFormationException"],
+                        "Next": "StackAlreadyDeleted"
+                      }
+                    ]
+                  },
                   "DeleteStack": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
                     "Parameters": {
-                      "StackName.$": "$"
+                      "StackName.$": "$stackInfo.StackName"
                     },
-                    "ResultPath": "$.deleteResult",
                     "Next": "WaitForDeletion",
                     "Catch": [
                       {
@@ -890,13 +906,13 @@ Resources:
                     "Type": "Task",
                     "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
                     "Parameters": {
-                      "StackName.$": "$"
+                      "StackName.$": "$stackInfo.StackName"
                     },
                     "ResultPath": "$.stackStatus",
                     "Next": "EvaluateDeletionStatus",
                     "Catch": [
                       {
-                        "ErrorEquals": ["CloudFormation.ValidationError"],
+                        "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
                         "Next": "DeletionComplete"
                       }
                     ]
@@ -925,6 +941,11 @@ Resources:
                   "DeletionFailed": {
                     "Type": "Pass",
                     "Result": "Stack deletion failed or cancelled",
+                    "End": true
+                  },
+                  "StackAlreadyDeleted": {
+                    "Type": "Pass",
+                    "Result": "Stack already deleted or does not exist",
                     "End": true
                   }
                 }
