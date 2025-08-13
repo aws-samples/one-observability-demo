@@ -156,6 +156,7 @@ fn create_app(
                put(api::update_cart_item)
                .delete(api::remove_cart_item))
         .route("/api/cart/:user_id/clear", post(api::clear_cart))
+        .route("/api/cart/:user_id/checkout", post(api::checkout_cart))
         .with_state(api_state)
         
         // Admin endpoints (with admin state)

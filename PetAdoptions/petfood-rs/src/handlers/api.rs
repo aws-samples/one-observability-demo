@@ -94,6 +94,7 @@ pub fn create_api_router(
         .route("/api/cart/:user_id/items", post(add_cart_item))
         .route("/api/cart/:user_id/items/:food_id", put(update_cart_item).delete(remove_cart_item))
         .route("/api/cart/:user_id/clear", post(clear_cart))
+        .route("/api/cart/:user_id/checkout", post(checkout_cart))
         
         .with_state(state)
 }
@@ -385,6 +386,27 @@ pub async fn delete_cart(
         }
         Err(err) => {
             error!("Failed to delete cart: {}", err);
+            Err(service_error_to_response(err))
+        }
+    }
+}
+
+/// Checkout cart and create order
+#[instrument(skip(state, request))]
+pub async fn checkout_cart(
+    State(state): State<ApiState>,
+    Path(user_id): Path<String>,
+    Json(request): Json<crate::models::CheckoutRequest>,
+) -> Result<Json<crate::models::CheckoutResponse>, (StatusCode, Json<Value>)> {
+    info!("Processing checkout for user: {}", user_id);
+
+    match state.cart_service.checkout(&user_id, request).await {
+        Ok(checkout_response) => {
+            info!("Checkout completed successfully for order: {}", checkout_response.order_id);
+            Ok(Json(checkout_response))
+        }
+        Err(err) => {
+            error!("Failed to process checkout: {}", err);
             Err(service_error_to_response(err))
         }
     }

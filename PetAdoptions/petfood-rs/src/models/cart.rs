@@ -294,3 +294,110 @@ mod tests {
         assert_eq!(cart, deserialized);
     }
 }
+
+// CHECKOUT MODELS
+
+/// Request model for checkout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckoutRequest {
+    pub payment_method: PaymentMethod,
+    pub shipping_address: Option<ShippingAddress>,
+    pub billing_address: Option<BillingAddress>,
+}
+
+/// Payment method for checkout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PaymentMethod {
+    CreditCard {
+        card_number: String,
+        expiry_month: u8,
+        expiry_year: u16,
+        cvv: String,
+        cardholder_name: String,
+    },
+    PayPal {
+        email: String,
+    },
+    BankTransfer {
+        account_number: String,
+        routing_number: String,
+    },
+}
+
+/// Shipping address for checkout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShippingAddress {
+    pub name: String,
+    pub street: String,
+    pub city: String,
+    pub state: String,
+    pub zip_code: String,
+    pub country: String,
+}
+
+/// Billing address for checkout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingAddress {
+    pub name: String,
+    pub street: String,
+    pub city: String,
+    pub state: String,
+    pub zip_code: String,
+    pub country: String,
+}
+
+/// Response model for successful checkout
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckoutResponse {
+    pub order_id: String,
+    pub user_id: String,
+    pub items: Vec<OrderItem>,
+    pub subtotal: Decimal,
+    pub tax: Decimal,
+    pub shipping: Decimal,
+    pub total_amount: Decimal,
+    pub payment_method: String,
+    pub status: OrderStatus,
+    pub created_at: DateTime<Utc>,
+    pub estimated_delivery: Option<DateTime<Utc>>,
+}
+
+/// Order item in checkout response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderItem {
+    pub food_id: String,
+    pub food_name: String,
+    pub quantity: u32,
+    pub unit_price: Decimal,
+    pub total_price: Decimal,
+}
+
+/// Order status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OrderStatus {
+    Pending,
+    Confirmed,
+    Processing,
+    Shipped,
+    Delivered,
+    Cancelled,
+}
+
+impl std::fmt::Display for OrderStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrderStatus::Pending => write!(f, "pending"),
+            OrderStatus::Confirmed => write!(f, "confirmed"),
+            OrderStatus::Processing => write!(f, "processing"),
+            OrderStatus::Shipped => write!(f, "shipped"),
+            OrderStatus::Delivered => write!(f, "delivered"),
+            OrderStatus::Cancelled => write!(f, "cancelled"),
+        }
+    }
+}
+
+impl Default for OrderStatus {
+    fn default() -> Self {
+        OrderStatus::Pending
+    }
+}

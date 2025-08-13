@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::str::FromStr;
 use tracing::{info, instrument, warn};
 
 use crate::models::{
@@ -451,6 +452,126 @@ impl CartService {
         self.validate_food_id(&request.food_id)?;
         self.validate_quantity(request.quantity)?;
         Ok(())
+    }
+
+    /// Checkout cart and create order
+    #[instrument(skip(self, request), fields(user_id = %user_id))]
+    pub async fn checkout(&self, user_id: &str, request: crate::models::CheckoutRequest) -> ServiceResult<crate::models::CheckoutResponse> {
+        use crate::models::{CheckoutResponse, OrderItem, OrderStatus};
+        
+        info!("Processing checkout for user");
+
+        // Validate user_id
+        self.validate_user_id(user_id)?;
+
+        // Get the user's cart
+        let cart = match self.cart_repository.find_cart(user_id).await? {
+            Some(cart) => cart,
+            None => {
+                return Err(ServiceError::CartNotFound {
+                    user_id: user_id.to_string(),
+                });
+            }
+        };
+
+        // Check if cart is empty
+        if cart.is_empty() {
+            return Err(ServiceError::ValidationError {
+                message: "Cannot checkout empty cart".to_string(),
+            });
+        }
+
+        // Validate all items in cart and check availability
+        let mut order_items = Vec::new();
+        let mut subtotal = rust_decimal::Decimal::ZERO;
+
+        for cart_item in &cart.items {
+            // Get food details
+            let food = match self.food_repository.find_by_id(&cart_item.food_id).await? {
+                Some(food) => food,
+                None => {
+                    return Err(ServiceError::FoodNotFound {
+                        food_id: cart_item.food_id.clone(),
+                    });
+                }
+            };
+
+            // Check if food is available
+            if !food.is_available() {
+                return Err(ServiceError::ProductUnavailable {
+                    food_id: cart_item.food_id.clone(),
+                });
+            }
+
+            // Check stock availability
+            if food.stock_quantity < cart_item.quantity {
+                return Err(ServiceError::InsufficientStock {
+                    requested: cart_item.quantity,
+                    available: food.stock_quantity,
+                });
+            }
+
+            // Create order item
+            let order_item = OrderItem {
+                food_id: cart_item.food_id.clone(),
+                food_name: food.food_name.clone(),
+                quantity: cart_item.quantity,
+                unit_price: cart_item.unit_price,
+                total_price: cart_item.total_price(),
+            };
+
+            subtotal += cart_item.total_price();
+            order_items.push(order_item);
+        }
+
+        // Calculate totals (simplified calculation)
+        let tax_rate = rust_decimal::Decimal::from_str("0.08").unwrap(); // 8% tax
+        let tax = subtotal * tax_rate;
+        let shipping = if subtotal >= rust_decimal::Decimal::from(50) {
+            rust_decimal::Decimal::ZERO // Free shipping over $50
+        } else {
+            rust_decimal::Decimal::from(5) // $5 shipping
+        };
+        let total_amount = subtotal + tax + shipping;
+
+        // Generate order ID
+        let order_id = format!("ORDER-{}-{}", 
+            user_id.to_uppercase(), 
+            chrono::Utc::now().timestamp()
+        );
+
+        // Get payment method string
+        let payment_method_str = match &request.payment_method {
+            crate::models::PaymentMethod::CreditCard { .. } => "Credit Card",
+            crate::models::PaymentMethod::PayPal { .. } => "PayPal",
+            crate::models::PaymentMethod::BankTransfer { .. } => "Bank Transfer",
+        };
+
+        // Calculate estimated delivery (3-5 business days)
+        let estimated_delivery = Some(chrono::Utc::now() + chrono::Duration::days(4));
+
+        // Create checkout response
+        let checkout_response = CheckoutResponse {
+            order_id: order_id.clone(),
+            user_id: user_id.to_string(),
+            items: order_items,
+            subtotal,
+            tax,
+            shipping,
+            total_amount,
+            payment_method: payment_method_str.to_string(),
+            status: OrderStatus::Confirmed,
+            created_at: chrono::Utc::now(),
+            estimated_delivery,
+        };
+
+        // Clear the cart after successful checkout
+        let mut empty_cart = cart.clone();
+        empty_cart.clear();
+        self.cart_repository.save_cart(empty_cart).await?;
+
+        info!("Checkout completed successfully for order: {}", order_id);
+        Ok(checkout_response)
     }
 }
 
