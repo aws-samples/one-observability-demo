@@ -307,8 +307,8 @@ export class Services extends Stack {
         const petFoodService = new PetFoodService(this, 'petfood-service', {
             cluster: ecsPetListAdoptionCluster,
             logGroupName: "/ecs/PetFood",
-            cpu: 256,
-            memoryLimitMiB: 512,
+            cpu: 512,
+            memoryLimitMiB: 1024,
             healthCheck: '/health/status',
             instrumentation: 'otel',
             desiredTaskCount: 2,
