@@ -22,36 +22,39 @@ namespace PetSite.Controllers
         protected bool EnsureUserId()
         {
             string userId = Request.Query["userId"].ToString();
-            bool needsRedirect = false;
             
-            // Get or generate userId
+            // Generate userId only on Home/Index if not provided
             if (string.IsNullOrEmpty(userId))
             {
-                userId = HttpContext.Session.GetString("userId");
-                if (string.IsNullOrEmpty(userId))
+                // Only generate on Home/Index, otherwise require userId
+                if (ControllerContext.ActionDescriptor.ControllerName == "Home" && 
+                    ControllerContext.ActionDescriptor.ActionName == "Index")
                 {
                     userId = UserIds[Random.Next(UserIds.Count)];
+                    
+                    if (Request.Method == "GET")
+                    {
+                        var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
+                        Response.Redirect(Request.Path + queryString);
+                        return true;
+                    }
                 }
-                // Only redirect for GET requests, not POST
-                needsRedirect = Request.Method == "GET";
+                else
+                {
+                    // Redirect to Home/Index if userId is missing on other pages
+                    Response.Redirect("/Home/Index");
+                    return true;
+                }
             }
             
-            // Always set session, ViewBag, and OTEL
-            HttpContext.Session.SetString("userId", userId);
+            // Set ViewBag and ViewData for all views
             ViewBag.UserId = userId;
+            ViewData["UserId"] = userId;
             
             var currentActivity = Activity.Current;
             if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
             {
                 currentActivity.SetTag("userId", userId);
-            }
-            
-            // Redirect only for GET requests
-            if (needsRedirect)
-            {
-                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
-                Response.Redirect(Request.Path + queryString);
-                return true;
             }
             
             return false;

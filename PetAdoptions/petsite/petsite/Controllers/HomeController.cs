@@ -78,7 +78,7 @@ namespace PetSite.Controllers
             string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
             using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+            var userId = ViewBag.UserId?.ToString();
             await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
 
             return View();
@@ -112,8 +112,9 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.color", selectedPetColor);
                         activity.SetTag("pet.id", petid);
                     }
-                    
-                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid);
+
+                    var userId = Request.Query["userId"].ToString();
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid, userId);
                 }
             }
             catch (HttpRequestException e)

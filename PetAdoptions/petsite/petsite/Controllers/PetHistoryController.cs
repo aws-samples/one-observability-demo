@@ -45,7 +45,7 @@ public class PetHistoryController : BaseController
             using (var activity = Activity.Current?.Source?.StartActivity("Calling GetPetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
+                var userId = ViewBag.UserId?.ToString() ?? "unknown";
                 ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
             }
         }
@@ -79,7 +79,7 @@ public class PetHistoryController : BaseController
             using (var activity = Activity.Current?.Source?.StartActivity("Calling DeletePetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
+                var userId = ViewBag.UserId?.ToString() ?? "unknown";
                 ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
             }
         }

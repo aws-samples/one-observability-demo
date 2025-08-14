@@ -14,7 +14,7 @@ namespace PetSite.Services
 {
     public interface IPetSearchService
     {
-        Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid);
+        Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid, string userId);
     }
 
     public class PetSearchService : IPetSearchService
@@ -43,7 +43,7 @@ namespace PetSite.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid)
+        public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid, string userId)
         {
             string searchUri = string.Empty;
 
@@ -73,7 +73,6 @@ namespace PetSite.Services
             
             try
             {
-                var userId = _httpContextAccessor.HttpContext?.Session.GetString("userId") ?? "unknown";
                 var separator = string.IsNullOrEmpty(searchUri) ? "?" : "&";
                 
                 _logger.LogInformation($"Calling the PetSearch API with: {searchapiurl}{searchUri}{separator}userId={userId}");

@@ -54,9 +54,12 @@ namespace PetSite.Controllers
         // POST: Payment/MakePayment
         [HttpPost]
         // [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MakePayment(string petId, string pettype)
+        public async Task<IActionResult> MakePayment(string petId, string pettype, string userId)
         {
-            if (EnsureUserId()) return new EmptyResult();
+            //if (EnsureUserId()) return new EmptyResult();
+
+            if (string.IsNullOrEmpty(userId)) EnsureUserId();
+            
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -78,7 +81,7 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.type", pettype);
                     }
 
-                    var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+                    // userId parameter is already available
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
@@ -89,14 +92,14 @@ namespace PetSite.Controllers
 
                 //Increase purchase metric count
                 PetAdoptionCount.Inc();
-                return RedirectToAction("Index", new { userId = ViewBag.UserId, status = "success" });
+                return RedirectToAction("Index", new { userId = userId, status = "success" });
             }
             catch (Exception ex)
             {
                 // Log the exception
                 _logger.LogError(ex, $"Error in MakePayment: {ex.Message}");
 
-                return RedirectToAction("Index", new { userId = ViewBag.UserId, status = ex.Message });
+                return RedirectToAction("Index", new { userId = userId, status = ex.Message });
             }
         }
     }

@@ -91,6 +91,7 @@
                 <p class="card-text"><small class="text-muted">For: ${food.food_for} | Type: ${food.food_type}</small></p>
                 <form method="post" action="/FoodService/BuyFood">
                   <input type="hidden" name="foodId" value="${food.food_id}">
+                  <input type="hidden" name="userId" value="@ViewBag.UserId">
                   <button type="submit" class="btn btn-primary">Buy</button>
                 </form>
               </div>

@@ -48,7 +48,7 @@ namespace PetSite.Controllers
                 {
                     string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
                     using var httpClient = _httpClientFactory.CreateClient();
-                    var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+                    var userId = ViewBag.UserId?.ToString();
                     result = await httpClient.GetStringAsync($"{petlistadoptionsurl}?userId={userId}");
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }
