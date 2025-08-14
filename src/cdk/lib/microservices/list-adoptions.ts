@@ -10,6 +10,7 @@ import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
+import { ApplicationSignalsIntegration, PythonInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
 
 export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -19,6 +20,27 @@ export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
 export class ListAdoptionsService extends EcsService {
     constructor(scope: Construct, id: string, properties: ListAdoptionsServiceProperties) {
         super(scope, id, properties);
+
+        new ApplicationSignalsIntegration(this, 'petsearch-integration', {
+            taskDefinition: this.taskDefinition,
+            instrumentation: {
+                sdkVersion: PythonInstrumentationVersion.V0_9_0,
+            },
+            serviceName: `${properties.name}-Service`,
+            cloudWatchAgentSidecar: {
+                containerName: 'ecs-cwagent',
+                enableLogging: true,
+                cpu: 256,
+                memoryLimitMiB: 512,
+            },
+        });
+
+        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
+            {
+                id: 'AwsSolutions-ECS7',
+                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+            },
+        ]);
 
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',

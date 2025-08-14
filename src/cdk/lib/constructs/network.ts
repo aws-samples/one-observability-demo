@@ -37,6 +37,7 @@ import {
     CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
 import { PrivateDnsNamespace, IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
+import { Utilities } from '../utils/utilities';
 
 /**
  * Properties for the WorkshopNetwork construct
@@ -100,6 +101,18 @@ export class WorkshopNetwork extends Construct {
                 },
             ],
         });
+
+        /** Add tags for EKS auto-discovery */
+        for (const subnet of this.vpc.publicSubnets) {
+            Utilities.TagConstruct(subnet, {
+                'kubernetes.io/role/elb': '1',
+            });
+        }
+        for (const subnet of this.vpc.privateSubnets) {
+            Utilities.TagConstruct(subnet, {
+                'kubernetes.io/role/internal-elb': '1',
+            });
+        }
 
         if (properties.enableFlowLogs) {
             this.enableFlowLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);

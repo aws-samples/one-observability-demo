@@ -5,10 +5,11 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 
 namespace PetSite.Controllers;
 
-public class PetHistoryController : Controller
+public class PetHistoryController : BaseController
 {
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -30,6 +31,7 @@ public class PetHistoryController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
@@ -39,11 +41,12 @@ public class PetHistoryController : Controller
         
         try
         {
-            // Create a new activity for the API call
-            using (var activity = new Activity("Calling GetPetAdoptionsHistory").Start())
+            // Begin activity span to track GetPetAdoptionsHistory API call
+            using (var activity = Activity.Current?.Source?.StartActivity("Calling GetPetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions");
+                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
+                ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
             }
         }
         catch (Exception e)
@@ -62,6 +65,7 @@ public class PetHistoryController : Controller
     [HttpDelete]
     public async Task<IActionResult> DeletePetAdoptionsHistory()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
@@ -71,11 +75,12 @@ public class PetHistoryController : Controller
         
         try
         {
-            // Create a new activity for the API call
-            using (var activity = new Activity("Calling DeletePetAdoptionsHistory").Start())
+            // Begin activity span to track DeletePetAdoptionsHistory API call
+            using (var activity = Activity.Current?.Source?.StartActivity("Calling DeletePetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions");
+                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
+                ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
             }
         }
         catch (Exception e)

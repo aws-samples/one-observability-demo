@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 
@@ -19,25 +21,40 @@ namespace PetSite.Controllers
 
         protected bool EnsureUserId()
         {
-            string userid = Request.Query["userid"];
+            string userId = Request.Query["userId"].ToString();
+            bool needsRedirect = false;
             
-            if (string.IsNullOrEmpty(userid))
+            // Get or generate userId
+            if (string.IsNullOrEmpty(userId))
             {
-                userid = HttpContext.Session.GetString("userid");
-                if (string.IsNullOrEmpty(userid))
+                userId = HttpContext.Session.GetString("userId");
+                if (string.IsNullOrEmpty(userId))
                 {
-                    userid = UserIds[Random.Next(UserIds.Count)];
-                    HttpContext.Session.SetString("userid", userid);
+                    userId = UserIds[Random.Next(UserIds.Count)];
                 }
-                
-                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userid=" + userid : "?userid=" + userid;
-                Response.Redirect(Request.Path + queryString);
-                return true; // Indicates redirect happened
+                // Only redirect for GET requests, not POST
+                needsRedirect = Request.Method == "GET";
             }
             
-            HttpContext.Session.SetString("userid", userid);
-            ViewBag.UserId = userid;
-            return false; // No redirect needed
+            // Always set session, ViewBag, and OTEL
+            HttpContext.Session.SetString("userId", userId);
+            ViewBag.UserId = userId;
+            
+            var currentActivity = Activity.Current;
+            if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
+            {
+                currentActivity.SetTag("userId", userId);
+            }
+            
+            // Redirect only for GET requests
+            if (needsRedirect)
+            {
+                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
+                Response.Redirect(Request.Path + queryString);
+                return true;
+            }
+            
+            return false;
         }
     }
 }

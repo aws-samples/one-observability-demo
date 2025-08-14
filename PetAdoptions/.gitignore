@@ -363,3 +363,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# pethistory
+
+pethistory/.aws-sam/
+pethistory/cdk-example.ts
+pethistory/coverage/
+pethistory/events/
+pethistory/samconfig.toml

@@ -414,3 +414,5 @@ wiki-docs/
 # Go binaries
 PetAdoptions/payforadoption-go/petadoptions
 PetAdoptions/petsite/petsite/appsettings.Development.json
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/indexLayout.xml
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml

@@ -42,7 +42,7 @@ import { Utilities } from '../lib/utils/utilities';
 const app = new App();
 
 /** Deploy core infrastructure stack with networking and security components */
-new CoreStack(app, 'DevCoreStack', {
+const core = new CoreStack(app, 'DevCoreStack', {
     ...CORE_PROPERTIES,
     tags: TAGS,
 });
@@ -77,19 +77,21 @@ new StorageStack(app, 'DevStorageStack', {
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,
     },
-});
+}).addDependency(core, 'Network is needed');
 
 /** Deploy compute stack with Lambda functions and EC2 resources */
-new ComputeStack(app, 'DevComputeStack', {
+const compute = new ComputeStack(app, 'DevComputeStack', {
     tags: TAGS,
 });
+
+compute.addDependency(core, 'Network is needed');
 
 /** Deploy microservices stack with pet store application components */
 new MicroservicesStack(app, 'DevMicroservicesStack', {
     tags: TAGS,
     microservicesPlacement: MICROSERVICES_PLACEMENT,
     lambdaFunctions: LAMBDA_FUNCTIONS,
-});
+}).addDependency(compute, 'Need to know where to run');
 
 /** Tag all resources to indicate local deployment */
 Utilities.TagConstruct(app, {
