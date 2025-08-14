@@ -1,13 +1,13 @@
-name: CDK Test
+name: Tests
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, staging ]
     paths:
       - 'PetAdoptions/cdk/**'
       - 'PetAdoptions/petfood-rs/**'
   push:
-    branches: [ main ]
+    branches: [ main, staging ]
     paths:
       - 'PetAdoptions/cdk/**'
       - 'PetAdoptions/petfood-rs/**'
