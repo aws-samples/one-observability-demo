@@ -14,32 +14,27 @@ pub async fn request_validation_middleware(
     next: Next,
 ) -> Result<Response, (StatusCode, Json<Value>)> {
     // Validate content type for POST/PUT requests
-    if let Err(response) = validate_content_type(&request) {
-        return Err(response);
-    }
+    validate_content_type(&request)?;
 
     // Validate request size
-    if let Err(response) = validate_request_size(&request) {
-        return Err(response);
-    }
+    validate_request_size(&request)?;
 
     // Continue with the request
-    match next.run(request).await {
-        response => Ok(response),
-    }
+    let response = next.run(request).await;
+    Ok(response)
 }
 
 /// Validate content type for requests with body
 fn validate_content_type(request: &Request<Body>) -> Result<(), (StatusCode, Json<Value>)> {
     let method = request.method();
-    
+
     // Only validate content type for requests that should have a body
     if method == "POST" || method == "PUT" || method == "PATCH" {
         let headers = request.headers();
-        
+
         if let Some(content_type) = headers.get("content-type") {
             let content_type_str = content_type.to_str().unwrap_or("");
-            
+
             // Check if it's JSON
             if !content_type_str.starts_with("application/json") {
                 warn!("Invalid content type: {}", content_type_str);
@@ -64,14 +59,14 @@ fn validate_content_type(request: &Request<Body>) -> Result<(), (StatusCode, Jso
             ));
         }
     }
-    
+
     Ok(())
 }
 
 /// Validate request size
 fn validate_request_size(request: &Request<Body>) -> Result<(), (StatusCode, Json<Value>)> {
     const MAX_REQUEST_SIZE: u64 = 1024 * 1024; // 1MB
-    
+
     if let Some(content_length) = request.headers().get("content-length") {
         if let Ok(length_str) = content_length.to_str() {
             if let Ok(length) = length_str.parse::<u64>() {
@@ -89,26 +84,29 @@ fn validate_request_size(request: &Request<Body>) -> Result<(), (StatusCode, Jso
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// CORS middleware for handling cross-origin requests
-pub async fn cors_middleware(
-    request: Request<Body>,
-    next: Next,
-) -> Response {
+pub async fn cors_middleware(request: Request<Body>, next: Next) -> Response {
     let response = next.run(request).await;
-    
+
     let mut response = response;
     let headers = response.headers_mut();
-    
+
     // Add CORS headers
     headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-    headers.insert("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS".parse().unwrap());
-    headers.insert("Access-Control-Allow-Headers", "Content-Type, Authorization".parse().unwrap());
+    headers.insert(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS".parse().unwrap(),
+    );
+    headers.insert(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization".parse().unwrap(),
+    );
     headers.insert("Access-Control-Max-Age", "86400".parse().unwrap());
-    
+
     response
 }
 
@@ -120,10 +118,10 @@ pub async fn rate_limiting_middleware(
     // For now, this is a placeholder implementation
     // In a real application, you would implement proper rate limiting
     // using a distributed cache like Redis or an in-memory store
-    
+
     // Extract client IP or user ID for rate limiting
     let client_id = extract_client_identifier(&request);
-    
+
     // Check rate limit (placeholder logic)
     if is_rate_limited(&client_id) {
         warn!("Rate limit exceeded for client: {}", client_id);
@@ -137,7 +135,7 @@ pub async fn rate_limiting_middleware(
             })),
         ));
     }
-    
+
     // Continue with the request
     Ok(next.run(request).await)
 }
@@ -150,13 +148,13 @@ fn extract_client_identifier(request: &Request<Body>) -> String {
             return ip.split(',').next().unwrap_or("unknown").trim().to_string();
         }
     }
-    
+
     if let Some(real_ip) = request.headers().get("x-real-ip") {
         if let Ok(ip) = real_ip.to_str() {
             return ip.to_string();
         }
     }
-    
+
     // Fallback to connection info (not available in this context)
     "unknown".to_string()
 }
@@ -169,22 +167,25 @@ fn is_rate_limited(_client_id: &str) -> bool {
 }
 
 /// Security headers middleware
-pub async fn security_headers_middleware(
-    request: Request<Body>,
-    next: Next,
-) -> Response {
+pub async fn security_headers_middleware(request: Request<Body>, next: Next) -> Response {
     let response = next.run(request).await;
-    
+
     let mut response = response;
     let headers = response.headers_mut();
-    
+
     // Add security headers
     headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
     headers.insert("X-Frame-Options", "DENY".parse().unwrap());
     headers.insert("X-XSS-Protection", "1; mode=block".parse().unwrap());
-    headers.insert("Referrer-Policy", "strict-origin-when-cross-origin".parse().unwrap());
-    headers.insert("Content-Security-Policy", "default-src 'self'".parse().unwrap());
-    
+    headers.insert(
+        "Referrer-Policy",
+        "strict-origin-when-cross-origin".parse().unwrap(),
+    );
+    headers.insert(
+        "Content-Security-Policy",
+        "default-src 'self'".parse().unwrap(),
+    );
+
     response
 }
 
@@ -201,13 +202,12 @@ mod tests {
             .uri("/test")
             .body(Body::empty())
             .unwrap();
-        
+
         // Test with X-Forwarded-For header
-        request.headers_mut().insert(
-            "x-forwarded-for",
-            "192.168.1.1, 10.0.0.1".parse().unwrap()
-        );
-        
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", "192.168.1.1, 10.0.0.1".parse().unwrap());
+
         let client_id = extract_client_identifier(&request);
         assert_eq!(client_id, "192.168.1.1");
     }
@@ -219,13 +219,12 @@ mod tests {
             .uri("/test")
             .body(Body::empty())
             .unwrap();
-        
+
         // Test with X-Real-IP header
-        request.headers_mut().insert(
-            "x-real-ip",
-            "203.0.113.1".parse().unwrap()
-        );
-        
+        request
+            .headers_mut()
+            .insert("x-real-ip", "203.0.113.1".parse().unwrap());
+
         let client_id = extract_client_identifier(&request);
         assert_eq!(client_id, "203.0.113.1");
     }
@@ -237,7 +236,7 @@ mod tests {
             .uri("/test")
             .body(Body::empty())
             .unwrap();
-        
+
         let client_id = extract_client_identifier(&request);
         assert_eq!(client_id, "unknown");
     }

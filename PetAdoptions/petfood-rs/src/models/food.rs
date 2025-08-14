@@ -54,7 +54,7 @@ pub struct CreateFoodRequest {
 }
 
 /// Request model for updating an existing food product
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdateFoodRequest {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -93,7 +93,14 @@ impl Food {
     pub fn new(request: CreateFoodRequest) -> Self {
         let now = Utc::now();
         Self {
-            id: format!("F{}", Uuid::new_v4().simple().to_string().get(0..8).unwrap_or("00000000")),
+            id: format!(
+                "F{}",
+                Uuid::new_v4()
+                    .simple()
+                    .to_string()
+                    .get(0..8)
+                    .unwrap_or("00000000")
+            ),
             pet_type: request.pet_type,
             name: request.name,
             food_type: request.food_type,
@@ -162,8 +169,8 @@ impl Food {
 
     /// Check if the food is available for purchase
     pub fn is_available(&self) -> bool {
-        self.is_active 
-            && self.availability_status == AvailabilityStatus::InStock 
+        self.is_active
+            && self.availability_status == AvailabilityStatus::InStock
             && self.stock_quantity > 0
     }
 
@@ -203,8 +210,10 @@ impl Food {
             let search_lower = search_term.to_lowercase();
             if !self.name.to_lowercase().contains(&search_lower)
                 && !self.description.to_lowercase().contains(&search_lower)
-                && !self.ingredients.iter().any(|ingredient| 
-                    ingredient.to_lowercase().contains(&search_lower))
+                && !self
+                    .ingredients
+                    .iter()
+                    .any(|ingredient| ingredient.to_lowercase().contains(&search_lower))
             {
                 return false;
             }
@@ -322,21 +331,5 @@ mod tests {
         let deserialized: Food = serde_json::from_str(&json).unwrap();
 
         assert_eq!(food, deserialized);
-    }
-}
-
-impl Default for UpdateFoodRequest {
-    fn default() -> Self {
-        Self {
-            name: None,
-            description: None,
-            price: None,
-            image: None,
-            nutritional_info: None,
-            ingredients: None,
-            feeding_guidelines: None,
-            availability_status: None,
-            stock_quantity: None,
-        }
     }
 }

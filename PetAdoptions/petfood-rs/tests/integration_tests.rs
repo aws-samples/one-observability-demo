@@ -1,4 +1,8 @@
-use petfood_rs::models::{Food, CreateFoodRequest, UpdateFoodRequest, PetType, FoodType, Cart, AddCartItemRequest};
+#![allow(clippy::needless_borrows_for_generic_args)]
+
+use petfood_rs::models::{
+    AddCartItemRequest, Cart, CreateFoodRequest, Food, FoodType, PetType, UpdateFoodRequest,
+};
 use rust_decimal_macros::dec;
 use serde_json::json;
 use uuid::Uuid;
@@ -48,7 +52,7 @@ async fn test_food_api_endpoints() {
     let retrieved_food: Food = response.json().await.expect("Failed to parse response");
     assert_eq!(retrieved_food.id, created_food.id);
 
- // Test listing foods
+    // Test listing foods
     let response = client
         .get(&format!("{}/api/foods", base_url))
         .send()
@@ -56,8 +60,11 @@ async fn test_food_api_endpoints() {
         .expect("Failed to send request");
 
     assert_eq!(response.status().as_u16(), 200);
-    let foods_response: serde_json::Value = response.json().await.expect("Failed to parse response");
-    let foods = foods_response["foods"].as_array().expect("Expected foods array");
+    let foods_response: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
+    let foods = foods_response["foods"]
+        .as_array()
+        .expect("Expected foods array");
     assert!(!foods.is_empty());
 
     // Test updating the food
@@ -117,8 +124,11 @@ async fn test_recommendation_endpoints() {
         .expect("Failed to send request");
 
     assert_eq!(response.status().as_u16(), 200);
-    let recommendations: serde_json::Value = response.json().await.expect("Failed to parse response");
-    let foods = recommendations["recommendations"].as_array().expect("Expected recommendations array");
+    let recommendations: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
+    let foods = recommendations["recommendations"]
+        .as_array()
+        .expect("Expected recommendations array");
     assert!(!foods.is_empty());
 
     // Verify all recommendations are for puppies
@@ -134,8 +144,8 @@ async fn test_recommendation_endpoints() {
         .expect("Failed to send request");
 
     assert_eq!(response.status().as_u16(), 400);
-}#[tokio
-::test]
+}
+#[tokio::test]
 async fn test_cart_endpoints() {
     let test_env = TestEnvironment::new().await;
     let client = &test_env.client;
@@ -152,8 +162,11 @@ async fn test_cart_endpoints() {
         .await
         .expect("Failed to send request");
 
-    let foods_response: serde_json::Value = response.json().await.expect("Failed to parse response");
-    let foods = foods_response["foods"].as_array().expect("Expected foods array");
+    let foods_response: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
+    let foods = foods_response["foods"]
+        .as_array()
+        .expect("Expected foods array");
     let first_food = &foods[0];
     let food_id = first_food["id"].as_str().expect("Expected id");
 
@@ -187,7 +200,10 @@ async fn test_cart_endpoints() {
 
     // Test updating cart item quantity
     let response = client
-        .put(&format!("{}/api/cart/{}/items/{}", base_url, user_id, food_id))
+        .put(&format!(
+            "{}/api/cart/{}/items/{}",
+            base_url, user_id, food_id
+        ))
         .json(&json!({"quantity": 5}))
         .send()
         .await
@@ -207,7 +223,10 @@ async fn test_cart_endpoints() {
 
     // Test removing item from cart
     let response = client
-        .delete(&format!("{}/api/cart/{}/items/{}", base_url, user_id, food_id))
+        .delete(&format!(
+            "{}/api/cart/{}/items/{}",
+            base_url, user_id, food_id
+        ))
         .send()
         .await
         .expect("Failed to send request");
@@ -223,8 +242,8 @@ async fn test_cart_endpoints() {
 
     let cart: Cart = response.json().await.expect("Failed to parse response");
     assert!(cart.items.is_empty());
-}#
-[tokio::test]
+}
+#[tokio::test]
 async fn test_health_endpoint() {
     let test_env = TestEnvironment::new().await;
     let client = &test_env.client;
@@ -237,7 +256,8 @@ async fn test_health_endpoint() {
         .expect("Failed to send request");
 
     assert_eq!(response.status().as_u16(), 200);
-    let health_response: serde_json::Value = response.json().await.expect("Failed to parse response");
+    let health_response: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
     assert_eq!(health_response["status"], "healthy");
 }
 
@@ -265,8 +285,11 @@ async fn test_admin_endpoints() {
         .await
         .expect("Failed to send request");
 
-    let foods_response: serde_json::Value = response.json().await.expect("Failed to parse response");
-    let foods = foods_response["foods"].as_array().expect("Expected foods array");
+    let foods_response: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
+    let foods = foods_response["foods"]
+        .as_array()
+        .expect("Expected foods array");
     assert!(!foods.is_empty());
 
     // Test cleanup
@@ -285,8 +308,11 @@ async fn test_admin_endpoints() {
         .await
         .expect("Failed to send request");
 
-    let foods_response: serde_json::Value = response.json().await.expect("Failed to parse response");
-    let foods = foods_response["foods"].as_array().expect("Expected foods array");
+    let foods_response: serde_json::Value =
+        response.json().await.expect("Failed to parse response");
+    let foods = foods_response["foods"]
+        .as_array()
+        .expect("Expected foods array");
     assert!(foods.is_empty());
 }
 

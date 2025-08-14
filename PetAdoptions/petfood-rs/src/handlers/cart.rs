@@ -44,7 +44,10 @@ pub fn create_cart_router(cart_service: Arc<CartService>) -> Router {
     Router::new()
         .route("/api/cart/:user_id", get(get_cart).delete(delete_cart))
         .route("/api/cart/:user_id/items", post(add_cart_item))
-        .route("/api/cart/:user_id/items/:food_id", put(update_cart_item).delete(remove_cart_item))
+        .route(
+            "/api/cart/:user_id/items/:food_id",
+            put(update_cart_item).delete(remove_cart_item),
+        )
         .route("/api/cart/:user_id/clear", post(clear_cart))
         .route("/api/cart/:user_id/summary", get(get_cart_summary))
         .route("/api/cart/:user_id/validate", get(validate_cart))
@@ -61,7 +64,10 @@ pub async fn get_cart(
 
     match state.cart_service.get_cart(&user_id).await {
         Ok(cart) => {
-            info!("Successfully retrieved cart with {} items", cart.total_items);
+            info!(
+                "Successfully retrieved cart with {} items",
+                cart.total_items
+            );
             Ok(Json(cart))
         }
         Err(err) => {
@@ -78,8 +84,10 @@ pub async fn add_cart_item(
     Path(user_id): Path<String>,
     Json(request): Json<AddCartItemRequest>,
 ) -> Result<(StatusCode, Json<CartItemResponse>), (StatusCode, Json<Value>)> {
-    info!("Adding item to cart for user: {}, food_id: {}, quantity: {}", 
-          user_id, request.food_id, request.quantity);
+    info!(
+        "Adding item to cart for user: {}, food_id: {}, quantity: {}",
+        user_id, request.food_id, request.quantity
+    );
 
     match state.cart_service.add_item(&user_id, request).await {
         Ok(item) => {
@@ -100,10 +108,16 @@ pub async fn update_cart_item(
     Path((user_id, food_id)): Path<(String, String)>,
     Json(request): Json<UpdateCartItemRequest>,
 ) -> Result<Json<CartItemResponse>, (StatusCode, Json<Value>)> {
-    info!("Updating cart item for user: {}, food_id: {}, new_quantity: {}", 
-          user_id, food_id, request.quantity);
+    info!(
+        "Updating cart item for user: {}, food_id: {}, new_quantity: {}",
+        user_id, food_id, request.quantity
+    );
 
-    match state.cart_service.update_item(&user_id, &food_id, request).await {
+    match state
+        .cart_service
+        .update_item(&user_id, &food_id, request)
+        .await
+    {
         Ok(item) => {
             info!("Successfully updated cart item");
             Ok(Json(item))
@@ -121,7 +135,10 @@ pub async fn remove_cart_item(
     State(state): State<CartHandlerState>,
     Path((user_id, food_id)): Path<(String, String)>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Removing item from cart for user: {}, food_id: {}", user_id, food_id);
+    info!(
+        "Removing item from cart for user: {}, food_id: {}",
+        user_id, food_id
+    );
 
     match state.cart_service.remove_item(&user_id, &food_id).await {
         Ok(()) => {
@@ -214,12 +231,13 @@ pub async fn validate_cart(
     match state.cart_service.validate_cart(&user_id).await {
         Ok(issues) => {
             let is_valid = issues.is_empty();
-            info!("Cart validation completed: valid={}, issues={}", is_valid, issues.len());
-            
-            Ok(Json(CartValidationResponse {
+            info!(
+                "Cart validation completed: valid={}, issues={}",
                 is_valid,
-                issues,
-            }))
+                issues.len()
+            );
+
+            Ok(Json(CartValidationResponse { is_valid, issues }))
         }
         Err(err) => {
             error!("Failed to validate cart: {}", err);
@@ -242,24 +260,34 @@ fn service_error_to_response(err: ServiceError) -> (StatusCode, Json<Value>) {
             crate::models::RepositoryError::NotFound => {
                 (StatusCode::NOT_FOUND, "Resource not found".to_string())
             }
-            crate::models::RepositoryError::ConnectionFailed => {
-                (StatusCode::SERVICE_UNAVAILABLE, "Database connection failed".to_string())
-            }
+            crate::models::RepositoryError::ConnectionFailed => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Database connection failed".to_string(),
+            ),
             crate::models::RepositoryError::Timeout => {
                 (StatusCode::REQUEST_TIMEOUT, "Request timeout".to_string())
             }
-            crate::models::RepositoryError::RateLimitExceeded => {
-                (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string())
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            crate::models::RepositoryError::RateLimitExceeded => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         },
-        ServiceError::Configuration { .. } => {
-            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error".to_string())
-        }
-        ServiceError::ExternalService { .. } => {
-            (StatusCode::BAD_GATEWAY, "External service error".to_string())
-        }
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+        ServiceError::Configuration { .. } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Configuration error".to_string(),
+        ),
+        ServiceError::ExternalService { .. } => (
+            StatusCode::BAD_GATEWAY,
+            "External service error".to_string(),
+        ),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal server error".to_string(),
+        ),
     };
 
     (

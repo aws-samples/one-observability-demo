@@ -1,4 +1,6 @@
-use petfood_rs::models::{Cart, AddCartItemRequest, Food};
+#![allow(clippy::needless_borrows_for_generic_args)]
+
+use petfood_rs::models::{AddCartItemRequest, Cart, Food};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -28,20 +30,33 @@ async fn test_complete_user_journey() {
         .expect("Failed to get recommendations");
 
     assert_eq!(response.status().as_u16(), 200);
-    let recommendations: serde_json::Value = response.json().await.expect("Failed to parse recommendations");
-    let recommended_foods = recommendations["recommendations"].as_array().expect("Expected recommendations array");
+    let recommendations: serde_json::Value = response
+        .json()
+        .await
+        .expect("Failed to parse recommendations");
+    let recommended_foods = recommendations["recommendations"]
+        .as_array()
+        .expect("Expected recommendations array");
     assert!(!recommended_foods.is_empty());
 
     // Step 3: User searches for specific food types
     let response = client
-        .get(&format!("{}/api/foods?food_type=dry&pet_type=puppy", base_url))
+        .get(&format!(
+            "{}/api/foods?food_type=dry&pet_type=puppy",
+            base_url
+        ))
         .send()
         .await
         .expect("Failed to search foods");
 
     assert_eq!(response.status().as_u16(), 200);
-    let search_results: serde_json::Value = response.json().await.expect("Failed to parse search results");
-    let foods = search_results["foods"].as_array().expect("Expected foods array");
+    let search_results: serde_json::Value = response
+        .json()
+        .await
+        .expect("Failed to parse search results");
+    let foods = search_results["foods"]
+        .as_array()
+        .expect("Expected foods array");
     assert!(!foods.is_empty());
 
     // Verify all results are dry food for puppies
@@ -106,11 +121,14 @@ async fn test_complete_user_journey() {
     assert_eq!(response.status().as_u16(), 200);
     let cart: Cart = response.json().await.expect("Failed to parse cart");
     assert!(!cart.items.is_empty());
-    assert!(cart.items.len() >= 1);
+    assert!(!cart.items.is_empty());
 
     // Step 8: User updates quantity of an item
     let response = client
-        .put(&format!("{}/api/cart/{}/items/{}", base_url, user_id, first_food_id))
+        .put(&format!(
+            "{}/api/cart/{}/items/{}",
+            base_url, user_id, first_food_id
+        ))
         .json(&json!({"quantity": 3}))
         .send()
         .await
@@ -120,7 +138,10 @@ async fn test_complete_user_journey() {
 
     // Step 9: User removes an item from cart
     let response = client
-        .delete(&format!("{}/api/cart/{}/items/{}", base_url, user_id, first_food_id))
+        .delete(&format!(
+            "{}/api/cart/{}/items/{}",
+            base_url, user_id, first_food_id
+        ))
         .send()
         .await
         .expect("Failed to remove cart item");
@@ -145,7 +166,8 @@ async fn test_complete_user_journey() {
 
     let cart: Cart = response.json().await.expect("Failed to parse cart");
     assert!(cart.items.is_empty());
-}#[tokio::test]
+}
+#[tokio::test]
 async fn test_concurrent_user_operations() {
     let test_env = TestEnvironment::new().await;
     let client = &test_env.client;
@@ -165,7 +187,9 @@ async fn test_concurrent_user_operations() {
         .expect("Failed to get foods");
 
     let foods_response: serde_json::Value = response.json().await.expect("Failed to parse foods");
-    let foods = foods_response["foods"].as_array().expect("Expected foods array");
+    let foods = foods_response["foods"]
+        .as_array()
+        .expect("Expected foods array");
     let food_id = foods[0]["id"].as_str().expect("Expected id");
 
     // Simulate concurrent cart operations
@@ -205,7 +229,10 @@ async fn test_concurrent_user_operations() {
 
             // Update quantity
             let response = client
-                .put(&format!("{}/api/cart/{}/items/{}", base_url, user_id, food_id))
+                .put(&format!(
+                    "{}/api/cart/{}/items/{}",
+                    base_url, user_id, food_id
+                ))
                 .json(&json!({"quantity": 2}))
                 .send()
                 .await

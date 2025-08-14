@@ -2,8 +2,8 @@ use std::sync::Arc;
 use tracing::{info, instrument, warn};
 
 use crate::models::{
-    Food, FoodFilters, CreateFoodRequest, UpdateFoodRequest, FoodListResponse,
-    ServiceError, ServiceResult, PetType, FoodType,
+    CreateFoodRequest, Food, FoodFilters, FoodListResponse, FoodType, PetType, ServiceError,
+    ServiceResult, UpdateFoodRequest,
 };
 use crate::repositories::FoodRepository;
 
@@ -24,7 +24,7 @@ impl FoodService {
         info!("Listing foods with filters");
 
         let foods = self.repository.find_all(filters.clone()).await?;
-        
+
         // Apply additional filtering that might not be handled at the repository level
         let filtered_foods: Vec<Food> = foods
             .into_iter()
@@ -62,9 +62,7 @@ impl FoodService {
             }
             None => {
                 warn!("Food not found");
-                Err(ServiceError::FoodNotFound {
-                    id: id.to_string(),
-                })
+                Err(ServiceError::FoodNotFound { id: id.to_string() })
             }
         }
     }
@@ -113,9 +111,7 @@ impl FoodService {
         let mut food = match self.repository.find_by_id(id).await? {
             Some(food) => food,
             None => {
-                return Err(ServiceError::FoodNotFound {
-                    id: id.to_string(),
-                });
+                return Err(ServiceError::FoodNotFound { id: id.to_string() });
             }
         };
 
@@ -143,9 +139,7 @@ impl FoodService {
 
         // Check if food exists
         if !self.repository.exists(id).await? {
-            return Err(ServiceError::FoodNotFound {
-                id: id.to_string(),
-            });
+            return Err(ServiceError::FoodNotFound { id: id.to_string() });
         }
 
         self.repository.soft_delete(id).await?;
@@ -156,7 +150,11 @@ impl FoodService {
 
     /// Search foods by name, description, or ingredients
     #[instrument(skip(self), fields(search_term = %search_term))]
-    pub async fn search_foods(&self, search_term: &str, filters: Option<FoodFilters>) -> ServiceResult<FoodListResponse> {
+    pub async fn search_foods(
+        &self,
+        search_term: &str,
+        filters: Option<FoodFilters>,
+    ) -> ServiceResult<FoodListResponse> {
         info!("Searching foods");
 
         if search_term.trim().is_empty() {
@@ -202,8 +200,10 @@ impl FoodService {
 
         let available = food.is_available() && food.stock_quantity >= quantity;
 
-        info!("Food availability check: available={}, requested_quantity={}, stock={}", 
-              available, quantity, food.stock_quantity);
+        info!(
+            "Food availability check: available={}, requested_quantity={}, stock={}",
+            available, quantity, food.stock_quantity
+        );
 
         Ok(available)
     }
@@ -497,15 +497,9 @@ mod tests {
         let mut mock_repo = MockTestFoodRepository::new();
         let request = create_test_create_request();
 
-        mock_repo
-            .expect_exists()
-            .times(1)
-            .returning(|_| Ok(false));
+        mock_repo.expect_exists().times(1).returning(|_| Ok(false));
 
-        mock_repo
-            .expect_create()
-            .times(1)
-            .returning(|food| Ok(food));
+        mock_repo.expect_create().times(1).returning(Ok);
 
         let service = FoodService::new(Arc::new(mock_repo));
 
@@ -548,10 +542,7 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        mock_repo
-            .expect_update()
-            .times(1)
-            .returning(|food| Ok(food));
+        mock_repo.expect_update().times(1).returning(Ok);
 
         let service = FoodService::new(Arc::new(mock_repo));
 
@@ -675,10 +666,7 @@ mod tests {
     async fn test_count_foods() {
         let mut mock_repo = MockTestFoodRepository::new();
 
-        mock_repo
-            .expect_count()
-            .times(1)
-            .returning(|_| Ok(42));
+        mock_repo.expect_count().times(1).returning(|_| Ok(42));
 
         let service = FoodService::new(Arc::new(mock_repo));
 

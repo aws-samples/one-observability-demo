@@ -11,8 +11,8 @@ use std::sync::Arc;
 use tracing::{error, info, instrument};
 
 use crate::models::{
-    AddCartItemRequest, CartItemResponse, CartResponse, Food, FoodFilters,
-    FoodListResponse, ServiceError, UpdateCartItemRequest,
+    AddCartItemRequest, CartItemResponse, CartResponse, Food, FoodFilters, FoodListResponse,
+    ServiceError, UpdateCartItemRequest,
 };
 use crate::services::{CartService, FoodService};
 

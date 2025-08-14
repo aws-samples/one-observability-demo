@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::{error, info, instrument};
 
 use crate::models::{
-    CreateFoodRequest, FoodFilters, FoodListResponse, ServiceError, UpdateFoodRequest, Food,
+    CreateFoodRequest, Food, FoodFilters, FoodListResponse, ServiceError, UpdateFoodRequest,
 };
 use crate::services::FoodService;
 
@@ -202,24 +202,34 @@ fn service_error_to_response(err: ServiceError) -> (StatusCode, Json<Value>) {
             crate::models::RepositoryError::NotFound => {
                 (StatusCode::NOT_FOUND, "Resource not found".to_string())
             }
-            crate::models::RepositoryError::ConnectionFailed => {
-                (StatusCode::SERVICE_UNAVAILABLE, "Database connection failed".to_string())
-            }
+            crate::models::RepositoryError::ConnectionFailed => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Database connection failed".to_string(),
+            ),
             crate::models::RepositoryError::Timeout => {
                 (StatusCode::REQUEST_TIMEOUT, "Request timeout".to_string())
             }
-            crate::models::RepositoryError::RateLimitExceeded => {
-                (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string())
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            crate::models::RepositoryError::RateLimitExceeded => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         },
-        ServiceError::Configuration { .. } => {
-            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error".to_string())
-        }
-        ServiceError::ExternalService { .. } => {
-            (StatusCode::BAD_GATEWAY, "External service error".to_string())
-        }
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+        ServiceError::Configuration { .. } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Configuration error".to_string(),
+        ),
+        ServiceError::ExternalService { .. } => (
+            StatusCode::BAD_GATEWAY,
+            "External service error".to_string(),
+        ),
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal server error".to_string(),
+        ),
     };
 
     (

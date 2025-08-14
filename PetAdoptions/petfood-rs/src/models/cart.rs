@@ -147,7 +147,9 @@ impl Cart {
 
     /// Get the quantity of a specific item in the cart
     pub fn get_item_quantity(&self, food_id: &str) -> u32 {
-        self.get_item(food_id).map(|item| item.quantity).unwrap_or(0)
+        self.get_item(food_id)
+            .map(|item| item.quantity)
+            .unwrap_or(0)
     }
 }
 
@@ -181,7 +183,7 @@ mod tests {
     #[test]
     fn test_cart_creation() {
         let cart = Cart::new("user123".to_string());
-        
+
         assert_eq!(cart.user_id, "user123");
         assert!(cart.items.is_empty());
         assert!(cart.is_empty());
@@ -192,9 +194,9 @@ mod tests {
     #[test]
     fn test_add_item_to_cart() {
         let mut cart = Cart::new("user123".to_string());
-        
+
         cart.add_item("F001".to_string(), 2, dec!(12.99));
-        
+
         assert_eq!(cart.items.len(), 1);
         assert_eq!(cart.total_items(), 2);
         assert_eq!(cart.total_price(), dec!(25.98));
@@ -205,10 +207,10 @@ mod tests {
     #[test]
     fn test_add_existing_item_updates_quantity() {
         let mut cart = Cart::new("user123".to_string());
-        
+
         cart.add_item("F001".to_string(), 2, dec!(12.99));
         cart.add_item("F001".to_string(), 3, dec!(12.99));
-        
+
         assert_eq!(cart.items.len(), 1);
         assert_eq!(cart.total_items(), 5);
         assert_eq!(cart.get_item_quantity("F001"), 5);
@@ -218,11 +220,11 @@ mod tests {
     fn test_update_item_quantity() {
         let mut cart = Cart::new("user123".to_string());
         cart.add_item("F001".to_string(), 2, dec!(12.99));
-        
+
         let updated = cart.update_item_quantity("F001", 5);
         assert!(updated);
         assert_eq!(cart.get_item_quantity("F001"), 5);
-        
+
         let not_found = cart.update_item_quantity("F999", 1);
         assert!(!not_found);
     }
@@ -231,7 +233,7 @@ mod tests {
     fn test_update_quantity_to_zero_removes_item() {
         let mut cart = Cart::new("user123".to_string());
         cart.add_item("F001".to_string(), 2, dec!(12.99));
-        
+
         let updated = cart.update_item_quantity("F001", 0);
         assert!(updated);
         assert!(!cart.contains_item("F001"));
@@ -243,12 +245,12 @@ mod tests {
         let mut cart = Cart::new("user123".to_string());
         cart.add_item("F001".to_string(), 2, dec!(12.99));
         cart.add_item("F002".to_string(), 1, dec!(8.99));
-        
+
         let removed = cart.remove_item("F001");
         assert!(removed);
         assert!(!cart.contains_item("F001"));
         assert_eq!(cart.items.len(), 1);
-        
+
         let not_found = cart.remove_item("F999");
         assert!(!not_found);
     }
@@ -258,9 +260,9 @@ mod tests {
         let mut cart = Cart::new("user123".to_string());
         cart.add_item("F001".to_string(), 2, dec!(12.99));
         cart.add_item("F002".to_string(), 1, dec!(8.99));
-        
+
         cart.clear();
-        
+
         assert!(cart.is_empty());
         assert_eq!(cart.total_items(), 0);
         assert_eq!(cart.total_price(), dec!(0));
@@ -278,7 +280,7 @@ mod tests {
         cart.add_item("F001".to_string(), 2, dec!(12.99));
         cart.add_item("F002".to_string(), 1, dec!(8.99));
         cart.add_item("F003".to_string(), 3, dec!(5.50));
-        
+
         assert_eq!(cart.total_items(), 6);
         assert_eq!(cart.total_price(), dec!(51.47)); // 25.98 + 8.99 + 16.50
     }
@@ -287,10 +289,10 @@ mod tests {
     fn test_serde_serialization() {
         let mut cart = Cart::new("user123".to_string());
         cart.add_item("F001".to_string(), 2, dec!(12.99));
-        
+
         let json = serde_json::to_string(&cart).unwrap();
         let deserialized: Cart = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(cart, deserialized);
     }
 }
@@ -373,8 +375,9 @@ pub struct OrderItem {
 }
 
 /// Order status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum OrderStatus {
+    #[default]
     Pending,
     Confirmed,
     Processing,
@@ -393,11 +396,5 @@ impl std::fmt::Display for OrderStatus {
             OrderStatus::Delivered => write!(f, "delivered"),
             OrderStatus::Cancelled => write!(f, "cancelled"),
         }
-    }
-}
-
-impl Default for OrderStatus {
-    fn default() -> Self {
-        OrderStatus::Pending
     }
 }

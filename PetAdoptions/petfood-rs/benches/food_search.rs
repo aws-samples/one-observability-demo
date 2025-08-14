@@ -1,11 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use rust_decimal::prelude::FromPrimitive;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
-use rust_decimal::prelude::FromPrimitive;
 
 // Config imports removed as they're no longer needed
-use petfood_rs::models::{CreateFoodRequest, FoodFilters, PetType, FoodType};
+use petfood_rs::models::{CreateFoodRequest, FoodFilters, FoodType, PetType};
 use petfood_rs::repositories::food_repository::DynamoDbFoodRepository;
 use petfood_rs::services::food_service::FoodService;
 use rust_decimal_macros::dec;
@@ -19,7 +19,12 @@ async fn create_test_clients() -> (Arc<aws_sdk_dynamodb::Client>, Arc<aws_sdk_ss
 
 async fn setup_test_data(food_service: &FoodService, num_foods: usize) {
     let pet_types = [PetType::Puppy, PetType::Kitten, PetType::Bunny];
-    let food_types = [FoodType::Dry, FoodType::Wet, FoodType::Treats, FoodType::Supplements];
+    let food_types = [
+        FoodType::Dry,
+        FoodType::Wet,
+        FoodType::Treats,
+        FoodType::Supplements,
+    ];
 
     for i in 0..num_foods {
         let pet_type = pet_types[i % pet_types.len()].clone();
@@ -30,7 +35,8 @@ async fn setup_test_data(food_service: &FoodService, num_foods: usize) {
             name: format!("Benchmark Food {}", i),
             food_type,
             description: format!("Description for benchmark food {}", i),
-            price: dec!(10.99) + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
+            price: dec!(10.99)
+                + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
             image: format!("food-{}.jpg", i),
             nutritional_info: None,
             ingredients: vec!["ingredient1".to_string(), "ingredient2".to_string()],
@@ -58,12 +64,15 @@ fn bench_food_search_by_pet_type(c: &mut Criterion) {
                     || {
                         rt.block_on(async {
                             let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(client, "benchmark-foods".to_string()));
+                            let repository = Arc::new(DynamoDbFoodRepository::new(
+                                client,
+                                "benchmark-foods".to_string(),
+                            ));
                             let food_service = FoodService::new(repository.clone());
-                            
+
                             // Setup test data
                             setup_test_data(&food_service, size).await;
-                            
+
                             food_service
                         })
                     },
@@ -106,12 +115,15 @@ fn bench_food_search_by_food_type(c: &mut Criterion) {
                     || {
                         rt.block_on(async {
                             let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(client, "benchmark-foods".to_string()));
+                            let repository = Arc::new(DynamoDbFoodRepository::new(
+                                client,
+                                "benchmark-foods".to_string(),
+                            ));
                             let food_service = FoodService::new(repository.clone());
-                            
+
                             // Setup test data
                             setup_test_data(&food_service, size).await;
-                            
+
                             food_service
                         })
                     },
@@ -154,12 +166,15 @@ fn bench_food_search_combined_filters(c: &mut Criterion) {
                     || {
                         rt.block_on(async {
                             let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(client, "benchmark-foods".to_string()));
+                            let repository = Arc::new(DynamoDbFoodRepository::new(
+                                client,
+                                "benchmark-foods".to_string(),
+                            ));
                             let food_service = FoodService::new(repository.clone());
-                            
+
                             // Setup test data
                             setup_test_data(&food_service, size).await;
-                            
+
                             food_service
                         })
                     },
@@ -198,9 +213,12 @@ fn bench_food_get_by_id(c: &mut Criterion) {
             || {
                 rt.block_on(async {
                     let (client, _) = create_test_clients().await;
-                    let repository = Arc::new(DynamoDbFoodRepository::new(client, "benchmark-foods".to_string()));
+                    let repository = Arc::new(DynamoDbFoodRepository::new(
+                        client,
+                        "benchmark-foods".to_string(),
+                    ));
                     let food_service = FoodService::new(repository.clone());
-                    
+
                     // Create a single food item
                     let request = CreateFoodRequest {
                         pet_type: PetType::Puppy,
@@ -220,9 +238,9 @@ fn bench_food_get_by_id(c: &mut Criterion) {
                 })
             },
             |(food_service, food_id)| {
-                rt.block_on(async move {
-                    black_box(food_service.get_food(&food_id).await.unwrap())
-                })
+                rt.block_on(
+                    async move { black_box(food_service.get_food(&food_id).await.unwrap()) },
+                )
             },
             criterion::BatchSize::SmallInput,
         );

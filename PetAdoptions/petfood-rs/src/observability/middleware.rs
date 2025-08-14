@@ -23,7 +23,7 @@ pub async fn observability_middleware(
     let start_time = Instant::now();
     let method = request.method().to_string();
     let uri = request.uri().to_string();
-    
+
     // Try to get the matched path for better endpoint grouping
     let endpoint = request
         .extensions()
@@ -42,17 +42,17 @@ pub async fn observability_middleware(
 
     // Process the request
     let response = next.run(request).await;
-    
+
     // Calculate duration
     let duration = start_time.elapsed();
     let duration_seconds = duration.as_secs_f64();
-    
+
     // Get status code
     let status_code = response.status().as_u16();
-    
+
     // Record metrics
     metrics.record_http_request(&method, &endpoint, status_code, duration_seconds);
-    
+
     // Decrement in-flight requests
     metrics.decrement_in_flight(&method, &endpoint);
 
@@ -100,31 +100,33 @@ impl DatabaseTracingMiddleware {
         E: std::fmt::Display,
     {
         let start_time = Instant::now();
-        
+
         info!("Starting database operation");
-        
+
         match future.await {
             Ok(result) => {
                 let duration_seconds = start_time.elapsed().as_secs_f64();
-                self.metrics.record_database_operation(operation, table, true, duration_seconds);
-                
+                self.metrics
+                    .record_database_operation(operation, table, true, duration_seconds);
+
                 info!(
                     duration_ms = start_time.elapsed().as_millis(),
                     "Database operation completed successfully"
                 );
-                
+
                 Ok(result)
             }
             Err(error) => {
                 let duration_seconds = start_time.elapsed().as_secs_f64();
-                self.metrics.record_database_operation(operation, table, false, duration_seconds);
-                
+                self.metrics
+                    .record_database_operation(operation, table, false, duration_seconds);
+
                 error!(
                     error = %error,
                     duration_ms = start_time.elapsed().as_millis(),
                     "Database operation failed"
                 );
-                
+
                 Err(error)
             }
         }
@@ -159,29 +161,31 @@ impl BusinessTracingMiddleware {
         E: std::fmt::Display,
     {
         let start_time = Instant::now();
-        
+
         info!("Starting food operation");
-        
+
         match future.await {
             Ok(result) => {
-                self.metrics.record_food_operation(operation, pet_type, food_type, true);
-                
+                self.metrics
+                    .record_food_operation(operation, pet_type, food_type, true);
+
                 info!(
                     duration_ms = start_time.elapsed().as_millis(),
                     "Food operation completed successfully"
                 );
-                
+
                 Ok(result)
             }
             Err(error) => {
-                self.metrics.record_food_operation(operation, pet_type, food_type, false);
-                
+                self.metrics
+                    .record_food_operation(operation, pet_type, food_type, false);
+
                 error!(
                     error = %error,
                     duration_ms = start_time.elapsed().as_millis(),
                     "Food operation failed"
                 );
-                
+
                 Err(error)
             }
         }
@@ -203,29 +207,29 @@ impl BusinessTracingMiddleware {
         E: std::fmt::Display,
     {
         let start_time = Instant::now();
-        
+
         info!("Starting cart operation");
-        
+
         match future.await {
             Ok(result) => {
                 self.metrics.record_cart_operation(operation, true);
-                
+
                 info!(
                     duration_ms = start_time.elapsed().as_millis(),
                     "Cart operation completed successfully"
                 );
-                
+
                 Ok(result)
             }
             Err(error) => {
                 self.metrics.record_cart_operation(operation, false);
-                
+
                 error!(
                     error = %error,
                     duration_ms = start_time.elapsed().as_millis(),
                     "Cart operation failed"
                 );
-                
+
                 Err(error)
             }
         }
@@ -245,29 +249,29 @@ impl BusinessTracingMiddleware {
         E: std::fmt::Display,
     {
         let start_time = Instant::now();
-        
+
         info!("Starting recommendation request");
-        
+
         match future.await {
             Ok(result) => {
                 self.metrics.record_recommendation_request(pet_type, true);
-                
+
                 info!(
                     duration_ms = start_time.elapsed().as_millis(),
                     "Recommendation request completed successfully"
                 );
-                
+
                 Ok(result)
             }
             Err(error) => {
                 self.metrics.record_recommendation_request(pet_type, false);
-                
+
                 error!(
                     error = %error,
                     duration_ms = start_time.elapsed().as_millis(),
                     "Recommendation request failed"
                 );
-                
+
                 Err(error)
             }
         }
@@ -351,16 +355,20 @@ mod tests {
 
         // Test successful operation
         let result = middleware
-            .trace_operation("get_item", "test_table", async { Ok::<_, String>("success") })
+            .trace_operation("get_item", "test_table", async {
+                Ok::<_, String>("success")
+            })
             .await;
-        
+
         assert!(result.is_ok());
 
         // Test failed operation
         let result = middleware
-            .trace_operation("put_item", "test_table", async { Err::<String, _>("error") })
+            .trace_operation("put_item", "test_table", async {
+                Err::<String, _>("error")
+            })
             .await;
-        
+
         assert!(result.is_err());
 
         // Verify metrics were recorded
@@ -375,35 +383,27 @@ mod tests {
 
         // Test food operation
         let result = middleware
-            .trace_food_operation(
-                "search",
-                Some("puppy"),
-                Some("dry"),
-                async { Ok::<_, String>("success") }
-            )
+            .trace_food_operation("search", Some("puppy"), Some("dry"), async {
+                Ok::<_, String>("success")
+            })
             .await;
-        
+
         assert!(result.is_ok());
 
         // Test cart operation
         let result = middleware
-            .trace_cart_operation(
-                "add_item",
-                Some("user123"),
-                async { Ok::<_, String>("success") }
-            )
+            .trace_cart_operation("add_item", Some("user123"), async {
+                Ok::<_, String>("success")
+            })
             .await;
-        
+
         assert!(result.is_ok());
 
         // Test recommendation request
         let result = middleware
-            .trace_recommendation_request(
-                "kitten",
-                async { Ok::<_, String>("success") }
-            )
+            .trace_recommendation_request("kitten", async { Ok::<_, String>("success") })
             .await;
-        
+
         assert!(result.is_ok());
 
         // Verify metrics were recorded

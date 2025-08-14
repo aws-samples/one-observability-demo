@@ -9,13 +9,14 @@ use tracing::info;
 
 use petfood_rs::{
     handlers::{
-        health_check, metrics_handler, api, admin,
-        request_validation_middleware, cors_middleware, security_headers_middleware,
+        admin, api, cors_middleware, health_check, metrics_handler, request_validation_middleware,
+        security_headers_middleware,
     },
+    init_observability,
     observability::{observability_middleware, Metrics},
-    repositories::{DynamoDbFoodRepository, DynamoDbCartRepository, TableManager},
-    services::{FoodService, CartService},
-    Config, init_observability, shutdown_observability,
+    repositories::{DynamoDbCartRepository, DynamoDbFoodRepository, TableManager},
+    services::{CartService, FoodService},
+    shutdown_observability, Config,
 };
 
 #[tokio::main]
@@ -33,11 +34,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     info!("Starting petfood-rs service");
-    info!("Service: {} v{}", config.observability.service_name, config.observability.service_version);
+    info!(
+        "Service: {} v{}",
+        config.observability.service_name, config.observability.service_version
+    );
     info!("Region: {}", config.aws.region);
-    info!("DynamoDB Tables: foods={}, carts={}", 
-          config.database.foods_table_name, 
-          config.database.carts_table_name);
+    info!(
+        "DynamoDB Tables: foods={}, carts={}",
+        config.database.foods_table_name, config.database.carts_table_name
+    );
 
     // Initialize metrics
     let metrics = Arc::new(Metrics::new()?);
@@ -70,8 +75,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build the application router
     let app = create_app(
-        metrics, 
-        food_service, 
+        metrics,
+        food_service,
         cart_service,
         table_manager,
         config.database.foods_table_name.clone(),
@@ -79,10 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Create socket address
-    let addr = SocketAddr::new(
-        config.server.host.parse()?,
-        config.server.port,
-    );
+    let addr = SocketAddr::new(config.server.host.parse()?, config.server.port);
 
     info!("Server listening on {}", addr);
 
@@ -116,13 +118,13 @@ fn create_app(
     carts_table_name: String,
 ) -> Router {
     let metrics_for_middleware = metrics.clone();
-    
+
     // Create the API state
     let api_state = api::ApiState {
         food_service: food_service.clone(),
         cart_service,
     };
-    
+
     // Create the admin state
     let admin_state = admin::AdminState {
         food_service: food_service.clone(),
@@ -130,36 +132,37 @@ fn create_app(
         foods_table_name,
         carts_table_name,
     };
-    
+
     Router::new()
         // Health and metrics endpoints (with metrics state)
         .route("/health/status", get(health_check))
         .route("/metrics", get(metrics_handler))
         .with_state(metrics)
-        
         // API endpoints (with API state) - read-only food endpoints
         .route("/api/foods", get(api::list_foods))
         .route("/api/foods/:food_id", get(api::get_food))
-
-        .route("/api/cart/:user_id", 
-               get(api::get_cart)
-               .delete(api::delete_cart))
+        .route(
+            "/api/cart/:user_id",
+            get(api::get_cart).delete(api::delete_cart),
+        )
         .route("/api/cart/:user_id/items", post(api::add_cart_item))
-        .route("/api/cart/:user_id/items/:food_id", 
-               put(api::update_cart_item)
-               .delete(api::remove_cart_item))
+        .route(
+            "/api/cart/:user_id/items/:food_id",
+            put(api::update_cart_item).delete(api::remove_cart_item),
+        )
         .route("/api/cart/:user_id/clear", post(api::clear_cart))
         .route("/api/cart/:user_id/checkout", post(api::checkout_cart))
         .with_state(api_state)
-        
         // Admin endpoints (with admin state)
         .route("/api/admin/setup-tables", post(admin::setup_tables))
         .route("/api/admin/seed", post(admin::seed_database))
         .route("/api/admin/cleanup", post(admin::cleanup_database))
         .route("/api/admin/foods", post(admin::create_food))
-        .route("/api/admin/foods/:food_id", put(admin::update_food).delete(admin::delete_food))
+        .route(
+            "/api/admin/foods/:food_id",
+            put(admin::update_food).delete(admin::delete_food),
+        )
         .with_state(admin_state)
-        
         // Add middleware layers (order matters - outer to inner)
         .layer(middleware::from_fn(security_headers_middleware))
         .layer(middleware::from_fn(cors_middleware))
@@ -168,4 +171,3 @@ fn create_app(
             observability_middleware(metrics_for_middleware.clone(), req, next)
         }))
 }
-

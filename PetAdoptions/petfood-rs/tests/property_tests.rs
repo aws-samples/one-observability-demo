@@ -1,11 +1,10 @@
-use proptest::prelude::*;
-use petfood_rs::models::{
-    CreateFoodRequest, PetType, FoodType, AvailabilityStatus,
-    Cart, CartItem, AddCartItemRequest,
-    validate_food_name, validate_food_price, validate_cart_quantity
-};
-use rust_decimal::Decimal;
 use chrono::Utc;
+use petfood_rs::models::{
+    validate_cart_quantity, validate_food_name, validate_food_price, AddCartItemRequest,
+    AvailabilityStatus, Cart, CartItem, CreateFoodRequest, FoodType, PetType,
+};
+use proptest::prelude::*;
+use rust_decimal::Decimal;
 
 // Property-based test strategies
 prop_compose! {
@@ -102,8 +101,8 @@ proptest! {
     fn test_food_name_validation(name in ".*") {
         let result = validate_food_name(&name);
         let trimmed = name.trim();
-        
-        if trimmed.len() >= 1 && trimmed.len() <= 200 && !trimmed.chars().any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t') {
+
+        if !trimmed.is_empty() && trimmed.len() <= 200 && !trimmed.chars().any(|c| c.is_control() && c != '\n' && c != '\r' && c != '\t') {
             prop_assert!(result.is_ok());
         } else {
             prop_assert!(result.is_err());
@@ -114,7 +113,7 @@ proptest! {
     fn test_price_validation(price_f64 in any::<f64>()) {
         if let Some(price) = Decimal::from_f64_retain(price_f64) {
             let result = validate_food_price(&price);
-            
+
             if price > Decimal::ZERO && price <= Decimal::from(10000) {
                 prop_assert!(result.is_ok());
             } else {
@@ -126,7 +125,7 @@ proptest! {
     #[test]
     fn test_quantity_validation(quantity in any::<u32>()) {
         let result = validate_cart_quantity(quantity);
-        
+
         if quantity > 0 && quantity <= 1000 {
             prop_assert!(result.is_ok());
         } else {
@@ -158,7 +157,7 @@ proptest! {
         // Test that CreateFoodRequest can be serialized and deserialized
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: CreateFoodRequest = serde_json::from_str(&json).unwrap();
-        
+
         prop_assert_eq!(request.name, deserialized.name);
         prop_assert_eq!(request.pet_type, deserialized.pet_type);
         prop_assert_eq!(request.food_type, deserialized.food_type);
@@ -200,7 +199,7 @@ proptest! {
         prop_assert_eq!(cart.user_id, user_id);
         prop_assert!(cart.items.iter().all(|item| item.quantity > 0));
         prop_assert!(cart.items.iter().all(|item| !item.food_id.is_empty()));
-        
+
         // No duplicate food_ids
         let mut food_ids: Vec<_> = cart.items.iter().map(|item| &item.food_id).collect();
         food_ids.sort();

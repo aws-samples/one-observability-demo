@@ -29,7 +29,10 @@ pub fn init_observability(
     otlp_endpoint: Option<&str>,
     enable_json_logging: bool,
 ) -> Result<(), ObservabilityError> {
-    info!("Initializing observability for service: {} v{}", service_name, service_version);
+    info!(
+        "Initializing observability for service: {} v{}",
+        service_name, service_version
+    );
 
     // Initialize OpenTelemetry tracer
     let tracer = init_opentelemetry_tracer(service_name, service_version, otlp_endpoint)?;
@@ -38,12 +41,13 @@ pub fn init_observability(
     let opentelemetry_layer = OpenTelemetryLayer::new(tracer);
 
     // Create environment filter
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            format!("{}=info,tower_http=info,aws_sdk_dynamodb=warn,aws_config=warn", 
-                   service_name.replace('-', "_"))
-                .into()
-        });
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        format!(
+            "{}=info,tower_http=info,aws_sdk_dynamodb=warn,aws_config=warn",
+            service_name.replace('-', "_")
+        )
+        .into()
+    });
 
     // Initialize tracing subscriber with different formatters based on configuration
     if enable_json_logging {
@@ -97,7 +101,7 @@ fn init_opentelemetry_tracer(
 
     // Configure OTLP exporter
     let mut exporter = opentelemetry_otlp::new_exporter().tonic();
-    
+
     if let Some(endpoint) = otlp_endpoint {
         info!("Using custom OTLP endpoint: {}", endpoint);
         exporter = exporter.with_endpoint(endpoint);
@@ -136,14 +140,14 @@ fn init_opentelemetry_tracer(
 /// Shutdown observability gracefully with timeout
 pub async fn shutdown_observability() {
     info!("Shutting down observability");
-    
+
     // Use spawn_blocking to run the blocking shutdown in a separate thread
     let shutdown_task = tokio::task::spawn_blocking(|| {
         // Gracefully shutdown the tracer provider
         // This may block if there are pending spans, so we run it in a separate thread
         global::shutdown_tracer_provider();
     });
-    
+
     // Apply timeout to prevent hanging indefinitely
     match tokio::time::timeout(Duration::from_secs(5), shutdown_task).await {
         Ok(Ok(())) => {
@@ -170,9 +174,13 @@ mod tests {
         let start = std::time::Instant::now();
         shutdown_observability().await;
         let elapsed = start.elapsed();
-        
+
         // Should complete within 6 seconds (5 second timeout + some buffer)
-        assert!(elapsed < Duration::from_secs(6), "Shutdown took too long: {:?}", elapsed);
+        assert!(
+            elapsed < Duration::from_secs(6),
+            "Shutdown took too long: {:?}",
+            elapsed
+        );
     }
 
     #[test]
@@ -182,16 +190,10 @@ mod tests {
         // For now, just test that the function signature is correct
         let _result = std::panic::catch_unwind(|| {
             // This will fail but we're just testing the function exists
-            let _ = init_observability(
-                "test-service-dev",
-                "0.1.0",
-                None,
-                false,
-            );
+            let _ = init_observability("test-service-dev", "0.1.0", None, false);
         });
-        
+
         // Test passes if we can call the function without compilation errors
-        assert!(true);
     }
 
     #[test]
@@ -208,8 +210,7 @@ mod tests {
                 true,
             );
         });
-        
+
         // Test passes if we can call the function without compilation errors
-        assert!(true);
     }
 }

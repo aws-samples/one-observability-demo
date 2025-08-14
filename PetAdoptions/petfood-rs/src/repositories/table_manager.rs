@@ -1,8 +1,8 @@
-use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use aws_sdk_dynamodb::types::{
-    AttributeDefinition, BillingMode, GlobalSecondaryIndex, KeySchemaElement, KeyType,
-    Projection, ProjectionType, ScalarAttributeType, TableStatus,
+    AttributeDefinition, BillingMode, GlobalSecondaryIndex, KeySchemaElement, KeyType, Projection,
+    ProjectionType, ScalarAttributeType, TableStatus,
 };
+use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info, instrument, warn};
@@ -38,48 +38,46 @@ impl TableManager {
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
+                    message: format!("Failed to build attribute definition: {}", e),
                 })?,
             AttributeDefinition::builder()
                 .attribute_name("pet_type")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
+                    message: format!("Failed to build attribute definition: {}", e),
                 })?,
             AttributeDefinition::builder()
                 .attribute_name("name")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
+                    message: format!("Failed to build attribute definition: {}", e),
                 })?,
             AttributeDefinition::builder()
                 .attribute_name("food_type")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
+                    message: format!("Failed to build attribute definition: {}", e),
                 })?,
             AttributeDefinition::builder()
                 .attribute_name("price")
                 .attribute_type(ScalarAttributeType::N)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
+                    message: format!("Failed to build attribute definition: {}", e),
                 })?,
         ];
 
         // Define key schema for main table
-        let key_schema = vec![
-            KeySchemaElement::builder()
-                .attribute_name("id")
-                .key_type(KeyType::Hash)
-                .build()
-                .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build key schema: {}", e)
-                })?,
-        ];
+        let key_schema = vec![KeySchemaElement::builder()
+            .attribute_name("id")
+            .key_type(KeyType::Hash)
+            .build()
+            .map_err(|e| RepositoryError::AwsSdk {
+                message: format!("Failed to build key schema: {}", e),
+            })?];
 
         // Define PetType GSI
         let pet_type_gsi = GlobalSecondaryIndex::builder()
@@ -90,8 +88,8 @@ impl TableManager {
                     .key_type(KeyType::Hash)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
-                        message: format!("Failed to build GSI key schema: {}", e)
-                    })?
+                        message: format!("Failed to build GSI key schema: {}", e),
+                    })?,
             )
             .key_schema(
                 KeySchemaElement::builder()
@@ -99,17 +97,17 @@ impl TableManager {
                     .key_type(KeyType::Range)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
-                        message: format!("Failed to build GSI key schema: {}", e)
-                    })?
+                        message: format!("Failed to build GSI key schema: {}", e),
+                    })?,
             )
             .projection(
                 Projection::builder()
                     .projection_type(ProjectionType::All)
-                    .build()
+                    .build(),
             )
             .build()
             .map_err(|e| RepositoryError::AwsSdk {
-                message: format!("Failed to build GSI: {}", e)
+                message: format!("Failed to build GSI: {}", e),
             })?;
 
         // Define FoodType GSI
@@ -121,8 +119,8 @@ impl TableManager {
                     .key_type(KeyType::Hash)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
-                        message: format!("Failed to build GSI key schema: {}", e)
-                    })?
+                        message: format!("Failed to build GSI key schema: {}", e),
+                    })?,
             )
             .key_schema(
                 KeySchemaElement::builder()
@@ -130,17 +128,17 @@ impl TableManager {
                     .key_type(KeyType::Range)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
-                        message: format!("Failed to build GSI key schema: {}", e)
-                    })?
+                        message: format!("Failed to build GSI key schema: {}", e),
+                    })?,
             )
             .projection(
                 Projection::builder()
                     .projection_type(ProjectionType::All)
-                    .build()
+                    .build(),
             )
             .build()
             .map_err(|e| RepositoryError::AwsSdk {
-                message: format!("Failed to build GSI: {}", e)
+                message: format!("Failed to build GSI: {}", e),
             })?;
 
         // Create the table
@@ -175,26 +173,22 @@ impl TableManager {
         }
 
         // Define attribute definitions
-        let attribute_definitions = vec![
-            AttributeDefinition::builder()
-                .attribute_name("user_id")
-                .attribute_type(ScalarAttributeType::S)
-                .build()
-                .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build attribute definition: {}", e)
-                })?,
-        ];
+        let attribute_definitions = vec![AttributeDefinition::builder()
+            .attribute_name("user_id")
+            .attribute_type(ScalarAttributeType::S)
+            .build()
+            .map_err(|e| RepositoryError::AwsSdk {
+                message: format!("Failed to build attribute definition: {}", e),
+            })?];
 
         // Define key schema
-        let key_schema = vec![
-            KeySchemaElement::builder()
-                .attribute_name("user_id")
-                .key_type(KeyType::Hash)
-                .build()
-                .map_err(|e| RepositoryError::AwsSdk {
-                    message: format!("Failed to build key schema: {}", e)
-                })?,
-        ];
+        let key_schema = vec![KeySchemaElement::builder()
+            .attribute_name("user_id")
+            .key_type(KeyType::Hash)
+            .build()
+            .map_err(|e| RepositoryError::AwsSdk {
+                message: format!("Failed to build key schema: {}", e),
+            })?];
 
         // Create the table
         self.client
@@ -217,7 +211,13 @@ impl TableManager {
     /// Check if a table exists
     #[instrument(skip(self), fields(table_name = %table_name))]
     pub async fn table_exists(&self, table_name: &str) -> RepositoryResult<bool> {
-        match self.client.describe_table().table_name(table_name).send().await {
+        match self
+            .client
+            .describe_table()
+            .table_name(table_name)
+            .send()
+            .await
+        {
             Ok(_) => {
                 info!("Table {} exists", table_name);
                 Ok(true)
@@ -226,15 +226,16 @@ impl TableManager {
                 // Check if this is a ResourceNotFoundException (table doesn't exist)
                 let error_string = e.to_string();
                 let error_debug = format!("{:?}", e);
-                
+
                 info!("DynamoDB error details: {}", error_string);
                 info!("DynamoDB error debug: {}", error_debug);
-                
+
                 // Check for various forms of "table not found" errors
-                if error_string.contains("ResourceNotFoundException") 
+                if error_string.contains("ResourceNotFoundException")
                     || error_string.contains("Requested resource not found")
                     || error_string.contains("Table: ") && error_string.contains("not found")
-                    || error_debug.contains("ResourceNotFoundException") {
+                    || error_debug.contains("ResourceNotFoundException")
+                {
                     info!("Table {} does not exist", table_name);
                     Ok(false)
                 } else {
@@ -254,7 +255,13 @@ impl TableManager {
         let wait_duration = Duration::from_secs(10);
 
         loop {
-            match self.client.describe_table().table_name(table_name).send().await {
+            match self
+                .client
+                .describe_table()
+                .table_name(table_name)
+                .send()
+                .await
+            {
                 Ok(response) => {
                     if let Some(table) = response.table {
                         match table.table_status {
@@ -313,7 +320,8 @@ impl TableManager {
     pub async fn list_tables(&self) -> RepositoryResult<Vec<String>> {
         info!("Listing all tables");
 
-        let response = self.client
+        let response = self
+            .client
             .list_tables()
             .send()
             .await
@@ -329,7 +337,8 @@ impl TableManager {
     pub async fn describe_table(&self, table_name: &str) -> RepositoryResult<String> {
         info!("Describing table");
 
-        let response = self.client
+        let response = self
+            .client
             .describe_table()
             .table_name(table_name)
             .send()
@@ -343,7 +352,11 @@ impl TableManager {
 
     /// Create both tables (convenience method)
     #[instrument(skip(self))]
-    pub async fn create_all_tables(&self, foods_table: &str, carts_table: &str) -> RepositoryResult<()> {
+    pub async fn create_all_tables(
+        &self,
+        foods_table: &str,
+        carts_table: &str,
+    ) -> RepositoryResult<()> {
         info!("Creating all tables");
 
         // Create tables in parallel for better performance
@@ -372,9 +385,6 @@ impl TableManager {
 mod tests {
     use super::*;
 
-
-
-
     #[test]
     fn test_table_manager_creation() {
         let config = aws_sdk_dynamodb::Config::builder()
@@ -386,7 +396,6 @@ mod tests {
 
         // Just verify the manager can be created
         // Actual functionality tests would require integration testing with LocalStack
-        assert!(true);
     }
 
     // Note: Most tests for this module would be integration tests

@@ -21,19 +21,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Region: {}", config.aws.region);
             println!("Foods Table: {}", config.database.foods_table_name);
             println!("Carts Table: {}", config.database.carts_table_name);
-            println!("Service: {} v{}", 
-                     config.observability.service_name, 
-                     config.observability.service_version);
+            println!(
+                "Service: {} v{}",
+                config.observability.service_name, config.observability.service_version
+            );
             println!("Error Simulation: {}", config.error_simulation.enabled);
-            
+
             // Test parameter store functionality
             println!("\nTesting Parameter Store...");
-            let test_value = config.aws.parameter_store
+            let test_value = config
+                .aws
+                .parameter_store
                 .get_parameter_with_default("/nonexistent/param", "default_value")
                 .await;
             println!("Parameter with default: {}", test_value);
-            
-            println!("Cache size: {}", config.aws.parameter_store.cache_size().await);
+
+            println!(
+                "Cache size: {}",
+                config.aws.parameter_store.cache_size().await
+            );
         }
         Err(e) => {
             println!("❌ Failed to load configuration: {}", e);

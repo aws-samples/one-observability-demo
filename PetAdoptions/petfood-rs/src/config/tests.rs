@@ -1,12 +1,11 @@
 #[cfg(test)]
-mod tests {
+mod config_tests {
     use crate::config::{
-        ConfigError, DatabaseConfig, ErrorSimulationConfig, ObservabilityConfig, 
-        ParameterStoreConfig, ServerConfig,
-        default_cache_ttl, default_carts_table, default_error_mode_enabled,
-        default_foods_table, default_host, default_log_level, default_max_request_size,
-        default_metrics_port, default_otlp_endpoint_option, default_parameter_prefix,
-        default_port, default_region, default_service_name, default_timeout,
+        default_cache_ttl, default_carts_table, default_error_mode_enabled, default_foods_table,
+        default_host, default_log_level, default_max_request_size, default_metrics_port,
+        default_otlp_endpoint_option, default_parameter_prefix, default_port, default_region,
+        default_service_name, default_timeout, ConfigError, DatabaseConfig, ErrorSimulationConfig,
+        ObservabilityConfig, ParameterStoreConfig, ServerConfig,
     };
     use aws_sdk_ssm::Client as SsmClient;
     use std::env;
@@ -19,7 +18,7 @@ mod tests {
         env::remove_var("PETFOOD_SERVER_PORT");
         env::remove_var("PETFOOD_SERVER_REQUEST_TIMEOUT_SECONDS");
         env::remove_var("PETFOOD_SERVER_MAX_REQUEST_SIZE");
-        
+
         // Set environment variables
         env::set_var("PETFOOD_SERVER_HOST", "127.0.0.1");
         env::set_var("PETFOOD_SERVER_PORT", "8080");
@@ -109,7 +108,7 @@ mod tests {
 
         let config = ErrorSimulationConfig::from_env().unwrap();
 
-        assert_eq!(config.enabled, true);
+        assert!(config.enabled);
         assert_eq!(config.parameter_prefix, "/test");
         assert_eq!(config.cache_ttl_seconds, 600);
 
@@ -149,19 +148,19 @@ mod tests {
             .region(aws_config::Region::new("us-west-2"))
             .load()
             .await;
-        
+
         let ssm_client = SsmClient::new(&aws_config);
         let parameter_store = ParameterStoreConfig::new(ssm_client, Duration::from_secs(60));
 
         // Test cache functionality
         assert_eq!(parameter_store.cache_size().await, 0);
-        
+
         // Test get_parameter_with_default
         let default_value = parameter_store
             .get_parameter_with_default("/nonexistent/parameter", "default_value")
             .await;
         assert_eq!(default_value, "default_value");
-        
+
         // Test cache clearing
         parameter_store.clear_cache().await;
         assert_eq!(parameter_store.cache_size().await, 0);
@@ -190,7 +189,7 @@ mod tests {
         // Clean up any environment variables that might affect defaults
         env::remove_var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT");
         env::remove_var("PETFOOD_OBSERVABILITY_ENABLE_JSON_LOGGING");
-        
+
         assert_eq!(default_host(), "0.0.0.0");
         assert_eq!(default_port(), 80);
         assert_eq!(default_timeout(), 30);
@@ -199,10 +198,13 @@ mod tests {
         assert_eq!(default_carts_table(), "PetFoodCarts");
         assert_eq!(default_region(), "us-west-2");
         assert_eq!(default_service_name(), "petfood-rs");
-        assert_eq!(default_otlp_endpoint_option(), Some("http://test:4317".to_string()));
+        assert_eq!(
+            default_otlp_endpoint_option(),
+            Some("http://test:4317".to_string())
+        );
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
-        assert_eq!(default_error_mode_enabled(), false);
+        assert!(!default_error_mode_enabled());
         assert_eq!(default_parameter_prefix(), "/petstore");
         assert_eq!(default_cache_ttl(), 300);
     }

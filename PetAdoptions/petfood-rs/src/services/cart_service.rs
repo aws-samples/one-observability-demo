@@ -1,10 +1,10 @@
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{info, instrument, warn};
 
 use crate::models::{
-    Cart, CartItem, CartResponse, CartItemResponse, AddCartItemRequest, UpdateCartItemRequest,
-    ServiceError, ServiceResult,
+    AddCartItemRequest, Cart, CartItem, CartItemResponse, CartResponse, ServiceError,
+    ServiceResult, UpdateCartItemRequest,
 };
 use crate::repositories::{CartRepository, FoodRepository};
 
@@ -55,7 +55,11 @@ impl CartService {
 
     /// Add an item to the cart
     #[instrument(skip(self, request), fields(user_id = %user_id, food_id = %request.food_id, quantity = request.quantity))]
-    pub async fn add_item(&self, user_id: &str, request: AddCartItemRequest) -> ServiceResult<CartItemResponse> {
+    pub async fn add_item(
+        &self,
+        user_id: &str,
+        request: AddCartItemRequest,
+    ) -> ServiceResult<CartItemResponse> {
         info!("Adding item to cart");
 
         // Validate inputs
@@ -99,12 +103,12 @@ impl CartService {
         let updated_cart = self.cart_repository.save_cart(cart).await?;
 
         // Find the added item and convert to response
-        let cart_item = updated_cart
-            .get_item(&request.food_id)
-            .ok_or_else(|| ServiceError::CartItemNotFound {
+        let cart_item = updated_cart.get_item(&request.food_id).ok_or_else(|| {
+            ServiceError::CartItemNotFound {
                 food_id: request.food_id.clone(),
                 user_id: user_id.to_string(),
-            })?;
+            }
+        })?;
 
         let item_response = self.cart_item_to_response(cart_item, &food).await?;
 
@@ -179,12 +183,13 @@ impl CartService {
         }
 
         // Get updated item and convert to response
-        let cart_item = updated_cart
-            .get_item(food_id)
-            .ok_or_else(|| ServiceError::CartItemNotFound {
-                food_id: food_id.to_string(),
-                user_id: user_id.to_string(),
-            })?;
+        let cart_item =
+            updated_cart
+                .get_item(food_id)
+                .ok_or_else(|| ServiceError::CartItemNotFound {
+                    food_id: food_id.to_string(),
+                    user_id: user_id.to_string(),
+                })?;
 
         let item_response = self.cart_item_to_response(cart_item, &food).await?;
 
@@ -456,9 +461,13 @@ impl CartService {
 
     /// Checkout cart and create order
     #[instrument(skip(self, request), fields(user_id = %user_id))]
-    pub async fn checkout(&self, user_id: &str, request: crate::models::CheckoutRequest) -> ServiceResult<crate::models::CheckoutResponse> {
+    pub async fn checkout(
+        &self,
+        user_id: &str,
+        request: crate::models::CheckoutRequest,
+    ) -> ServiceResult<crate::models::CheckoutResponse> {
         use crate::models::{CheckoutResponse, OrderItem, OrderStatus};
-        
+
         info!("Processing checkout for user");
 
         // Validate user_id
@@ -535,8 +544,9 @@ impl CartService {
         let total_amount = subtotal + tax + shipping;
 
         // Generate order ID
-        let order_id = format!("ORDER-{}-{}", 
-            user_id.to_uppercase(), 
+        let order_id = format!(
+            "ORDER-{}-{}",
+            user_id.to_uppercase(),
             chrono::Utc::now().timestamp()
         );
 
@@ -578,7 +588,7 @@ impl CartService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CreateFoodRequest, Food, PetType, FoodType, RepositoryError};
+    use crate::models::{CreateFoodRequest, Food, FoodType, PetType, RepositoryError};
     use crate::repositories::{CartRepository, FoodRepository};
     use async_trait::async_trait;
     use mockall::mock;
@@ -705,10 +715,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
 
-        mock_cart_repo
-            .expect_save_cart()
-            .times(1)
-            .returning(|cart| Ok(cart));
+        mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
         mock_food_repo
             .expect_find_by_id()
@@ -785,7 +792,10 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            ServiceError::InsufficientStock { requested, available } => {
+            ServiceError::InsufficientStock {
+                requested,
+                available,
+            } => {
                 assert_eq!(requested, 5);
                 assert_eq!(available, 1);
             }
@@ -806,10 +816,7 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_cart.clone())));
 
-        mock_cart_repo
-            .expect_save_cart()
-            .times(1)
-            .returning(|cart| Ok(cart));
+        mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
         mock_food_repo
             .expect_find_by_id()
@@ -840,10 +847,7 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_cart.clone())));
 
-        mock_cart_repo
-            .expect_save_cart()
-            .times(1)
-            .returning(|cart| Ok(cart));
+        mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
         let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
 
@@ -864,10 +868,7 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_cart.clone())));
 
-        mock_cart_repo
-            .expect_save_cart()
-            .times(1)
-            .returning(|cart| Ok(cart));
+        mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
         let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
 

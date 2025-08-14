@@ -144,7 +144,10 @@ mod tests {
         let validation_error = ValidationError::RequiredField {
             field: "food_name".to_string(),
         };
-        assert_eq!(validation_error.to_string(), "Required field missing: food_name");
+        assert_eq!(
+            validation_error.to_string(),
+            "Required field missing: food_name"
+        );
     }
 
     #[test]

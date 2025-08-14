@@ -420,8 +420,7 @@ fn create_sample_foods() -> Vec<CreateFoodRequest> {
             pet_type: PetType::Kitten,
             name: "Salmon and Tuna Delight".to_string(),
             food_type: FoodType::Wet,
-            description: "A delectable mix of salmon and tuna, perfect for kittens."
-                .to_string(),
+            description: "A delectable mix of salmon and tuna, perfect for kittens.".to_string(),
             price: rust_decimal_macros::dec!(14.99),
             image: "salmon-tuna-delight.jpg".to_string(),
             nutritional_info: None,
@@ -494,8 +493,8 @@ fn create_sample_foods() -> Vec<CreateFoodRequest> {
             pet_type: PetType::Bunny,
             name: "Timothy Hay Pellets".to_string(),
             food_type: FoodType::Dry,
-            description:
-                "High-fiber timothy hay pellets essential for bunny digestive health.".to_string(),
+            description: "High-fiber timothy hay pellets essential for bunny digestive health."
+                .to_string(),
             price: rust_decimal_macros::dec!(12.99),
             image: "timothy-hay-pellets.jpg".to_string(),
             nutritional_info: None,

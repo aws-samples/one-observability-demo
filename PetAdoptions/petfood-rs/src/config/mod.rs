@@ -13,16 +13,18 @@ use tracing::{debug, error, info, warn};
 pub enum ConfigError {
     #[error("Configuration loading error: {message}")]
     LoadError { message: String },
-    
+
     #[error("Parameter not found: {name}")]
     ParameterNotFound { name: String },
-    
+
     #[error("AWS SDK error: {source}")]
-    AwsSdk { source: Box<dyn std::error::Error + Send + Sync> },
-    
+    AwsSdk {
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
     #[error("Validation error: {message}")]
     ValidationError { message: String },
-    
+
     #[error("Environment variable missing: {name}")]
     MissingEnvironmentVariable { name: String },
 }
@@ -210,9 +212,11 @@ impl ServerConfig {
                 message: format!("Failed to load server config: {}", e),
             })?;
 
-        settings.try_deserialize().map_err(|e| ConfigError::LoadError {
-            message: format!("Failed to deserialize server config: {}", e),
-        })
+        settings
+            .try_deserialize()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to deserialize server config: {}", e),
+            })
     }
 
     pub fn request_timeout(&self) -> Duration {
@@ -229,9 +233,11 @@ impl DatabaseConfig {
                 message: format!("Failed to load database config: {}", e),
             })?;
 
-        settings.try_deserialize().map_err(|e| ConfigError::LoadError {
-            message: format!("Failed to deserialize database config: {}", e),
-        })
+        settings
+            .try_deserialize()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to deserialize database config: {}", e),
+            })
     }
 }
 
@@ -244,9 +250,11 @@ impl ObservabilityConfig {
                 message: format!("Failed to load observability config: {}", e),
             })?;
 
-        settings.try_deserialize().map_err(|e| ConfigError::LoadError {
-            message: format!("Failed to deserialize observability config: {}", e),
-        })
+        settings
+            .try_deserialize()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to deserialize observability config: {}", e),
+            })
     }
 }
 
@@ -259,9 +267,11 @@ impl ErrorSimulationConfig {
                 message: format!("Failed to load error simulation config: {}", e),
             })?;
 
-        settings.try_deserialize().map_err(|e| ConfigError::LoadError {
-            message: format!("Failed to deserialize error simulation config: {}", e),
-        })
+        settings
+            .try_deserialize()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to deserialize error simulation config: {}", e),
+            })
     }
 
     pub fn cache_ttl(&self) -> Duration {

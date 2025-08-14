@@ -1,13 +1,12 @@
 use async_trait::async_trait;
-use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use aws_sdk_dynamodb::types::{AttributeValue, Select};
+use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 use crate::models::{
-    Food, FoodFilters, PetType, FoodType, AvailabilityStatus,
-    RepositoryError, RepositoryResult,
+    AvailabilityStatus, Food, FoodFilters, FoodType, PetType, RepositoryError, RepositoryResult,
 };
 
 /// Trait defining the interface for food data access operations
@@ -83,11 +82,23 @@ impl DynamoDbFoodRepository {
         let mut item = HashMap::new();
 
         item.insert("id".to_string(), AttributeValue::S(food.id.clone()));
-        item.insert("pet_type".to_string(), AttributeValue::S(food.pet_type.to_string()));
+        item.insert(
+            "pet_type".to_string(),
+            AttributeValue::S(food.pet_type.to_string()),
+        );
         item.insert("name".to_string(), AttributeValue::S(food.name.clone()));
-        item.insert("food_type".to_string(), AttributeValue::S(food.food_type.to_string()));
-        item.insert("description".to_string(), AttributeValue::S(food.description.clone()));
-        item.insert("price".to_string(), AttributeValue::N(food.price.to_string()));
+        item.insert(
+            "food_type".to_string(),
+            AttributeValue::S(food.food_type.to_string()),
+        );
+        item.insert(
+            "description".to_string(),
+            AttributeValue::S(food.description.clone()),
+        );
+        item.insert(
+            "price".to_string(),
+            AttributeValue::N(food.price.to_string()),
+        );
         item.insert("image".to_string(), AttributeValue::S(food.image.clone()));
 
         // Handle optional nutritional info
@@ -95,37 +106,65 @@ impl DynamoDbFoodRepository {
             let mut nutrition_map = HashMap::new();
 
             if let Some(calories) = nutritional_info.calories_per_serving {
-                nutrition_map.insert("calories_per_serving".to_string(), AttributeValue::N(calories.to_string()));
+                nutrition_map.insert(
+                    "calories_per_serving".to_string(),
+                    AttributeValue::N(calories.to_string()),
+                );
             }
             if let Some(protein) = nutritional_info.protein_percentage {
-                nutrition_map.insert("protein_percentage".to_string(), AttributeValue::N(protein.to_string()));
+                nutrition_map.insert(
+                    "protein_percentage".to_string(),
+                    AttributeValue::N(protein.to_string()),
+                );
             }
             if let Some(fat) = nutritional_info.fat_percentage {
-                nutrition_map.insert("fat_percentage".to_string(), AttributeValue::N(fat.to_string()));
+                nutrition_map.insert(
+                    "fat_percentage".to_string(),
+                    AttributeValue::N(fat.to_string()),
+                );
             }
             if let Some(carbs) = nutritional_info.carbohydrate_percentage {
-                nutrition_map.insert("carbohydrate_percentage".to_string(), AttributeValue::N(carbs.to_string()));
+                nutrition_map.insert(
+                    "carbohydrate_percentage".to_string(),
+                    AttributeValue::N(carbs.to_string()),
+                );
             }
             if let Some(fiber) = nutritional_info.fiber_percentage {
-                nutrition_map.insert("fiber_percentage".to_string(), AttributeValue::N(fiber.to_string()));
+                nutrition_map.insert(
+                    "fiber_percentage".to_string(),
+                    AttributeValue::N(fiber.to_string()),
+                );
             }
             if let Some(moisture) = nutritional_info.moisture_percentage {
-                nutrition_map.insert("moisture_percentage".to_string(), AttributeValue::N(moisture.to_string()));
+                nutrition_map.insert(
+                    "moisture_percentage".to_string(),
+                    AttributeValue::N(moisture.to_string()),
+                );
             }
             if let Some(ref serving_size) = nutritional_info.serving_size {
-                nutrition_map.insert("serving_size".to_string(), AttributeValue::S(serving_size.clone()));
+                nutrition_map.insert(
+                    "serving_size".to_string(),
+                    AttributeValue::S(serving_size.clone()),
+                );
             }
             if let Some(servings) = nutritional_info.servings_per_container {
-                nutrition_map.insert("servings_per_container".to_string(), AttributeValue::N(servings.to_string()));
+                nutrition_map.insert(
+                    "servings_per_container".to_string(),
+                    AttributeValue::N(servings.to_string()),
+                );
             }
 
             if !nutrition_map.is_empty() {
-                item.insert("nutritional_info".to_string(), AttributeValue::M(nutrition_map));
+                item.insert(
+                    "nutritional_info".to_string(),
+                    AttributeValue::M(nutrition_map),
+                );
             }
         }
 
         // Convert ingredients list
-        let ingredients: Vec<AttributeValue> = food.ingredients
+        let ingredients: Vec<AttributeValue> = food
+            .ingredients
             .iter()
             .map(|ingredient| AttributeValue::S(ingredient.clone()))
             .collect();
@@ -133,14 +172,32 @@ impl DynamoDbFoodRepository {
 
         // Handle optional feeding guidelines
         if let Some(ref guidelines) = food.feeding_guidelines {
-            item.insert("feeding_guidelines".to_string(), AttributeValue::S(guidelines.clone()));
+            item.insert(
+                "feeding_guidelines".to_string(),
+                AttributeValue::S(guidelines.clone()),
+            );
         }
 
-        item.insert("availability_status".to_string(), AttributeValue::S(food.availability_status.to_string()));
-        item.insert("stock_quantity".to_string(), AttributeValue::N(food.stock_quantity.to_string()));
-        item.insert("created_at".to_string(), AttributeValue::S(food.created_at.to_rfc3339()));
-        item.insert("updated_at".to_string(), AttributeValue::S(food.updated_at.to_rfc3339()));
-        item.insert("is_active".to_string(), AttributeValue::Bool(food.is_active));
+        item.insert(
+            "availability_status".to_string(),
+            AttributeValue::S(food.availability_status.to_string()),
+        );
+        item.insert(
+            "stock_quantity".to_string(),
+            AttributeValue::N(food.stock_quantity.to_string()),
+        );
+        item.insert(
+            "created_at".to_string(),
+            AttributeValue::S(food.created_at.to_rfc3339()),
+        );
+        item.insert(
+            "updated_at".to_string(),
+            AttributeValue::S(food.updated_at.to_rfc3339()),
+        );
+        item.insert(
+            "is_active".to_string(),
+            AttributeValue::Bool(food.is_active),
+        );
 
         item
     }
@@ -152,133 +209,149 @@ impl DynamoDbFoodRepository {
         use rust_decimal::Decimal;
         use std::str::FromStr;
 
-        let id = item.get("id")
+        let id = item
+            .get("id")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing id".to_string()
+                message: "Missing id".to_string(),
             })?
             .clone();
 
-        let pet_type = item.get("pet_type")
+        let pet_type = item
+            .get("pet_type")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| PetType::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid pet_type".to_string()
+                message: "Invalid pet_type".to_string(),
             })?;
 
-        let name = item.get("name")
+        let name = item
+            .get("name")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing name".to_string()
+                message: "Missing name".to_string(),
             })?
             .clone();
 
-        let food_type = item.get("food_type")
+        let food_type = item
+            .get("food_type")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| FoodType::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid food_type".to_string()
+                message: "Invalid food_type".to_string(),
             })?;
 
-        let description = item.get("description")
+        let description = item
+            .get("description")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing description".to_string()
+                message: "Missing description".to_string(),
             })?
             .clone();
 
-        let price = item.get("price")
+        let price = item
+            .get("price")
             .and_then(|v| v.as_n().ok())
             .and_then(|s| Decimal::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid price".to_string()
+                message: "Invalid price".to_string(),
             })?;
 
-        let image = item.get("image")
+        let image = item
+            .get("image")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing image".to_string()
+                message: "Missing image".to_string(),
             })?
             .clone();
 
         // Parse optional nutritional info
-        let nutritional_info = item.get("nutritional_info")
+        let nutritional_info = item
+            .get("nutritional_info")
             .and_then(|v| v.as_m().ok())
-            .map(|nutrition_map| {
-                NutritionalInfo {
-                    calories_per_serving: nutrition_map.get("calories_per_serving")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| s.parse().ok()),
-                    protein_percentage: nutrition_map.get("protein_percentage")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| Decimal::from_str(s).ok()),
-                    fat_percentage: nutrition_map.get("fat_percentage")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| Decimal::from_str(s).ok()),
-                    carbohydrate_percentage: nutrition_map.get("carbohydrate_percentage")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| Decimal::from_str(s).ok()),
-                    fiber_percentage: nutrition_map.get("fiber_percentage")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| Decimal::from_str(s).ok()),
-                    moisture_percentage: nutrition_map.get("moisture_percentage")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| Decimal::from_str(s).ok()),
-                    serving_size: nutrition_map.get("serving_size")
-                        .and_then(|v| v.as_s().ok())
-                        .cloned(),
-                    servings_per_container: nutrition_map.get("servings_per_container")
-                        .and_then(|v| v.as_n().ok())
-                        .and_then(|s| s.parse().ok()),
-                }
+            .map(|nutrition_map| NutritionalInfo {
+                calories_per_serving: nutrition_map
+                    .get("calories_per_serving")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| s.parse().ok()),
+                protein_percentage: nutrition_map
+                    .get("protein_percentage")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| Decimal::from_str(s).ok()),
+                fat_percentage: nutrition_map
+                    .get("fat_percentage")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| Decimal::from_str(s).ok()),
+                carbohydrate_percentage: nutrition_map
+                    .get("carbohydrate_percentage")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| Decimal::from_str(s).ok()),
+                fiber_percentage: nutrition_map
+                    .get("fiber_percentage")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| Decimal::from_str(s).ok()),
+                moisture_percentage: nutrition_map
+                    .get("moisture_percentage")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| Decimal::from_str(s).ok()),
+                serving_size: nutrition_map
+                    .get("serving_size")
+                    .and_then(|v| v.as_s().ok())
+                    .cloned(),
+                servings_per_container: nutrition_map
+                    .get("servings_per_container")
+                    .and_then(|v| v.as_n().ok())
+                    .and_then(|s| s.parse().ok()),
             });
 
         // Parse ingredients list
-        let ingredients = item.get("ingredients")
+        let ingredients = item
+            .get("ingredients")
             .and_then(|v| v.as_l().ok())
-            .map(|list| {
-                list.iter()
-                    .filter_map(|v| v.as_s().ok())
-                    .cloned()
-                    .collect()
-            })
+            .map(|list| list.iter().filter_map(|v| v.as_s().ok()).cloned().collect())
             .unwrap_or_default();
 
-        let feeding_guidelines = item.get("feeding_guidelines")
+        let feeding_guidelines = item
+            .get("feeding_guidelines")
             .and_then(|v| v.as_s().ok())
             .cloned();
 
-        let availability_status = item.get("availability_status")
+        let availability_status = item
+            .get("availability_status")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| AvailabilityStatus::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid availability_status".to_string()
+                message: "Invalid availability_status".to_string(),
             })?;
 
-        let stock_quantity = item.get("stock_quantity")
+        let stock_quantity = item
+            .get("stock_quantity")
             .and_then(|v| v.as_n().ok())
             .and_then(|s| s.parse().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid stock_quantity".to_string()
+                message: "Invalid stock_quantity".to_string(),
             })?;
 
-        let created_at = item.get("created_at")
+        let created_at = item
+            .get("created_at")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid created_at".to_string()
+                message: "Invalid created_at".to_string(),
             })?;
 
-        let updated_at = item.get("updated_at")
+        let updated_at = item
+            .get("updated_at")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid updated_at".to_string()
+                message: "Invalid updated_at".to_string(),
             })?;
 
-        let is_active = item.get("is_active")
+        let is_active = item
+            .get("is_active")
             .and_then(|v| v.as_bool().ok())
             .copied()
             .unwrap_or(true);
@@ -328,7 +401,8 @@ impl FoodRepository for DynamoDbFoodRepository {
         }
 
         // Otherwise, scan the table (less efficient but necessary for complex filters)
-        let mut scan_builder = self.client
+        let mut scan_builder = self
+            .client
             .scan()
             .table_name(&self.table_name)
             .select(Select::AllAttributes);
@@ -340,29 +414,41 @@ impl FoodRepository for DynamoDbFoodRepository {
 
         if let Some(status) = filters.availability_status {
             filter_expressions.push("availability_status = :status".to_string());
-            expression_attribute_values.insert(":status".to_string(), AttributeValue::S(status.to_string()));
+            expression_attribute_values
+                .insert(":status".to_string(), AttributeValue::S(status.to_string()));
         }
 
         if let Some(min_price) = filters.min_price {
             filter_expressions.push("price >= :min_price".to_string());
-            expression_attribute_values.insert(":min_price".to_string(), AttributeValue::N(min_price.to_string()));
+            expression_attribute_values.insert(
+                ":min_price".to_string(),
+                AttributeValue::N(min_price.to_string()),
+            );
         }
 
         if let Some(max_price) = filters.max_price {
             filter_expressions.push("price <= :max_price".to_string());
-            expression_attribute_values.insert(":max_price".to_string(), AttributeValue::N(max_price.to_string()));
+            expression_attribute_values.insert(
+                ":max_price".to_string(),
+                AttributeValue::N(max_price.to_string()),
+            );
         }
 
         if let Some(true) = filters.in_stock_only {
             filter_expressions.push("is_active = :active AND stock_quantity > :zero".to_string());
             expression_attribute_values.insert(":active".to_string(), AttributeValue::Bool(true));
-            expression_attribute_values.insert(":zero".to_string(), AttributeValue::N("0".to_string()));
+            expression_attribute_values
+                .insert(":zero".to_string(), AttributeValue::N("0".to_string()));
         }
 
         if let Some(ref search_term) = filters.search_term {
-            filter_expressions.push("contains(#name, :search) OR contains(description, :search)".to_string());
+            filter_expressions
+                .push("contains(#name, :search) OR contains(description, :search)".to_string());
             expression_attribute_names.insert("#name".to_string(), "name".to_string());
-            expression_attribute_values.insert(":search".to_string(), AttributeValue::S(search_term.clone()));
+            expression_attribute_values.insert(
+                ":search".to_string(),
+                AttributeValue::S(search_term.clone()),
+            );
         }
 
         if !filter_expressions.is_empty() {
@@ -370,11 +456,13 @@ impl FoodRepository for DynamoDbFoodRepository {
         }
 
         if !expression_attribute_values.is_empty() {
-            scan_builder = scan_builder.set_expression_attribute_values(Some(expression_attribute_values));
+            scan_builder =
+                scan_builder.set_expression_attribute_values(Some(expression_attribute_values));
         }
 
         if !expression_attribute_names.is_empty() {
-            scan_builder = scan_builder.set_expression_attribute_names(Some(expression_attribute_names));
+            scan_builder =
+                scan_builder.set_expression_attribute_names(Some(expression_attribute_names));
         }
 
         let response = scan_builder
@@ -403,7 +491,8 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_id(&self, id: &str) -> RepositoryResult<Option<Food>> {
         info!("Finding food by ID");
 
-        let response = self.client
+        let response = self
+            .client
             .get_item()
             .table_name(&self.table_name)
             .key("id", AttributeValue::S(id.to_string()))
@@ -428,7 +517,8 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_pet_type(&self, pet_type: PetType) -> RepositoryResult<Vec<Food>> {
         info!("Finding foods by pet type using GSI");
 
-        let response = self.client
+        let response = self
+            .client
             .query()
             .table_name(&self.table_name)
             .index_name(&self.pet_type_index)
@@ -459,7 +549,8 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_food_type(&self, food_type: FoodType) -> RepositoryResult<Vec<Food>> {
         info!("Finding foods by food type using GSI");
 
-        let response = self.client
+        let response = self
+            .client
             .query()
             .table_name(&self.table_name)
             .index_name(&self.food_type_index)
@@ -532,9 +623,14 @@ impl FoodRepository for DynamoDbFoodRepository {
             .update_item()
             .table_name(&self.table_name)
             .key("id", AttributeValue::S(id.to_string()))
-            .update_expression("SET is_active = :inactive, availability_status = :discontinued, updated_at = :now")
+            .update_expression(
+                "SET is_active = :inactive, availability_status = :discontinued, updated_at = :now",
+            )
             .expression_attribute_values(":inactive", AttributeValue::Bool(false))
-            .expression_attribute_values(":discontinued", AttributeValue::S(AvailabilityStatus::Discontinued.to_string()))
+            .expression_attribute_values(
+                ":discontinued",
+                AttributeValue::S(AvailabilityStatus::Discontinued.to_string()),
+            )
             .expression_attribute_values(":now", AttributeValue::S(chrono::Utc::now().to_rfc3339()))
             .condition_expression("attribute_exists(id)")
             .send()
@@ -565,7 +661,8 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn exists(&self, id: &str) -> RepositoryResult<bool> {
         info!("Checking if food exists");
 
-        let response = self.client
+        let response = self
+            .client
             .get_item()
             .table_name(&self.table_name)
             .key("id", AttributeValue::S(id.to_string()))
@@ -583,7 +680,8 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn count(&self, filters: Option<FoodFilters>) -> RepositoryResult<usize> {
         info!("Counting foods");
 
-        let mut scan_builder = self.client
+        let mut scan_builder = self
+            .client
             .scan()
             .table_name(&self.table_name)
             .select(Select::Count);
@@ -595,23 +693,33 @@ impl FoodRepository for DynamoDbFoodRepository {
 
             if let Some(pet_type) = filters.pet_type {
                 filter_expressions.push("pet_type = :pet_type".to_string());
-                expression_attribute_values.insert(":pet_type".to_string(), AttributeValue::S(pet_type.to_string()));
+                expression_attribute_values.insert(
+                    ":pet_type".to_string(),
+                    AttributeValue::S(pet_type.to_string()),
+                );
             }
 
             if let Some(food_type) = filters.food_type {
                 filter_expressions.push("food_type = :food_type".to_string());
-                expression_attribute_values.insert(":food_type".to_string(), AttributeValue::S(food_type.to_string()));
+                expression_attribute_values.insert(
+                    ":food_type".to_string(),
+                    AttributeValue::S(food_type.to_string()),
+                );
             }
 
             if let Some(status) = filters.availability_status {
                 filter_expressions.push("availability_status = :status".to_string());
-                expression_attribute_values.insert(":status".to_string(), AttributeValue::S(status.to_string()));
+                expression_attribute_values
+                    .insert(":status".to_string(), AttributeValue::S(status.to_string()));
             }
 
             if let Some(true) = filters.in_stock_only {
-                filter_expressions.push("is_active = :active AND stock_quantity > :zero".to_string());
-                expression_attribute_values.insert(":active".to_string(), AttributeValue::Bool(true));
-                expression_attribute_values.insert(":zero".to_string(), AttributeValue::N("0".to_string()));
+                filter_expressions
+                    .push("is_active = :active AND stock_quantity > :zero".to_string());
+                expression_attribute_values
+                    .insert(":active".to_string(), AttributeValue::Bool(true));
+                expression_attribute_values
+                    .insert(":zero".to_string(), AttributeValue::N("0".to_string()));
             }
 
             if !filter_expressions.is_empty() {
@@ -638,8 +746,6 @@ mod tests {
     use crate::models::{CreateFoodRequest, NutritionalInfo};
     use rust_decimal_macros::dec;
 
-
-
     fn create_test_food() -> Food {
         let request = CreateFoodRequest {
             pet_type: PetType::Puppy,
@@ -658,7 +764,11 @@ mod tests {
                 serving_size: Some("1 cup".to_string()),
                 servings_per_container: Some(20),
             }),
-            ingredients: vec!["chicken".to_string(), "rice".to_string(), "vegetables".to_string()],
+            ingredients: vec![
+                "chicken".to_string(),
+                "rice".to_string(),
+                "vegetables".to_string(),
+            ],
             feeding_guidelines: Some("Feed twice daily".to_string()),
             stock_quantity: 10,
         };

@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod repository_tests {
     use crate::models::{
-        CreateFoodRequest, Food, FoodType, PetType, AvailabilityStatus,
-        Cart, NutritionalInfo, RepositoryError,
+        AvailabilityStatus, Cart, CreateFoodRequest, Food, FoodType, NutritionalInfo, PetType,
+        RepositoryError,
     };
     use aws_sdk_dynamodb::types::AttributeValue;
     use rust_decimal_macros::dec;
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::repositories::food_repository::*;
     use crate::repositories::cart_repository::*;
+    use crate::repositories::food_repository::*;
 
     fn create_test_client() -> Arc<aws_sdk_dynamodb::Client> {
         let config = aws_sdk_dynamodb::Config::builder()
@@ -145,8 +145,14 @@ mod repository_tests {
             assert_eq!(converted_food.price, original_food.price);
             assert_eq!(converted_food.image, original_food.image);
             assert_eq!(converted_food.ingredients, original_food.ingredients);
-            assert_eq!(converted_food.feeding_guidelines, original_food.feeding_guidelines);
-            assert_eq!(converted_food.availability_status, original_food.availability_status);
+            assert_eq!(
+                converted_food.feeding_guidelines,
+                original_food.feeding_guidelines
+            );
+            assert_eq!(
+                converted_food.availability_status,
+                original_food.availability_status
+            );
             assert_eq!(converted_food.stock_quantity, original_food.stock_quantity);
             assert_eq!(converted_food.is_active, original_food.is_active);
 
@@ -155,18 +161,45 @@ mod repository_tests {
             let converted_nutrition = converted_food.nutritional_info.unwrap();
             let original_nutrition = original_food.nutritional_info.unwrap();
 
-            assert_eq!(converted_nutrition.calories_per_serving, original_nutrition.calories_per_serving);
-            assert_eq!(converted_nutrition.protein_percentage, original_nutrition.protein_percentage);
-            assert_eq!(converted_nutrition.fat_percentage, original_nutrition.fat_percentage);
-            assert_eq!(converted_nutrition.serving_size, original_nutrition.serving_size);
-            assert_eq!(converted_nutrition.servings_per_container, original_nutrition.servings_per_container);
+            assert_eq!(
+                converted_nutrition.calories_per_serving,
+                original_nutrition.calories_per_serving
+            );
+            assert_eq!(
+                converted_nutrition.protein_percentage,
+                original_nutrition.protein_percentage
+            );
+            assert_eq!(
+                converted_nutrition.fat_percentage,
+                original_nutrition.fat_percentage
+            );
+            assert_eq!(
+                converted_nutrition.serving_size,
+                original_nutrition.serving_size
+            );
+            assert_eq!(
+                converted_nutrition.servings_per_container,
+                original_nutrition.servings_per_container
+            );
 
             // Timestamps should be preserved (within reasonable precision)
-            let created_diff = (converted_food.created_at - original_food.created_at).num_milliseconds().abs();
-            let updated_diff = (converted_food.updated_at - original_food.updated_at).num_milliseconds().abs();
+            let created_diff = (converted_food.created_at - original_food.created_at)
+                .num_milliseconds()
+                .abs();
+            let updated_diff = (converted_food.updated_at - original_food.updated_at)
+                .num_milliseconds()
+                .abs();
 
-            assert!(created_diff < 1000, "Created timestamp difference too large: {}ms", created_diff);
-            assert!(updated_diff < 1000, "Updated timestamp difference too large: {}ms", updated_diff);
+            assert!(
+                created_diff < 1000,
+                "Created timestamp difference too large: {}ms",
+                created_diff
+            );
+            assert!(
+                updated_diff < 1000,
+                "Updated timestamp difference too large: {}ms",
+                updated_diff
+            );
         }
 
         #[test]
@@ -194,7 +227,10 @@ mod repository_tests {
 
             assert_eq!(converted_food.name, "Basic Cat Food");
             assert_eq!(converted_food.pet_type, PetType::Kitten);
-            assert_eq!(converted_food.availability_status, AvailabilityStatus::OutOfStock);
+            assert_eq!(
+                converted_food.availability_status,
+                AvailabilityStatus::OutOfStock
+            );
             assert!(converted_food.nutritional_info.is_none());
             assert!(converted_food.feeding_guidelines.is_none());
             assert_eq!(converted_food.stock_quantity, 0);
@@ -282,16 +318,38 @@ mod repository_tests {
             assert_eq!(converted_cart.items.len(), original_cart.items.len());
 
             // Verify each cart item
-            for (i, (original_item, converted_item)) in original_cart.items.iter()
-                .zip(converted_cart.items.iter()).enumerate() {
-
-                assert_eq!(converted_item.food_id, original_item.food_id, "Item {} food_id mismatch", i);
-                assert_eq!(converted_item.quantity, original_item.quantity, "Item {} quantity mismatch", i);
-                assert_eq!(converted_item.unit_price, original_item.unit_price, "Item {} price mismatch", i);
+            for (i, (original_item, converted_item)) in original_cart
+                .items
+                .iter()
+                .zip(converted_cart.items.iter())
+                .enumerate()
+            {
+                assert_eq!(
+                    converted_item.food_id, original_item.food_id,
+                    "Item {} food_id mismatch",
+                    i
+                );
+                assert_eq!(
+                    converted_item.quantity, original_item.quantity,
+                    "Item {} quantity mismatch",
+                    i
+                );
+                assert_eq!(
+                    converted_item.unit_price, original_item.unit_price,
+                    "Item {} price mismatch",
+                    i
+                );
 
                 // Timestamps should be preserved (within reasonable precision)
-                let time_diff = (converted_item.added_at - original_item.added_at).num_milliseconds().abs();
-                assert!(time_diff < 1000, "Item {} timestamp difference too large: {}ms", i, time_diff);
+                let time_diff = (converted_item.added_at - original_item.added_at)
+                    .num_milliseconds()
+                    .abs();
+                assert!(
+                    time_diff < 1000,
+                    "Item {} timestamp difference too large: {}ms",
+                    i,
+                    time_diff
+                );
             }
 
             // Verify cart totals
@@ -299,11 +357,23 @@ mod repository_tests {
             assert_eq!(converted_cart.total_price(), original_cart.total_price());
 
             // Timestamps should be preserved
-            let created_diff = (converted_cart.created_at - original_cart.created_at).num_milliseconds().abs();
-            let updated_diff = (converted_cart.updated_at - original_cart.updated_at).num_milliseconds().abs();
+            let created_diff = (converted_cart.created_at - original_cart.created_at)
+                .num_milliseconds()
+                .abs();
+            let updated_diff = (converted_cart.updated_at - original_cart.updated_at)
+                .num_milliseconds()
+                .abs();
 
-            assert!(created_diff < 1000, "Created timestamp difference too large: {}ms", created_diff);
-            assert!(updated_diff < 1000, "Updated timestamp difference too large: {}ms", updated_diff);
+            assert!(
+                created_diff < 1000,
+                "Created timestamp difference too large: {}ms",
+                created_diff
+            );
+            assert!(
+                updated_diff < 1000,
+                "Updated timestamp difference too large: {}ms",
+                updated_diff
+            );
         }
 
         #[test]
@@ -331,8 +401,14 @@ mod repository_tests {
             let mut item_map = HashMap::new();
             item_map.insert("food_id".to_string(), AttributeValue::S("F123".to_string()));
             item_map.insert("quantity".to_string(), AttributeValue::N("5".to_string()));
-            item_map.insert("unit_price".to_string(), AttributeValue::N("19.99".to_string()));
-            item_map.insert("added_at".to_string(), AttributeValue::S(chrono::Utc::now().to_rfc3339()));
+            item_map.insert(
+                "unit_price".to_string(),
+                AttributeValue::N("19.99".to_string()),
+            );
+            item_map.insert(
+                "added_at".to_string(),
+                AttributeValue::S(chrono::Utc::now().to_rfc3339()),
+            );
 
             let cart_item = repo.map_to_cart_item(&item_map).unwrap();
 
@@ -351,7 +427,10 @@ mod repository_tests {
             // Test missing food_id
             let mut incomplete_map = HashMap::new();
             incomplete_map.insert("quantity".to_string(), AttributeValue::N("2".to_string()));
-            incomplete_map.insert("unit_price".to_string(), AttributeValue::N("10.00".to_string()));
+            incomplete_map.insert(
+                "unit_price".to_string(),
+                AttributeValue::N("10.00".to_string()),
+            );
 
             let result = repo.map_to_cart_item(&incomplete_map);
             assert!(result.is_err());
@@ -372,9 +451,18 @@ mod repository_tests {
             // Test invalid quantity (string instead of number)
             let mut invalid_map = HashMap::new();
             invalid_map.insert("food_id".to_string(), AttributeValue::S("F123".to_string()));
-            invalid_map.insert("quantity".to_string(), AttributeValue::S("not-a-number".to_string()));
-            invalid_map.insert("unit_price".to_string(), AttributeValue::N("10.00".to_string()));
-            invalid_map.insert("added_at".to_string(), AttributeValue::S(chrono::Utc::now().to_rfc3339()));
+            invalid_map.insert(
+                "quantity".to_string(),
+                AttributeValue::S("not-a-number".to_string()),
+            );
+            invalid_map.insert(
+                "unit_price".to_string(),
+                AttributeValue::N("10.00".to_string()),
+            );
+            invalid_map.insert(
+                "added_at".to_string(),
+                AttributeValue::S(chrono::Utc::now().to_rfc3339()),
+            );
 
             let result = repo.map_to_cart_item(&invalid_map);
             assert!(result.is_err());
@@ -385,6 +473,7 @@ mod repository_tests {
         use super::*;
 
         /// Helper function to create test data for integration tests
+        #[allow(dead_code)]
         pub fn create_sample_foods() -> Vec<Food> {
             vec![
                 create_puppy_food(),
@@ -393,6 +482,7 @@ mod repository_tests {
             ]
         }
 
+        #[allow(dead_code)]
         fn create_puppy_food() -> Food {
             let request = CreateFoodRequest {
                 pet_type: PetType::Puppy,
@@ -423,6 +513,7 @@ mod repository_tests {
             Food::new(request)
         }
 
+        #[allow(dead_code)]
         fn create_kitten_food() -> Food {
             let request = CreateFoodRequest {
                 pet_type: PetType::Kitten,
@@ -443,6 +534,7 @@ mod repository_tests {
             Food::new(request)
         }
 
+        #[allow(dead_code)]
         fn create_bunny_food() -> Food {
             let request = CreateFoodRequest {
                 pet_type: PetType::Bunny,
@@ -473,10 +565,11 @@ mod repository_tests {
         }
 
         /// Helper to create a cart with mixed items
+        #[allow(dead_code)]
         pub fn create_mixed_cart() -> Cart {
             let mut cart = Cart::new("integration-test-user".to_string());
             cart.add_item("F001".to_string(), 1, dec!(29.99)); // Puppy food
-            cart.add_item("F002".to_string(), 6, dec!(1.99));  // Kitten food (6 cans)
+            cart.add_item("F002".to_string(), 6, dec!(1.99)); // Kitten food (6 cans)
             cart.add_item("F003".to_string(), 2, dec!(12.50)); // Bunny food
             cart
         }

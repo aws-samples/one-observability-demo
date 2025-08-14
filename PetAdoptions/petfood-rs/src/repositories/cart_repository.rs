@@ -1,13 +1,11 @@
 use async_trait::async_trait;
-use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
-use crate::models::{
-    Cart, CartItem, RepositoryError, RepositoryResult,
-};
+use crate::models::{Cart, CartItem, RepositoryError, RepositoryResult};
 
 /// Trait defining the interface for cart data access operations
 #[async_trait]
@@ -40,10 +38,7 @@ pub struct DynamoDbCartRepository {
 impl DynamoDbCartRepository {
     /// Create a new DynamoDB cart repository
     pub fn new(client: Arc<DynamoDbClient>, table_name: String) -> Self {
-        Self {
-            client,
-            table_name,
-        }
+        Self { client, table_name }
     }
 
     /// Get the table name (for testing)
@@ -55,24 +50,46 @@ impl DynamoDbCartRepository {
     pub fn cart_to_item(&self, cart: &Cart) -> HashMap<String, AttributeValue> {
         let mut item = HashMap::new();
 
-        item.insert("user_id".to_string(), AttributeValue::S(cart.user_id.clone()));
+        item.insert(
+            "user_id".to_string(),
+            AttributeValue::S(cart.user_id.clone()),
+        );
 
         // Convert cart items to DynamoDB list
-        let items: Vec<AttributeValue> = cart.items
+        let items: Vec<AttributeValue> = cart
+            .items
             .iter()
             .map(|cart_item| {
                 let mut item_map = HashMap::new();
-                item_map.insert("food_id".to_string(), AttributeValue::S(cart_item.food_id.clone()));
-                item_map.insert("quantity".to_string(), AttributeValue::N(cart_item.quantity.to_string()));
-                item_map.insert("unit_price".to_string(), AttributeValue::N(cart_item.unit_price.to_string()));
-                item_map.insert("added_at".to_string(), AttributeValue::S(cart_item.added_at.to_rfc3339()));
+                item_map.insert(
+                    "food_id".to_string(),
+                    AttributeValue::S(cart_item.food_id.clone()),
+                );
+                item_map.insert(
+                    "quantity".to_string(),
+                    AttributeValue::N(cart_item.quantity.to_string()),
+                );
+                item_map.insert(
+                    "unit_price".to_string(),
+                    AttributeValue::N(cart_item.unit_price.to_string()),
+                );
+                item_map.insert(
+                    "added_at".to_string(),
+                    AttributeValue::S(cart_item.added_at.to_rfc3339()),
+                );
                 AttributeValue::M(item_map)
             })
             .collect();
 
         item.insert("items".to_string(), AttributeValue::L(items));
-        item.insert("created_at".to_string(), AttributeValue::S(cart.created_at.to_rfc3339()));
-        item.insert("updated_at".to_string(), AttributeValue::S(cart.updated_at.to_rfc3339()));
+        item.insert(
+            "created_at".to_string(),
+            AttributeValue::S(cart.created_at.to_rfc3339()),
+        );
+        item.insert(
+            "updated_at".to_string(),
+            AttributeValue::S(cart.updated_at.to_rfc3339()),
+        );
 
         item
     }
@@ -81,15 +98,17 @@ impl DynamoDbCartRepository {
     pub fn item_to_cart(&self, item: HashMap<String, AttributeValue>) -> RepositoryResult<Cart> {
         use chrono::DateTime;
 
-        let user_id = item.get("user_id")
+        let user_id = item
+            .get("user_id")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing user_id".to_string()
+                message: "Missing user_id".to_string(),
             })?
             .clone();
 
         // Parse cart items
-        let items = item.get("items")
+        let items = item
+            .get("items")
             .and_then(|v| v.as_l().ok())
             .map(|list| {
                 list.iter()
@@ -104,20 +123,22 @@ impl DynamoDbCartRepository {
             })
             .unwrap_or_default();
 
-        let created_at = item.get("created_at")
+        let created_at = item
+            .get("created_at")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid created_at".to_string()
+                message: "Invalid created_at".to_string(),
             })?;
 
-        let updated_at = item.get("updated_at")
+        let updated_at = item
+            .get("updated_at")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid updated_at".to_string()
+                message: "Invalid updated_at".to_string(),
             })?;
 
         Ok(Cart {
@@ -129,38 +150,45 @@ impl DynamoDbCartRepository {
     }
 
     /// Convert DynamoDB map to CartItem
-    pub fn map_to_cart_item(&self, item_map: &HashMap<String, AttributeValue>) -> RepositoryResult<CartItem> {
+    pub fn map_to_cart_item(
+        &self,
+        item_map: &HashMap<String, AttributeValue>,
+    ) -> RepositoryResult<CartItem> {
         use chrono::DateTime;
         use rust_decimal::Decimal;
         use std::str::FromStr;
 
-        let food_id = item_map.get("food_id")
+        let food_id = item_map
+            .get("food_id")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing food_id in cart item".to_string()
+                message: "Missing food_id in cart item".to_string(),
             })?
             .clone();
 
-        let quantity = item_map.get("quantity")
+        let quantity = item_map
+            .get("quantity")
             .and_then(|v| v.as_n().ok())
             .and_then(|s| s.parse().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid quantity in cart item".to_string()
+                message: "Invalid quantity in cart item".to_string(),
             })?;
 
-        let unit_price = item_map.get("unit_price")
+        let unit_price = item_map
+            .get("unit_price")
             .and_then(|v| v.as_n().ok())
             .and_then(|s| Decimal::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid unit_price in cart item".to_string()
+                message: "Invalid unit_price in cart item".to_string(),
             })?;
 
-        let added_at = item_map.get("added_at")
+        let added_at = item_map
+            .get("added_at")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid added_at in cart item".to_string()
+                message: "Invalid added_at in cart item".to_string(),
             })?;
 
         Ok(CartItem {
@@ -186,7 +214,8 @@ impl CartRepository for DynamoDbCartRepository {
     async fn find_cart(&self, user_id: &str) -> RepositoryResult<Option<Cart>> {
         info!("Finding cart for user");
 
-        let response = self.client
+        let response = self
+            .client
             .get_item()
             .table_name(&self.table_name)
             .key("user_id", AttributeValue::S(user_id.to_string()))
@@ -245,7 +274,8 @@ impl CartRepository for DynamoDbCartRepository {
     async fn cart_exists(&self, user_id: &str) -> RepositoryResult<bool> {
         info!("Checking if cart exists");
 
-        let response = self.client
+        let response = self
+            .client
             .get_item()
             .table_name(&self.table_name)
             .key("user_id", AttributeValue::S(user_id.to_string()))
@@ -263,7 +293,8 @@ impl CartRepository for DynamoDbCartRepository {
     async fn find_all_carts(&self) -> RepositoryResult<Vec<Cart>> {
         info!("Finding all carts");
 
-        let response = self.client
+        let response = self
+            .client
             .scan()
             .table_name(&self.table_name)
             .send()
@@ -291,7 +322,8 @@ impl CartRepository for DynamoDbCartRepository {
     async fn count_carts(&self) -> RepositoryResult<usize> {
         info!("Counting carts");
 
-        let response = self.client
+        let response = self
+            .client
             .scan()
             .table_name(&self.table_name)
             .select(aws_sdk_dynamodb::types::Select::Count)
@@ -384,8 +416,14 @@ mod tests {
         assert_eq!(converted_item.unit_price, original_item.unit_price);
 
         // Timestamps should be preserved (within reasonable precision)
-        let time_diff = (converted_item.added_at - original_item.added_at).num_milliseconds().abs();
-        assert!(time_diff < 1000, "Timestamp difference too large: {}ms", time_diff);
+        let time_diff = (converted_item.added_at - original_item.added_at)
+            .num_milliseconds()
+            .abs();
+        assert!(
+            time_diff < 1000,
+            "Timestamp difference too large: {}ms",
+            time_diff
+        );
     }
 
     #[test]
@@ -418,8 +456,14 @@ mod tests {
         let mut item_map = HashMap::new();
         item_map.insert("food_id".to_string(), AttributeValue::S("F001".to_string()));
         item_map.insert("quantity".to_string(), AttributeValue::N("3".to_string()));
-        item_map.insert("unit_price".to_string(), AttributeValue::N("15.99".to_string()));
-        item_map.insert("added_at".to_string(), AttributeValue::S(chrono::Utc::now().to_rfc3339()));
+        item_map.insert(
+            "unit_price".to_string(),
+            AttributeValue::N("15.99".to_string()),
+        );
+        item_map.insert(
+            "added_at".to_string(),
+            AttributeValue::S(chrono::Utc::now().to_rfc3339()),
+        );
 
         let cart_item = repo.map_to_cart_item(&item_map).unwrap();
 
