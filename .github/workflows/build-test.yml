@@ -5,9 +5,8 @@ on:
     branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
@@ -16,9 +15,8 @@ on:
     branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
@@ -33,8 +31,6 @@ jobs:
         service:
           - name: payforadoption-go
             path: PetAdoptions/payforadoption-go
-          - name: petadoptionshistory-py
-            path: PetAdoptions/petadoptionshistory-py
           - name: petlistadoptions-py
             path: PetAdoptions/petlistadoptions-py
           - name: petsearch-java
