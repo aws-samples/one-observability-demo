@@ -34,24 +34,17 @@ namespace PetSite.Controllers
 
         // GET: Payment
         [HttpGet]
-        public ActionResult Index()
+        public ActionResult Index([FromQuery] string userId, string status)
         {
-            _logger.LogInformation(
-                $"Before EnsureUserId - GET Payment/Index with {HttpContext.Session.GetString("txStatus")}");
             if (EnsureUserId()) return new EmptyResult();
-
-            _logger.LogInformation(
-                $"After EnsureUserId -Inside GET Payment/Index with {HttpContext.Session.GetString("error")}");
-
+            
             // Transfer Session to ViewData for the view
-            ViewData["txStatus"] = HttpContext.Session.GetString("txStatus");
-            ViewData["error"] = HttpContext.Session.GetString("error");
+            ViewData["txStatus"] = status;
+            
             // ViewData["FoodPurchaseStatus"] = HttpContext.Session.GetString("FoodPurchaseStatus");
             // ViewData["PurchasedFoodId"] = HttpContext.Session.GetString("PurchasedFoodId");
             //
             // Clear session data after reading
-            HttpContext.Session.Remove("txStatus");
-            HttpContext.Session.Remove("error");
             // HttpContext.Session.Remove("FoodPurchaseStatus");
             // HttpContext.Session.Remove("PurchasedFoodId");
             //
@@ -96,18 +89,14 @@ namespace PetSite.Controllers
 
                 //Increase purchase metric count
                 PetAdoptionCount.Inc();
-                HttpContext.Session.SetString("txStatus", "success");
-                return RedirectToAction("Index", new { userId = ViewBag.UserId });
+                return RedirectToAction("Index", new { userId = ViewBag.UserId, status = "success" });
             }
             catch (Exception ex)
             {
-                HttpContext.Session.SetString("txStatus", "failure");
-                HttpContext.Session.SetString("error", ex.Message);
-
                 // Log the exception
                 _logger.LogError(ex, $"Error in MakePayment: {ex.Message}");
 
-                return RedirectToAction("Index", new { userId = ViewBag.UserId });
+                return RedirectToAction("Index", new { userId = ViewBag.UserId, status = ex.Message });
             }
         }
     }
