@@ -75,16 +75,6 @@ export abstract class Microservice extends Construct {
         resources: ['*'],
     });
 
-    public static getDefaultDynamoDBPolicy(scope: Construct, tableName: string) {
-        const readDDBTablesPolicy = new PolicyStatement({
-            effect: Effect.ALLOW,
-            actions: ['dynamodb:ListTables', 'dynamodb:Scan', 'dynamodb:Query'],
-            resources: [`arn:aws:dynamodb:${Stack.of(scope).region}:${Stack.of(scope).account}:table/${tableName}`],
-        });
-
-        return readDDBTablesPolicy;
-    }
-
     public static getDefaultSSMPolicy(scope: Construct, prefix?: string) {
         const cleanPrefix = (prefix || '/petstore/').startsWith('/')
             ? (prefix || '/petstore/').slice(1)

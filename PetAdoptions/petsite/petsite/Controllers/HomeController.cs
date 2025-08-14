@@ -69,18 +69,17 @@ namespace PetSite.Controllers
             };
         }
 
-
-
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
-            
-            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
+
+            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
             using var httpClient = _httpClientFactory.CreateClient();
-            await httpClient.PostAsync(cleanupadoptionsurl, null);
+            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
+            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
 
             return View();
         }
@@ -88,7 +87,7 @@ namespace PetSite.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(string selectedPetType, string selectedPetColor, string petid)
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -105,7 +104,7 @@ namespace PetSite.Controllers
             try
             {
                 // Create a new activity for the API call
-                using (var activity = new Activity("Calling PetSearch API").Start())
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Search API"))
                 {
                     if (activity != null)
                     {
@@ -122,18 +121,21 @@ namespace PetSite.Controllers
                 _logger.LogError(e, "HTTP error received after calling PetSearch API");
                 ViewBag.ErrorMessage = $"Unable to search pets at this time. Please try again later. \nError message received - {e.Message}";
                 Pets = new List<Pet>();
+                throw e;
             }
             catch (TaskCanceledException e)
             {
                 _logger.LogError(e, "Timeout calling PetSearch API");
                 ViewBag.ErrorMessage = "Search request timed out. Please try again.";
                 Pets = new List<Pet>();
+                throw e;
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Unexpected error calling PetSearch API");
                 ViewBag.ErrorMessage = "An unexpected error occurred. Please try again.";
                 Pets = new List<Pet>();
+                throw e;
             }
 
             var PetDetails = new PetDetails()

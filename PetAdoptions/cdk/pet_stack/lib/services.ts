@@ -168,6 +168,13 @@ export class Services extends Stack {
             resources: ['*']
         });
 
+        const adoptionSQSPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'sqs:SendMessage',
+            ],
+            resources: [sqsQueue.queueArn]
+        });
 
         const ddbSeedPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
@@ -210,6 +217,7 @@ export class Services extends Stack {
         });
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
+        payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(adoptionSQSPolicy);
 
 
         const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {

@@ -16,8 +16,8 @@
         "@types/jest": "^30.0.0",
         "@types/node": "^24.2.1",
         "@types/nunjucks": "^3.2.6",
-        "@typescript-eslint/eslint-plugin": "^8.39.0",
-        "aws-cdk": "2.1024.0",
+        "@typescript-eslint/eslint-plugin": "^8.39.1",
+        "aws-cdk": "2.1025.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-jest": "^29.0.1",
         "eslint-plugin-prettier": "^5.5.4",
@@ -27,20 +27,21 @@
         "jest-junit": "^16.0.0",
         "ts-jest": "^29.4.1",
         "ts-node": "^10.9.2",
-        "typedoc": "^0.28.9",
+        "typedoc": "^0.28.10",
         "typedoc-github-theme": "^0.3.0",
         "typedoc-github-wiki-theme": "^2.1.0",
-        "typedoc-plugin-markdown": "^4.8.0",
+        "typedoc-plugin-markdown": "^4.8.1",
         "typescript": "~5.9.2"
     },
     "dependencies": {
+        "@aws-cdk/aws-applicationsignals-alpha": "^2.211.0-alpha.0",
         "@aws-cdk/lambda-layer-kubectl-v33": "^2.0.0",
         "@types/yaml": "^1.9.7",
-        "aws-cdk-lib": "2.210.0",
-        "nunjucks": "^3.2.4",
-        "cdk-nag": "^2.37.0",
+        "aws-cdk-lib": "2.211.0",
+        "cdk-nag": "^2.37.2",
         "constructs": "^10.4.2",
         "dotenv": "^17.2.1",
+        "nunjucks": "^3.2.4",
         "yaml": "^2.8.1"
     }
 }
