@@ -26,8 +26,8 @@ import { ListAdoptionsService } from './services/list-adoptions-service'
 import { SearchService } from './services/search-service'
 import { TrafficGeneratorService } from './services/traffic-generator-service'
 import { StatusUpdaterService } from './services/status-updater-service'
+import { PetFoodService } from './services/petfood-service'
 import { PetAdoptionsStepFn } from './services/stepfn'
-import { KubernetesVersion } from 'aws-cdk-lib/aws-eks';
 import { CfnJson, RemovalPolicy, Fn, Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import 'ts-replace-all'
@@ -94,6 +94,51 @@ export class Services extends Stack {
             alarmName: `${dynamodb_petadoption.tableName}-ReadThrottleEvents-BasicAlarm`,
         });
 
+        // Creates the DynamoDB table for PetFoods data
+        const dynamodb_petfoods = new ddb.Table(this, 'ddb_petfoods', {
+            tableName: 'PetFoods',
+            partitionKey: {
+                name: 'id',
+                type: ddb.AttributeType.STRING
+            },
+            removalPolicy: RemovalPolicy.DESTROY
+        });
+
+        // Add Global Secondary Index for pet type queries
+        dynamodb_petfoods.addGlobalSecondaryIndex({
+            indexName: 'PetTypeIndex',
+            partitionKey: {
+                name: '[pet_type]',
+                type: ddb.AttributeType.STRING
+            },
+            sortKey: {
+                name: 'name',
+                type: ddb.AttributeType.STRING
+            }
+        });
+
+        // Add Global Secondary Index for food type queries
+        dynamodb_petfoods.addGlobalSecondaryIndex({
+            indexName: 'FoodTypeIndex',
+            partitionKey: {
+                name: 'food_type',
+                type: ddb.AttributeType.STRING
+            },
+            sortKey: {
+                name: 'price',
+                type: ddb.AttributeType.NUMBER
+            }
+        });
+
+        // Creates the DynamoDB table for PetFoodCarts data
+        const dynamodb_petfoodcarts = new ddb.Table(this, 'ddb_petfoodcarts', {
+            tableName: 'PetFoodCarts',
+            partitionKey: {
+                name: 'user_id',
+                type: ddb.AttributeType.STRING
+            },
+            removalPolicy: RemovalPolicy.DESTROY
+        });
 
         // Seeds the S3 bucket with pet images
         new s3seeder.BucketDeployment(this, "s3seeder_petadoption", {
@@ -257,6 +302,20 @@ export class Services extends Stack {
             securityGroup: ecsServicesSecurityGroup
         })
         searchService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
+
+        // PetFood service definitions-----------------------------------------------------------------------
+        const petFoodService = new PetFoodService(this, 'petfood-service', {
+            cluster: ecsPetListAdoptionCluster,
+            logGroupName: "/ecs/PetFood",
+            cpu: 256,
+            memoryLimitMiB: 512,
+            healthCheck: '/health/status',
+            instrumentation: 'otel',
+            desiredTaskCount: 2,
+            region: region,
+            securityGroup: ecsServicesSecurityGroup
+        });
+        petFoodService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
 
         // Traffic Generator task definition.
         const trafficGeneratorService = new TrafficGeneratorService(this, 'traffic-generator-service', {
@@ -703,6 +762,11 @@ export class Services extends Stack {
             '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
             '/petstore/payforadoptionmetricsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/metrics`,
             '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+            '/petstore/petfoodapiurl': `http://${petFoodService.service.loadBalancer.loadBalancerDnsName}/api/foods`,
+            '/petstore/petfoodmetricsurl': `http://${petFoodService.service.loadBalancer.loadBalancerDnsName}/metrics`,
+            '/petstore/petfoodcarturl': `http://${petFoodService.service.loadBalancer.loadBalancerDnsName}/api/cart`,
+            '/petstore/foods_table_name': dynamodb_petfoods.tableName,
+            '/petstore/carts_table_name': dynamodb_petfoodcarts.tableName,
             '/petstore/petsearch-collector-manual-config': readFileSync("./resources/collector/ecs-xray-manual.yaml", "utf8"),
             '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
