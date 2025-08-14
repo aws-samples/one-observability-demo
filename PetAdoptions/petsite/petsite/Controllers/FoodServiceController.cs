@@ -63,13 +63,13 @@ namespace PetSite.Controllers
                 var response = await httpClient.PostAsync($"{purchaseApiUrl}?foodId={foodId}&userId={userId}", null);
                 response.EnsureSuccessStatusCode();
                 
-                TempData["FoodPurchaseStatus"] = "success";
-                TempData["PurchasedFoodId"] = foodId;
+                HttpContext.Session.SetString("FoodPurchaseStatus", "success");
+                HttpContext.Session.SetString("PurchasedFoodId", foodId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error purchasing food");
-                TempData["FoodPurchaseStatus"] = "error";
+                HttpContext.Session.SetString("FoodPurchaseStatus", "error");
             }
 
             return RedirectToAction("Index", "Payment", new { userId = ViewBag.UserId });

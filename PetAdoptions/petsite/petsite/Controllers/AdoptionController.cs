@@ -31,21 +31,9 @@ namespace PetSite.Controllers
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
-            _logger.LogInformation($"Before Adoption/Index EnsureUserId");
             if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
-            _logger.LogInformation($"After Adoption/Index EnsureUserId");
             
-            // Check if pet data exists in TempData (from TakeMeHome redirect)
-            _logger.LogInformation($"Adoption/Index - Before checking if TempData is null: {TempData["SelectedPet"]}");
-            _logger.LogInformation($"Adoption/Index - Before checking if TempData is null (as String): {TempData["SelectedPet"].ToString()}");
-            
-            if (TempData["SelectedPet"] != null)
-            {
-                var petJson = TempData["SelectedPet"].ToString();
-                pet = JsonSerializer.Deserialize<Pet>(petJson);
-            }
-            
-            _logger.LogInformation($"In Index Adoption/Index method and about to render the View with: {TempData["SelectedPet"]}");
+            _logger.LogInformation($"In Index Adoption/Index method with pet: {JsonSerializer.Serialize(pet)}");
             
             return View(pet);
         }
@@ -94,9 +82,16 @@ namespace PetSite.Controllers
             var selectedPet = pets.FirstOrDefault();
             if (selectedPet != null)
             {
-                TempData["SelectedPet"] = JsonSerializer.Serialize(selectedPet);
+                return RedirectToAction("Index", new { 
+                    userId = ViewBag.UserId,
+                    petid = selectedPet.petid,
+                    pettype = selectedPet.pettype,
+                    petcolor = selectedPet.petcolor,
+                    peturl = selectedPet.peturl,
+                    price = selectedPet.price,
+                    cuteness_rate = selectedPet.cuteness_rate
+                });
             }
-            _logger.LogInformation($"Redirecting to Index page with : {TempData["SelectedPet"]}");
             
             return RedirectToAction("Index", new { userId = ViewBag.UserId });
         }

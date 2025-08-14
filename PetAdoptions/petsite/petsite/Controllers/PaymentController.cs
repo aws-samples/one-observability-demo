@@ -37,19 +37,17 @@ namespace PetSite.Controllers
         {
             if (EnsureUserId()) return new EmptyResult();
             
-            // Transfer TempData to ViewData for the view
-            if (TempData["txStatus"] != null)
-            {
-                ViewData["txStatus"] = TempData["txStatus"];
-                ViewData["error"] = TempData["error"];
-            }
+            // Transfer Session to ViewData for the view
+            ViewData["txStatus"] = HttpContext.Session.GetString("txStatus");
+            ViewData["error"] = HttpContext.Session.GetString("error");
+            ViewData["FoodPurchaseStatus"] = HttpContext.Session.GetString("FoodPurchaseStatus");
+            ViewData["PurchasedFoodId"] = HttpContext.Session.GetString("PurchasedFoodId");
             
-            // Handle food purchase status
-            if (TempData["FoodPurchaseStatus"] != null)
-            {
-                ViewData["FoodPurchaseStatus"] = TempData["FoodPurchaseStatus"];
-                ViewData["PurchasedFoodId"] = TempData["PurchasedFoodId"];
-            }
+            // Clear session data after reading
+            HttpContext.Session.Remove("txStatus");
+            HttpContext.Session.Remove("error");
+            HttpContext.Session.Remove("FoodPurchaseStatus");
+            HttpContext.Session.Remove("PurchasedFoodId");
             
             return View();
         }
@@ -90,13 +88,13 @@ namespace PetSite.Controllers
 
                 //Increase purchase metric count
                 PetAdoptionCount.Inc();
-                TempData["txStatus"] = "success";
+                HttpContext.Session.SetString("txStatus", "success");
                 return RedirectToAction("Index", new { userId = ViewBag.UserId });
             }
             catch (Exception ex)
             {
-                TempData["txStatus"] = "failure";
-                TempData["error"] = ex.Message;
+                HttpContext.Session.SetString("txStatus", "failure");
+                HttpContext.Session.SetString("error", ex.Message);
                 
                 // Log the exception
                 _logger.LogError(ex, $"Error in MakePayment: {ex.Message}");
