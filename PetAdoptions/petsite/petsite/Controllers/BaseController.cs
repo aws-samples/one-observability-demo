@@ -21,33 +21,43 @@ namespace PetSite.Controllers
 
         protected bool EnsureUserId()
         {
-            string userId = Request.Query["userId"];
+            string userId = Request.Query["userId"].ToString();
             
+            // Generate userId only on Home/Index if not provided
             if (string.IsNullOrEmpty(userId))
             {
-                userId = HttpContext.Session.GetString("userId");
-                if (string.IsNullOrEmpty(userId))
+                // Only generate on Home/Index, otherwise require userId
+                if (ControllerContext.ActionDescriptor.ControllerName == "Home" && 
+                    ControllerContext.ActionDescriptor.ActionName == "Index")
                 {
                     userId = UserIds[Random.Next(UserIds.Count)];
-                    HttpContext.Session.SetString("userId", userId);
+                    
+                    if (Request.Method == "GET")
+                    {
+                        var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
+                        Response.Redirect(Request.Path + queryString);
+                        return true;
+                    }
                 }
-                
-                var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
-                Response.Redirect(Request.Path + queryString);
-                return true; // Indicates redirect happened
+                else
+                {
+                    // Redirect to Home/Index if userId is missing on other pages
+                    Response.Redirect("/Home/Index");
+                    return true;
+                }
             }
             
-            HttpContext.Session.SetString("userId", userId);
+            // Set ViewBag and ViewData for all views
             ViewBag.UserId = userId;
+            ViewData["UserId"] = userId;
             
-            // Add userId to OpenTelemetry trace context if not present
             var currentActivity = Activity.Current;
             if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
             {
                 currentActivity.SetTag("userId", userId);
             }
             
-            return false; // No redirect needed
+            return false;
         }
     }
 }

@@ -144,16 +144,17 @@ public class SearchController {
     ) throws InterruptedException {
         Span span = tracer.spanBuilder("Scanning DynamoDB Table").startSpan();
 
-        // Check if petType is dinosaur and return 404 error with custom message
-        if (petType != null && !petType.trim().isEmpty() && petType.equals("dinosaur")) {
-            logger.warn("Dinosaur pet type requested - returning 404 error");
+        //  return 404 error with custom message for invalid pet type
+        if (petType != null && !petType.trim().isEmpty() && !petType.equals("puppy") && !petType.equals("kitten") && !petType.equals("bunny")) {
+            logger.warn(petType+" pet type requested - returning 404 error");
             span.setAttribute("error", true);
-            span.setAttribute("error.message", "Dinosaur pet type not found");
+            String errorMsg = petType+" pet type not found";
+            span.setAttribute("error.message", errorMsg);
             span.end();
             ErrorResponse errorResponse = new ErrorResponse(
                 404, 
-                "Dinosaur pet type not found", 
-                "Dinosaur pet type not found", 
+                errorMsg, 
+                errorMsg, 
                 "/api/search"
             );
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
