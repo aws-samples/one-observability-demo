@@ -8,7 +8,6 @@ import { Stack, StackProps, CfnJson, Fn, CfnOutput } from 'aws-cdk-lib';
 import { readFileSync } from 'fs';
 import { Construct } from 'constructs'
 import { ContainerImageBuilderProps, ContainerImageBuilder } from './common/container-image-builder'
-import { PetAdoptionsHistory } from './applications/pet-adoptions-history-application'
 import { KubectlV31Layer } from '@aws-cdk/lambda-layer-kubectl-v31';
 
 export class Applications extends Stack {
@@ -91,27 +90,6 @@ export class Applications extends Stack {
     const deploymentManifest = new eks.KubernetesManifest(this,"petsitedeployment",{
         cluster: cluster,
         manifest: deploymentYaml
-    });
-
-    // PetAdoptionsHistory application definitions-----------------------------------------------------------------------
-    const petAdoptionsHistoryContainerImage = new ContainerImageBuilder(this, 'pet-adoptions-history-container-image', {
-       repositoryName: "pet-adoptions-history",
-       dockerImageAssetDirectory: "./resources/microservices/petadoptionshistory-py",
-    });
-    new ssm.StringParameter(this,"putPetAdoptionHistoryRepositoryName",{
-        stringValue: petAdoptionsHistoryContainerImage.repositoryUri,
-        parameterName: '/petstore/pethistoryrepositoryuri'
-    });
-
-    const petAdoptionsHistoryApplication = new PetAdoptionsHistory(this, 'pet-adoptions-history-application', {
-        cluster: cluster,
-        app_trustRelationship: app_trustRelationship,
-        kubernetesManifestPath: "./resources/microservices/petadoptionshistory-py/deployment.yaml",
-        otelConfigMapPath: "./resources/microservices/petadoptionshistory-py/otel-collector-config.yaml",
-        rdsSecretArn: rdsSecretArn,
-        region: region,
-        imageUri: petAdoptionsHistoryContainerImage.imageUri,
-        targetGroupArn: petHistoryTargetGroupArn
     });
 
     this.createSsmParameters(new Map(Object.entries({

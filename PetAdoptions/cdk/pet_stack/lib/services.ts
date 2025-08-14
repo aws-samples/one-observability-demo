@@ -252,7 +252,7 @@ export class Services extends Stack {
             //repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
-            instrumentation: 'otel',
+            instrumentation: 'none',
             region: region,
             securityGroup: ecsServicesSecurityGroup
         })
@@ -310,30 +310,6 @@ export class Services extends Stack {
             port: 80,
             open: true,
             defaultTargetGroups: [targetGroup],
-        });
-
-        // PetAdoptionHistory - attach service to path /petadoptionhistory on PetSite ALB
-        const petadoptionshistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionsHistoryTargetGroup', {
-            port: 80,
-            protocol: elbv2.ApplicationProtocol.HTTP,
-            vpc: theVPC,
-            targetType: elbv2.TargetType.IP,
-            healthCheck: {
-                path: '/health/status',
-            }
-        });
-
-        listener.addTargetGroups('PetAdoptionsHistoryTargetGroups', {
-            priority: 10,
-            conditions: [
-                elbv2.ListenerCondition.pathPatterns(['/petadoptionshistory/*']),
-            ],
-            targetGroups: [petadoptionshistory_targetGroup]
-        });
-
-        new ssm.StringParameter(this, "putPetHistoryParamTargetGroupArn", {
-            stringValue: petadoptionshistory_targetGroup.targetGroupArn,
-            parameterName: '/eks/pethistory/TargetGroupArn'
         });
 
         // PetSite - EKS Cluster
@@ -700,16 +676,15 @@ export class Services extends Stack {
             '/petstore/searchimage': searchService.container.imageName,
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/petlistadoptionsmetricsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/metrics`,
-            '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
+            '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/completeadoption`,
             '/petstore/payforadoptionmetricsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/metrics`,
-            '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+            '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/cleanupadoptions`,
             '/petstore/petsearch-collector-manual-config': readFileSync("./resources/collector/ecs-xray-manual.yaml", "utf8"),
             '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/rds-reader-endpoint': auroraCluster.clusterReadEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
-            '/petstore/pethistoryurl': `http://${alb.loadBalancerDnsName}/petadoptionshistory`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             '/petstore/errormode1': "false"

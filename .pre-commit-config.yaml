@@ -110,6 +110,7 @@ repos:
                 .ash/.ash.yaml|
                 src/cdk/lib/microservices/manifests/.*|
                 src/cdk/resources/.*|
+                PetAdoptions/.*|
                 )$
 
       # Legal Text

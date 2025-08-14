@@ -12,6 +12,7 @@
     "cdk": "cdk"
   },
   "dependencies": {
+    "@aws-cdk/aws-applicationsignals-alpha": "^2.204.0-alpha.0",
     "@aws-cdk/aws-lambda-python-alpha": "^2.204.0-alpha.0",
     "@aws-cdk/lambda-layer-kubectl-v31": "^2.0.3",
     "@types/js-yaml": "^4.0.9",

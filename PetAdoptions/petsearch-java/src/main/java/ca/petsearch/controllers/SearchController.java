@@ -1,3 +1,7 @@
+/*
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+*/
 package ca.petsearch.controllers;
 
 import ca.petsearch.MetricEmitter;
@@ -47,7 +51,8 @@ public class SearchController {
     private final Tracer tracer;
     private Map<String, String> paramCache = new HashMap<>();
 
-    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient, MetricEmitter metricEmitter, Tracer tracer, RandomNumberGenerator randomGenerator) {
+    public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient,
+            MetricEmitter metricEmitter, Tracer tracer, RandomNumberGenerator randomGenerator) {
         this.s3Client = s3Client;
         this.ddbClient = ddbClient;
         this.ssmClient = ssmClient;
@@ -79,26 +84,26 @@ public class SearchController {
     private String getPetUrl(String petType, String image) {
         Span span = tracer.spanBuilder("Get Pet URL").startSpan();
 
-        try(Scope scope = span.makeCurrent()) {
+        try (Scope scope = span.makeCurrent()) {
 
             String s3BucketName = getSSMParameter(BUCKET_NAME);
 
             String key = getKey(petType, image);
-            
-            Double randomnumber = Math.random()*9999;
+
+            Double randomnumber = Math.random() * 9999;
 
             if (randomnumber < 100) {
-                logger.debug("Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions");
+                logger.debug(
+                        "Forced exception to show S3 bucket creation error. The bucket never really gets created due to lack of permissions");
                 logger.info("Trying to create a S3 Bucket");
                 logger.info(randomnumber + " is the random number");
                 s3Client.createBucket(s3BucketName);
             }
 
             logger.info("Generating presigned url");
-            GeneratePresignedUrlRequest generatePresignedUrlRequest =
-                    new GeneratePresignedUrlRequest(s3BucketName, key)
-                            .withMethod(HttpMethod.GET)
-                            .withExpiration(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)));
+            GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(s3BucketName, key)
+                    .withMethod(HttpMethod.GET)
+                    .withExpiration(new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)));
 
             return s3Client.generatePresignedUrl(generatePresignedUrlRequest).toString();
 
@@ -111,10 +116,12 @@ public class SearchController {
         }
     }
 
-    @WithSpan("Get parameter from Systems Manager or cache") // this annotation can be used as an alternative to tracer.spanBuilder
+    @WithSpan("Get parameter from Systems Manager or cache") // this annotation can be used as an alternative to
+                                                             // tracer.spanBuilder
     private String getSSMParameter(String paramName) {
         if (!paramCache.containsKey(paramName)) {
-            GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName).withWithDecryption(false);
+            GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName)
+                    .withWithDecryption(false);
 
             GetParameterResult parameterResult = ssmClient.getParameter(parameterRequest);
             paramCache.put(paramName, parameterResult.getParameter().getValue());
@@ -135,27 +142,27 @@ public class SearchController {
         return currentPet;
     }
 
-
     @GetMapping("/api/search")
     public ResponseEntity<?> search(
             @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
-            @RequestParam(name = "petid", defaultValue = "", required = false) String petId
-    ) throws InterruptedException {
+            @RequestParam(name = "petid", defaultValue = "", required = false) String petId)
+            throws InterruptedException {
         Span span = tracer.spanBuilder("Scanning DynamoDB Table").startSpan();
 
-        // Check if petType is dinosaur and return 404 error with custom message
-        if (petType != null && !petType.trim().isEmpty() && petType.equals("dinosaur")) {
-            logger.warn("Dinosaur pet type requested - returning 404 error");
+        // return 404 error with custom message for invalid pet type
+        if (petType != null && !petType.trim().isEmpty() && !petType.equals("puppy") && !petType.equals("kitten")
+                && !petType.equals("bunny")) {
+            logger.warn(petType + " pet type requested - returning 404 error");
             span.setAttribute("error", true);
-            span.setAttribute("error.message", "Dinosaur pet type not found");
+            String errorMsg = petType + " pet type not found";
+            span.setAttribute("error.message", errorMsg);
             span.end();
             ErrorResponse errorResponse = new ErrorResponse(
-                404, 
-                "Dinosaur pet type not found", 
-                "Dinosaur pet type not found", 
-                "/api/search"
-            );
+                    404,
+                    errorMsg,
+                    errorMsg,
+                    "/api/search");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
         }
 
@@ -164,7 +171,7 @@ public class SearchController {
             logger.debug("Delaying the response on purpose, to show on traces as an issue");
             TimeUnit.MILLISECONDS.sleep(3000);
         }
-        try(Scope scope = span.makeCurrent()) {
+        try (Scope scope = span.makeCurrent()) {
 
             List<Pet> result = ddbClient.scan(
                     buildScanRequest(petType, petColor, petId))

@@ -1,3 +1,7 @@
+<!--
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
 # Pay for Adoption Go Service
 
 This microservice handles the complete pet adoption workflow with a clean separation between real-time adoption processing and asynchronous history tracking. The service implements modern event-driven architecture patterns for optimal performance and reliability.
@@ -7,7 +11,7 @@ This microservice handles the complete pet adoption workflow with a clean separa
 ```
 POST /completeadoption → payforadoption-go:
 ├── CreateTransaction() → transactions table (synchronous)
-├── UpdateAvailability() → petstatus service (synchronous)  
+├── UpdateAvailability() → petstatus service (synchronous)
 └── SendHistoryMessage() → SQS → pethistory → transaction_history table (async)
 ```
 
@@ -20,7 +24,7 @@ POST /completeadoption → payforadoption-go:
 ## API Endpoints
 
 ### Complete Adoption
-`POST /api/home/completeadoption`
+`POST /api/completeadoption`
 
 Processes a complete pet adoption workflow including payment, database transaction, pet status update, and history tracking.
 
@@ -52,12 +56,12 @@ Processes a complete pet adoption workflow including payment, database transacti
 Returns the health status of the service.
 
 ### Cleanup Adoptions
-`POST /api/home/cleanupadoptions`
+`POST /api/cleanupadoptions`
 
 Clears the current transactions table. Historical data is maintained separately by the pethistory service.
 
 ### Trigger Seeding
-`POST /api/home/triggerseeding`
+`POST /api/triggerseeding`
 
 Seeds the DynamoDB table with sample pet data and creates the `transactions` SQL table.
 
@@ -87,7 +91,7 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error
 - **Error handling**: Failures block adoption completion
 - **Observability**: Traced and logged for monitoring
 
-#### SendHistoryMessage  
+#### SendHistoryMessage
 ```go
 func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error
 ```
@@ -106,7 +110,7 @@ The service publishes adoption history messages to Amazon SQS for asynchronous p
 {
   "transactionId": "123e4567-e89b-12d3-a456-426614174000",
   "petId": "pet123",
-  "petType": "dog", 
+  "petType": "dog",
   "userId": "user456",
   "adoptionDate": "2025-08-08T10:30:00Z",
   "timestamp": "2025-08-08T10:30:00Z"
@@ -115,7 +119,7 @@ The service publishes adoption history messages to Amazon SQS for asynchronous p
 
 #### Message Attributes
 - `PetType`: For message filtering and routing
-- `UserID`: For user-specific processing  
+- `UserID`: For user-specific processing
 - `TransactionID`: For correlation and deduplication
 
 #### Processing Flow
