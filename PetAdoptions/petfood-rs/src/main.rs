@@ -95,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .expect("Failed to install CTRL+C signal handler");
         info!("Shutdown signal received");
-        shutdown_observability();
+        shutdown_observability().await;
     };
 
     // Start the server with graceful shutdown

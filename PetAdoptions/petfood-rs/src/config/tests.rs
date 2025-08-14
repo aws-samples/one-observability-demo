@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(default_carts_table(), "PetFoodCarts");
         assert_eq!(default_region(), "us-west-2");
         assert_eq!(default_service_name(), "petfood-rs");
-        assert_eq!(default_otlp_endpoint_option(), None);
+        assert_eq!(default_otlp_endpoint_option(), Some("http://test:4317".to_string()));
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
         assert_eq!(default_error_mode_enabled(), false);

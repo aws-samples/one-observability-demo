@@ -6,7 +6,7 @@ use opentelemetry_sdk::{
 };
 use std::time::Duration;
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
     fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
@@ -133,15 +133,47 @@ fn init_opentelemetry_tracer(
     Ok(tracer)
 }
 
-/// Shutdown observability gracefully
-pub fn shutdown_observability() {
+/// Shutdown observability gracefully with timeout
+pub async fn shutdown_observability() {
     info!("Shutting down observability");
-    global::shutdown_tracer_provider();
+    
+    // Use spawn_blocking to run the blocking shutdown in a separate thread
+    let shutdown_task = tokio::task::spawn_blocking(|| {
+        // Gracefully shutdown the tracer provider
+        // This may block if there are pending spans, so we run it in a separate thread
+        global::shutdown_tracer_provider();
+    });
+    
+    // Apply timeout to prevent hanging indefinitely
+    match tokio::time::timeout(Duration::from_secs(5), shutdown_task).await {
+        Ok(Ok(())) => {
+            info!("Observability shutdown completed successfully");
+        }
+        Ok(Err(e)) => {
+            warn!("Error during observability shutdown: {}", e);
+        }
+        Err(_) => {
+            warn!("Observability shutdown timed out after 5 seconds - forcing exit");
+            // If shutdown times out, we'll let the process exit anyway
+            // This prevents the application from hanging indefinitely
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_shutdown_observability_timeout() {
+        // Test that shutdown_observability completes within reasonable time
+        let start = std::time::Instant::now();
+        shutdown_observability().await;
+        let elapsed = start.elapsed();
+        
+        // Should complete within 6 seconds (5 second timeout + some buffer)
+        assert!(elapsed < Duration::from_secs(6), "Shutdown took too long: {:?}", elapsed);
+    }
 
     #[test]
     fn test_init_observability_development() {
