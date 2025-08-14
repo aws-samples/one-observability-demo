@@ -21,6 +21,7 @@ import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { WorkshopAssets } from '../constructs/assets';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -64,6 +65,7 @@ export class MicroservicesStack extends Stack {
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
+        const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
@@ -87,7 +89,7 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
-                        dynamoDbTable: dynamodbExports.table,
+                        table: dynamodbExports.table,
                         instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
@@ -152,6 +154,8 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
                         cloudMapNamespace: cloudMap,
+                        table: dynamodbExports.table,
+                        bucket: assetsBucket,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);

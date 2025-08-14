@@ -10,10 +10,15 @@ import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { ApplicationSignalsIntegration, JavaInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
+import { IBucket } from 'aws-cdk-lib/aws-s3';
 
 export interface PetSearchServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
     secret: ISecret;
+    table: ITable;
+    bucket: IBucket;
 }
 
 export class PetSearchService extends EcsService {
@@ -26,9 +31,30 @@ export class PetSearchService extends EcsService {
             'app:computType': properties.computeType,
             'app:hostType:': properties.hostType,
         });
+
+        new ApplicationSignalsIntegration(this, 'petsearch-integration', {
+            taskDefinition: this.taskDefinition,
+            instrumentation: {
+                sdkVersion: JavaInstrumentationVersion.V2_10_0,
+            },
+            serviceName: `${properties.name}-Service`,
+            cloudWatchAgentSidecar: {
+                containerName: 'ecs-cwagent',
+                enableLogging: true,
+                cpu: 256,
+                memoryLimitMiB: 512,
+            },
+        });
+
+        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
+            {
+                id: 'AwsSolutions-ECS7',
+                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+            },
+        ]);
     }
 
-    addPermissions(): void {
+    addPermissions(properties: PetSearchServiceProperties): void {
         this.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
         );
@@ -42,6 +68,9 @@ export class PetSearchService extends EcsService {
             }),
             roles: [this.taskRole],
         });
+
+        properties.table.grantReadData(this.taskRole);
+        properties.bucket.grantRead(this.taskRole);
 
         NagSuppressions.addResourceSuppressions(
             taskPolicy,

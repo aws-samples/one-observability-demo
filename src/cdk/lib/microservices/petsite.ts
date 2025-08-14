@@ -17,6 +17,8 @@ import {
     TargetType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import {
+    CachedMethods,
+    CachePolicy,
     Distribution,
     OriginProtocolPolicy,
     OriginRequestPolicy,
@@ -29,7 +31,7 @@ import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { Peer, Port } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 
 export class PetSite extends EKSDeployment {
     public readonly loadBalancer: ApplicationLoadBalancer;
@@ -71,9 +73,9 @@ export class PetSite extends EKSDeployment {
             open: false,
         });
 
+        // TODO: Autodelete is not working for this bucket
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
-            autoDeleteObjects: true,
-            removalPolicy: RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
         });
@@ -85,10 +87,23 @@ export class PetSite extends EKSDeployment {
                 }),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
+                cachePolicy: CachePolicy.CACHING_DISABLED,
+                allowedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
             },
             enableLogging: true,
             logBucket: cloudfrontAccessBucket,
             minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+            errorResponses: [
+                {
+                    httpStatus: 404,
+                    ttl: Duration.minutes(5),
+                },
+                {
+                    httpStatus: 403,
+                    ttl: Duration.minutes(5),
+                },
+            ],
+            enableIpv6: false,
         });
 
         // Allow load balancer to reach EKS nodes
