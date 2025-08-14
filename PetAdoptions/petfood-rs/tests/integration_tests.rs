@@ -5,6 +5,7 @@ use petfood_rs::models::{
 };
 use rust_decimal_macros::dec;
 use serde_json::json;
+use tracing::info;
 use uuid::Uuid;
 
 mod common;
@@ -36,6 +37,7 @@ async fn test_food_api_endpoints() {
         .send()
         .await
         .expect("Failed to send request");
+    info!("{}", response.status().as_u16().to_string());
 
     assert_eq!(response.status().as_u16(), 201);
     let created_food: Food = response.json().await.expect("Failed to parse response");

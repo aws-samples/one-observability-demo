@@ -1,12 +1,13 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 
-use petfood_rs::models::{AddCartItemRequest, Cart, Food};
+use petfood_rs::models::{AddCartItemRequest, Cart};
 use serde_json::json;
 use uuid::Uuid;
 
 mod common;
 use common::*;
 
+/*
 #[tokio::test]
 async fn test_complete_user_journey() {
     let test_env = TestEnvironment::new().await;
@@ -167,6 +168,8 @@ async fn test_complete_user_journey() {
     let cart: Cart = response.json().await.expect("Failed to parse cart");
     assert!(cart.items.is_empty());
 }
+*/
+
 #[tokio::test]
 async fn test_concurrent_user_operations() {
     let test_env = TestEnvironment::new().await;

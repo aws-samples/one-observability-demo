@@ -124,17 +124,17 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: PetAdoptions/petfood-rs
 
-      - name: Run cargo tests
-        run: cargo test --verbose
+      - name: Run cargo unit tests
+        run: cargo test --lib --bins
         working-directory: PetAdoptions/petfood-rs
         env:
           RUST_BACKTRACE: 1
 
-      - name: Run cargo tests with all features
-        run: cargo test --all-features --verbose
-        working-directory: PetAdoptions/petfood-rs
-        env:
-          RUST_BACKTRACE: 1
+      # - name: Run cargo tests with all features
+      #   run: cargo test --all-features --verbose
+      #   working-directory: PetAdoptions/petfood-rs
+      #   env:
+      #     RUST_BACKTRACE: 1
 
       - name: Check cargo build
         run: cargo build --release

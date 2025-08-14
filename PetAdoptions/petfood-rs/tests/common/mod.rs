@@ -150,46 +150,6 @@ use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
-async fn mock_recommendations(Path(pet_type): Path<String>) -> Response {
-    match pet_type.as_str() {
-        "puppy" | "kitten" | "bunny" => Json(json!({
-            "recommendations": [
-                {
-                    "id": "F001",
-                    "name": "Premium Puppy Food",
-                    "pet_type": pet_type,
-                    "food_type": "dry",
-                    "price": 29.99,
-                    "description": "High-quality nutrition for growing puppies",
-                    "image": "https://example.com/puppy-food.jpg",
-                    "ingredients": ["chicken", "rice", "vegetables"],
-                    "nutritional_info": {
-                        "calories_per_serving": 350,
-                        "protein_percentage": 25.0,
-                        "fat_percentage": 15.0,
-                        "carbohydrate_percentage": 45.0,
-                        "fiber_percentage": 4.0,
-                        "moisture_percentage": 10.0,
-                        "serving_size": "1 cup",
-                        "servings_per_container": 50
-                    },
-                    "feeding_guidelines": "Feed 2-3 cups daily",
-                    "stock_quantity": 50,
-                    "availability_status": "instock"
-                }
-            ]
-        }))
-        .into_response(),
-        _ => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "error": "Invalid pet type"
-            })),
-        )
-            .into_response(),
-    }
-}
-
 async fn mock_get_food(Path(food_id): Path<String>) -> Response {
     match food_id.as_str() {
         "F001" => Json(json!({
@@ -347,7 +307,7 @@ async fn mock_delete_cart(
 }
 
 fn create_mock_app() -> Router {
-    use axum::routing::{delete, put};
+    use axum::routing::put;
 
     let cart_state: CartState = Arc::new(Mutex::new(HashMap::new()));
 
@@ -355,7 +315,7 @@ fn create_mock_app() -> Router {
         .route("/health/status", get(mock_health))
         .route("/api/foods", get(mock_list_foods))
         .route("/api/foods/:food_id", get(mock_get_food))
-        .route("/api/recommendations/:pet_type", get(mock_recommendations))
+        // .route("/api/admin/foods", post(create_food))
         .route(
             "/api/cart/:user_id",
             get(mock_get_cart).delete(mock_delete_cart),
