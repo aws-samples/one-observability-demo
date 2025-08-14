@@ -363,7 +363,7 @@ pub(crate) fn default_host() -> String {
 }
 
 pub(crate) fn default_port() -> u16 {
-    80
+    8080
 }
 
 pub(crate) fn default_timeout() -> u64 {

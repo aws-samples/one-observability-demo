@@ -1,4 +1,4 @@
-# Rust build artifacts
+# Build artifacts
 target/
 Cargo.lock
 
@@ -17,31 +17,24 @@ Thumbs.db
 .gitignore
 
 # Documentation
+README.md
 *.md
-docs/
 
-# Test files
+# Test files (we only copy src for production)
 tests/
 benches/
 
-# CI/CD
-.github/
-.gitlab-ci.yml
-
 # Docker files
-Dockerfile*
-docker-compose*.yml
+Dockerfile
 .dockerignore
 
 # Logs
 *.log
 
 # Environment files
-.env*
-
-# Coverage reports
-target/coverage/
-*.profraw
+.env
+.env.local
+.env.*.local
 
 # Temporary files
 tmp/
