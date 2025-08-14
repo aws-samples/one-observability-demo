@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon;
 using Prometheus;
+using PetSite.Middleware;
 
 
 namespace PetSite
@@ -43,15 +44,14 @@ namespace PetSite
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            // Removed X-Ray middleware
-
             if (env.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
+                app.UseMiddleware<ErrorHandlingMiddleware>();
+                //app.UseDeveloperExceptionPage();
             }
             else
             {
-                app.UseExceptionHandler("/Home/Error");
+                app.UseMiddleware<ErrorHandlingMiddleware>();
                 app.UseHsts();
             }
 
