@@ -11,6 +11,8 @@ using Microsoft.Extensions.Hosting;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon;
 using Prometheus;
+using PetSite.Middleware;
+
 
 namespace PetSite
 {
@@ -31,7 +33,6 @@ namespace PetSite
         {
             services.AddControllersWithViews();
             services.AddHttpClient();
-            services.AddSession();
             services.AddHttpContextAccessor();
             services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
             
@@ -43,42 +44,21 @@ namespace PetSite
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            // Removed X-Ray middleware
-
             if (env.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
+                app.UseMiddleware<ErrorHandlingMiddleware>();
+                //app.UseDeveloperExceptionPage();
             }
             else
             {
-                app.UseExceptionHandler("/Error");
+                app.UseMiddleware<ErrorHandlingMiddleware>();
                 app.UseHsts();
             }
-            
-            // Custom exception handling for all controllers except Home/Index
-            app.Use(async (context, next) =>
-            {
-                try
-                {
-                    await next();
-                }
-                catch (Exception ex)
-                {
-                    var path = context.Request.Path.Value?.ToLower();
-                    //if (path != "/" && !path.StartsWith("/home/index"))
-                    {
-                        context.Response.Redirect($"/Error?message={Uri.EscapeDataString(ex.Message)}");
-                        return;
-                    }
-                    throw;
-                }
-            });
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
             app.UseRouting();
-            app.UseSession();
             app.UseHttpMetrics();
             
             app.UseAuthorization();

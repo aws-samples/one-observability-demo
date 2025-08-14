@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using PetSite.Models;
+using PetSite.Helpers;
 
 namespace PetSite.Controllers
 {
@@ -33,9 +34,9 @@ namespace PetSite.Controllers
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var foodApiUrl = _configuration["FOOD_API_URL"] ?? "https://api.example.com/foods";
-                var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-                var separator = foodApiUrl.Contains("?") ? "&" : "?";
-                var response = await httpClient.GetAsync($"{foodApiUrl}{separator}userId={userId}");
+                var userId = ViewBag.UserId?.ToString();
+                var url = UrlHelper.BuildUrl(foodApiUrl, ("userId", userId));
+                var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 
                 var jsonContent = await response.Content.ReadAsStringAsync();
@@ -51,7 +52,7 @@ namespace PetSite.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> BuyFood(string foodId)
+        public async Task<IActionResult> BuyFood(string foodId, string userId)
         {
             if (EnsureUserId()) return new EmptyResult();
 
@@ -59,20 +60,20 @@ namespace PetSite.Controllers
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var purchaseApiUrl = _configuration["FOOD_PURCHASE_API_URL"] ?? "https://api.example.com/purchase";
-                var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-                var response = await httpClient.PostAsync($"{purchaseApiUrl}?foodId={foodId}&userId={userId}", null);
+               // var userId = ViewBag.UserId?.ToString();
+                var url = UrlHelper.BuildUrl(purchaseApiUrl, ("foodId", foodId), ("userId", userId));
+                var response = await httpClient.PostAsync(url, null);
                 response.EnsureSuccessStatusCode();
                 
-                TempData["FoodPurchaseStatus"] = "success";
-                TempData["PurchasedFoodId"] = foodId;
+                // Food purchase successful - could add ViewData or redirect with status
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error purchasing food");
-                TempData["FoodPurchaseStatus"] = "error";
+                // Food purchase failed - could add ViewData or redirect with error
             }
 
-            return RedirectToAction("Index", "Payment", new { userId = ViewBag.UserId });
+            return RedirectToAction("Index", "Payment", new { userId = userId });
         }
     }
 }

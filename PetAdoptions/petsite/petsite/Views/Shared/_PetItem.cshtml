@@ -1,4 +1,5 @@
-﻿@using Microsoft.CodeAnalysis.CSharp.Syntax
+﻿@using Microsoft.AspNetCore.Http.Features
+@using Microsoft.CodeAnalysis.CSharp.Syntax
 @model Pet;
 
     <form asp-controller="adoption" asp-action="takemehome" method="post">
@@ -38,4 +39,6 @@
         <input type="hidden" asp-for="@Model.peturl" name="peturl" />
         <input type="hidden" asp-for="@Model.price" name="price" />
         <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+        <input type="hidden" name="userId" value="@ViewBag.UserId" />
+        
     </form>

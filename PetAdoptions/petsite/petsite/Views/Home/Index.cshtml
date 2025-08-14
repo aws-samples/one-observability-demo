@@ -23,6 +23,7 @@
                 <select name="selectedPetColor" asp-for="@Model.Varieties.SelectedPetColor"
                         asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
             </label>
+            <input type="hidden" name="userId" value="@ViewBag.UserId" />
             <input id="searchpets" type="submit" value="Search" class="rounded-lg"/>
 
         </form>

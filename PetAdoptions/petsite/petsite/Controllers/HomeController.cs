@@ -12,6 +12,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -78,8 +79,9 @@ namespace PetSite.Controllers
             string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
             using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
+            var userId = ViewBag.UserId?.ToString();
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            await httpClient.PostAsync(url, null);
 
             return View();
         }
@@ -112,8 +114,9 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.color", selectedPetColor);
                         activity.SetTag("pet.id", petid);
                     }
-                    
-                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid);
+
+                    var userId = Request.Query["userId"].ToString();
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid, userId);
                 }
             }
             catch (HttpRequestException e)
@@ -159,8 +162,16 @@ namespace PetSite.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(string userId, string message)
         {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                ViewBag.UserId = userId;
+                ViewData["UserId"] = userId;
+            }
+            
+            ViewBag.ErrorMessage = message;
+            
             return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
         }
     }

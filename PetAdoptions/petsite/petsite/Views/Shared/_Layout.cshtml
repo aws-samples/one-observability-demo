@@ -34,17 +34,17 @@
             <article class="row" style="display: flex; align-items: center;">
 
                 <section class="col-lg-4 col-md-4 col-12 align-self-center">
-                    <a asp-controller="home" asp-action="index">
+                    <a asp-controller="home" asp-action="index" asp-route-userId="@ViewBag.UserId">
                         <img src="~/images/brand.png" alt="Petadoption"/>
                     </a>
                 </section>
                 
                 <section class="col-lg-8 col-md-8 col-12 align-self-center" style="display: flex; justify-content: flex-end; gap: 2rem;">
-                    <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userid="@ViewBag.UserId" id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                    <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId" id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
                         See Adoption List
                     </a>
                     
-                    <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userid="@ViewBag.UserId" id="performhousekeeping" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                    <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId" id="performhousekeeping" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
                         Perform Housekeeping
                     </a>
                 </section>

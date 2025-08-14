@@ -111,6 +111,7 @@ var jqxhr = $.getJSON( "/petfood", function() {
                                     <input class="btn btn-success btn-lg btn-block" type="submit" value="Pay" />
                                     <input type="hidden" asp-for="@Model.petid" name="petid" />    
                                     <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+                                    <input type="hidden" name="userId" value="@ViewBag.UserId" />
                                 </form>
                             </div>
                         </div>
