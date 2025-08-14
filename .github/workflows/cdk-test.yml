@@ -5,10 +5,12 @@ on:
     branches: [ main ]
     paths:
       - 'PetAdoptions/cdk/**'
+      - 'PetAdoptions/petfood-rs/**'
   push:
     branches: [ main ]
     paths:
       - 'PetAdoptions/cdk/**'
+      - 'PetAdoptions/petfood-rs/**'
 
 jobs:
   cdk-synth-test:
@@ -74,3 +76,66 @@ jobs:
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: dummy
           AWS_SECRET_ACCESS_KEY: dummy
+
+  petfood-rust-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('PetAdoptions/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('PetAdoptions/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: PetAdoptions/petfood-rs/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('PetAdoptions/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+        working-directory: PetAdoptions/petfood-rs
+
+      - name: Run Clippy (linting)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: PetAdoptions/petfood-rs
+
+      - name: Run cargo tests
+        run: cargo test --verbose
+        working-directory: PetAdoptions/petfood-rs
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Run cargo tests with all features
+        run: cargo test --all-features --verbose
+        working-directory: PetAdoptions/petfood-rs
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Check cargo build
+        run: cargo build --release
+        working-directory: PetAdoptions/petfood-rs
