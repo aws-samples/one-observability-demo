@@ -12,7 +12,7 @@ plan:
 
   - name: Adopt Bunnies
     request:
-      url: /api/home/completeadoption?petId={{ item }}&petType=bunny&userId=user007
+      url: /api/completeadoption?petId={{ item }}&petType=bunny&userId=user007
       method: POST
       body: ""
     with_items:
@@ -24,7 +24,7 @@ plan:
 
   - name: Adopt Kittens
     request:
-      url: /api/home/completeadoption?petId={{ item }}&petType=kitten&userId=user007
+      url: /api/completeadoption?petId={{ item }}&petType=kitten&userId=user007
       method: POST
       body: ""
     with_items:
@@ -39,7 +39,7 @@ plan:
 
   - name: Adopt Puppies
     request:
-      url: /api/home/completeadoption?petId={{ item }}&petType=puppy&userId=user007
+      url: /api/completeadoption?petId={{ item }}&petType=puppy&userId=user007
       method: POST
       body: ""
     with_items:
@@ -62,6 +62,6 @@ plan:
 
   - name: Cleanup Adoptions
     request:
-      url: /api/home/cleanupadoptions
+      url: /api/cleanupadoptions
       method: POST
       body: ""

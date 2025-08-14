@@ -20,7 +20,7 @@ POST /completeadoption → payforadoption-go:
 ## API Endpoints
 
 ### Complete Adoption
-`POST /api/home/completeadoption`
+`POST /api/completeadoption`
 
 Processes a complete pet adoption workflow including payment, database transaction, pet status update, and history tracking.
 
@@ -52,12 +52,12 @@ Processes a complete pet adoption workflow including payment, database transacti
 Returns the health status of the service.
 
 ### Cleanup Adoptions
-`POST /api/home/cleanupadoptions`
+`POST /api/cleanupadoptions`
 
 Clears the current transactions table. Historical data is maintained separately by the pethistory service.
 
 ### Trigger Seeding
-`POST /api/home/triggerseeding`
+`POST /api/triggerseeding`
 
 Seeds the DynamoDB table with sample pet data and creates the `transactions` SQL table.
 
