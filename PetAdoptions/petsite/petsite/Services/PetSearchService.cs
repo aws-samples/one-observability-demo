@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using PetSite.Models;
 using PetSite.ViewModels;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Services
@@ -45,12 +46,6 @@ namespace PetSite.Services
 
         public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid, string userId)
         {
-            string searchUri = string.Empty;
-
-            if (!String.IsNullOrEmpty(pettype) && pettype != "all") searchUri = $"pettype={pettype}";
-            if (!String.IsNullOrEmpty(petcolor) && petcolor != "all") searchUri = $"&{searchUri}&petcolor={petcolor}";
-            if (!String.IsNullOrEmpty(petid) && petid != "all") searchUri = $"&{searchUri}&petid={petid}";
-
             switch (pettype)
             {
                 case "puppy":
@@ -73,11 +68,15 @@ namespace PetSite.Services
             
             try
             {
-                var separator = string.IsNullOrEmpty(searchUri) ? "?" : "&";
+                var url = UrlHelper.BuildUrl(searchapiurl,
+                    ("pettype", pettype != "all" ? pettype : null),
+                    ("petcolor", petcolor != "all" ? petcolor : null),
+                    ("petid", petid != "all" ? petid : null),
+                    ("userId", userId));
                 
-                _logger.LogInformation($"Calling the PetSearch API with: {searchapiurl}{searchUri}{separator}userId={userId}");
+                _logger.LogInformation($"Calling the PetSearch API with: {url}");
                 
-                var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}{separator}userId={userId}");
+                var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();

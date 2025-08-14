@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Amazon.SQS;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -85,9 +86,9 @@ namespace PetSite.Controllers
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    await httpClient.PostAsync(
-                        $"{_configuration["paymentapiurl"]}?petId={petId}&petType={pettype}&userId={userId}",
-                        null);
+                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"], 
+                        ("petId", petId), ("petType", pettype), ("userId", userId));
+                    await httpClient.PostAsync(url, null);
                 }
 
                 //Increase purchase metric count

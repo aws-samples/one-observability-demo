@@ -39,6 +39,6 @@
         <input type="hidden" asp-for="@Model.peturl" name="peturl" />
         <input type="hidden" asp-for="@Model.price" name="price" />
         <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
-        <partial name="_UserIdField" />
+        <input type="hidden" name="userId" value="@ViewBag.UserId" />
         
     </form>

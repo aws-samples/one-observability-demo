@@ -11,6 +11,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 
 namespace PetSite.Controllers
 {
@@ -49,7 +50,8 @@ namespace PetSite.Controllers
                     string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
-                    result = await httpClient.GetStringAsync($"{petlistadoptionsurl}?userId={userId}");
+                    var url = UrlHelper.BuildUrl(petlistadoptionsurl, ("userId", userId));
+                    result = await httpClient.GetStringAsync(url);
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }
             }

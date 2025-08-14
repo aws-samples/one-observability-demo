@@ -12,6 +12,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -79,7 +80,8 @@ namespace PetSite.Controllers
             
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString();
-            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            await httpClient.PostAsync(url, null);
 
             return View();
         }
