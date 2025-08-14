@@ -830,6 +830,8 @@ Resources:
   # Step Function for CDK Stack Cleanup
   rCDKCleanupStateMachine:
     Type: AWS::StepFunctions::StateMachine
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
       RoleArn: !GetAtt rCDKCleanupRole.Arn
@@ -958,8 +960,14 @@ Resources:
               "End": true
             },
             "CleanupComplete": {
-              "Type": "Pass",
-              "Result": "CDK stack cleanup completed",
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCleanupCompletionFunction}",
+                "Payload": {
+                  "StackName": "${AWS::StackName}"
+                }
+              },
               "End": true
             }
           }
@@ -968,6 +976,8 @@ Resources:
   # IAM Role for Step Function
   rCDKCleanupRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -996,10 +1006,16 @@ Resources:
                 Condition:
                   StringEquals:
                     "aws:ResourceTag/application": !Ref pApplicationName
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt rCleanupCompletionFunction.Arn
 
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cdk-stack-lister
       Runtime: python3.13
@@ -1061,6 +1077,8 @@ Resources:
   # IAM Role for CDK Stack Lister Lambda
   rCDKStackListerRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -1082,9 +1100,152 @@ Resources:
                   - cloudformation:DescribeStacks
                 Resource: "*"
 
+  # Lambda function to clean up retained resources after Step Function completes
+  rCleanupCompletionFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cleanup-completion
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCleanupCompletionRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          import time
+
+          def handler(event, context):
+              stack_name = event.get('StackName')
+              if not stack_name:
+                  print("No stack name provided")
+                  return
+
+              # Wait a bit to ensure all cleanup operations are complete
+              time.sleep(30)
+
+              try:
+                  cf_client = boto3.client('cloudformation')
+
+                  # List of resources to delete (in order)
+                  resources_to_delete = [
+                      f"{stack_name}-cdk-cleanup",  # Step Function
+                      f"{stack_name}-cdk-stack-lister",  # Lambda function
+                  ]
+
+                  # Delete Step Function
+                  try:
+                      sf_client = boto3.client('stepfunctions')
+                      sf_arn = f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup"
+                      sf_client.delete_state_machine(stateMachineArn=sf_arn)
+                      print(f"Deleted Step Function: {sf_arn}")
+                  except Exception as e:
+                      print(f"Error deleting Step Function: {str(e)}")
+
+                  # Delete Lambda function
+                  try:
+                      lambda_client = boto3.client('lambda')
+                      lambda_client.delete_function(FunctionName=f"{stack_name}-cdk-stack-lister")
+                      print(f"Deleted Lambda function: {stack_name}-cdk-stack-lister")
+                  except Exception as e:
+                      print(f"Error deleting Lambda function: {str(e)}")
+
+                  # Delete EventBridge rules
+                  try:
+                      events_client = boto3.client('events')
+
+                      # Get rules that match our stack
+                      rules = events_client.list_rules()['Rules']
+                      for rule in rules:
+                          if stack_name in rule.get('Description', '') or stack_name in rule['Name']:
+                              try:
+                                  # Remove targets first
+                                  targets = events_client.list_targets_by_rule(Rule=rule['Name'])
+                                  if targets['Targets']:
+                                      target_ids = [target['Id'] for target in targets['Targets']]
+                                      events_client.remove_targets(Rule=rule['Name'], Ids=target_ids)
+
+                                  # Delete rule
+                                  events_client.delete_rule(Name=rule['Name'])
+                                  print(f"Deleted EventBridge rule: {rule['Name']}")
+                              except Exception as e:
+                                  print(f"Error deleting rule {rule['Name']}: {str(e)}")
+                  except Exception as e:
+                      print(f"Error deleting EventBridge rules: {str(e)}")
+
+                  # Delete IAM roles (these will be deleted automatically when no longer referenced)
+                  print("Cleanup completion function executed successfully")
+
+                  # Finally, delete this function itself
+                  try:
+                      lambda_client.delete_function(FunctionName=f"{stack_name}-cleanup-completion")
+                      print("Deleted cleanup completion function")
+                  except Exception as e:
+                      print(f"Error deleting cleanup completion function: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error in cleanup completion: {str(e)}")
+
+  # IAM Role for Cleanup Completion Lambda
+  rCleanupCompletionRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CleanupCompletionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Step Function deletion - specific to this stack's state machine
+              - Effect: Allow
+                Action:
+                  - states:DeleteStateMachine
+                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-cdk-cleanup"
+              # Lambda function deletion - specific to this stack's functions
+              - Effect: Allow
+                Action:
+                  - lambda:DeleteFunction
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cdk-stack-lister"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cleanup-completion"
+              # EventBridge rules - list and manage rules for this stack
+              - Effect: Allow
+                Action:
+                  - events:ListRules
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - events:ListTargetsByRule
+                  - events:RemoveTargets
+                  - events:DeleteRule
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*"
+                Condition:
+                  StringLike:
+                    "events:source": "aws.cloudformation"
+              # IAM role management - only for roles created by this stack
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DetachRolePolicy
+                  - iam:DeleteRolePolicy
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
+
   # EventBridge Rule for Stack Deletion
   rStackDeletionRule:
     Type: AWS::Events::Rule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Description: Trigger cleanup when stack is being deleted
       EventPattern:
@@ -1103,6 +1264,8 @@ Resources:
   # EventBridge Rule for CodeBuild Failure
   rCodeBuildFailureRule:
     Type: AWS::Events::Rule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Description: Trigger cleanup when CodeBuild fails
       EventPattern:
@@ -1120,6 +1283,8 @@ Resources:
   # IAM Role for EventBridge to invoke Step Function
   rEventBridgeRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'

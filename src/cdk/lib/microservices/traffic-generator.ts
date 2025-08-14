@@ -89,19 +89,15 @@ export class TrafficGeneratorService extends EcsService {
         );
     }
 
-    createOutputs(properties: EcsServiceProperties): void {
-        if (!this.loadBalancedService && !properties.disableService) {
-            throw new Error('Service is not defined');
-        } else {
-            Utilities.createSsmParameters(
-                this,
-                PARAMETER_STORE_PREFIX,
-                new Map(
-                    Object.entries({
-                        trafficdelaytime: '1',
-                    }),
-                ),
-            );
-        }
+    createOutputs(): void {
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map(
+                Object.entries({
+                    trafficdelaytime: '1',
+                }),
+            ),
+        );
     }
 }

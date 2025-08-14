@@ -124,6 +124,7 @@ global_settings:
           path: 'src/templates/codebuild-deployment-template.yaml'
           resource_id: 'rCDKStackListerFunction'
           reason: 'Function is executed only once, no need for concurrency configurations'
+
 fail_on_findings: true
 ash_plugin_modules: []
 external_reports_to_include: []
