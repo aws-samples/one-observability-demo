@@ -20,6 +20,7 @@ import { WorkshopNetwork } from '../constructs/network';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { WorkshopCloudTrail } from '../constructs/cloudtrail';
 import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
+import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 
 /**
  * Configuration properties for the CoreStage.
@@ -93,6 +94,8 @@ export class CoreStack extends Stack {
 
         /** Add Queue resources */
         new QueueResources(this, 'QueueResources', properties.queueProperties);
+
+        new CfnDiscovery(this, 'ApplicationSignals', {});
 
         if (!properties.createVpc || properties.createVpc) {
             // Create a new VPC with workshop networking configuration

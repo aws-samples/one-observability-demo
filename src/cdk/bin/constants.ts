@@ -63,3 +63,7 @@ export const VPC_ENDPOINT_DATA_SERVICEDISCOVERY_ID_EXPORT_NAME = 'WorkshopVPCEnd
 export const CLOUDMAP_NAMESPACE_ID_EXPORT_NAME = 'WorkshopCloudMapNamespaceId';
 export const CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME = 'WorkshopCloudMapNamespaceName';
 export const CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME = 'WorkshopCloudMapNamespaceArn';
+
+// Assets Export Names
+export const ASSETS_BUCKET_NAME_EXPORT_NAME = 'WorkshopAssetsBucketName';
+export const ASSETS_BUCKET_ARN_EXPORT_NAME = 'WorkshopAssetsBucketArn';

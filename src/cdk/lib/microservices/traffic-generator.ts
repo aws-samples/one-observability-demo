@@ -8,10 +8,32 @@ import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
+import { ApplicationSignalsIntegration, DotnetInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
 
 export class TrafficGeneratorService extends EcsService {
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
         super(scope, id, properties);
+
+        new ApplicationSignalsIntegration(this, 'petsearch-integration', {
+            taskDefinition: this.taskDefinition,
+            instrumentation: {
+                sdkVersion: DotnetInstrumentationVersion.V1_7_0,
+            },
+            serviceName: `${properties.name}-Service`,
+            cloudWatchAgentSidecar: {
+                containerName: 'ecs-cwagent',
+                enableLogging: true,
+                cpu: 256,
+                memoryLimitMiB: 512,
+            },
+        });
+
+        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
+            {
+                id: 'AwsSolutions-ECS7',
+                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+            },
+        ]);
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
             'app:project': 'workshop',
@@ -67,5 +89,15 @@ export class TrafficGeneratorService extends EcsService {
         );
     }
 
-    createOutputs(): void {}
+    createOutputs(): void {
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map(
+                Object.entries({
+                    trafficdelaytime: '1',
+                }),
+            ),
+        );
+    }
 }

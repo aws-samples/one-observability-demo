@@ -2,13 +2,14 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { RemovalPolicy, Stack, CfnOutput, Fn } from 'aws-cdk-lib';
+import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { ASSETS_BUCKET_NAME_EXPORT_NAME, ASSETS_BUCKET_ARN_EXPORT_NAME } from '../../bin/constants';
 
 /**
  * Properties for configuring Assets construct
@@ -93,8 +94,65 @@ export class WorkshopAssets extends Construct {
                 },
             ]);
         }
+
+        // Create CloudFormation outputs for Assets resources
+        this.createAssetsOutputs();
     }
+
+    /**
+     * Creates CloudFormation outputs for the S3 bucket resources
+     */
+    private createAssetsOutputs(): void {
+        new CfnOutput(this, 'AssetsBucketNameOutput', {
+            value: this.bucket.bucketName,
+            exportName: ASSETS_BUCKET_NAME_EXPORT_NAME,
+            description: 'Workshop Assets S3 Bucket Name',
+        });
+
+        new CfnOutput(this, 'AssetsBucketArnOutput', {
+            value: this.bucket.bucketArn,
+            exportName: ASSETS_BUCKET_ARN_EXPORT_NAME,
+            description: 'Workshop Assets S3 Bucket ARN',
+        });
+    }
+
+    /**
+     * Imports an S3 bucket from CloudFormation exports created by WorkshopAssets
+     *
+     * This static method reconstructs a bucket instance from CloudFormation exports,
+     * allowing other stacks to reference and use the bucket created by the core infrastructure.
+     *
+     * @param scope - The construct scope where the bucket will be imported
+     * @param id - The construct identifier for the imported bucket
+     * @returns The imported bucket instance
+     *
+     * @example
+     * ```typescript
+     * const bucket = WorkshopAssets.importBucketFromExports(this, 'ImportedBucket');
+     * // Use bucket.bucketName, bucket.bucketArn, etc.
+     * ```
+     */
+    public static importBucketFromExports(scope: Construct, id: string): IBucket {
+        const bucketName = Fn.importValue(ASSETS_BUCKET_NAME_EXPORT_NAME);
+        const bucketArn = Fn.importValue(ASSETS_BUCKET_ARN_EXPORT_NAME);
+
+        return Bucket.fromBucketAttributes(scope, id, {
+            bucketName: bucketName,
+            bucketArn: bucketArn,
+        });
+    }
+
     createOutputs(): void {
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map(
+                Object.entries({
+                    s3bucketname: this.bucket.bucketName,
+                }),
+            ),
+        );
+
         Utilities.createSsmParameters(
             this,
             PARAMETER_STORE_PREFIX,

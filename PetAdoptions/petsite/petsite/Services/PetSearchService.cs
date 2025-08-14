@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using PetSite.Models;
 using PetSite.ViewModels;
 using Prometheus;
@@ -32,11 +33,14 @@ namespace PetSite.Services
         private static readonly Counter BunnySearchCount =
             Metrics.CreateCounter("petsite_pet_bunny_searches_total", "Count the number of bunny searches performed");
 
-        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger)
+        private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor;
+
+        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger, Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid)
@@ -62,14 +66,19 @@ namespace PetSite.Services
                     PetSearchCount.Inc();
                     break;
             }
-            
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"SEARCH_API_URL");
+
+            string searchapiurl = _configuration["searchapiurl"];
             using var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
+
             try
             {
-                var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}");
+                var userId = _httpContextAccessor.HttpContext?.Session.GetString("userId") ?? "unknown";
+                var separator = string.IsNullOrEmpty(searchUri) ? "?" : "&";
+
+                _logger.LogInformation($"Calling the PetSearch API with: {searchapiurl}{searchUri}{separator}userId={userId}");
+
+                var response = await httpClient.GetAsync($"{searchapiurl}{searchUri}{separator}userId={userId}");
                 if (!response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
@@ -77,6 +86,9 @@ namespace PetSite.Services
                 }
 
                 var jsonContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation($"PetSearch API responded with: {jsonContent}");
+
                 if (string.IsNullOrEmpty(jsonContent))
                     return new List<Pet>();
 
@@ -85,7 +97,7 @@ namespace PetSite.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Exception occurred while fetching pet details.");
-                throw ex;
+                throw;
             }
         }
     }

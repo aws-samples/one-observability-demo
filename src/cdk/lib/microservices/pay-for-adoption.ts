@@ -15,12 +15,13 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
     secret: ISecret;
-    dynamoDbTable: ITable;
+    table: ITable;
 }
 
 export class PayForAdoptionService extends EcsService {
     constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
         super(scope, id, properties);
+
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
             'app:project': 'workshop',
@@ -42,13 +43,12 @@ export class PayForAdoptionService extends EcsService {
         const taskPolicy = new Policy(this, 'taskPolicy', {
             policyName: 'PayForAdoptionTaskPolicy',
             document: new PolicyDocument({
-                statements: [
-                    EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
-                    EcsService.getDefaultDynamoDBPolicy(this, properties.dynamoDbTable.tableName),
-                ],
+                statements: [EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
             }),
             roles: [this.taskRole],
         });
+
+        properties.table.grantReadWriteData(this.taskRole);
 
         NagSuppressions.addResourceSuppressions(
             taskPolicy,

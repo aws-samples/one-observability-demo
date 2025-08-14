@@ -120,7 +120,9 @@ cdk -a "npx ts-node bin/local.ts" diff
 cdk -a "npx ts-node bin/local.ts" destroy
 ```
 
-## Deployment Script
+## Deployment Scripts
+
+### Environment Validation Script
 
 The `scripts/deploy-check.sh` script validates your environment and prepares the repository for deployment.
 
@@ -141,6 +143,22 @@ The script will:
 - Validate AWS credentials and display current role/account
 - Check if the S3 bucket exists (create if needed)
 - Verify the repository archive exists in S3 (upload if needed)
+
+### Application Redeployment Script
+
+The `src/cdk/scripts/redeploy-app.sh` script helps developers quickly redeploy individual microservices for testing new versions.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- One of: Docker, Finch, or Podman installed
+- Deployed One Observability Demo infrastructure
+
+**Usage:**
+```bash
+./src/cdk/scripts/redeploy-app.sh
+```
+
+See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
 
 ## Security issue notifications
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.

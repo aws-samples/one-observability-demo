@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for local testing
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: adoptions
+      POSTGRES_USER: petstore
+      POSTGRES_PASSWORD: petstore123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petstore -d adoptions"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Pet List Adoptions Service
+  petlistadoptions:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - APP_PET_SEARCH_URL=http://localhost:8080/
+      - APP_RDS_SECRET_ARN=local-secret
+      - OTEL_EXPORTER_OTLP_ENDPOINT=0.0.0.0:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./local-secret.json:/app/local-secret.json:ro
+    command: ["python", "app.py"]
+
+  # Mock Pet Search Service (for testing)
+  petsearch-mock:
+    image: mockserver/mockserver:latest
+    ports:
+      - "8080:1080"
+    environment:
+      - MOCKSERVER_PROPERTY_FILE=/config/mockserver.properties
+    volumes:
+      - ./mock-petsearch.json:/config/mock-petsearch.json:ro
+    command: ["java", "-jar", "/opt/mockserver/mockserver-netty-jar-with-dependencies.jar", "-serverPort", "1080", "-logLevel", "INFO"]
+
+volumes:
+  postgres_data: 

@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage, Duration } from 'aws-cdk-lib';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
@@ -15,6 +15,9 @@ import {
 } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { CompositePrincipal, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
+import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 
 /**
  * Definition for an application to be built and deployed
@@ -126,8 +129,6 @@ export class ContainersStack extends Stack {
         const sourceOutput = new Artifact();
         const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
 
-        sourceBucket.grantRead(pipelineRole);
-
         const pipelineLogArn = Arn.format(
             {
                 service: 'logs',
@@ -150,6 +151,9 @@ export class ContainersStack extends Stack {
             ],
             roles: [pipelineRole],
         });
+
+        sourceBucket.grantRead(pipelineRole);
+        this.pipeline.node.addDependency(cloudWatchPolicy);
 
         const sourceAction = new S3SourceAction({
             actionName: 'Source',
@@ -213,6 +217,68 @@ export class ContainersStack extends Stack {
                 {
                     id: 'AwsSolutions-IAM5',
                     reason: 'Allow access to Cloudwatch Log Groups for pipeline execution',
+                },
+            ],
+            true,
+        );
+
+        // Create retry mechanism
+        this.createRetryMechanism();
+    }
+
+    /**
+     * Creates a Lambda function and EventBridge rule to retry failed pipeline actions
+     */
+    private createRetryMechanism(): void {
+        const retryLambdaRole = new Role(this, 'RetryLambdaRole', {
+            assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+            managedPolicies: [{ managedPolicyArn: 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole' }],
+        });
+
+        retryLambdaRole.addToPolicy(
+            new PolicyStatement({
+                actions: [
+                    'codepipeline:RetryStageExecution',
+                    'codepipeline:GetPipelineExecution',
+                    'codepipeline:GetPipelineState',
+                    'codepipeline:ListPipelineExecutions',
+                ],
+                resources: [this.pipeline.pipelineArn],
+            }),
+        );
+
+        const retryFunction = new Function(this, 'PipelineRetryFunction', {
+            runtime: Runtime.PYTHON_3_13,
+            handler: 'index.handler',
+            role: retryLambdaRole,
+            timeout: Duration.minutes(1),
+            code: Code.fromAsset('lib/constructs/serverless/functions/pipeline-retry'),
+        });
+
+        new Rule(this, 'PipelineFailureRule', {
+            eventPattern: {
+                source: ['aws.codepipeline'],
+                detailType: ['CodePipeline Stage Execution State Change'],
+                detail: {
+                    state: ['FAILED'],
+                    pipeline: [this.pipeline.pipelineName],
+                    stage: ['build'],
+                },
+            } as EventPattern,
+            targets: [new LambdaFunction(retryFunction)],
+        });
+
+        NagSuppressions.addResourceSuppressions(
+            retryLambdaRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Lambda needs access to retry pipeline executions',
+                },
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'Managed policy is acceptable for Lambda',
+                    appliesTo: ['Policy::arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'],
                 },
             ],
             true,
