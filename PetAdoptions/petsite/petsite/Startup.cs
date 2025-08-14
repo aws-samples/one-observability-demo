@@ -12,6 +12,8 @@ using Amazon.Extensions.NETCore.Setup;
 using Amazon;
 using Prometheus;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace PetSite
 {
@@ -37,9 +39,21 @@ namespace PetSite
             services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
             
             // Configure data protection for containers
-            services.AddDataProtection()
-                .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/tmp/keys"))
-                .SetDefaultKeyLifetime(TimeSpan.FromDays(14));
+            // services.AddDataProtection()
+            //     .PersistKeysToFileSystem(new System.IO.DirectoryInfo("/tmp/keys"))
+            //     .SetDefaultKeyLifetime(TimeSpan.FromDays(14));
+            
+            services.AddSession(options =>
+            {
+                options.Cookie.Name = ".AspNetCore.Session";
+                options.Cookie.IsEssential = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+            });
+            
+            services.Configure<CookieTempDataProviderOptions>(options =>
+            {
+                options.Cookie.IsEssential = true;
+            });
             
             // Configure AWS Services
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
