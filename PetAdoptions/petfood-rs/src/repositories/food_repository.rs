@@ -17,7 +17,7 @@ pub trait FoodRepository: Send + Sync {
     async fn find_all(&self, filters: FoodFilters) -> RepositoryResult<Vec<Food>>;
 
     /// Find a food by its ID
-    async fn find_by_id(&self, food_id: &str) -> RepositoryResult<Option<Food>>;
+    async fn find_by_id(&self, id: &str) -> RepositoryResult<Option<Food>>;
 
     /// Find foods by pet type using GSI
     async fn find_by_pet_type(&self, pet_type: PetType) -> RepositoryResult<Vec<Food>>;
@@ -32,13 +32,13 @@ pub trait FoodRepository: Send + Sync {
     async fn update(&self, food: Food) -> RepositoryResult<Food>;
 
     /// Soft delete a food item (mark as inactive)
-    async fn soft_delete(&self, food_id: &str) -> RepositoryResult<()>;
+    async fn soft_delete(&self, id: &str) -> RepositoryResult<()>;
 
     /// Hard delete a food item (for testing/cleanup)
-    async fn delete(&self, food_id: &str) -> RepositoryResult<()>;
+    async fn delete(&self, id: &str) -> RepositoryResult<()>;
 
     /// Check if a food exists
-    async fn exists(&self, food_id: &str) -> RepositoryResult<bool>;
+    async fn exists(&self, id: &str) -> RepositoryResult<bool>;
 
     /// Count total foods with optional filters
     async fn count(&self, filters: Option<FoodFilters>) -> RepositoryResult<usize>;
@@ -82,13 +82,13 @@ impl DynamoDbFoodRepository {
     pub fn food_to_item(&self, food: &Food) -> HashMap<String, AttributeValue> {
         let mut item = HashMap::new();
 
-        item.insert("food_id".to_string(), AttributeValue::S(food.food_id.clone()));
-        item.insert("food_for".to_string(), AttributeValue::S(food.food_for.to_string()));
-        item.insert("food_name".to_string(), AttributeValue::S(food.food_name.clone()));
+        item.insert("id".to_string(), AttributeValue::S(food.id.clone()));
+        item.insert("pet_type".to_string(), AttributeValue::S(food.pet_type.to_string()));
+        item.insert("name".to_string(), AttributeValue::S(food.name.clone()));
         item.insert("food_type".to_string(), AttributeValue::S(food.food_type.to_string()));
-        item.insert("food_description".to_string(), AttributeValue::S(food.food_description.clone()));
-        item.insert("food_price".to_string(), AttributeValue::N(food.food_price.to_string()));
-        item.insert("food_image".to_string(), AttributeValue::S(food.food_image.clone()));
+        item.insert("description".to_string(), AttributeValue::S(food.description.clone()));
+        item.insert("price".to_string(), AttributeValue::N(food.price.to_string()));
+        item.insert("image".to_string(), AttributeValue::S(food.image.clone()));
 
         // Handle optional nutritional info
         if let Some(ref nutritional_info) = food.nutritional_info {
@@ -152,24 +152,24 @@ impl DynamoDbFoodRepository {
         use rust_decimal::Decimal;
         use std::str::FromStr;
 
-        let food_id = item.get("food_id")
+        let id = item.get("id")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing food_id".to_string()
+                message: "Missing id".to_string()
             })?
             .clone();
 
-        let food_for = item.get("food_for")
+        let pet_type = item.get("pet_type")
             .and_then(|v| v.as_s().ok())
             .and_then(|s| PetType::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid food_for".to_string()
+                message: "Invalid pet_type".to_string()
             })?;
 
-        let food_name = item.get("food_name")
+        let name = item.get("name")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing food_name".to_string()
+                message: "Missing name".to_string()
             })?
             .clone();
 
@@ -180,24 +180,24 @@ impl DynamoDbFoodRepository {
                 message: "Invalid food_type".to_string()
             })?;
 
-        let food_description = item.get("food_description")
+        let description = item.get("description")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing food_description".to_string()
+                message: "Missing description".to_string()
             })?
             .clone();
 
-        let food_price = item.get("food_price")
+        let price = item.get("price")
             .and_then(|v| v.as_n().ok())
             .and_then(|s| Decimal::from_str(s).ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid food_price".to_string()
+                message: "Invalid price".to_string()
             })?;
 
-        let food_image = item.get("food_image")
+        let image = item.get("image")
             .and_then(|v| v.as_s().ok())
             .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing food_image".to_string()
+                message: "Missing image".to_string()
             })?
             .clone();
 
@@ -284,13 +284,13 @@ impl DynamoDbFoodRepository {
             .unwrap_or(true);
 
         Ok(Food {
-            food_id,
-            food_for,
-            food_name,
+            id,
+            pet_type,
+            name,
             food_type,
-            food_description,
-            food_price,
-            food_image,
+            description,
+            price,
+            image,
             nutritional_info,
             ingredients,
             feeding_guidelines,
@@ -344,12 +344,12 @@ impl FoodRepository for DynamoDbFoodRepository {
         }
 
         if let Some(min_price) = filters.min_price {
-            filter_expressions.push("food_price >= :min_price".to_string());
+            filter_expressions.push("price >= :min_price".to_string());
             expression_attribute_values.insert(":min_price".to_string(), AttributeValue::N(min_price.to_string()));
         }
 
         if let Some(max_price) = filters.max_price {
-            filter_expressions.push("food_price <= :max_price".to_string());
+            filter_expressions.push("price <= :max_price".to_string());
             expression_attribute_values.insert(":max_price".to_string(), AttributeValue::N(max_price.to_string()));
         }
 
@@ -360,8 +360,8 @@ impl FoodRepository for DynamoDbFoodRepository {
         }
 
         if let Some(ref search_term) = filters.search_term {
-            filter_expressions.push("contains(#name, :search) OR contains(food_description, :search)".to_string());
-            expression_attribute_names.insert("#name".to_string(), "food_name".to_string());
+            filter_expressions.push("contains(#name, :search) OR contains(description, :search)".to_string());
+            expression_attribute_names.insert("#name".to_string(), "name".to_string());
             expression_attribute_values.insert(":search".to_string(), AttributeValue::S(search_term.clone()));
         }
 
@@ -399,14 +399,14 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(foods)
     }
 
-    #[instrument(skip(self), fields(table = %self.table_name, food_id = %food_id))]
-    async fn find_by_id(&self, food_id: &str) -> RepositoryResult<Option<Food>> {
+    #[instrument(skip(self), fields(table = %self.table_name, id = %id))]
+    async fn find_by_id(&self, id: &str) -> RepositoryResult<Option<Food>> {
         info!("Finding food by ID");
 
         let response = self.client
             .get_item()
             .table_name(&self.table_name)
-            .key("food_id", AttributeValue::S(food_id.to_string()))
+            .key("id", AttributeValue::S(id.to_string()))
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -432,7 +432,7 @@ impl FoodRepository for DynamoDbFoodRepository {
             .query()
             .table_name(&self.table_name)
             .index_name(&self.pet_type_index)
-            .key_condition_expression("food_for = :pet_type")
+            .key_condition_expression("pet_type = :pet_type")
             .expression_attribute_values(":pet_type", AttributeValue::S(pet_type.to_string()))
             .send()
             .await
@@ -486,7 +486,7 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(foods)
     }
 
-    #[instrument(skip(self, food), fields(table = %self.table_name, food_id = %food.food_id))]
+    #[instrument(skip(self, food), fields(table = %self.table_name, id = %food.id))]
     async fn create(&self, food: Food) -> RepositoryResult<Food> {
         info!("Creating new food");
 
@@ -496,7 +496,7 @@ impl FoodRepository for DynamoDbFoodRepository {
             .put_item()
             .table_name(&self.table_name)
             .set_item(Some(item))
-            .condition_expression("attribute_not_exists(food_id)")
+            .condition_expression("attribute_not_exists(id)")
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -505,7 +505,7 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(food)
     }
 
-    #[instrument(skip(self, food), fields(table = %self.table_name, food_id = %food.food_id))]
+    #[instrument(skip(self, food), fields(table = %self.table_name, id = %food.id))]
     async fn update(&self, food: Food) -> RepositoryResult<Food> {
         info!("Updating food");
 
@@ -515,7 +515,7 @@ impl FoodRepository for DynamoDbFoodRepository {
             .put_item()
             .table_name(&self.table_name)
             .set_item(Some(item))
-            .condition_expression("attribute_exists(food_id)")
+            .condition_expression("attribute_exists(id)")
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -524,19 +524,19 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(food)
     }
 
-    #[instrument(skip(self), fields(table = %self.table_name, food_id = %food_id))]
-    async fn soft_delete(&self, food_id: &str) -> RepositoryResult<()> {
+    #[instrument(skip(self), fields(table = %self.table_name, id = %id))]
+    async fn soft_delete(&self, id: &str) -> RepositoryResult<()> {
         info!("Soft deleting food");
 
         self.client
             .update_item()
             .table_name(&self.table_name)
-            .key("food_id", AttributeValue::S(food_id.to_string()))
+            .key("id", AttributeValue::S(id.to_string()))
             .update_expression("SET is_active = :inactive, availability_status = :discontinued, updated_at = :now")
             .expression_attribute_values(":inactive", AttributeValue::Bool(false))
             .expression_attribute_values(":discontinued", AttributeValue::S(AvailabilityStatus::Discontinued.to_string()))
             .expression_attribute_values(":now", AttributeValue::S(chrono::Utc::now().to_rfc3339()))
-            .condition_expression("attribute_exists(food_id)")
+            .condition_expression("attribute_exists(id)")
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -545,14 +545,14 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(())
     }
 
-    #[instrument(skip(self), fields(table = %self.table_name, food_id = %food_id))]
-    async fn delete(&self, food_id: &str) -> RepositoryResult<()> {
+    #[instrument(skip(self), fields(table = %self.table_name, id = %id))]
+    async fn delete(&self, id: &str) -> RepositoryResult<()> {
         info!("Hard deleting food");
 
         self.client
             .delete_item()
             .table_name(&self.table_name)
-            .key("food_id", AttributeValue::S(food_id.to_string()))
+            .key("id", AttributeValue::S(id.to_string()))
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -561,15 +561,15 @@ impl FoodRepository for DynamoDbFoodRepository {
         Ok(())
     }
 
-    #[instrument(skip(self), fields(table = %self.table_name, food_id = %food_id))]
-    async fn exists(&self, food_id: &str) -> RepositoryResult<bool> {
+    #[instrument(skip(self), fields(table = %self.table_name, id = %id))]
+    async fn exists(&self, id: &str) -> RepositoryResult<bool> {
         info!("Checking if food exists");
 
         let response = self.client
             .get_item()
             .table_name(&self.table_name)
-            .key("food_id", AttributeValue::S(food_id.to_string()))
-            .projection_expression("food_id")
+            .key("id", AttributeValue::S(id.to_string()))
+            .projection_expression("id")
             .send()
             .await
             .map_err(|e| self.map_dynamodb_error(e.into()))?;
@@ -594,7 +594,7 @@ impl FoodRepository for DynamoDbFoodRepository {
             let mut expression_attribute_values = HashMap::new();
 
             if let Some(pet_type) = filters.pet_type {
-                filter_expressions.push("food_for = :pet_type".to_string());
+                filter_expressions.push("pet_type = :pet_type".to_string());
                 expression_attribute_values.insert(":pet_type".to_string(), AttributeValue::S(pet_type.to_string()));
             }
 
@@ -642,12 +642,12 @@ mod tests {
 
     fn create_test_food() -> Food {
         let request = CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Nutritious test food".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "Nutritious test food".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: Some(NutritionalInfo {
                 calories_per_serving: Some(350),
                 protein_percentage: Some(dec!(25.0)),
@@ -677,17 +677,17 @@ mod tests {
 
         let item = repo.food_to_item(&food);
 
-        assert!(item.contains_key("food_id"));
-        assert!(item.contains_key("food_for"));
-        assert!(item.contains_key("food_name"));
+        assert!(item.contains_key("id"));
+        assert!(item.contains_key("pet_type"));
+        assert!(item.contains_key("name"));
         assert!(item.contains_key("nutritional_info"));
         assert!(item.contains_key("ingredients"));
 
         // Verify specific values
-        if let Some(AttributeValue::S(pet_type)) = item.get("food_for") {
+        if let Some(AttributeValue::S(pet_type)) = item.get("pet_type") {
             assert_eq!(pet_type, "puppy");
         } else {
-            panic!("Expected string value for food_for");
+            panic!("Expected string value for pet_type");
         }
 
         if let Some(AttributeValue::L(ingredients)) = item.get("ingredients") {
@@ -710,11 +710,11 @@ mod tests {
         let item = repo.food_to_item(&food);
         let converted_food = repo.item_to_food(item).unwrap();
 
-        assert_eq!(converted_food.food_id, food.food_id);
-        assert_eq!(converted_food.food_for, food.food_for);
-        assert_eq!(converted_food.food_name, food.food_name);
+        assert_eq!(converted_food.id, food.id);
+        assert_eq!(converted_food.pet_type, food.pet_type);
+        assert_eq!(converted_food.name, food.name);
         assert_eq!(converted_food.food_type, food.food_type);
-        assert_eq!(converted_food.food_price, food.food_price);
+        assert_eq!(converted_food.price, food.price);
         assert_eq!(converted_food.ingredients, food.ingredients);
         assert_eq!(converted_food.stock_quantity, food.stock_quantity);
         assert_eq!(converted_food.is_active, food.is_active);

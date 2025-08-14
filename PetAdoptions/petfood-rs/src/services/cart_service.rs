@@ -67,7 +67,7 @@ impl CartService {
             Some(food) => food,
             None => {
                 return Err(ServiceError::FoodNotFound {
-                    food_id: request.food_id,
+                    id: request.food_id,
                 });
             }
         };
@@ -75,7 +75,7 @@ impl CartService {
         // Check availability and stock
         if !food.is_available() {
             return Err(ServiceError::ProductUnavailable {
-                food_id: food.food_id.clone(),
+                food_id: food.id.clone(),
             });
         }
 
@@ -93,7 +93,7 @@ impl CartService {
         };
 
         // Add item to cart
-        cart.add_item(request.food_id.clone(), request.quantity, food.food_price);
+        cart.add_item(request.food_id.clone(), request.quantity, food.price);
 
         // Save cart
         let updated_cart = self.cart_repository.save_cart(cart).await?;
@@ -150,7 +150,7 @@ impl CartService {
             Some(food) => food,
             None => {
                 return Err(ServiceError::FoodNotFound {
-                    food_id: food_id.to_string(),
+                    id: food_id.to_string(),
                 });
             }
         };
@@ -334,11 +334,11 @@ impl CartService {
             match self.food_repository.find_by_id(&item.food_id).await? {
                 Some(food) => {
                     if !food.is_available() {
-                        issues.push(format!("Product {} is no longer available", food.food_name));
+                        issues.push(format!("Product {} is no longer available", food.name));
                     } else if food.stock_quantity < item.quantity {
                         issues.push(format!(
                             "Insufficient stock for {}: requested {}, available {}",
-                            food.food_name, item.quantity, food.stock_quantity
+                            food.name, item.quantity, food.stock_quantity
                         ));
                     }
                 }
@@ -404,8 +404,8 @@ impl CartService {
     ) -> ServiceResult<CartItemResponse> {
         Ok(CartItemResponse {
             food_id: cart_item.food_id.clone(),
-            food_name: food.food_name.clone(),
-            food_image: food.food_image.clone(),
+            food_name: food.name.clone(),
+            food_image: food.image.clone(),
             quantity: cart_item.quantity,
             unit_price: cart_item.unit_price,
             total_price: cart_item.total_price(),
@@ -491,7 +491,7 @@ impl CartService {
                 Some(food) => food,
                 None => {
                     return Err(ServiceError::FoodNotFound {
-                        food_id: cart_item.food_id.clone(),
+                        id: cart_item.food_id.clone(),
                     });
                 }
             };
@@ -514,7 +514,7 @@ impl CartService {
             // Create order item
             let order_item = OrderItem {
                 food_id: cart_item.food_id.clone(),
-                food_name: food.food_name.clone(),
+                food_name: food.name.clone(),
                 quantity: cart_item.quantity,
                 unit_price: cart_item.unit_price,
                 total_price: cart_item.total_price(),
@@ -619,19 +619,19 @@ mod tests {
 
     fn create_test_food() -> Food {
         let request = CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Nutritious test food".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "Nutritious test food".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
             stock_quantity: 10,
         };
         let mut food = Food::new(request);
-        food.food_id = "F001".to_string();
+        food.id = "F001".to_string();
         food
     }
 
@@ -754,8 +754,8 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            ServiceError::FoodNotFound { food_id } => {
-                assert_eq!(food_id, "F999");
+            ServiceError::FoodNotFound { id } => {
+                assert_eq!(id, "F999");
             }
             _ => panic!("Expected FoodNotFound error"),
         }

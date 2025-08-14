@@ -1,8 +1,8 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
-    routing::post,
+    routing::{post, put},
     Router,
 };
 use serde::Serialize;
@@ -10,11 +10,9 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
-use crate::models::{
-    CreateFoodRequest, PetType, FoodType,
-};
-use crate::services::FoodService;
+use crate::models::{CreateFoodRequest, Food, FoodType, PetType, UpdateFoodRequest};
 use crate::repositories::TableManager;
+use crate::services::FoodService;
 
 /// Admin state containing services
 #[derive(Clone)]
@@ -49,8 +47,6 @@ pub struct SetupTablesResponse {
     pub timestamp: String,
 }
 
-
-
 /// Create admin router with database management endpoints
 pub fn create_admin_router(
     food_service: Arc<FoodService>,
@@ -58,7 +54,7 @@ pub fn create_admin_router(
     foods_table_name: String,
     carts_table_name: String,
 ) -> Router {
-    let state = AdminState { 
+    let state = AdminState {
         food_service,
         table_manager,
         foods_table_name,
@@ -70,11 +66,14 @@ pub fn create_admin_router(
         .route("/api/admin/setup-tables", post(setup_tables))
         .route("/api/admin/seed", post(seed_database))
         .route("/api/admin/cleanup", post(cleanup_database))
-        
+        // Food management endpoints (admin only)
+        .route("/api/admin/foods", post(create_food))
+        .route(
+            "/api/admin/foods/:food_id",
+            put(update_food).delete(delete_food),
+        )
         .with_state(state)
 }
-
-
 
 // =============================================================================
 // DATABASE SETUP, SEEDING AND CLEANUP ENDPOINTS
@@ -86,18 +85,22 @@ pub async fn setup_tables(
     State(state): State<AdminState>,
 ) -> Result<Json<SetupTablesResponse>, (StatusCode, Json<Value>)> {
     let timestamp = chrono::Utc::now().to_rfc3339();
-    
+
     info!("Setting up DynamoDB tables");
 
-    match state.table_manager.create_all_tables(&state.foods_table_name, &state.carts_table_name).await {
+    match state
+        .table_manager
+        .create_all_tables(&state.foods_table_name, &state.carts_table_name)
+        .await
+    {
         Ok(()) => {
             let tables_created = vec![
                 state.foods_table_name.clone(),
                 state.carts_table_name.clone(),
             ];
-            
+
             info!("Successfully created tables: {:?}", tables_created);
-            
+
             Ok(Json(SetupTablesResponse {
                 message: format!("Successfully created {} tables", tables_created.len()),
                 tables_created,
@@ -124,7 +127,7 @@ pub async fn seed_database(
     State(state): State<AdminState>,
 ) -> Result<Json<SeedResponse>, (StatusCode, Json<Value>)> {
     let timestamp = chrono::Utc::now().to_rfc3339();
-    
+
     info!("Seeding database with sample data");
 
     let sample_foods = create_sample_foods();
@@ -135,18 +138,18 @@ pub async fn seed_database(
         match state.food_service.create_food(food_request.clone()).await {
             Ok(_) => {
                 created_count += 1;
-                info!("Successfully seeded food: {}", food_request.food_name);
+                info!("Successfully seeded food: {}", food_request.name);
             }
             Err(err) => {
-                warn!("Failed to seed food {}: {}", food_request.food_name, err);
-                errors.push(format!("{}: {}", food_request.food_name, err));
+                warn!("Failed to seed food {}: {}", food_request.name, err);
+                errors.push(format!("{}: {}", food_request.name, err));
             }
         }
     }
 
     if errors.is_empty() {
         info!("Successfully seeded database with {} foods", created_count);
-        
+
         Ok(Json(SeedResponse {
             message: format!("Database seeded successfully with {} foods", created_count),
             foods_created: created_count,
@@ -154,10 +157,14 @@ pub async fn seed_database(
         }))
     } else {
         warn!("Database seeding completed with {} errors", errors.len());
-        
+
         if created_count > 0 {
             Ok(Json(SeedResponse {
-                message: format!("Database seeded with {} foods, {} errors occurred", created_count, errors.len()),
+                message: format!(
+                    "Database seeded with {} foods, {} errors occurred",
+                    created_count,
+                    errors.len()
+                ),
                 foods_created: created_count,
                 timestamp,
             }))
@@ -180,7 +187,7 @@ pub async fn cleanup_database(
     State(state): State<AdminState>,
 ) -> Result<Json<CleanupResponse>, (StatusCode, Json<Value>)> {
     let timestamp = chrono::Utc::now().to_rfc3339();
-    
+
     info!("Cleaning up database");
 
     // Get all foods first
@@ -190,31 +197,41 @@ pub async fn cleanup_database(
             let mut errors = Vec::new();
 
             for food in food_list.foods {
-                match state.food_service.delete_food(&food.food_id).await {
+                match state.food_service.delete_food(&food.id).await {
                     Ok(()) => {
                         deleted_count += 1;
-                        info!("Successfully deleted food: {}", food.food_name);
+                        info!("Successfully deleted food: {}", food.name);
                     }
                     Err(err) => {
-                        warn!("Failed to delete food {}: {}", food.food_name, err);
-                        errors.push(format!("{}: {}", food.food_name, err));
+                        warn!("Failed to delete food {}: {}", food.name, err);
+                        errors.push(format!("{}: {}", food.name, err));
                     }
                 }
             }
 
             if errors.is_empty() {
-                info!("Successfully cleaned up database, deleted {} foods", deleted_count);
-                
+                info!(
+                    "Successfully cleaned up database, deleted {} foods",
+                    deleted_count
+                );
+
                 Ok(Json(CleanupResponse {
-                    message: format!("Database cleaned up successfully, deleted {} foods", deleted_count),
+                    message: format!(
+                        "Database cleaned up successfully, deleted {} foods",
+                        deleted_count
+                    ),
                     foods_deleted: deleted_count,
                     timestamp,
                 }))
             } else {
                 warn!("Database cleanup completed with {} errors", errors.len());
-                
+
                 Ok(Json(CleanupResponse {
-                    message: format!("Database cleanup completed with {} foods deleted, {} errors occurred", deleted_count, errors.len()),
+                    message: format!(
+                        "Database cleanup completed with {} foods deleted, {} errors occurred",
+                        deleted_count,
+                        errors.len()
+                    ),
                     foods_deleted: deleted_count,
                     timestamp,
                 }))
@@ -235,6 +252,109 @@ pub async fn cleanup_database(
 }
 
 // =============================================================================
+// FOOD MANAGEMENT ENDPOINTS (ADMIN ONLY)
+// =============================================================================
+
+/// Create a new food product (admin only)
+#[instrument(skip(state, request))]
+pub async fn create_food(
+    State(state): State<AdminState>,
+    Json(request): Json<CreateFoodRequest>,
+) -> Result<(StatusCode, Json<Food>), (StatusCode, Json<Value>)> {
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    info!("Admin creating new food: {}", request.name);
+
+    match state.food_service.create_food(request).await {
+        Ok(food) => {
+            info!("Successfully created food with ID: {}", food.id);
+            Ok((StatusCode::CREATED, Json(food)))
+        }
+        Err(err) => {
+            error!("Failed to create food: {}", err);
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": "Failed to create food",
+                    "message": err.to_string(),
+                    "timestamp": timestamp,
+                })),
+            ))
+        }
+    }
+}
+
+/// Update an existing food product (admin only)
+#[instrument(skip(state, request))]
+pub async fn update_food(
+    State(state): State<AdminState>,
+    Path(food_id): Path<String>,
+    Json(request): Json<UpdateFoodRequest>,
+) -> Result<Json<Food>, (StatusCode, Json<Value>)> {
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    info!("Admin updating food with ID: {}", food_id);
+
+    match state.food_service.update_food(&food_id, request).await {
+        Ok(food) => {
+            info!("Successfully updated food: {}", food.name);
+            Ok(Json(food))
+        }
+        Err(err) => {
+            error!("Failed to update food {}: {}", food_id, err);
+            let status = match err {
+                crate::models::ServiceError::FoodNotFound { .. } => StatusCode::NOT_FOUND,
+                crate::models::ServiceError::ValidationError { .. } => StatusCode::BAD_REQUEST,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+
+            Err((
+                status,
+                Json(json!({
+                    "error": "Failed to update food",
+                    "message": err.to_string(),
+                    "timestamp": timestamp,
+                })),
+            ))
+        }
+    }
+}
+
+/// Delete a food product (admin only)
+#[instrument(skip(state))]
+pub async fn delete_food(
+    State(state): State<AdminState>,
+    Path(food_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<Value>)> {
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    info!("Admin deleting food with ID: {}", food_id);
+
+    match state.food_service.delete_food(&food_id).await {
+        Ok(()) => {
+            info!("Successfully deleted food: {}", food_id);
+            Ok(StatusCode::NO_CONTENT)
+        }
+        Err(err) => {
+            error!("Failed to delete food {}: {}", food_id, err);
+            let status = match err {
+                crate::models::ServiceError::FoodNotFound { .. } => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+
+            Err((
+                status,
+                Json(json!({
+                    "error": "Failed to delete food",
+                    "message": err.to_string(),
+                    "timestamp": timestamp,
+                })),
+            ))
+        }
+    }
+}
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
@@ -243,121 +363,170 @@ fn create_sample_foods() -> Vec<CreateFoodRequest> {
     vec![
         // Puppy foods
         CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Beef and Turkey Kibbles".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Beef and Turkey Kibbles".to_string(),
             food_type: FoodType::Dry,
-            food_description: "A nutritious blend of beef and turkey, specially formulated for growing puppies.".to_string(),
-            food_price: rust_decimal_macros::dec!(12.99),
-            food_image: "beef-turkey-kibbles.jpg".to_string(),
+            description:
+                "A nutritious blend of beef and turkey, specially formulated for growing puppies."
+                    .to_string(),
+            price: rust_decimal_macros::dec!(12.99),
+            image: "beef-turkey-kibbles.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["beef".to_string(), "turkey".to_string(), "rice".to_string(), "vegetables".to_string()],
+            ingredients: vec![
+                "beef".to_string(),
+                "turkey".to_string(),
+                "rice".to_string(),
+                "vegetables".to_string(),
+            ],
             feeding_guidelines: Some("Feed 2-3 times daily based on puppy's weight".to_string()),
             stock_quantity: 50,
         },
         CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Raw Chicken Bites".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Raw Chicken Bites".to_string(),
             food_type: FoodType::Wet,
-            food_description: "Tender raw chicken bites, ideal for puppies who love a meaty treat.".to_string(),
-            food_price: rust_decimal_macros::dec!(10.99),
-            food_image: "raw-chicken-bites.jpg".to_string(),
+            description: "Tender raw chicken bites, ideal for puppies who love a meaty treat."
+                .to_string(),
+            price: rust_decimal_macros::dec!(10.99),
+            image: "raw-chicken-bites.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["chicken".to_string(), "chicken broth".to_string(), "vitamins".to_string()],
+            ingredients: vec![
+                "chicken".to_string(),
+                "chicken broth".to_string(),
+                "vitamins".to_string(),
+            ],
             feeding_guidelines: Some("Serve as a supplement to dry food".to_string()),
             stock_quantity: 30,
         },
         CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Puppy Training Treats".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Puppy Training Treats".to_string(),
             food_type: FoodType::Treats,
-            food_description: "Small, soft treats perfect for training sessions with puppies.".to_string(),
-            food_price: rust_decimal_macros::dec!(8.99),
-            food_image: "puppy-training-treats.jpg".to_string(),
+            description: "Small, soft treats perfect for training sessions with puppies."
+                .to_string(),
+            price: rust_decimal_macros::dec!(8.99),
+            image: "puppy-training-treats.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["chicken meal".to_string(), "sweet potato".to_string(), "peas".to_string()],
+            ingredients: vec![
+                "chicken meal".to_string(),
+                "sweet potato".to_string(),
+                "peas".to_string(),
+            ],
             feeding_guidelines: Some("Use sparingly during training sessions".to_string()),
             stock_quantity: 75,
         },
-        
         // Kitten foods
         CreateFoodRequest {
-            food_for: PetType::Kitten,
-            food_name: "Salmon and Tuna Delight".to_string(),
+            pet_type: PetType::Kitten,
+            name: "Salmon and Tuna Delight".to_string(),
             food_type: FoodType::Wet,
-            food_description: "A delectable mix of salmon and tuna, perfect for kittens.".to_string(),
-            food_price: rust_decimal_macros::dec!(14.99),
-            food_image: "salmon-tuna-delight.jpg".to_string(),
+            description: "A delectable mix of salmon and tuna, perfect for kittens."
+                .to_string(),
+            price: rust_decimal_macros::dec!(14.99),
+            image: "salmon-tuna-delight.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["salmon".to_string(), "tuna".to_string(), "fish broth".to_string(), "vitamins".to_string()],
+            ingredients: vec![
+                "salmon".to_string(),
+                "tuna".to_string(),
+                "fish broth".to_string(),
+                "vitamins".to_string(),
+            ],
             feeding_guidelines: Some("Feed 3-4 times daily for growing kittens".to_string()),
             stock_quantity: 40,
         },
         CreateFoodRequest {
-            food_for: PetType::Kitten,
-            food_name: "Kitten Growth Formula".to_string(),
+            pet_type: PetType::Kitten,
+            name: "Kitten Growth Formula".to_string(),
             food_type: FoodType::Dry,
-            food_description: "High-protein dry food specially formulated for kitten growth and development.".to_string(),
-            food_price: rust_decimal_macros::dec!(16.99),
-            food_image: "kitten-growth-formula.jpg".to_string(),
+            description:
+                "High-protein dry food specially formulated for kitten growth and development."
+                    .to_string(),
+            price: rust_decimal_macros::dec!(16.99),
+            image: "kitten-growth-formula.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["chicken meal".to_string(), "fish meal".to_string(), "rice".to_string(), "taurine".to_string()],
-            feeding_guidelines: Some("Free feeding recommended for kittens under 6 months".to_string()),
+            ingredients: vec![
+                "chicken meal".to_string(),
+                "fish meal".to_string(),
+                "rice".to_string(),
+                "taurine".to_string(),
+            ],
+            feeding_guidelines: Some(
+                "Free feeding recommended for kittens under 6 months".to_string(),
+            ),
             stock_quantity: 60,
         },
         CreateFoodRequest {
-            food_for: PetType::Kitten,
-            food_name: "Catnip Kitten Treats".to_string(),
+            pet_type: PetType::Kitten,
+            name: "Catnip Kitten Treats".to_string(),
             food_type: FoodType::Treats,
-            food_description: "Irresistible catnip-infused treats that kittens love.".to_string(),
-            food_price: rust_decimal_macros::dec!(6.99),
-            food_image: "catnip-kitten-treats.jpg".to_string(),
+            description: "Irresistible catnip-infused treats that kittens love.".to_string(),
+            price: rust_decimal_macros::dec!(6.99),
+            image: "catnip-kitten-treats.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["chicken".to_string(), "catnip".to_string(), "wheat flour".to_string()],
+            ingredients: vec![
+                "chicken".to_string(),
+                "catnip".to_string(),
+                "wheat flour".to_string(),
+            ],
             feeding_guidelines: Some("Give 2-3 treats per day as rewards".to_string()),
             stock_quantity: 80,
         },
-        
         // Bunny foods
         CreateFoodRequest {
-            food_for: PetType::Bunny,
-            food_name: "Carrot and Herb Crunchies".to_string(),
+            pet_type: PetType::Bunny,
+            name: "Carrot and Herb Crunchies".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Crunchy carrot and herb treats, specially designed for bunnies.".to_string(),
-            food_price: rust_decimal_macros::dec!(8.99),
-            food_image: "carrot-herb-crunchies.jpg".to_string(),
+            description: "Crunchy carrot and herb treats, specially designed for bunnies."
+                .to_string(),
+            price: rust_decimal_macros::dec!(8.99),
+            image: "carrot-herb-crunchies.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["carrots".to_string(), "timothy hay".to_string(), "herbs".to_string(), "oats".to_string()],
+            ingredients: vec![
+                "carrots".to_string(),
+                "timothy hay".to_string(),
+                "herbs".to_string(),
+                "oats".to_string(),
+            ],
             feeding_guidelines: Some("Supplement to hay-based diet, 1/4 cup daily".to_string()),
             stock_quantity: 45,
         },
         CreateFoodRequest {
-            food_for: PetType::Bunny,
-            food_name: "Timothy Hay Pellets".to_string(),
+            pet_type: PetType::Bunny,
+            name: "Timothy Hay Pellets".to_string(),
             food_type: FoodType::Dry,
-            food_description: "High-fiber timothy hay pellets essential for bunny digestive health.".to_string(),
-            food_price: rust_decimal_macros::dec!(12.99),
-            food_image: "timothy-hay-pellets.jpg".to_string(),
+            description:
+                "High-fiber timothy hay pellets essential for bunny digestive health.".to_string(),
+            price: rust_decimal_macros::dec!(12.99),
+            image: "timothy-hay-pellets.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["timothy hay".to_string(), "alfalfa".to_string(), "vitamins".to_string(), "minerals".to_string()],
+            ingredients: vec![
+                "timothy hay".to_string(),
+                "alfalfa".to_string(),
+                "vitamins".to_string(),
+                "minerals".to_string(),
+            ],
             feeding_guidelines: Some("1/4 to 1/2 cup daily depending on bunny size".to_string()),
             stock_quantity: 35,
         },
         CreateFoodRequest {
-            food_for: PetType::Bunny,
-            food_name: "Fresh Veggie Mix".to_string(),
+            pet_type: PetType::Bunny,
+            name: "Fresh Veggie Mix".to_string(),
             food_type: FoodType::Wet,
-            food_description: "A fresh mix of vegetables perfect for bunny nutrition.".to_string(),
-            food_price: rust_decimal_macros::dec!(9.99),
-            food_image: "fresh-veggie-mix.jpg".to_string(),
+            description: "A fresh mix of vegetables perfect for bunny nutrition.".to_string(),
+            price: rust_decimal_macros::dec!(9.99),
+            image: "fresh-veggie-mix.jpg".to_string(),
             nutritional_info: None,
-            ingredients: vec!["carrots".to_string(), "leafy greens".to_string(), "bell peppers".to_string(), "herbs".to_string()],
+            ingredients: vec![
+                "carrots".to_string(),
+                "leafy greens".to_string(),
+                "bell peppers".to_string(),
+                "herbs".to_string(),
+            ],
             feeding_guidelines: Some("Serve fresh daily as part of balanced diet".to_string()),
             stock_quantity: 25,
         },
     ]
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -366,22 +535,22 @@ mod tests {
     #[test]
     fn test_create_sample_foods() {
         let sample_foods = create_sample_foods();
-        
+
         // Should have foods for all pet types
-        assert!(sample_foods.iter().any(|f| f.food_for == PetType::Puppy));
-        assert!(sample_foods.iter().any(|f| f.food_for == PetType::Kitten));
-        assert!(sample_foods.iter().any(|f| f.food_for == PetType::Bunny));
-        
+        assert!(sample_foods.iter().any(|f| f.pet_type == PetType::Puppy));
+        assert!(sample_foods.iter().any(|f| f.pet_type == PetType::Kitten));
+        assert!(sample_foods.iter().any(|f| f.pet_type == PetType::Bunny));
+
         // Should have different food types
         assert!(sample_foods.iter().any(|f| f.food_type == FoodType::Dry));
         assert!(sample_foods.iter().any(|f| f.food_type == FoodType::Wet));
         assert!(sample_foods.iter().any(|f| f.food_type == FoodType::Treats));
-        
+
         // All foods should have valid data
         for food in &sample_foods {
-            assert!(!food.food_name.is_empty());
-            assert!(!food.food_description.is_empty());
-            assert!(food.food_price > rust_decimal::Decimal::ZERO);
+            assert!(!food.name.is_empty());
+            assert!(!food.description.is_empty());
+            assert!(food.price > rust_decimal::Decimal::ZERO);
             assert!(!food.ingredients.is_empty());
             assert!(food.stock_quantity > 0);
         }

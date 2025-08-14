@@ -2,8 +2,6 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{delete, get, post, put},
-    Router,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -79,7 +77,7 @@ pub async fn get_food(
 
     match state.food_service.get_food(&food_id).await {
         Ok(food) => {
-            info!("Successfully retrieved food: {}", food.food_name);
+            info!("Successfully retrieved food: {}", food.name);
             Ok(Json(food))
         }
         Err(err) => {
@@ -95,11 +93,11 @@ pub async fn create_food(
     State(state): State<FoodHandlerState>,
     Json(request): Json<CreateFoodRequest>,
 ) -> Result<(StatusCode, Json<Food>), (StatusCode, Json<Value>)> {
-    info!("Creating new food: {}", request.food_name);
+    info!("Creating new food: {}", request.name);
 
     match state.food_service.create_food(request).await {
         Ok(food) => {
-            info!("Successfully created food with ID: {}", food.food_id);
+            info!("Successfully created food with ID: {}", food.id);
             Ok((StatusCode::CREATED, Json(food)))
         }
         Err(err) => {
@@ -120,7 +118,7 @@ pub async fn update_food(
 
     match state.food_service.update_food(&food_id, request).await {
         Ok(food) => {
-            info!("Successfully updated food: {}", food.food_name);
+            info!("Successfully updated food: {}", food.name);
             Ok(Json(food))
         }
         Err(err) => {

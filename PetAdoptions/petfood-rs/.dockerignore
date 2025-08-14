@@ -1,0 +1,48 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Test files
+tests/
+benches/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+
+# Environment files
+.env*
+
+# Coverage reports
+target/coverage/
+*.profraw
+
+# Temporary files
+tmp/
+temp/

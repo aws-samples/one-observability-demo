@@ -14,7 +14,7 @@ use petfood_rs::{
     },
     observability::{observability_middleware, Metrics},
     repositories::{DynamoDbFoodRepository, DynamoDbCartRepository, TableManager},
-    services::{FoodService, RecommendationService, CartService},
+    services::{FoodService, CartService},
     Config, init_observability, shutdown_observability,
 };
 
@@ -65,7 +65,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize services
     let food_service = Arc::new(FoodService::new(food_repository.clone()));
-    let recommendation_service = Arc::new(RecommendationService::new(food_repository.clone()));
     let cart_service = Arc::new(CartService::new(cart_repository, food_repository));
     info!("Services initialized successfully");
 
@@ -73,7 +72,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = create_app(
         metrics, 
         food_service, 
-        recommendation_service, 
         cart_service,
         table_manager,
         config.database.foods_table_name.clone(),
@@ -112,7 +110,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn create_app(
     metrics: Arc<Metrics>,
     food_service: Arc<FoodService>,
-    recommendation_service: Arc<RecommendationService>,
     cart_service: Arc<CartService>,
     table_manager: Arc<TableManager>,
     foods_table_name: String,
@@ -123,7 +120,6 @@ fn create_app(
     // Create the API state
     let api_state = api::ApiState {
         food_service: food_service.clone(),
-        recommendation_service,
         cart_service,
     };
     
@@ -141,13 +137,10 @@ fn create_app(
         .route("/metrics", get(metrics_handler))
         .with_state(metrics)
         
-        // API endpoints (with API state)
-        .route("/api/foods", get(api::list_foods).post(api::create_food))
-        .route("/api/foods/:food_id", 
-               get(api::get_food)
-               .put(api::update_food)
-               .delete(api::delete_food))
-        .route("/api/recommendations/:pet_type", get(api::get_recommendations))
+        // API endpoints (with API state) - read-only food endpoints
+        .route("/api/foods", get(api::list_foods))
+        .route("/api/foods/:food_id", get(api::get_food))
+
         .route("/api/cart/:user_id", 
                get(api::get_cart)
                .delete(api::delete_cart))
@@ -163,6 +156,8 @@ fn create_app(
         .route("/api/admin/setup-tables", post(admin::setup_tables))
         .route("/api/admin/seed", post(admin::seed_database))
         .route("/api/admin/cleanup", post(admin::cleanup_database))
+        .route("/api/admin/foods", post(admin::create_food))
+        .route("/api/admin/foods/:food_id", put(admin::update_food).delete(admin::delete_food))
         .with_state(admin_state)
         
         // Add middleware layers (order matters - outer to inner)

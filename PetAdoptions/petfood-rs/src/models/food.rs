@@ -8,13 +8,13 @@ use super::{AvailabilityStatus, FoodType, PetType};
 /// Core food product model
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Food {
-    pub food_id: String,
-    pub food_for: PetType,
-    pub food_name: String,
+    pub id: String,
+    pub pet_type: PetType,
+    pub name: String,
     pub food_type: FoodType,
-    pub food_description: String,
-    pub food_price: Decimal,
-    pub food_image: String,
+    pub description: String,
+    pub price: Decimal,
+    pub image: String,
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Vec<String>,
     pub feeding_guidelines: Option<String>,
@@ -41,12 +41,12 @@ pub struct NutritionalInfo {
 /// Request model for creating a new food product
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateFoodRequest {
-    pub food_for: PetType,
-    pub food_name: String,
+    pub pet_type: PetType,
+    pub name: String,
     pub food_type: FoodType,
-    pub food_description: String,
-    pub food_price: Decimal,
-    pub food_image: String,
+    pub description: String,
+    pub price: Decimal,
+    pub image: String,
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Vec<String>,
     pub feeding_guidelines: Option<String>,
@@ -56,10 +56,10 @@ pub struct CreateFoodRequest {
 /// Request model for updating an existing food product
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateFoodRequest {
-    pub food_name: Option<String>,
-    pub food_description: Option<String>,
-    pub food_price: Option<Decimal>,
-    pub food_image: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub price: Option<Decimal>,
+    pub image: Option<String>,
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Option<Vec<String>>,
     pub feeding_guidelines: Option<String>,
@@ -93,13 +93,13 @@ impl Food {
     pub fn new(request: CreateFoodRequest) -> Self {
         let now = Utc::now();
         Self {
-            food_id: format!("F{}", Uuid::new_v4().simple().to_string().get(0..8).unwrap_or("00000000")),
-            food_for: request.food_for,
-            food_name: request.food_name,
+            id: format!("F{}", Uuid::new_v4().simple().to_string().get(0..8).unwrap_or("00000000")),
+            pet_type: request.pet_type,
+            name: request.name,
             food_type: request.food_type,
-            food_description: request.food_description,
-            food_price: request.food_price,
-            food_image: request.food_image,
+            description: request.description,
+            price: request.price,
+            image: request.image,
             nutritional_info: request.nutritional_info,
             ingredients: request.ingredients,
             feeding_guidelines: request.feeding_guidelines,
@@ -117,17 +117,17 @@ impl Food {
 
     /// Update the food with new values from UpdateFoodRequest
     pub fn update(&mut self, request: UpdateFoodRequest) {
-        if let Some(name) = request.food_name {
-            self.food_name = name;
+        if let Some(name) = request.name {
+            self.name = name;
         }
-        if let Some(description) = request.food_description {
-            self.food_description = description;
+        if let Some(description) = request.description {
+            self.description = description;
         }
-        if let Some(price) = request.food_price {
-            self.food_price = price;
+        if let Some(price) = request.price {
+            self.price = price;
         }
-        if let Some(image) = request.food_image {
-            self.food_image = image;
+        if let Some(image) = request.image {
+            self.image = image;
         }
         if let Some(nutritional_info) = request.nutritional_info {
             self.nutritional_info = Some(nutritional_info);
@@ -170,7 +170,7 @@ impl Food {
     /// Check if the food matches the given filters
     pub fn matches_filters(&self, filters: &FoodFilters) -> bool {
         if let Some(pet_type) = &filters.pet_type {
-            if &self.food_for != pet_type {
+            if &self.pet_type != pet_type {
                 return false;
             }
         }
@@ -188,21 +188,21 @@ impl Food {
         }
 
         if let Some(min_price) = &filters.min_price {
-            if &self.food_price < min_price {
+            if &self.price < min_price {
                 return false;
             }
         }
 
         if let Some(max_price) = &filters.max_price {
-            if &self.food_price > max_price {
+            if &self.price > max_price {
                 return false;
             }
         }
 
         if let Some(search_term) = &filters.search_term {
             let search_lower = search_term.to_lowercase();
-            if !self.food_name.to_lowercase().contains(&search_lower)
-                && !self.food_description.to_lowercase().contains(&search_lower)
+            if !self.name.to_lowercase().contains(&search_lower)
+                && !self.description.to_lowercase().contains(&search_lower)
                 && !self.ingredients.iter().any(|ingredient| 
                     ingredient.to_lowercase().contains(&search_lower))
             {
@@ -227,12 +227,12 @@ mod tests {
 
     fn create_test_food_request() -> CreateFoodRequest {
         CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Nutritious test food".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "Nutritious test food".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -245,9 +245,9 @@ mod tests {
         let request = create_test_food_request();
         let food = Food::new(request);
 
-        assert!(food.food_id.starts_with('F'));
-        assert_eq!(food.food_for, PetType::Puppy);
-        assert_eq!(food.food_name, "Test Kibble");
+        assert!(food.id.starts_with('F'));
+        assert_eq!(food.pet_type, PetType::Puppy);
+        assert_eq!(food.name, "Test Kibble");
         assert_eq!(food.availability_status, AvailabilityStatus::InStock);
         assert!(food.is_active);
         assert!(food.is_available());
@@ -263,16 +263,16 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(1));
 
         let update_request = UpdateFoodRequest {
-            food_name: Some("Updated Kibble".to_string()),
-            food_price: Some(dec!(15.99)),
+            name: Some("Updated Kibble".to_string()),
+            price: Some(dec!(15.99)),
             stock_quantity: Some(0),
             ..Default::default()
         };
 
         food.update(update_request);
 
-        assert_eq!(food.food_name, "Updated Kibble");
-        assert_eq!(food.food_price, dec!(15.99));
+        assert_eq!(food.name, "Updated Kibble");
+        assert_eq!(food.price, dec!(15.99));
         assert_eq!(food.stock_quantity, 0);
         assert_eq!(food.availability_status, AvailabilityStatus::OutOfStock);
         assert!(food.updated_at > original_updated_at);
@@ -328,10 +328,10 @@ mod tests {
 impl Default for UpdateFoodRequest {
     fn default() -> Self {
         Self {
-            food_name: None,
-            food_description: None,
-            food_price: None,
-            food_image: None,
+            name: None,
+            description: None,
+            price: None,
+            image: None,
             nutritional_info: None,
             ingredients: None,
             feeding_guidelines: None,

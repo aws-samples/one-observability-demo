@@ -44,18 +44,18 @@ impl FoodService {
     }
 
     /// Get a specific food by ID
-    #[instrument(skip(self), fields(food_id = %food_id))]
-    pub async fn get_food(&self, food_id: &str) -> ServiceResult<Food> {
+    #[instrument(skip(self), fields(id = %id))]
+    pub async fn get_food(&self, id: &str) -> ServiceResult<Food> {
         info!("Retrieving food details");
 
-        // Validate food_id format
-        if food_id.is_empty() {
+        // Validate id format
+        if id.is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food ID cannot be empty".to_string(),
             });
         }
 
-        match self.repository.find_by_id(food_id).await? {
+        match self.repository.find_by_id(id).await? {
             Some(food) => {
                 info!("Food found successfully");
                 Ok(food)
@@ -63,14 +63,14 @@ impl FoodService {
             None => {
                 warn!("Food not found");
                 Err(ServiceError::FoodNotFound {
-                    food_id: food_id.to_string(),
+                    id: id.to_string(),
                 })
             }
         }
     }
 
     /// Create a new food product
-    #[instrument(skip(self, request), fields(food_name = %request.food_name, pet_type = %request.food_for))]
+    #[instrument(skip(self, request), fields(name = %request.name, pet_type = %request.pet_type))]
     pub async fn create_food(&self, request: CreateFoodRequest) -> ServiceResult<Food> {
         info!("Creating new food product");
 
@@ -80,7 +80,7 @@ impl FoodService {
         let food = Food::new(request);
 
         // Check if food with same ID already exists (unlikely but possible with UUID collision)
-        if self.repository.exists(&food.food_id).await? {
+        if self.repository.exists(&food.id).await? {
             warn!("Food ID collision detected, regenerating");
             // In a real implementation, we might retry with a new ID
             return Err(ServiceError::ValidationError {
@@ -90,17 +90,17 @@ impl FoodService {
 
         let created_food = self.repository.create(food).await?;
 
-        info!("Food created successfully with ID: {}", created_food.food_id);
+        info!("Food created successfully with ID: {}", created_food.id);
         Ok(created_food)
     }
 
     /// Update an existing food product
-    #[instrument(skip(self, request), fields(food_id = %food_id))]
-    pub async fn update_food(&self, food_id: &str, request: UpdateFoodRequest) -> ServiceResult<Food> {
+    #[instrument(skip(self, request), fields(id = %id))]
+    pub async fn update_food(&self, id: &str, request: UpdateFoodRequest) -> ServiceResult<Food> {
         info!("Updating food product");
 
-        // Validate food_id
-        if food_id.is_empty() {
+        // Validate id
+        if id.is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food ID cannot be empty".to_string(),
             });
@@ -110,11 +110,11 @@ impl FoodService {
         self.validate_update_food_request(&request)?;
 
         // Get the existing food
-        let mut food = match self.repository.find_by_id(food_id).await? {
+        let mut food = match self.repository.find_by_id(id).await? {
             Some(food) => food,
             None => {
                 return Err(ServiceError::FoodNotFound {
-                    food_id: food_id.to_string(),
+                    id: id.to_string(),
                 });
             }
         };
@@ -130,25 +130,25 @@ impl FoodService {
     }
 
     /// Soft delete a food product
-    #[instrument(skip(self), fields(food_id = %food_id))]
-    pub async fn delete_food(&self, food_id: &str) -> ServiceResult<()> {
+    #[instrument(skip(self), fields(id = %id))]
+    pub async fn delete_food(&self, id: &str) -> ServiceResult<()> {
         info!("Soft deleting food product");
 
-        // Validate food_id
-        if food_id.is_empty() {
+        // Validate id
+        if id.is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food ID cannot be empty".to_string(),
             });
         }
 
         // Check if food exists
-        if !self.repository.exists(food_id).await? {
+        if !self.repository.exists(id).await? {
             return Err(ServiceError::FoodNotFound {
-                food_id: food_id.to_string(),
+                id: id.to_string(),
             });
         }
 
-        self.repository.soft_delete(food_id).await?;
+        self.repository.soft_delete(id).await?;
 
         info!("Food soft deleted successfully");
         Ok(())
@@ -194,11 +194,11 @@ impl FoodService {
     }
 
     /// Check if a food is available for purchase
-    #[instrument(skip(self), fields(food_id = %food_id))]
-    pub async fn is_food_available(&self, food_id: &str, quantity: u32) -> ServiceResult<bool> {
+    #[instrument(skip(self), fields(id = %id))]
+    pub async fn is_food_available(&self, id: &str, quantity: u32) -> ServiceResult<bool> {
         info!("Checking food availability");
 
-        let food = self.get_food(food_id).await?;
+        let food = self.get_food(id).await?;
 
         let available = food.is_available() && food.stock_quantity >= quantity;
 
@@ -222,40 +222,40 @@ impl FoodService {
     /// Validate create food request
     fn validate_create_food_request(&self, request: &CreateFoodRequest) -> ServiceResult<()> {
         // Validate food name
-        if request.food_name.trim().is_empty() {
+        if request.name.trim().is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food name cannot be empty".to_string(),
             });
         }
 
-        if request.food_name.len() > 200 {
+        if request.name.len() > 200 {
             return Err(ServiceError::ValidationError {
                 message: "Food name cannot exceed 200 characters".to_string(),
             });
         }
 
         // Validate description
-        if request.food_description.trim().is_empty() {
+        if request.description.trim().is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food description cannot be empty".to_string(),
             });
         }
 
-        if request.food_description.len() > 1000 {
+        if request.description.len() > 1000 {
             return Err(ServiceError::ValidationError {
                 message: "Food description cannot exceed 1000 characters".to_string(),
             });
         }
 
         // Validate price
-        if request.food_price <= rust_decimal::Decimal::ZERO {
+        if request.price <= rust_decimal::Decimal::ZERO {
             return Err(ServiceError::ValidationError {
                 message: "Food price must be greater than zero".to_string(),
             });
         }
 
         // Validate image URL
-        if request.food_image.trim().is_empty() {
+        if request.image.trim().is_empty() {
             return Err(ServiceError::ValidationError {
                 message: "Food image URL cannot be empty".to_string(),
             });
@@ -282,7 +282,7 @@ impl FoodService {
     /// Validate update food request
     fn validate_update_food_request(&self, request: &UpdateFoodRequest) -> ServiceResult<()> {
         // Validate food name if provided
-        if let Some(ref name) = request.food_name {
+        if let Some(ref name) = request.name {
             if name.trim().is_empty() {
                 return Err(ServiceError::ValidationError {
                     message: "Food name cannot be empty".to_string(),
@@ -297,7 +297,7 @@ impl FoodService {
         }
 
         // Validate description if provided
-        if let Some(ref description) = request.food_description {
+        if let Some(ref description) = request.description {
             if description.trim().is_empty() {
                 return Err(ServiceError::ValidationError {
                     message: "Food description cannot be empty".to_string(),
@@ -312,7 +312,7 @@ impl FoodService {
         }
 
         // Validate price if provided
-        if let Some(price) = request.food_price {
+        if let Some(price) = request.price {
             if price <= rust_decimal::Decimal::ZERO {
                 return Err(ServiceError::ValidationError {
                     message: "Food price must be greater than zero".to_string(),
@@ -321,7 +321,7 @@ impl FoodService {
         }
 
         // Validate image URL if provided
-        if let Some(ref image) = request.food_image {
+        if let Some(ref image) = request.image {
             if image.trim().is_empty() {
                 return Err(ServiceError::ValidationError {
                     message: "Food image URL cannot be empty".to_string(),
@@ -366,26 +366,26 @@ mod tests {
         #[async_trait]
         impl FoodRepository for TestFoodRepository {
             async fn find_all(&self, filters: FoodFilters) -> Result<Vec<Food>, RepositoryError>;
-            async fn find_by_id(&self, food_id: &str) -> Result<Option<Food>, RepositoryError>;
+            async fn find_by_id(&self, id: &str) -> Result<Option<Food>, RepositoryError>;
             async fn find_by_pet_type(&self, pet_type: PetType) -> Result<Vec<Food>, RepositoryError>;
             async fn find_by_food_type(&self, food_type: FoodType) -> Result<Vec<Food>, RepositoryError>;
             async fn create(&self, food: Food) -> Result<Food, RepositoryError>;
             async fn update(&self, food: Food) -> Result<Food, RepositoryError>;
-            async fn soft_delete(&self, food_id: &str) -> Result<(), RepositoryError>;
-            async fn delete(&self, food_id: &str) -> Result<(), RepositoryError>;
-            async fn exists(&self, food_id: &str) -> Result<bool, RepositoryError>;
+            async fn soft_delete(&self, id: &str) -> Result<(), RepositoryError>;
+            async fn delete(&self, id: &str) -> Result<(), RepositoryError>;
+            async fn exists(&self, id: &str) -> Result<bool, RepositoryError>;
             async fn count(&self, filters: Option<FoodFilters>) -> Result<usize, RepositoryError>;
         }
     }
 
     fn create_test_food() -> Food {
         let request = CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Nutritious test food".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "Nutritious test food".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -396,12 +396,12 @@ mod tests {
 
     fn create_test_create_request() -> CreateFoodRequest {
         CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "Nutritious test food".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "Nutritious test food".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -429,28 +429,28 @@ mod tests {
         let response = result.unwrap();
         assert_eq!(response.foods.len(), 1);
         assert_eq!(response.total_count, 1);
-        assert_eq!(response.foods[0].food_id, test_food.food_id);
+        assert_eq!(response.foods[0].id, test_food.id);
     }
 
     #[tokio::test]
     async fn test_get_food_success() {
         let mut mock_repo = MockTestFoodRepository::new();
         let test_food = create_test_food();
-        let food_id = test_food.food_id.clone();
+        let id = test_food.id.clone();
 
         mock_repo
             .expect_find_by_id()
-            .with(mockall::predicate::eq(food_id.clone()))
+            .with(mockall::predicate::eq(id.clone()))
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
         let service = FoodService::new(Arc::new(mock_repo));
 
-        let result = service.get_food(&food_id).await;
+        let result = service.get_food(&id).await;
 
         assert!(result.is_ok());
         let food = result.unwrap();
-        assert_eq!(food.food_id, food_id);
+        assert_eq!(food.id, id);
     }
 
     #[tokio::test]
@@ -469,8 +469,8 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            ServiceError::FoodNotFound { food_id } => {
-                assert_eq!(food_id, "nonexistent");
+            ServiceError::FoodNotFound { id } => {
+                assert_eq!(id, "nonexistent");
             }
             _ => panic!("Expected FoodNotFound error"),
         }
@@ -513,8 +513,8 @@ mod tests {
 
         assert!(result.is_ok());
         let food = result.unwrap();
-        assert_eq!(food.food_name, "Test Kibble");
-        assert_eq!(food.food_for, PetType::Puppy);
+        assert_eq!(food.name, "Test Kibble");
+        assert_eq!(food.pet_type, PetType::Puppy);
     }
 
     #[tokio::test]
@@ -523,7 +523,7 @@ mod tests {
         let service = FoodService::new(Arc::new(mock_repo));
 
         let mut request = create_test_create_request();
-        request.food_name = "".to_string(); // Invalid empty name
+        request.name = "".to_string(); // Invalid empty name
 
         let result = service.create_food(request).await;
 
@@ -540,11 +540,11 @@ mod tests {
     async fn test_update_food_success() {
         let mut mock_repo = MockTestFoodRepository::new();
         let test_food = create_test_food();
-        let food_id = test_food.food_id.clone();
+        let id = test_food.id.clone();
 
         mock_repo
             .expect_find_by_id()
-            .with(mockall::predicate::eq(food_id.clone()))
+            .with(mockall::predicate::eq(id.clone()))
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
@@ -556,39 +556,39 @@ mod tests {
         let service = FoodService::new(Arc::new(mock_repo));
 
         let update_request = UpdateFoodRequest {
-            food_name: Some("Updated Kibble".to_string()),
-            food_price: Some(dec!(15.99)),
+            name: Some("Updated Kibble".to_string()),
+            price: Some(dec!(15.99)),
             ..Default::default()
         };
 
-        let result = service.update_food(&food_id, update_request).await;
+        let result = service.update_food(&id, update_request).await;
 
         assert!(result.is_ok());
         let updated_food = result.unwrap();
-        assert_eq!(updated_food.food_name, "Updated Kibble");
-        assert_eq!(updated_food.food_price, dec!(15.99));
+        assert_eq!(updated_food.name, "Updated Kibble");
+        assert_eq!(updated_food.price, dec!(15.99));
     }
 
     #[tokio::test]
     async fn test_delete_food_success() {
         let mut mock_repo = MockTestFoodRepository::new();
-        let food_id = "F001";
+        let id = "F001";
 
         mock_repo
             .expect_exists()
-            .with(mockall::predicate::eq(food_id.to_string()))
+            .with(mockall::predicate::eq(id.to_string()))
             .times(1)
             .returning(|_| Ok(true));
 
         mock_repo
             .expect_soft_delete()
-            .with(mockall::predicate::eq(food_id.to_string()))
+            .with(mockall::predicate::eq(id.to_string()))
             .times(1)
             .returning(|_| Ok(()));
 
         let service = FoodService::new(Arc::new(mock_repo));
 
-        let result = service.delete_food(food_id).await;
+        let result = service.delete_food(id).await;
 
         assert!(result.is_ok());
     }
@@ -648,24 +648,24 @@ mod tests {
         assert!(result.is_ok());
         let foods = result.unwrap();
         assert_eq!(foods.len(), 1);
-        assert_eq!(foods[0].food_for, PetType::Puppy);
+        assert_eq!(foods[0].pet_type, PetType::Puppy);
     }
 
     #[tokio::test]
     async fn test_is_food_available() {
         let mut mock_repo = MockTestFoodRepository::new();
         let test_food = create_test_food();
-        let food_id = test_food.food_id.clone();
+        let id = test_food.id.clone();
 
         mock_repo
             .expect_find_by_id()
-            .with(mockall::predicate::eq(food_id.clone()))
+            .with(mockall::predicate::eq(id.clone()))
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
         let service = FoodService::new(Arc::new(mock_repo));
 
-        let result = service.is_food_available(&food_id, 5).await;
+        let result = service.is_food_available(&id, 5).await;
 
         assert!(result.is_ok());
         assert!(result.unwrap()); // Should be available (stock: 10, requested: 5)
@@ -698,7 +698,7 @@ mod tests {
 
         // Test invalid price
         let mut invalid_request = create_test_create_request();
-        invalid_request.food_price = dec!(-1.0);
+        invalid_request.price = dec!(-1.0);
         let result = service.validate_create_food_request(&invalid_request);
         assert!(result.is_err());
 
@@ -710,7 +710,7 @@ mod tests {
 
         // Test long name
         let mut invalid_request = create_test_create_request();
-        invalid_request.food_name = "a".repeat(201);
+        invalid_request.name = "a".repeat(201);
         let result = service.validate_create_food_request(&invalid_request);
         assert!(result.is_err());
     }

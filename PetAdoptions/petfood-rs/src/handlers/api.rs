@@ -11,17 +11,15 @@ use std::sync::Arc;
 use tracing::{error, info, instrument};
 
 use crate::models::{
-    CreateFoodRequest, FoodFilters, FoodListResponse, UpdateFoodRequest, Food,
-    AddCartItemRequest, CartItemResponse, CartResponse, UpdateCartItemRequest,
-    PetType, ServiceError,
+    AddCartItemRequest, CartItemResponse, CartResponse, Food, FoodFilters,
+    FoodListResponse, ServiceError, UpdateCartItemRequest,
 };
-use crate::services::{FoodService, RecommendationService, CartService};
+use crate::services::{CartService, FoodService};
 
 /// Shared application state containing all services
 #[derive(Clone)]
 pub struct ApiState {
     pub food_service: Arc<FoodService>,
-    pub recommendation_service: Arc<RecommendationService>,
     pub cart_service: Arc<CartService>,
 }
 
@@ -35,22 +33,6 @@ pub struct ListFoodsQuery {
     pub max_price: Option<rust_decimal::Decimal>,
     pub search: Option<String>,
     pub in_stock_only: Option<bool>,
-}
-
-/// Query parameters for recommendation requests
-#[derive(Debug, Deserialize)]
-pub struct RecommendationQuery {
-    pub food_type: Option<String>,
-    pub max_price: Option<rust_decimal::Decimal>,
-    pub limit: Option<usize>,
-}
-
-/// Response for recommendation endpoints
-#[derive(Debug, Serialize)]
-pub struct RecommendationResponse {
-    pub pet_type: PetType,
-    pub recommendations: Vec<Food>,
-    pub total_count: usize,
 }
 
 /// Response for cart validation
@@ -70,32 +52,25 @@ pub struct CartSummaryResponse {
 }
 
 /// Create API router with all endpoints
-pub fn create_api_router(
-    food_service: Arc<FoodService>,
-    recommendation_service: Arc<RecommendationService>,
-    cart_service: Arc<CartService>,
-) -> Router {
+pub fn create_api_router(food_service: Arc<FoodService>, cart_service: Arc<CartService>) -> Router {
     let state = ApiState {
         food_service,
-        recommendation_service,
         cart_service,
     };
 
     Router::new()
-        // Food management endpoints
-        .route("/api/foods", get(list_foods).post(create_food))
-        .route("/api/foods/:food_id", get(get_food).put(update_food).delete(delete_food))
-        
-        // Recommendation endpoints
-        .route("/api/recommendations/:pet_type", get(get_recommendations))
-        
+        // Food browsing endpoints (read-only)
+        .route("/api/foods", get(list_foods))
+        .route("/api/foods/:food_id", get(get_food))
         // Cart management endpoints
         .route("/api/cart/:user_id", get(get_cart).delete(delete_cart))
         .route("/api/cart/:user_id/items", post(add_cart_item))
-        .route("/api/cart/:user_id/items/:food_id", put(update_cart_item).delete(remove_cart_item))
+        .route(
+            "/api/cart/:user_id/items/:food_id",
+            put(update_cart_item).delete(remove_cart_item),
+        )
         .route("/api/cart/:user_id/clear", post(clear_cart))
         .route("/api/cart/:user_id/checkout", post(checkout_cart))
-        
         .with_state(state)
 }
 
@@ -149,115 +124,11 @@ pub async fn get_food(
 
     match state.food_service.get_food(&food_id).await {
         Ok(food) => {
-            info!("Successfully retrieved food: {}", food.food_name);
+            info!("Successfully retrieved food: {}", food.name);
             Ok(Json(food))
         }
         Err(err) => {
             error!("Failed to get food {}: {}", food_id, err);
-            Err(service_error_to_response(err))
-        }
-    }
-}
-
-/// Create a new food product
-#[instrument(skip(state, request))]
-pub async fn create_food(
-    State(state): State<ApiState>,
-    Json(request): Json<CreateFoodRequest>,
-) -> Result<(StatusCode, Json<Food>), (StatusCode, Json<Value>)> {
-    info!("Creating new food: {}", request.food_name);
-
-    match state.food_service.create_food(request).await {
-        Ok(food) => {
-            info!("Successfully created food with ID: {}", food.food_id);
-            Ok((StatusCode::CREATED, Json(food)))
-        }
-        Err(err) => {
-            error!("Failed to create food: {}", err);
-            Err(service_error_to_response(err))
-        }
-    }
-}
-
-/// Update an existing food product
-#[instrument(skip(state, request))]
-pub async fn update_food(
-    State(state): State<ApiState>,
-    Path(food_id): Path<String>,
-    Json(request): Json<UpdateFoodRequest>,
-) -> Result<Json<Food>, (StatusCode, Json<Value>)> {
-    info!("Updating food with ID: {}", food_id);
-
-    match state.food_service.update_food(&food_id, request).await {
-        Ok(food) => {
-            info!("Successfully updated food: {}", food.food_name);
-            Ok(Json(food))
-        }
-        Err(err) => {
-            error!("Failed to update food {}: {}", food_id, err);
-            Err(service_error_to_response(err))
-        }
-    }
-}
-
-/// Soft delete a food product
-#[instrument(skip(state))]
-pub async fn delete_food(
-    State(state): State<ApiState>,
-    Path(food_id): Path<String>,
-) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Deleting food with ID: {}", food_id);
-
-    match state.food_service.delete_food(&food_id).await {
-        Ok(()) => {
-            info!("Successfully deleted food: {}", food_id);
-            Ok(StatusCode::NO_CONTENT)
-        }
-        Err(err) => {
-            error!("Failed to delete food {}: {}", food_id, err);
-            Err(service_error_to_response(err))
-        }
-    }
-}
-
-// =============================================================================
-// RECOMMENDATION ENDPOINTS
-// =============================================================================
-
-/// Get basic recommendations for a pet type
-#[instrument(skip(state))]
-pub async fn get_recommendations(
-    State(state): State<ApiState>,
-    Path(pet_type_str): Path<String>,
-) -> Result<Json<RecommendationResponse>, (StatusCode, Json<Value>)> {
-    info!("Getting recommendations for pet type: {}", pet_type_str);
-
-    let pet_type = match pet_type_str.parse::<PetType>() {
-        Ok(pt) => pt,
-        Err(err) => {
-            error!("Invalid pet type: {}", err);
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(json!({
-                    "error": "Invalid pet type",
-                    "message": err,
-                    "timestamp": chrono::Utc::now().to_rfc3339(),
-                })),
-            ));
-        }
-    };
-
-    match state.recommendation_service.get_recommendations(pet_type.clone()).await {
-        Ok(recommendations) => {
-            info!("Successfully retrieved {} recommendations", recommendations.len());
-            Ok(Json(RecommendationResponse {
-                pet_type,
-                total_count: recommendations.len(),
-                recommendations,
-            }))
-        }
-        Err(err) => {
-            error!("Failed to get recommendations: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -277,7 +148,10 @@ pub async fn get_cart(
 
     match state.cart_service.get_cart(&user_id).await {
         Ok(cart) => {
-            info!("Successfully retrieved cart with {} items", cart.total_items);
+            info!(
+                "Successfully retrieved cart with {} items",
+                cart.total_items
+            );
             Ok(Json(cart))
         }
         Err(err) => {
@@ -294,8 +168,10 @@ pub async fn add_cart_item(
     Path(user_id): Path<String>,
     Json(request): Json<AddCartItemRequest>,
 ) -> Result<(StatusCode, Json<CartItemResponse>), (StatusCode, Json<Value>)> {
-    info!("Adding item to cart for user: {}, food_id: {}, quantity: {}", 
-          user_id, request.food_id, request.quantity);
+    info!(
+        "Adding item to cart for user: {}, food_id: {}, quantity: {}",
+        user_id, request.food_id, request.quantity
+    );
 
     match state.cart_service.add_item(&user_id, request).await {
         Ok(item) => {
@@ -316,10 +192,16 @@ pub async fn update_cart_item(
     Path((user_id, food_id)): Path<(String, String)>,
     Json(request): Json<UpdateCartItemRequest>,
 ) -> Result<Json<CartItemResponse>, (StatusCode, Json<Value>)> {
-    info!("Updating cart item for user: {}, food_id: {}, new_quantity: {}", 
-          user_id, food_id, request.quantity);
+    info!(
+        "Updating cart item for user: {}, food_id: {}, new_quantity: {}",
+        user_id, food_id, request.quantity
+    );
 
-    match state.cart_service.update_item(&user_id, &food_id, request).await {
+    match state
+        .cart_service
+        .update_item(&user_id, &food_id, request)
+        .await
+    {
         Ok(item) => {
             info!("Successfully updated cart item");
             Ok(Json(item))
@@ -337,7 +219,10 @@ pub async fn remove_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Removing item from cart for user: {}, food_id: {}", user_id, food_id);
+    info!(
+        "Removing item from cart for user: {}, food_id: {}",
+        user_id, food_id
+    );
 
     match state.cart_service.remove_item(&user_id, &food_id).await {
         Ok(()) => {
@@ -402,7 +287,10 @@ pub async fn checkout_cart(
 
     match state.cart_service.checkout(&user_id, request).await {
         Ok(checkout_response) => {
-            info!("Checkout completed successfully for order: {}", checkout_response.order_id);
+            info!(
+                "Checkout completed successfully for order: {}",
+                checkout_response.order_id
+            );
             Ok(Json(checkout_response))
         }
         Err(err) => {
@@ -475,24 +363,30 @@ fn service_error_to_response(err: ServiceError) -> (StatusCode, Json<Value>) {
             crate::models::RepositoryError::NotFound => {
                 (StatusCode::NOT_FOUND, "Resource not found".to_string())
             }
-            crate::models::RepositoryError::ConnectionFailed => {
-                (StatusCode::SERVICE_UNAVAILABLE, "Database connection failed".to_string())
-            }
+            crate::models::RepositoryError::ConnectionFailed => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Database connection failed".to_string(),
+            ),
             crate::models::RepositoryError::Timeout => {
                 (StatusCode::REQUEST_TIMEOUT, "Request timeout".to_string())
             }
-            crate::models::RepositoryError::RateLimitExceeded => {
-                (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string())
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            crate::models::RepositoryError::RateLimitExceeded => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+            ),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         },
-        ServiceError::Configuration { .. } => {
-            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error".to_string())
-        }
-        ServiceError::ExternalService { .. } => {
-            (StatusCode::BAD_GATEWAY, "External service error".to_string())
-        }
-        _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+        ServiceError::Configuration { .. } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Configuration error".to_string(),
+        ),
+        ServiceError::ExternalService { .. } => (
+            StatusCode::BAD_GATEWAY,
+            "External service error".to_string(),
+        ),
     };
 
     (
@@ -529,18 +423,5 @@ mod tests {
         assert_eq!(filters.max_price, Some(rust_decimal_macros::dec!(20.00)));
         assert_eq!(filters.search_term, Some("kibble".to_string()));
         assert_eq!(filters.in_stock_only, Some(true));
-    }
-
-    #[test]
-    fn test_recommendation_response_serialization() {
-        let response = RecommendationResponse {
-            pet_type: PetType::Puppy,
-            recommendations: vec![],
-            total_count: 0,
-        };
-
-        let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("puppy"));
-        assert!(json.contains("total_count"));
     }
 }

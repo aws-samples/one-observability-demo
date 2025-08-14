@@ -12,6 +12,7 @@ on:
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
       - 'PetAdoptions/trafficgenerator/**'
+      - 'PetAdoptions/petfood-rs/**'
   push:
     branches: [ main, staging ]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
       - 'PetAdoptions/trafficgenerator/**'
+      - 'PetAdoptions/petfood-rs/**'
 
 jobs:
   docker-builds:
@@ -43,6 +45,8 @@ jobs:
             path: PetAdoptions/petsite/petsite
           - name: trafficgenerator
             path: PetAdoptions/trafficgenerator/trafficgenerator
+          - name: petfood-rs
+            path: PetAdoptions/petfood-rs
 
     steps:
       - uses: actions/checkout@v3

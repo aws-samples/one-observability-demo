@@ -1,0 +1,226 @@
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+          - 8000:8000
+        env:
+          SERVICES: dynamodb,ssm
+          DEBUG: 1
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/health"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: PetAdoptions/petfood-rs
+
+    - name: Wait for LocalStack to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:4566/health; do sleep 2; done'
+
+    - name: Run food search benchmarks
+      run: |
+        cd PetAdoptions/petfood-rs
+        cargo bench --bench food_search -- --output-format json | tee food_search_results.json
+      env:
+        DYNAMODB_ENDPOINT: http://localhost:8000
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-east-1
+
+    - name: Store benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: PetAdoptions/petfood-rs/food_search_results.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        comment-on-alert: true
+        alert-threshold: '150%'
+        fail-on-alert: false
+        benchmark-data-dir-path: 'benchmarks'
+
+    - name: Store recommendation benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: PetAdoptions/petfood-rs/recommendations_results.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        comment-on-alert: true
+        alert-threshold: '150%'
+        fail-on-alert: false
+        benchmark-data-dir-path: 'benchmarks'
+
+    - name: Generate performance report
+      run: |
+        cd PetAdoptions/petfood-rs
+        echo "# Performance Report - $(date)" > performance_report.md
+        echo "" >> performance_report.md
+        echo "## Food Search Benchmarks" >> performance_report.md
+        echo "\`\`\`json" >> performance_report.md
+        cat food_search_results.json >> performance_report.md
+        echo "\`\`\`" >> performance_report.md
+        echo "" >> performance_report.md
+        echo "## Recommendation Benchmarks" >> performance_report.md
+        echo "\`\`\`json" >> performance_report.md
+        cat recommendations_results.json >> performance_report.md
+        echo "\`\`\`" >> performance_report.md
+
+    - name: Upload performance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report-${{ github.sha }}
+        path: PetAdoptions/petfood-rs/performance_report.md
+        retention-days: 30
+
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+          - 8000:8000
+        env:
+          SERVICES: dynamodb,ssm
+          DEBUG: 1
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: PetAdoptions/petfood-rs
+
+    - name: Build application
+      run: |
+        cd PetAdoptions/petfood-rs
+        cargo build --release
+
+    - name: Wait for LocalStack to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:4566/health; do sleep 2; done'
+
+    - name: Start application
+      run: |
+        cd PetAdoptions/petfood-rs
+        DYNAMODB_ENDPOINT=http://localhost:8000 \
+        AWS_ACCESS_KEY_ID=test \
+        AWS_SECRET_ACCESS_KEY=test \
+        AWS_DEFAULT_REGION=us-east-1 \
+        ./target/release/petfood-rs &
+        sleep 10
+        curl -f http://localhost:8080/health/status
+
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+    - name: Create load test script
+      run: |
+        cat > load_test.js << 'EOF'
+        import http from 'k6/http';
+        import { check, sleep } from 'k6';
+
+        export let options = {
+          stages: [
+            { duration: '2m', target: 10 }, // Ramp up
+            { duration: '5m', target: 10 }, // Stay at 10 users
+            { duration: '2m', target: 20 }, // Ramp up to 20 users
+            { duration: '5m', target: 20 }, // Stay at 20 users
+            { duration: '2m', target: 0 },  // Ramp down
+          ],
+          thresholds: {
+            http_req_duration: ['p(95)<500'], // 95% of requests must complete below 500ms
+            http_req_failed: ['rate<0.1'],   // Error rate must be below 10%
+          },
+        };
+
+        const BASE_URL = 'http://localhost:8080';
+
+        export default function () {
+          // Test health endpoint
+          let healthRes = http.get(`${BASE_URL}/health/status`);
+          check(healthRes, {
+            'health check status is 200': (r) => r.status === 200,
+          });
+
+          // Test food listing
+          let foodsRes = http.get(`${BASE_URL}/api/foods`);
+          check(foodsRes, {
+            'foods list status is 200': (r) => r.status === 200,
+          });
+
+          // Test food filtering
+          let puppyFoodsRes = http.get(`${BASE_URL}/api/foods?pet_type=puppy`);
+          check(puppyFoodsRes, {
+            'puppy foods status is 200': (r) => r.status === 200,
+          });
+
+          sleep(1);
+        }
+        EOF
+
+    - name: Run load test
+      run: |
+        k6 run --out json=load_test_results.json load_test.js
+
+    - name: Upload load test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: load-test-results-${{ github.sha }}
+        path: load_test_results.json
+        retention-days: 30
+
+    - name: Analyze load test results
+      run: |
+        echo "# Load Test Results - $(date)" > load_test_report.md
+        echo "" >> load_test_report.md
+        echo "## Summary" >> load_test_report.md
+        echo "Load test completed. Check the artifacts for detailed results." >> load_test_report.md
+
+    - name: Upload load test report
+      uses: actions/upload-artifact@v4
+      with:
+        name: load-test-report-${{ github.sha }}
+        path: load_test_report.md
+        retention-days: 30

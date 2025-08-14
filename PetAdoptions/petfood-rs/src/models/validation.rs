@@ -28,10 +28,10 @@ pub const MIN_CART_QUANTITY: u32 = 1;
 
 impl Validate for CreateFoodRequest {
     fn validate(&self) -> ValidationResult<()> {
-        validate_food_name(&self.food_name)?;
-        validate_food_description(&self.food_description)?;
-        validate_food_price(&self.food_price)?;
-        validate_food_image(&self.food_image)?;
+        validate_food_name(&self.name)?;
+        validate_food_description(&self.description)?;
+        validate_food_price(&self.price)?;
+        validate_food_image(&self.image)?;
         validate_ingredients(&self.ingredients)?;
         validate_feeding_guidelines(&self.feeding_guidelines)?;
         validate_stock_quantity(self.stock_quantity)?;
@@ -41,16 +41,16 @@ impl Validate for CreateFoodRequest {
 
 impl Validate for UpdateFoodRequest {
     fn validate(&self) -> ValidationResult<()> {
-        if let Some(name) = &self.food_name {
+        if let Some(name) = &self.name {
             validate_food_name(name)?;
         }
-        if let Some(description) = &self.food_description {
+        if let Some(description) = &self.description {
             validate_food_description(description)?;
         }
-        if let Some(price) = &self.food_price {
+        if let Some(price) = &self.price {
             validate_food_price(price)?;
         }
-        if let Some(image) = &self.food_image {
+        if let Some(image) = &self.image {
             validate_food_image(image)?;
         }
         if let Some(ingredients) = &self.ingredients {
@@ -472,12 +472,12 @@ mod tests {
     #[test]
     fn test_create_food_request_validation() {
         let valid_request = CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Test Food".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Test Food".to_string(),
             food_type: FoodType::Dry,
-            food_description: "A nutritious test food for puppies".to_string(),
-            food_price: dec!(12.99),
-            food_image: "test.jpg".to_string(),
+            description: "A nutritious test food for puppies".to_string(),
+            price: dec!(12.99),
+            image: "test.jpg".to_string(),
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -487,7 +487,7 @@ mod tests {
         assert!(valid_request.validate().is_ok());
         
         let invalid_request = CreateFoodRequest {
-            food_name: "".to_string(), // Invalid empty name
+            name: "".to_string(), // Invalid empty name
             ..valid_request
         };
         

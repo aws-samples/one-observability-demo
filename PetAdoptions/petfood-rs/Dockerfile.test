@@ -1,0 +1,32 @@
+FROM rust:1.75-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo tools for testing
+RUN cargo install cargo-tarpaulin
+
+# Set working directory
+WORKDIR /app
+
+# Copy Cargo files first for better caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies
+RUN cargo build --release && rm -rf src
+
+# Copy source code
+COPY . .
+
+# Make test script executable
+RUN chmod +x scripts/run_tests.sh
+
+# Default command
+CMD ["./scripts/run_tests.sh"]

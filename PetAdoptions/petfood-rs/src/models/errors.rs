@@ -3,8 +3,8 @@ use thiserror::Error;
 /// Service-level errors that can occur in business logic
 #[derive(Debug, Error)]
 pub enum ServiceError {
-    #[error("Food not found: {food_id}")]
-    FoodNotFound { food_id: String },
+    #[error("Food not found: {id}")]
+    FoodNotFound { id: String },
 
     #[error("Invalid pet type: {pet_type}")]
     InvalidPetType { pet_type: String },
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn test_error_display() {
         let error = ServiceError::FoodNotFound {
-            food_id: "F001".to_string(),
+            id: "F001".to_string(),
         };
         assert_eq!(error.to_string(), "Food not found: F001");
 

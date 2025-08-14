@@ -22,12 +22,12 @@ mod repository_tests {
 
     fn create_test_food() -> Food {
         let request = CreateFoodRequest {
-            food_for: PetType::Puppy,
-            food_name: "Premium Puppy Kibble".to_string(),
+            pet_type: PetType::Puppy,
+            name: "Premium Puppy Kibble".to_string(),
             food_type: FoodType::Dry,
-            food_description: "High-quality dry food for growing puppies".to_string(),
-            food_price: dec!(24.99),
-            food_image: "puppy-kibble.jpg".to_string(),
+            description: "High-quality dry food for growing puppies".to_string(),
+            price: dec!(24.99),
+            image: "puppy-kibble.jpg".to_string(),
             nutritional_info: Some(NutritionalInfo {
                 calories_per_serving: Some(380),
                 protein_percentage: Some(dec!(28.0)),
@@ -69,13 +69,13 @@ mod repository_tests {
             let item = repo.food_to_item(&food);
 
             // Verify all required fields are present
-            assert!(item.contains_key("food_id"));
-            assert!(item.contains_key("food_for"));
-            assert!(item.contains_key("food_name"));
+            assert!(item.contains_key("id"));
+            assert!(item.contains_key("pet_type"));
+            assert!(item.contains_key("name"));
             assert!(item.contains_key("food_type"));
-            assert!(item.contains_key("food_description"));
-            assert!(item.contains_key("food_price"));
-            assert!(item.contains_key("food_image"));
+            assert!(item.contains_key("description"));
+            assert!(item.contains_key("price"));
+            assert!(item.contains_key("image"));
             assert!(item.contains_key("nutritional_info"));
             assert!(item.contains_key("ingredients"));
             assert!(item.contains_key("feeding_guidelines"));
@@ -86,16 +86,16 @@ mod repository_tests {
             assert!(item.contains_key("is_active"));
 
             // Verify specific values
-            if let Some(AttributeValue::S(pet_type)) = item.get("food_for") {
+            if let Some(AttributeValue::S(pet_type)) = item.get("pet_type") {
                 assert_eq!(pet_type, "puppy");
             } else {
-                panic!("Expected string value for food_for");
+                panic!("Expected string value for pet_type");
             }
 
-            if let Some(AttributeValue::N(price)) = item.get("food_price") {
+            if let Some(AttributeValue::N(price)) = item.get("price") {
                 assert_eq!(price, "24.99");
             } else {
-                panic!("Expected number value for food_price");
+                panic!("Expected number value for price");
             }
 
             if let Some(AttributeValue::L(ingredients)) = item.get("ingredients") {
@@ -137,13 +137,13 @@ mod repository_tests {
             let converted_food = repo.item_to_food(item).unwrap();
 
             // Verify all fields match
-            assert_eq!(converted_food.food_id, original_food.food_id);
-            assert_eq!(converted_food.food_for, original_food.food_for);
-            assert_eq!(converted_food.food_name, original_food.food_name);
+            assert_eq!(converted_food.id, original_food.id);
+            assert_eq!(converted_food.pet_type, original_food.pet_type);
+            assert_eq!(converted_food.name, original_food.name);
             assert_eq!(converted_food.food_type, original_food.food_type);
-            assert_eq!(converted_food.food_description, original_food.food_description);
-            assert_eq!(converted_food.food_price, original_food.food_price);
-            assert_eq!(converted_food.food_image, original_food.food_image);
+            assert_eq!(converted_food.description, original_food.description);
+            assert_eq!(converted_food.price, original_food.price);
+            assert_eq!(converted_food.image, original_food.image);
             assert_eq!(converted_food.ingredients, original_food.ingredients);
             assert_eq!(converted_food.feeding_guidelines, original_food.feeding_guidelines);
             assert_eq!(converted_food.availability_status, original_food.availability_status);
@@ -172,12 +172,12 @@ mod repository_tests {
         #[test]
         fn test_food_without_optional_fields() {
             let request = CreateFoodRequest {
-                food_for: PetType::Kitten,
-                food_name: "Basic Cat Food".to_string(),
+                pet_type: PetType::Kitten,
+                name: "Basic Cat Food".to_string(),
                 food_type: FoodType::Wet,
-                food_description: "Simple wet food for kittens".to_string(),
-                food_price: dec!(5.99),
-                food_image: "basic-cat.jpg".to_string(),
+                description: "Simple wet food for kittens".to_string(),
+                price: dec!(5.99),
+                image: "basic-cat.jpg".to_string(),
                 nutritional_info: None,
                 ingredients: vec!["fish".to_string()],
                 feeding_guidelines: None,
@@ -192,8 +192,8 @@ mod repository_tests {
             let item = repo.food_to_item(&food);
             let converted_food = repo.item_to_food(item).unwrap();
 
-            assert_eq!(converted_food.food_name, "Basic Cat Food");
-            assert_eq!(converted_food.food_for, PetType::Kitten);
+            assert_eq!(converted_food.name, "Basic Cat Food");
+            assert_eq!(converted_food.pet_type, PetType::Kitten);
             assert_eq!(converted_food.availability_status, AvailabilityStatus::OutOfStock);
             assert!(converted_food.nutritional_info.is_none());
             assert!(converted_food.feeding_guidelines.is_none());
@@ -395,12 +395,12 @@ mod repository_tests {
 
         fn create_puppy_food() -> Food {
             let request = CreateFoodRequest {
-                food_for: PetType::Puppy,
-                food_name: "Puppy Growth Formula".to_string(),
+                pet_type: PetType::Puppy,
+                name: "Puppy Growth Formula".to_string(),
                 food_type: FoodType::Dry,
-                food_description: "Complete nutrition for growing puppies".to_string(),
-                food_price: dec!(29.99),
-                food_image: "puppy-growth.jpg".to_string(),
+                description: "Complete nutrition for growing puppies".to_string(),
+                price: dec!(29.99),
+                image: "puppy-growth.jpg".to_string(),
                 nutritional_info: Some(NutritionalInfo {
                     calories_per_serving: Some(420),
                     protein_percentage: Some(dec!(30.0)),
@@ -425,12 +425,12 @@ mod repository_tests {
 
         fn create_kitten_food() -> Food {
             let request = CreateFoodRequest {
-                food_for: PetType::Kitten,
-                food_name: "Kitten Salmon Pate".to_string(),
+                pet_type: PetType::Kitten,
+                name: "Kitten Salmon Pate".to_string(),
                 food_type: FoodType::Wet,
-                food_description: "Rich salmon pate for growing kittens".to_string(),
-                food_price: dec!(1.99),
-                food_image: "kitten-salmon.jpg".to_string(),
+                description: "Rich salmon pate for growing kittens".to_string(),
+                price: dec!(1.99),
+                image: "kitten-salmon.jpg".to_string(),
                 nutritional_info: None,
                 ingredients: vec![
                     "salmon".to_string(),
@@ -445,12 +445,12 @@ mod repository_tests {
 
         fn create_bunny_food() -> Food {
             let request = CreateFoodRequest {
-                food_for: PetType::Bunny,
-                food_name: "Timothy Hay Pellets".to_string(),
+                pet_type: PetType::Bunny,
+                name: "Timothy Hay Pellets".to_string(),
                 food_type: FoodType::Dry,
-                food_description: "High-fiber pellets made from timothy hay".to_string(),
-                food_price: dec!(12.50),
-                food_image: "bunny-pellets.jpg".to_string(),
+                description: "High-fiber pellets made from timothy hay".to_string(),
+                price: dec!(12.50),
+                image: "bunny-pellets.jpg".to_string(),
                 nutritional_info: Some(NutritionalInfo {
                     calories_per_serving: Some(250),
                     protein_percentage: Some(dec!(14.0)),

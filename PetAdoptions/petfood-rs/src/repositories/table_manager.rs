@@ -34,21 +34,21 @@ impl TableManager {
         // Define attribute definitions
         let attribute_definitions = vec![
             AttributeDefinition::builder()
-                .attribute_name("food_id")
+                .attribute_name("id")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
                     message: format!("Failed to build attribute definition: {}", e)
                 })?,
             AttributeDefinition::builder()
-                .attribute_name("food_for")
+                .attribute_name("pet_type")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
                     message: format!("Failed to build attribute definition: {}", e)
                 })?,
             AttributeDefinition::builder()
-                .attribute_name("food_name")
+                .attribute_name("name")
                 .attribute_type(ScalarAttributeType::S)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
@@ -62,7 +62,7 @@ impl TableManager {
                     message: format!("Failed to build attribute definition: {}", e)
                 })?,
             AttributeDefinition::builder()
-                .attribute_name("food_price")
+                .attribute_name("price")
                 .attribute_type(ScalarAttributeType::N)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
@@ -73,7 +73,7 @@ impl TableManager {
         // Define key schema for main table
         let key_schema = vec![
             KeySchemaElement::builder()
-                .attribute_name("food_id")
+                .attribute_name("id")
                 .key_type(KeyType::Hash)
                 .build()
                 .map_err(|e| RepositoryError::AwsSdk {
@@ -86,7 +86,7 @@ impl TableManager {
             .index_name(format!("{}-PetTypeIndex", table_name))
             .key_schema(
                 KeySchemaElement::builder()
-                    .attribute_name("food_for")
+                    .attribute_name("pet_type")
                     .key_type(KeyType::Hash)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
@@ -95,7 +95,7 @@ impl TableManager {
             )
             .key_schema(
                 KeySchemaElement::builder()
-                    .attribute_name("food_name")
+                    .attribute_name("name")
                     .key_type(KeyType::Range)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
@@ -126,7 +126,7 @@ impl TableManager {
             )
             .key_schema(
                 KeySchemaElement::builder()
-                    .attribute_name("food_price")
+                    .attribute_name("price")
                     .key_type(KeyType::Range)
                     .build()
                     .map_err(|e| RepositoryError::AwsSdk {
