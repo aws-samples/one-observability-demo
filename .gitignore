@@ -1,5 +1,6 @@
 # Go binaries
-PetAdoptions/payforadoption-go/petadoptions
+# cspell:ignore petadoptions
+petadoptions
 **/.DS_Store
 **/assets
 **/.idea
@@ -7,3 +8,5 @@ PetAdoptions/payforadoption-go/petadoptions
 # editor settings
 .vscode/settings.json
 PetAdoptions/petsite/petsite/appsettings.Development.json
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/indexLayout.xml
+PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml

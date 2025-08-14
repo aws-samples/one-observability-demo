@@ -6,7 +6,7 @@ on:
     paths:
       - 'PetAdoptions/payforadoption-go/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
@@ -16,7 +16,7 @@ on:
     paths:
       - 'PetAdoptions/payforadoption-go/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
@@ -31,8 +31,8 @@ jobs:
         service:
           - name: payforadoption-go
             path: PetAdoptions/payforadoption-go
-          - name: petlistadoptions-go
-            path: PetAdoptions/petlistadoptions-go
+          - name: petlistadoptions-py
+            path: PetAdoptions/petlistadoptions-py
           - name: petsearch-java
             path: PetAdoptions/petsearch-java
           - name: petsite

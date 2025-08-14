@@ -64,3 +64,46 @@
     <p>Error @ViewData["error"]</p>
   }
 </div>
+
+<div class="container mt-4">
+  <h3>Pet Food Available</h3>
+  <div id="food-grid" class="row">
+    <!-- Food items will be loaded here -->
+  </div>
+</div>
+
+<script>
+  async function loadFoods() {
+    try {
+      const response = await fetch('/FoodService/GetFoods');
+      const foods = await response.json();
+      const grid = document.getElementById('food-grid');
+      
+      foods.forEach(food => {
+        const foodItem = `
+          <div class="col-md-4 mb-3">
+            <div class="card">
+              <img src="/images/food/${food.food_image}" class="card-img-top" alt="${food.food_name}" style="height: 200px; object-fit: cover;">
+              <div class="card-body">
+                <h5 class="card-title">${food.food_name}</h5>
+                <p class="card-text">${food.food_description}</p>
+                <p class="card-text"><strong>$${food.food_price}</strong></p>
+                <p class="card-text"><small class="text-muted">For: ${food.food_for} | Type: ${food.food_type}</small></p>
+                <form method="post" action="/FoodService/BuyFood">
+                  <input type="hidden" name="foodId" value="${food.food_id}">
+                  <button type="submit" class="btn btn-primary">Buy</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        `;
+        grid.innerHTML += foodItem;
+      });
+    } catch (error) {
+      console.error('Error loading foods:', error);
+    }
+  }
+  
+  // Load foods when page loads
+  //document.addEventListener('DOMContentLoaded', loadFoods);
+</script>
