@@ -5,26 +5,22 @@ on:
     branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
       - 'PetAdoptions/trafficgenerator/**'
-      - 'PetAdoptions/petfood-rs/**'
   push:
     branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
       - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
       - 'PetAdoptions/trafficgenerator/**'
-      - 'PetAdoptions/petfood-rs/**'
 
 jobs:
   docker-builds:
@@ -35,18 +31,14 @@ jobs:
         service:
           - name: payforadoption-go
             path: PetAdoptions/payforadoption-go
-          - name: petadoptionshistory-py
-            path: PetAdoptions/petadoptionshistory-py
-          - name: petlistadoptions-go
-            path: PetAdoptions/petlistadoptions-go
+          - name: petlistadoptions-py
+            path: PetAdoptions/petlistadoptions-py
           - name: petsearch-java
             path: PetAdoptions/petsearch-java
           - name: petsite
             path: PetAdoptions/petsite/petsite
           - name: trafficgenerator
             path: PetAdoptions/trafficgenerator/trafficgenerator
-          - name: petfood-rs
-            path: PetAdoptions/petfood-rs
 
     steps:
       - uses: actions/checkout@v3

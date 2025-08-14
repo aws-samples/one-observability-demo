@@ -12,6 +12,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -69,19 +70,18 @@ namespace PetSite.Controllers
             };
         }
 
-
-
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
-            
-            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"CLEANUP_ADOPTIONS_URL");
+
+            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
             using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
+            var userId = ViewBag.UserId?.ToString();
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            await httpClient.PostAsync(url, null);
 
             return View();
         }
@@ -89,7 +89,7 @@ namespace PetSite.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(string selectedPetType, string selectedPetColor, string petid)
         {
-            EnsureUserId();
+            if (EnsureUserId()) return new EmptyResult();
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -114,8 +114,9 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.color", selectedPetColor);
                         activity.SetTag("pet.id", petid);
                     }
-                    
-                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid);
+
+                    var userId = Request.Query["userId"].ToString();
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid, userId);
                 }
             }
             catch (HttpRequestException e)
@@ -123,18 +124,21 @@ namespace PetSite.Controllers
                 _logger.LogError(e, "HTTP error received after calling PetSearch API");
                 ViewBag.ErrorMessage = $"Unable to search pets at this time. Please try again later. \nError message received - {e.Message}";
                 Pets = new List<Pet>();
+                throw e;
             }
             catch (TaskCanceledException e)
             {
                 _logger.LogError(e, "Timeout calling PetSearch API");
                 ViewBag.ErrorMessage = "Search request timed out. Please try again.";
                 Pets = new List<Pet>();
+                throw e;
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Unexpected error calling PetSearch API");
                 ViewBag.ErrorMessage = "An unexpected error occurred. Please try again.";
                 Pets = new List<Pet>();
+                throw e;
             }
 
             var PetDetails = new PetDetails()
@@ -158,8 +162,16 @@ namespace PetSite.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(string userId, string message)
         {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                ViewBag.UserId = userId;
+                ViewData["UserId"] = userId;
+            }
+            
+            ViewBag.ErrorMessage = message;
+            
             return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
         }
     }

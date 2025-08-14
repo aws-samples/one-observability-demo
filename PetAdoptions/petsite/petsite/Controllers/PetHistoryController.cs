@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 
 namespace PetSite.Controllers;
 
-public class PetHistoryController : Controller
+public class PetHistoryController : BaseController
 {
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -31,6 +32,7 @@ public class PetHistoryController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
@@ -44,8 +46,9 @@ public class PetHistoryController : Controller
             using (var activity = Activity.Current?.Source?.StartActivity("Calling GetPetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
-                ViewData["pethistory"] = await httpClient.GetStringAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
+                var userId = ViewBag.UserId?.ToString() ?? "unknown";
+                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", ("userId", userId));
+                ViewData["pethistory"] = await httpClient.GetStringAsync(url);
             }
         }
         catch (Exception e)
@@ -64,6 +67,7 @@ public class PetHistoryController : Controller
     [HttpDelete]
     public async Task<IActionResult> DeletePetAdoptionsHistory()
     {
+        if (EnsureUserId()) return new EmptyResult();
         // Add custom span attributes using Activity API
         var currentActivity = Activity.Current;
         if (currentActivity != null)
@@ -77,8 +81,9 @@ public class PetHistoryController : Controller
             using (var activity = Activity.Current?.Source?.StartActivity("Calling DeletePetAdoptionsHistory API"))
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var userId = HttpContext.Session.GetString("userId") ?? "unknown";
-                ViewData["pethistory"] = await httpClient.DeleteAsync($"{_pethistoryurl}/api/home/transactions?userId={userId}");
+                var userId = ViewBag.UserId?.ToString() ?? "unknown";
+                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", ("userId", userId));
+                ViewData["pethistory"] = await httpClient.DeleteAsync(url);
             }
         }
         catch (Exception e)
