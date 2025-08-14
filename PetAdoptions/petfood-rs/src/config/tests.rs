@@ -11,7 +11,6 @@ mod config_tests {
     use std::env;
     use std::time::Duration;
 
-   
     #[test]
     fn test_server_config_defaults() {
         // Ensure no environment variables are set
