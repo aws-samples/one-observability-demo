@@ -21,6 +21,7 @@ import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { OpenSearchCollection } from '../constructs/opensearch-collection';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -63,6 +64,7 @@ export class MicroservicesStack extends Stack {
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
+        const openSearchExports = OpenSearchCollection.importFromExports();
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
@@ -85,6 +87,10 @@ export class MicroservicesStack extends Stack {
                         secret: rdsExports.adminSecret,
                         dynamoDbTable: dynamodbExports.table,
                         instrumentation: 'otel',
+                        openSearchCollection: {
+                            collectionArn: openSearchExports.collectionArn,
+                            collectionEndpoint: openSearchExports.collectionEndpoint,
+                        },
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
