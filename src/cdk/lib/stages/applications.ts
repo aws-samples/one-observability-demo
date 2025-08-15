@@ -12,7 +12,7 @@ import { ComputeType, HostType } from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
-import { ListAdoptionsService } from '../microservices/list-adoptions';
+import { ListAdoptionsService } from '../microservices/petlist-adoptions';
 import { PetSearchService } from '../microservices/pet-search';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
 import { StatusUpdatedService } from '../constructs/serverless/status-updater';
@@ -22,6 +22,7 @@ import { WorkshopEks } from '../constructs/eks';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
+import { PetFoodECSService } from '../microservices/petfood';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -91,7 +92,6 @@ export class MicroservicesStack extends Stack {
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
                         table: dynamodbExports.table,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
@@ -120,7 +120,6 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
@@ -149,7 +148,6 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
@@ -165,7 +163,36 @@ export class MicroservicesStack extends Stack {
                     this.microservices.set(name, svc);
                 }
             }
-
+            if (name == MicroservicesNames.PetFood) {
+                if (service?.hostType == HostType.ECS) {
+                    svc = new PetFoodECSService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: ecsExports.securityGroup,
+                        ecsCluster: ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 2,
+                        name: name,
+                        repositoryURI: `${baseURI}/${name}`,
+                        healthCheck: '/health/status',
+                        vpc: vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        createLoadBalancer: true,
+                        cloudMapNamespace: cloudMap,
+                        petFoodTable: dynamodbExports.petFoodsTable,
+                        petFoodCartTable: dynamodbExports.petFoodsCartTable,
+                        assetsBucket: assetsBucket,
+                        containerPort: 8080,
+                    });
+                } else {
+                    throw new Error(`EKS is not supported for ${name}`);
+                }
+                if (svc) {
+                    this.microservices.set(name, svc);
+                }
+            }
             if (name == MicroservicesNames.PetSite) {
                 if (service?.hostType == HostType.EKS) {
                     svc = new PetSite(this, name, {
@@ -179,7 +206,7 @@ export class MicroservicesStack extends Stack {
                         manifestPath: service.manifestPath,
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-                        port: 80,
+                        listenerPort: 80,
                         healthCheck: '/health/status',
                     });
                 } else {

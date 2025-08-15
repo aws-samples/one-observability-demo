@@ -36,7 +36,6 @@ import { OpenSearchCollection } from './opensearch-collection';
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
-    instrumentation?: string;
     desiredTaskCount: number;
     cloudMapNamespace?: IPrivateDnsNamespace;
     openSearchCollection?:
@@ -161,37 +160,9 @@ export abstract class EcsService extends Microservice {
         });
 
         container.addPortMappings({
-            containerPort: properties.port || 80,
+            containerPort: properties.containerPort || 80,
             protocol: Protocol.TCP,
         });
-
-        // sidecar for instrumentation collecting
-        switch (properties.instrumentation) {
-            // we don't add any sidecar if instrumentation is none
-            case 'none': {
-                break;
-            }
-
-            // This collector would be used for both traces collected using
-            // open telemetry or X-Ray
-            case 'otel': {
-                this.addOtelCollectorContainer(taskDefinition, logging);
-                break;
-            }
-
-            // Default X-Ray traces collector
-            case 'xray': {
-                this.addXRayContainer(taskDefinition, logging);
-                break;
-            }
-
-            // Default X-Ray traces collector
-            // enabled by default
-            default: {
-                this.addXRayContainer(taskDefinition, logging);
-                break;
-            }
-        }
 
         if (!properties.disableService) {
             if (properties.createLoadBalancer === false) {
@@ -225,7 +196,7 @@ export abstract class EcsService extends Microservice {
                         taskDefinition: taskDefinition as FargateTaskDefinition,
                         publicLoadBalancer: false,
                         desiredCount: properties.desiredTaskCount,
-                        listenerPort: properties.port || 80,
+                        listenerPort: properties.listenerPort || 80,
                         securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
                         openListener: false,
                         assignPublicIp: false,
@@ -243,7 +214,7 @@ export abstract class EcsService extends Microservice {
                     if (properties.securityGroup) {
                         properties.securityGroup.addIngressRule(
                             loadBalancedService.loadBalancer.connections.securityGroups[0],
-                            Port.tcp(properties.port || 80),
+                            Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
                     }
@@ -257,7 +228,7 @@ export abstract class EcsService extends Microservice {
                         for (const [index, subnet] of subnets.entries()) {
                             loadBalancedService.loadBalancer.connections.allowFrom(
                                 Peer.ipv4(subnet.ipv4CidrBlock),
-                                Port.tcp(properties.port || 80),
+                                Port.tcp(properties.listenerPort || 80),
                                 `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
                             );
                         }
@@ -268,7 +239,7 @@ export abstract class EcsService extends Microservice {
                         taskDefinition: taskDefinition as FargateTaskDefinition,
                         publicLoadBalancer: false,
                         desiredCount: properties.desiredTaskCount,
-                        listenerPort: properties.port || 80,
+                        listenerPort: properties.listenerPort || 80,
                         openListener: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
@@ -284,7 +255,7 @@ export abstract class EcsService extends Microservice {
                     if (properties.securityGroup) {
                         properties.securityGroup.addIngressRule(
                             loadBalancedService.loadBalancer.connections.securityGroups[0],
-                            Port.tcp(properties.port || 80),
+                            Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
                     }
@@ -298,7 +269,7 @@ export abstract class EcsService extends Microservice {
                         for (const [index, subnet] of subnets.entries()) {
                             loadBalancedService.loadBalancer.connections.allowFrom(
                                 Peer.ipv4(subnet.ipv4CidrBlock),
-                                Port.tcp(properties.port || 80),
+                                Port.tcp(properties.listenerPort || 80),
                                 `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
                             );
                         }
@@ -352,38 +323,6 @@ export abstract class EcsService extends Microservice {
         return { taskDefinition, loadBalancedService, service, container, taskRole };
     }
 
-    private addOtelCollectorContainer(taskDefinition: TaskDefinition, logging: LogDriver) {
-        taskDefinition.addContainer('aws-otel-collector', {
-            image: ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.41.1'),
-            memoryLimitMiB: 256,
-            cpu: 256,
-            command: ['--config', '/etc/ecs/ecs-xray.yaml'],
-            logging,
-        });
-    }
-
-    private createFireLensLogDriver(properties: EcsServiceProperties, logGroup: LogGroup): FireLensLogDriver {
-        const collection = properties.openSearchCollection!;
-        const openSearchEndpoint =
-            'collection' in collection ? collection.collection.attrCollectionEndpoint : collection.collectionEndpoint;
-
-        return new FireLensLogDriver({
-            options: {
-                Name: 'es',
-                Host: openSearchEndpoint.replace('https://', ''),
-                Port: '443',
-                aws_auth: 'On',
-                AWS_Region: Stack.of(this).region,
-                AWS_Service_Name: 'aoss',
-                Index: `${properties.name}-logs`,
-                tls: 'Off',
-                Suppress_Type_Name: 'On',
-                Trace_Error: 'On',
-                Trace_Output: 'On',
-            },
-        });
-    }
-
     private addFireLensLogRouter(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
         // Add FireLens log router using the task definition method
         const logRouter = taskDefinition.addFirelensLogRouter('log-router', {
@@ -435,17 +374,4 @@ export abstract class EcsService extends Microservice {
         }
     }
 
-    private addXRayContainer(taskDefinition: TaskDefinition, logging: LogDriver) {
-        taskDefinition
-            .addContainer('xraydaemon', {
-                image: ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:3.3.4'),
-                memoryLimitMiB: 256,
-                cpu: 256,
-                logging,
-            })
-            .addPortMappings({
-                containerPort: 2000,
-                protocol: Protocol.UDP,
-            });
-    }
 }

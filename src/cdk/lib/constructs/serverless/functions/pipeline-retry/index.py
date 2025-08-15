@@ -84,6 +84,7 @@ def handler(event, context):
             pipelineName=pipeline_name,
             pipelineExecutionId=execution_id,
             stageName="build",
+            retryMode="FAILED_ACTIONS",
         )
 
         logger.info(

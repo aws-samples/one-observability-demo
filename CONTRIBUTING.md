@@ -81,11 +81,24 @@ This project uses pre-commit hooks to ensure code quality and security. The foll
 - **jest**: Runs unit tests
 - **ash-simple-scan**: AWS security scanning
 
+### Prerequisites
+
+1. **Install git-remote-s3** (required for pushing initial repo to S3 for container pipelines):
+   ```bash
+   pip install git-remote-s3
+   ```
+
+2. **Install dependencies** from the root of the repository:
+   ```bash
+   npm install
+   ```
+
 ### Installing Pre-commit Hooks
 
 **Mac:**
 ```bash
-brew install pre-commit
+# Use pip instead of brew to avoid old version issues
+pip install pre-commit
 pre-commit install
 pre-commit install --hook-type commit-msg
 ```
@@ -101,18 +114,24 @@ pre-commit install --hook-type commit-msg
 
 For faster development without waiting for the pipeline, you can use the local CDK application located in `bin/local.ts`. This deploys resources directly using CDK commands.
 
-**Prerequisites:** Authenticate with your target AWS account
+**Prerequisites:**
+- Authenticate with your target AWS account
+- **IMPORTANT:** Run the deploy check script first (see Deployment Scripts section below)
 
 **Usage:**
 ```bash
+# List available stacks
+cdk -a "npx ts-node bin/local.ts" list
+
+# Deploy all stacks
+cdk -a "npx ts-node bin/local.ts" deploy --all
+
+# Other CDK commands using local app
 cdk -a "npx ts-node bin/local.ts" <cdk-command>
 ```
 
 Example commands:
 ```bash
-# Deploy the stack
-cdk -a "npx ts-node bin/local.ts" deploy
-
 # Show differences
 cdk -a "npx ts-node bin/local.ts" diff
 
@@ -124,7 +143,9 @@ cdk -a "npx ts-node bin/local.ts" destroy
 
 ### Environment Validation Script
 
-The `scripts/deploy-check.sh` script validates your environment and prepares the repository for deployment.
+**IMPORTANT:** The `scripts/deploy-check.sh` script must be executed first before deploying the local stack.
+
+The script validates your environment and prepares the repository for deployment.
 
 **Setup:**
 1. Copy `src/cdk/.env.sample` to `src/cdk/.env`
@@ -143,6 +164,8 @@ The script will:
 - Validate AWS credentials and display current role/account
 - Check if the S3 bucket exists (create if needed)
 - Verify the repository archive exists in S3 (upload if needed)
+
+**After running the deploy check script, you can then deploy the local stack using CDK commands.**
 
 ### Application Redeployment Script
 
