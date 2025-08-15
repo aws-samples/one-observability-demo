@@ -130,8 +130,8 @@ export const PETSEARCH_JAVA = {
 };
 
 /** Pet Site frontend application configuration (deployed on EKS) */
-export const PETSITE = {
-    name: 'petsite',
+export const PETSITE_NET = {
+    name: 'petsite-net',
     dockerFilePath: 'src/applications/microservices/petsite-net/petsite',
     hostType: HostType.EKS,
     computeType: ComputeType.Fargate,
@@ -140,23 +140,24 @@ export const PETSITE = {
 };
 
 /** Pet Status Updater microservice configuration */
-export const PETSTATUSUPDATER = {
-    name: 'petstatusupdater',
-    dockerFilePath: 'src/applications/microservices/petstatusupdater',
+export const PETFOOD_RS = {
+    name: 'petfood-rs',
+    dockerFilePath: 'src/applications/microservices/petfood-rs',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
 };
 
 /** Complete list of all microservice applications */
-export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_PY, PETSEARCH_JAVA, PETSITE];
+export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_PY, PETSEARCH_JAVA, PETSITE_NET, PETFOOD_RS];
 
 /** Map of microservice names to their deployment configurations */
 export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
     [PAYFORADOPTION_GO.name, PAYFORADOPTION_GO],
     [PETLISTADOPTIONS_PY.name, PETLISTADOPTIONS_PY],
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
-    [PETSITE.name, PETSITE],
+    [PETSITE_NET.name, PETSITE_NET],
+    [PETFOOD_RS.name, PETFOOD_RS],
 ]);
 
 /** Paths to pet image assets for seeding the application */

@@ -38,7 +38,9 @@ export class DynamoDatabase extends Construct {
      * The DynamoDatabase table for storing pet adoption data
      * @public
      */
-    public table: Table;
+    public petAdoptionTable: Table;
+    public petFoodsTable: Table;
+    public petFoodsCartTable: Table;
 
     /**
      * Creates a new DynamoDatabase construct with table and monitoring alarms
@@ -50,7 +52,7 @@ export class DynamoDatabase extends Construct {
     constructor(scope: Construct, id: string, properties?: DynamoDatabaseProperties) {
         super(scope, id);
 
-        this.table = new Table(this, 'ddbPetadoption', {
+        this.petAdoptionTable = new Table(this, 'ddbPetadoption', {
             partitionKey: {
                 name: 'pettype',
                 type: AttributeType.STRING,
@@ -62,28 +64,68 @@ export class DynamoDatabase extends Construct {
             removalPolicy: RemovalPolicy.DESTROY,
         });
 
-        this.table
+        this.petAdoptionTable
             .metric('WriteThrottleEvents', { statistic: 'avg' })
             .createAlarm(this, 'WriteThrottleEvents-BasicAlarm', {
                 threshold: properties?.alarmThreshold || 0,
                 treatMissingData: TreatMissingData.NOT_BREACHING,
                 comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
                 evaluationPeriods: properties?.evaluationPeriods || 1,
-                alarmName: `${this.table.tableName}-WriteThrottleEvents-BasicAlarm`,
+                alarmName: `${this.petAdoptionTable.tableName}-WriteThrottleEvents-BasicAlarm`,
             });
 
-        this.table
+        this.petAdoptionTable
             .metric('ReadThrottleEvents', { statistic: 'avg' })
             .createAlarm(this, 'ReadThrottleEvents-BasicAlarm', {
                 threshold: properties?.alarmThreshold || 0,
                 treatMissingData: TreatMissingData.NOT_BREACHING,
                 comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
                 evaluationPeriods: properties?.evaluationPeriods || 1,
-                alarmName: `${this.table.tableName}-ReadThrottleEvents-BasicAlarm`,
+                alarmName: `${this.petAdoptionTable.tableName}-ReadThrottleEvents-BasicAlarm`,
             });
 
+        this.petFoodsTable = new Table(this, 'ddbPetFoods', {
+            partitionKey: {
+                name: 'id',
+                type: AttributeType.STRING,
+            },
+            removalPolicy: RemovalPolicy.DESTROY,
+        });
+
+        this.petFoodsTable.addGlobalSecondaryIndex({
+            indexName: 'PetTypeIndex',
+            partitionKey: {
+                name: '[pet_type]',
+                type: AttributeType.STRING,
+            },
+            sortKey: {
+                name: 'name',
+                type: AttributeType.STRING,
+            },
+        });
+
+        this.petFoodsTable.addGlobalSecondaryIndex({
+            indexName: 'FoodTypeIndex',
+            partitionKey: {
+                name: 'food_type',
+                type: AttributeType.STRING,
+            },
+            sortKey: {
+                name: 'price',
+                type: AttributeType.NUMBER,
+            },
+        });
+
+        this.petFoodsCartTable = new Table(this, 'ddbPetFoodsCart', {
+            partitionKey: {
+                name: 'user_id',
+                type: AttributeType.STRING,
+            },
+            removalPolicy: RemovalPolicy.DESTROY,
+        });
+
         NagSuppressions.addResourceSuppressions(
-            this.table,
+            [this.petAdoptionTable, this.petFoodsCartTable, this.petFoodsTable],
             [
                 {
                     id: 'AwsSolutions-DDB3',
@@ -99,39 +141,74 @@ export class DynamoDatabase extends Construct {
 
     private createExports(): void {
         new CfnOutput(this, 'TableArn', {
-            value: this.table.tableArn,
+            value: this.petAdoptionTable.tableArn,
             exportName: DYNAMODB_TABLE_ARN_EXPORT_NAME,
         });
 
         new CfnOutput(this, 'TableName', {
-            value: this.table.tableName,
+            value: this.petAdoptionTable.tableName,
             exportName: DYNAMODB_TABLE_NAME_EXPORT_NAME,
+        });
+
+        new CfnOutput(this, 'PetFoodsTableArn', {
+            value: this.petFoodsTable.tableArn,
+            exportName: `${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoods`,
+        });
+
+        new CfnOutput(this, 'PetFoodsTableName', {
+            value: this.petFoodsTable.tableName,
+            exportName: `${DYNAMODB_TABLE_NAME_EXPORT_NAME}-PetFoods`,
+        });
+
+        new CfnOutput(this, 'PetFoodsCartTableArn', {
+            value: this.petFoodsCartTable.tableArn,
+            exportName: `${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoodsCart`,
+        });
+
+        new CfnOutput(this, 'PetFoodsCartTableName', {
+            value: this.petFoodsCartTable.tableName,
+            exportName: `${DYNAMODB_TABLE_NAME_EXPORT_NAME}-PetFoodsCart`,
         });
     }
 
-    public static importFromExports(scope: Construct, id: string): { table: ITable } {
+    public static importFromExports(
+        scope: Construct,
+        id: string,
+    ): { table: ITable; petFoodsTable: ITable; petFoodsCartTable: ITable } {
         const tableArn = Fn.importValue(DYNAMODB_TABLE_ARN_EXPORT_NAME);
+        const petFoodsTableArn = Fn.importValue(`${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoods`);
+        const petFoodsCartTableArn = Fn.importValue(`${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoodsCart`);
 
-        const table = Table.fromTableAttributes(scope, `${id}-Table`, {
+        const petAdoptionsTable = Table.fromTableAttributes(scope, `${id}-Table`, {
             tableArn: tableArn,
         });
 
-        return { table };
+        const petFoodsTable = Table.fromTableAttributes(scope, `${id}-PetFoodsTable`, {
+            tableArn: petFoodsTableArn,
+        });
+
+        const petFoodsCartTable = Table.fromTableAttributes(scope, `${id}-PetFoodsCartTable`, {
+            tableArn: petFoodsCartTableArn,
+        });
+
+        return { table: petAdoptionsTable, petFoodsTable, petFoodsCartTable };
     }
 
     createOutputs(): void {
-        if (this.table) {
+        if (this.petAdoptionTable && this.petFoodsTable && this.petFoodsCartTable) {
             Utilities.createSsmParameters(
                 this,
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        dynamodbtablename: this.table.tableName,
+                        dynamodbtablename: this.petAdoptionTable.tableName,
+                        foods_table_name: this.petFoodsTable.tableName,
+                        carts_table_name: this.petFoodsCartTable.tableName,
                     }),
                 ),
             );
         } else {
-            throw new Error('Table is not available');
+            throw new Error('Tables are not available');
         }
     }
 }

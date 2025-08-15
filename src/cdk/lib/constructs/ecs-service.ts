@@ -119,7 +119,7 @@ export abstract class EcsService extends Microservice {
         });
 
         container.addPortMappings({
-            containerPort: properties.port || 80,
+            containerPort: properties.containerPort || 80,
             protocol: Protocol.TCP,
         });
 
@@ -155,7 +155,7 @@ export abstract class EcsService extends Microservice {
                         taskDefinition: taskDefinition as FargateTaskDefinition,
                         publicLoadBalancer: false,
                         desiredCount: properties.desiredTaskCount,
-                        listenerPort: properties.port || 80,
+                        listenerPort: properties.listenerPort || 80,
                         securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
                         openListener: false,
                         assignPublicIp: false,
@@ -173,7 +173,7 @@ export abstract class EcsService extends Microservice {
                     if (properties.securityGroup) {
                         properties.securityGroup.addIngressRule(
                             loadBalancedService.loadBalancer.connections.securityGroups[0],
-                            Port.tcp(properties.port || 80),
+                            Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
                     }
@@ -187,7 +187,7 @@ export abstract class EcsService extends Microservice {
                         for (const [index, subnet] of subnets.entries()) {
                             loadBalancedService.loadBalancer.connections.allowFrom(
                                 Peer.ipv4(subnet.ipv4CidrBlock),
-                                Port.tcp(properties.port || 80),
+                                Port.tcp(properties.listenerPort || 80),
                                 `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
                             );
                         }
@@ -198,7 +198,7 @@ export abstract class EcsService extends Microservice {
                         taskDefinition: taskDefinition as FargateTaskDefinition,
                         publicLoadBalancer: false,
                         desiredCount: properties.desiredTaskCount,
-                        listenerPort: properties.port || 80,
+                        listenerPort: properties.listenerPort || 80,
                         openListener: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
@@ -214,7 +214,7 @@ export abstract class EcsService extends Microservice {
                     if (properties.securityGroup) {
                         properties.securityGroup.addIngressRule(
                             loadBalancedService.loadBalancer.connections.securityGroups[0],
-                            Port.tcp(properties.port || 80),
+                            Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
                     }
@@ -228,7 +228,7 @@ export abstract class EcsService extends Microservice {
                         for (const [index, subnet] of subnets.entries()) {
                             loadBalancedService.loadBalancer.connections.allowFrom(
                                 Peer.ipv4(subnet.ipv4CidrBlock),
-                                Port.tcp(properties.port || 80),
+                                Port.tcp(properties.listenerPort || 80),
                                 `Allow traffic from ${properties.subnetType || 'private'} subnet ${index + 1}`,
                             );
                         }

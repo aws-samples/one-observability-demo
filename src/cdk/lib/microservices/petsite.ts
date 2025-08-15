@@ -56,7 +56,7 @@ export class PetSite extends EKSDeployment {
         );
 
         this.targetGroup = new ApplicationTargetGroup(scope, 'targetGroup', {
-            port: properties.port || 80,
+            port: properties.listenerPort || 80,
             vpc: properties.vpc!,
             protocol: ApplicationProtocol.HTTP,
             targetGroupName: `TG-${properties.name}`,
@@ -67,7 +67,7 @@ export class PetSite extends EKSDeployment {
         });
 
         this.loadBalancer.addListener('listener', {
-            port: properties.port || 80,
+            port: properties.listenerPort || 80,
             protocol: ApplicationProtocol.HTTP,
             defaultTargetGroups: [this.targetGroup],
             open: false,
@@ -109,7 +109,7 @@ export class PetSite extends EKSDeployment {
         // Allow load balancer to reach EKS nodes
         this.loadBalancer.connections.allowTo(
             properties.eksCluster!.clusterSecurityGroup,
-            Port.tcp(properties.port || 80),
+            Port.tcp(properties.listenerPort || 80),
             'Allow Load Balancer to EKS nodes',
         );
 

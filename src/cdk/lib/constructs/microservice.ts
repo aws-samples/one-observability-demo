@@ -11,8 +11,8 @@ import {
     PAYFORADOPTION_GO,
     PETLISTADOPTIONS_PY,
     PETSEARCH_JAVA,
-    PETSITE,
-    PETSTATUSUPDATER,
+    PETSITE_NET,
+    PETFOOD_RS,
     HostType,
     ComputeType,
 } from '../../bin/environment';
@@ -23,8 +23,8 @@ export const MicroservicesNames = {
     PayForAdoption: PAYFORADOPTION_GO.name,
     PetListAdoptions: PETLISTADOPTIONS_PY.name,
     PetSearch: PETSEARCH_JAVA.name,
-    PetSite: PETSITE.name,
-    PetStatusUpdater: PETSTATUSUPDATER.name,
+    PetSite: PETSITE_NET.name,
+    PetFood: PETFOOD_RS.name,
 } as const;
 
 export interface MicroserviceProperties {
@@ -43,7 +43,8 @@ export interface MicroserviceProperties {
     logGroupName?: string;
     healthCheck?: string;
     subnetType?: SubnetType;
-    port?: number;
+    listenerPort?: number;
+    containerPort?: number;
     createLoadBalancer?: boolean;
 }
 
