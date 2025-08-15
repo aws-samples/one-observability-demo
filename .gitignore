@@ -1,5 +1,12 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,macos,visualstudiocode,node,python,git
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,macos,visualstudiocode,node,python,git
+# Go binaries
+# cspell:ignore petadoptions
+PetAdoptions/payforadoption-go/petadoptions
+
+**/.DS_Store
+**/assets
+**/.idea
 
 ### Git ###
 # Created by git for backups. To disable backups in Git:
@@ -416,3 +423,6 @@ PetAdoptions/payforadoption-go/petadoptions
 PetAdoptions/petsite/petsite/appsettings.Development.json
 PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/indexLayout.xml
 PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml
+
+# Dot net build files
+**/obj/**
