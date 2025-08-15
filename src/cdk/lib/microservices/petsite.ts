@@ -29,7 +29,7 @@ import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { Peer, Port } from 'aws-cdk-lib/aws-ec2';
+import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 
@@ -48,9 +48,12 @@ export class PetSite extends EKSDeployment {
             },
         });
 
+        const cloudFrontPrefixList = PrefixList.fromLookup(this, 'cloudfront-prefix-list', {
+            prefixListName: 'com.amazonaws.global.cloudfront.origin-facing',
+        });
         // Allow CloudFront to access the load balancer
         this.loadBalancer.connections.allowFrom(
-            Peer.prefixList('pl-b6a144df'),
+            Peer.prefixList(cloudFrontPrefixList.prefixListId),
             Port.tcp(80),
             'Allow CloudFront access',
         );

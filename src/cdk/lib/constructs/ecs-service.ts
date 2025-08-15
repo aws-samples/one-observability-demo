@@ -18,7 +18,6 @@ import {
     BaseService,
     FireLensLogDriver,
     FirelensLogRouterType,
-    LogDriver,
 } from 'aws-cdk-lib/aws-ecs';
 import {
     ApplicationLoadBalancedEc2Service,
@@ -83,17 +82,14 @@ export abstract class EcsService extends Microservice {
         });
 
         // Configure logging based on whether OpenSearch collection is provided
-        let logging: LogDriver;
-        if (properties.openSearchCollection) {
-            // Use FireLens for dual routing to CloudWatch and OpenSearch
-            logging = this.createFireLensLogDriver(properties, logGroup);
-        } else {
-            // Use standard CloudWatch logging
-            logging = new AwsLogDriver({
-                streamPrefix: 'logs',
-                logGroup: logGroup,
-            });
-        }
+        const logging = properties.openSearchCollection
+            ? // Use FireLens for dual routing to CloudWatch and OpenSearch
+              this.createFireLensLogDriver(properties)
+            : // Use standard CloudWatch logging
+              new AwsLogDriver({
+                  streamPrefix: 'logs',
+                  logGroup: logGroup,
+              });
 
         const taskRole = new Role(this, `taskRole`, {
             assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -323,6 +319,28 @@ export abstract class EcsService extends Microservice {
         return { taskDefinition, loadBalancedService, service, container, taskRole };
     }
 
+    private createFireLensLogDriver(properties: EcsServiceProperties): FireLensLogDriver {
+        const collection = properties.openSearchCollection!;
+        const openSearchEndpoint =
+            'collection' in collection ? collection.collection.attrCollectionEndpoint : collection.collectionEndpoint;
+
+        return new FireLensLogDriver({
+            options: {
+                Name: 'es',
+                Host: openSearchEndpoint.replace('https://', ''),
+                Port: '443',
+                aws_auth: 'On',
+                AWS_Region: Stack.of(this).region,
+                AWS_Service_Name: 'aoss',
+                Index: `${properties.name}-logs`,
+                tls: 'Off',
+                Suppress_Type_Name: 'On',
+                Trace_Error: 'On',
+                Trace_Output: 'On',
+            },
+        });
+    }
+
     private addFireLensLogRouter(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
         // Add FireLens log router using the task definition method
         const logRouter = taskDefinition.addFirelensLogRouter('log-router', {
@@ -348,7 +366,7 @@ export abstract class EcsService extends Microservice {
 
         // Add port mappings for the log router (required by ECS)
         logRouter.addPortMappings({
-            containerPort: 24224,
+            containerPort: 24_224,
             protocol: Protocol.TCP,
         });
 
@@ -373,5 +391,4 @@ export abstract class EcsService extends Microservice {
             );
         }
     }
-
 }
