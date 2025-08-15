@@ -1,0 +1,12 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: grafana-repo
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  url: https://github.com/aws-samples/one-observability-demo
+  ref:
+    branch: main

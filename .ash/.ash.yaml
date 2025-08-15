@@ -11,17 +11,34 @@ global_settings:
           reason: 'Skip node_modules folder'
         - path: src/cdk/wiki-docs
           reason: 'Skip wiki docs since it will be built in the pipeline'
-        - path: PetAdoptions/
+        - path: archive/
           reason: 'Legacy application being migrated, for now only scan the new code'
         - path: grafana-dashboards
           reason: 'Skip legacy code during migration'
         - path: codepipeline-stack.yaml
           reason: 'Skip old pipeline since it will be migrated'
+        - path: src/applications/lambda/pethistory-node/template.yaml
+          reason: 'Temporary SAM template, will be moved to CDK'
+        - path: .secrets.baseline
+          reason: 'Secret Baseline file includes the word secret'
 
     suppressions:
         - rule_id: SECRET-SECRET-KEYWORD
           path: '.github/workflows/cdk-test.yml'
           reason: 'Dummy secret'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: '.secrets.baseline'
+          reason: 'Secret Baseline file includes the word secret'
+        - rule_id: 'SECRET-BASE64-HIGH-ENTROPY-STRING'
+          path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
+          line_start: 8
+          line_end: 11
+          reason: 'Dependency hash for verification, false positive'
+        - rule_id: 'SECRET-HEX-HIGH-ENTROPY-STRING'
+          path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
+          line_start: 8
+          line_end: 11
+          reason: 'Dependency hash for verification, false positive'
         # CDK-Nag suppressions moved from inline in codebuild-deployment-template.yaml
         - rule_id: AwsSolutions-S1
           path: 'src/templates/codebuild-deployment-template.yaml'
@@ -189,7 +206,7 @@ scanners:
         enabled: true
         options:
             severity_threshold: null
-            baseline_file: null
+            baseline_file: .secrets.baseline
             scan_settings:
                 version: null
                 generated_at: null

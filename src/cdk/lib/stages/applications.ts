@@ -14,7 +14,6 @@ import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
 import { ListAdoptionsService } from '../microservices/list-adoptions';
 import { PetSearchService } from '../microservices/pet-search';
-import { TrafficGeneratorService } from '../microservices/traffic-generator';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
 import { StatusUpdatedService } from '../constructs/serverless/status-updater';
 import { VpcEndpoints } from '../constructs/vpc-endpoints';
@@ -164,33 +163,7 @@ export class MicroservicesStack extends Stack {
                     this.microservices.set(name, svc);
                 }
             }
-            if (name == MicroservicesNames.TrafficGenerator) {
-                if (service?.hostType == HostType.ECS) {
-                    svc = new TrafficGeneratorService(this, name, {
-                        hostType: service.hostType,
-                        computeType: service.computeType,
-                        securityGroup: ecsExports.securityGroup,
-                        ecsCluster: ecsExports.cluster,
-                        disableService: service.disableService,
-                        cpu: 1024,
-                        memoryLimitMiB: 2048,
-                        desiredTaskCount: 1,
-                        name: name,
-                        repositoryURI: `${baseURI}/${name}`,
-                        instrumentation: 'none',
-                        vpc: vpcExports,
-                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-                        createLoadBalancer: false,
-                        cloudMapNamespace: cloudMap,
-                        healthCheck: '/',
-                    });
-                } else {
-                    throw new Error(`EKS is not supported for ${name}`);
-                }
-                if (svc) {
-                    this.microservices.set(name, svc);
-                }
-            }
+
             if (name == MicroservicesNames.PetSite) {
                 if (service?.hostType == HostType.EKS) {
                     svc = new PetSite(this, name, {

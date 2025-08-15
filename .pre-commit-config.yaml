@@ -28,6 +28,12 @@ repos:
       rev: v1.5.0
       hooks:
           - id: detect-secrets
+            exclude: 'archive/.*|.secrets.baseline'
+            args:
+                - '--baseline'
+                - '.secrets.baseline'
+                - '--exclude-files'
+                - 'archive/.*'
 
     # Formatting
     - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -35,7 +41,7 @@ repos:
       hooks:
           - id: check-json
           - id: check-yaml
-            exclude: 'src/templates|src/cdk/lib/microservices/manifests'
+            exclude: 'src/templates|src/cdk/lib/microservices/manifests|archive/.*|src/applications/lambda/pethistory-node/template.yaml'
             args: [--allow-multiple-documents]
           - id: check-case-conflict
           - id: trailing-whitespace
@@ -59,6 +65,7 @@ repos:
       hooks:
           - id: eslint
             files: \.[jt]sx?$
+            exclude: 'archive/.*'
             types: [file]
             args:
                 - --fix
@@ -97,31 +104,23 @@ repos:
           - id: mypy
             entry: bash -c 'mypy "$@" || true' -- # Don't block, just alert
             verbose: true
+            additional_dependencies: [types-requests]
     # CFN CHECKS & LINTING
     - repo: https://github.com/aws-cloudformation/cfn-python-lint
       rev: v1.38.2
       hooks:
           - id: cfn-python-lint
-            files: .*\.(ya?ml)$
-            exclude: (?x)^(
-                .pre-commit-config.yaml|
-                mkdocs.yml|
-                .github/workflows/.*|
-                .ash/.ash.yaml|
-                src/cdk/lib/microservices/manifests/.*|
-                src/cdk/resources/.*|
-                PetAdoptions/.*|
-                )$
+            files: src/templates.*\.(ya?ml)$
 
       # Legal Text
-    - repo: https://github.com/dontirun/text-prepender
-      rev: v0.3.0
-      hooks:
-          - id: text-prepender
-            args:
-                - -t
-                - NOTICE
-      # unit testing
+    # - repo: https://github.com/dontirun/text-prepender
+    #   rev: v0.3.0
+    #   hooks:
+    #       - id: text-prepender
+    #         args:
+    #             - -t
+    #             - NOTICE
+    # unit testing
     - repo: local
       hooks:
           - id: jest

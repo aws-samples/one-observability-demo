@@ -1,7 +1,0 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-psycopg2-binary==2.9.7
-requests==2.31.0
-boto3==1.28.44
-prometheus-client==0.17.1
-python-dotenv==1.0.0 

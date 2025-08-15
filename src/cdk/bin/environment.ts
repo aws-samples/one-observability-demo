@@ -105,7 +105,7 @@ export const CORE_PROPERTIES = {
 /** Pay for Adoption microservice configuration (Go implementation) */
 export const PAYFORADOPTION_GO = {
     name: 'payforadoption-go',
-    dockerFilePath: 'PetAdoptions/payforadoption-go',
+    dockerFilePath: 'src/applications/microservices/payforadoption-go',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
@@ -114,7 +114,7 @@ export const PAYFORADOPTION_GO = {
 /** Pet List Adoptions microservice configuration (Go implementation) */
 export const PETLISTADOPTIONS_GO = {
     name: 'petlistadoption-go',
-    dockerFilePath: 'PetAdoptions/petlistadoptions-go',
+    dockerFilePath: 'src/applications/microservices/petlistadoptions-go',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
@@ -123,7 +123,7 @@ export const PETLISTADOPTIONS_GO = {
 /** Pet Search microservice configuration (Java implementation) */
 export const PETSEARCH_JAVA = {
     name: 'petsearch-java',
-    dockerFilePath: 'PetAdoptions/petsearch-java',
+    dockerFilePath: 'src/applications/microservices/petsearch-java',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
@@ -132,7 +132,7 @@ export const PETSEARCH_JAVA = {
 /** Pet Site frontend application configuration (deployed on EKS) */
 export const PETSITE = {
     name: 'petsite',
-    dockerFilePath: 'PetAdoptions/petsite/petsite',
+    dockerFilePath: 'src/applications/microservices/petsite-net/petsite',
     hostType: HostType.EKS,
     computeType: ComputeType.Fargate,
     disableService: false,
@@ -142,23 +142,14 @@ export const PETSITE = {
 /** Pet Status Updater microservice configuration */
 export const PETSTATUSUPDATER = {
     name: 'petstatusupdater',
-    dockerFilePath: 'PetAdoptions/petstatusupdater',
-    hostType: HostType.ECS,
-    computeType: ComputeType.Fargate,
-    disableService: false,
-};
-
-/** Traffic Generator service for load testing */
-export const TRAFFICGENERATOR = {
-    name: 'trafficgenerator',
-    dockerFilePath: 'PetAdoptions/trafficgenerator/trafficgenerator',
+    dockerFilePath: 'src/applications/microservices/petstatusupdater',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
 };
 
 /** Complete list of all microservice applications */
-export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_GO, PETSEARCH_JAVA, PETSITE, TRAFFICGENERATOR];
+export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_GO, PETSEARCH_JAVA, PETSITE];
 
 /** Map of microservice names to their deployment configurations */
 export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
@@ -166,14 +157,13 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
     [PETLISTADOPTIONS_GO.name, PETLISTADOPTIONS_GO],
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
     [PETSITE.name, PETSITE],
-    [TRAFFICGENERATOR.name, TRAFFICGENERATOR],
 ]);
 
 /** Paths to pet image assets for seeding the application */
 export const PET_IMAGES = [
-    '../../PetAdoptions/cdk/pet_stack/resources/bunnies.zip',
-    '../../PetAdoptions/cdk/pet_stack/resources/kitten.zip',
-    '../../PetAdoptions/cdk/pet_stack/resources/puppies.zip',
+    '../../static/images/bunnies.zip',
+    '../../static/images/kitten.zip',
+    '../../static/images/puppies.zip',
 ];
 
 /** Prefix for AWS Systems Manager Parameter Store parameters */
@@ -181,10 +171,19 @@ export const PARAMETER_STORE_PREFIX = '/petstore';
 
 /** Lambda function configuration for pet status updater */
 export const STATUS_UPDATER_FUNCTION = {
-    name: 'petupdater',
+    name: 'petupdater-node',
     runtime: Runtime.NODEJS_22_X,
-    depsLockFilePath: '../../PetAdoptions/petstatusupdater/package-lock.json',
-    entry: '../../PetAdoptions/petstatusupdater/index.js',
+    depsLockFilePath: '../applications/lambda/petstatusupdater-node/package-lock.json',
+    entry: '../applications/lambda/petstatusupdater-node/index.js',
+    memorySize: 128,
+    handle: 'handler',
+};
+
+export const PET_HISTORY_FUNCTION = {
+    name: 'pethistory-node',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../applications/lambda/pethistory-node/package-lock.json',
+    entry: '../applications/lambda/pethistory-node/index.js',
     memorySize: 128,
     handle: 'handler',
 };

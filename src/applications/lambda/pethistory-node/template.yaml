@@ -1,0 +1,243 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pet History Lambda function for processing adoption history messages from SQS
+
+Parameters:
+    SQSQueueArn:
+        Type: String
+        Default: 'arn:aws:sqs:REGION:ACCOUNTID:QUEUE_NAME'
+        Description: ARN of the SQS queue for adoption messages
+
+    RDSSecretArn:
+        Type: String
+        Default: 'arn:aws:secretsmanager:REGION:ACCOUNTID:secret:SECRET_NAME' #pragma: allowlist secret
+        Description: ARN of the RDS secret in Secrets Manager
+
+    VpcId:
+        Type: String
+        Default: 'vpc-123abc'
+        Description: VPC ID for Lambda deployment
+
+    SubnetIds:
+        Type: CommaDelimitedList
+        Default: 'subnet-123abc,subnet-456def'
+        Description: Comma-delimited list of subnet IDs for Lambda deployment
+
+    SecurityGroupId:
+        Type: String
+        Default: 'sg-123abc'
+        Description: Security group ID for Lambda function
+
+Globals:
+    Function:
+        Runtime: nodejs18.x
+        Architectures:
+            - x86_64
+        Timeout: 60
+        MemorySize: 512
+        LoggingConfig:
+            LogFormat: JSON
+        Environment:
+            Variables:
+                AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+        # Enable X-Ray tracing for Application Signals
+        Tracing: Active
+
+Resources:
+    # Dead Letter Queue for failed history messages
+    PetHistoryDLQ:
+        Type: AWS::SQS::Queue
+        Properties:
+            QueueName: pethistory-dlq
+            MessageRetentionPeriod: 1209600 # 14 days
+            VisibilityTimeout: 60
+            # Enable server-side encryption
+            KmsMasterKeyId: alias/aws/sqs
+            # Enable content-based deduplication for FIFO queues
+            SqsManagedSseEnabled: true
+            Tags:
+                - Key: Purpose
+                  Value: DeadLetterQueue
+                - Key: Service
+                  Value: PetHistory
+
+    # SQS Queue Policy to enforce SSL
+    PetHistoryDLQPolicy:
+        Type: AWS::SQS::QueuePolicy
+        Properties:
+            Queues:
+                - !Ref PetHistoryDLQ
+            PolicyDocument:
+                Statement:
+                    - Effect: Deny
+                      Principal: '*'
+                      Action: 'sqs:*'
+                      Resource: !GetAtt PetHistoryDLQ.Arn
+                      Condition:
+                          Bool:
+                              'aws:SecureTransport': 'false'
+
+    PetHistoryFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: pethistory
+            Description: Lambda function to process adoption history messages from SQS and write to transaction_history table
+            CodeUri: ./
+            Handler: index.handler
+
+            # VPC Configuration for RDS access
+            VpcConfig:
+                SecurityGroupIds:
+                    - !Ref SecurityGroupId
+                SubnetIds: !Ref SubnetIds
+
+            # Environment Variables
+            Environment:
+                Variables:
+                    RDS_SECRET_ARN: !Ref RDSSecretArn
+                    # CloudWatch Application Signals configuration
+                    AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+                    OTEL_SERVICE_NAME: pethistory
+                    OTEL_SERVICE_VERSION: '1.0.0'
+                    OTEL_PROPAGATORS: tracecontext,baggage,b3,xray
+                    OTEL_NODE_DISABLED_INSTRUMENTATIONS: none
+                    # Enable Application Signals
+                    OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+                    LAMBDA_APPLICATION_SIGNALS_REMOTE_ENVIRONMENT: lambda:default
+                    OTEL_METRICS_EXPORTER: none
+                    OTEL_LOGS_EXPORTER: none
+
+            # AWS Distro for OpenTelemetry Layer for auto-instrumentation
+            # Using the correct AWS-managed OTEL layer for us-west-2
+            Layers:
+                - arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroJs:8
+
+            # SQS Event Source
+            Events:
+                SQSEvent:
+                    Type: SQS
+                    Properties:
+                        Queue: !Ref SQSQueueArn
+                        BatchSize: 10
+                        MaximumBatchingWindowInSeconds: 5
+                        FunctionResponseTypes:
+                            - ReportBatchItemFailures
+
+            # IAM Policies
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - AWSLambdaVPCAccessExecutionRole
+
+                # Secrets Manager access
+                - Version: '2012-10-17'
+                  Statement:
+                      - Effect: Allow
+                        Action:
+                            - secretsmanager:GetSecretValue #pragma: allowlist secret
+                        Resource: !Ref RDSSecretArn
+
+                # RDS access (if using RDS Proxy or IAM database authentication)
+                - Version: '2012-10-17'
+                  Statement:
+                      - Effect: Allow
+                        Action:
+                            - rds-db:connect
+                        Resource: !Sub 'arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/lambda-user'
+
+                # X-Ray and CloudWatch Application Signals permissions
+                - Version: '2012-10-17'
+                  Statement:
+                      - Effect: Allow
+                        Action:
+                            - xray:PutTraceSegments
+                            - xray:PutTelemetryRecords
+                            - cloudwatch:PutMetricData
+                            - logs:PutLogEvents
+                            - logs:CreateLogGroup
+                            - logs:CreateLogStream
+                        Resource: '*'
+
+                # Application Signals specific permissions
+                - Version: '2012-10-17'
+                  Statement:
+                      - Effect: Allow
+                        Action:
+                            - application-signals:PutServiceLevelObjective
+                            - application-signals:GetServiceLevelObjective
+                            - application-signals:ListServiceLevelObjectives
+                        Resource: '*'
+
+    # CloudWatch Log Group with retention
+    PetHistoryLogGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+            LogGroupName: !Sub '/aws/lambda/${PetHistoryFunction}'
+            RetentionInDays: 14
+
+    # CloudWatch Alarms for monitoring
+    PetHistoryErrorAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmName: !Sub '${PetHistoryFunction}-Errors'
+            AlarmDescription: 'Pet History Lambda function error rate is too high'
+            MetricName: Errors
+            Namespace: AWS/Lambda
+            Statistic: Sum
+            Period: 300
+            EvaluationPeriods: 2
+            Threshold: 5
+            ComparisonOperator: GreaterThanThreshold
+            Dimensions:
+                - Name: FunctionName
+                  Value: !Ref PetHistoryFunction
+            TreatMissingData: notBreaching
+
+    PetHistoryDurationAlarm:
+        Type: AWS::CloudWatch::Alarm
+        Properties:
+            AlarmName: !Sub '${PetHistoryFunction}-Duration'
+            AlarmDescription: 'Pet History Lambda function duration is too high'
+            MetricName: Duration
+            Namespace: AWS/Lambda
+            Statistic: Average
+            Period: 300
+            EvaluationPeriods: 2
+            Threshold: 50000 # 50 seconds
+            ComparisonOperator: GreaterThanThreshold
+            Dimensions:
+                - Name: FunctionName
+                  Value: !Ref PetHistoryFunction
+            TreatMissingData: notBreaching
+
+Outputs:
+    PetHistoryFunctionArn:
+        Description: 'Pet History Lambda Function ARN'
+        Value: !GetAtt PetHistoryFunction.Arn
+        Export:
+            Name: !Sub '${AWS::StackName}-PetHistoryFunctionArn'
+
+    PetHistoryFunctionName:
+        Description: 'Pet History Lambda Function Name'
+        Value: !Ref PetHistoryFunction
+        Export:
+            Name: !Sub '${AWS::StackName}-PetHistoryFunctionName'
+
+    PetHistoryDLQArn:
+        Description: 'Pet History Dead Letter Queue ARN'
+        Value: !GetAtt PetHistoryDLQ.Arn
+        Export:
+            Name: !Sub '${AWS::StackName}-PetHistoryDLQArn'
+
+    PetHistoryDLQUrl:
+        Description: 'Pet History Dead Letter Queue URL'
+        Value: !Ref PetHistoryDLQ
+        Export:
+            Name: !Sub '${AWS::StackName}-PetHistoryDLQUrl'
+
+    PetHistoryDLQPolicyArn:
+        Description: 'Pet History Dead Letter Queue Policy ARN'
+        Value: !Ref PetHistoryDLQPolicy
+        Export:
+            Name: !Sub '${AWS::StackName}-PetHistoryDLQPolicyArn'
