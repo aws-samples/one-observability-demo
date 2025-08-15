@@ -1,0 +1,205 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#*
+#* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#* SPDX-License-Identifier: MIT-0
+#*
+#* Permission is hereby granted, free of charge, to any person obtaining a copy of this
+#* software and associated documentation files (the "Software"), to deal in the Software
+#* without restriction, including without limitation the rights to use, copy, modify,
+#* merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+#* permit persons to whom the Software is furnished to do so.
+#*
+#* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+#* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+#* PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#* HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#* OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#*
+
+#------------------------------------------------------------------------------
+#
+# Template: observability-getting-started-ADOT.yml
+# Purpose:  CloudFormation template to deploy EC2 instance for observability immersion day.
+#
+#------------------------------------------------------------------------------
+---
+AWSTemplateFormatVersion: '2023-10-10'
+Description: AWS CloudFormation template to launch an EC2 instance with required IAM permissions. Written for Observability getting started workshop Februray 2023. **WARNING** This template creates a VPC, public subnet, Internet Gateway, 1 EC2 with Apache installed, and associated route tables and permissions. You will be billed for the AWS resources used if you create a stack from this template.
+
+#-----------------------------------------------------------
+# Parameters
+#-----------------------------------------------------------
+Parameters :
+  LatestAmazonLinuxAmiId :
+    # Use public Systems Manager Parameter
+    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+# Calling AMI public parameters
+# https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html
+
+Resources:
+
+  #-------------------------------------------------
+  # VPC and required resources to enable network connectivity to AWS Systems Manager
+  #-------------------------------------------------
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedADOT
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedADOT
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  SubnetPublic:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.0.0.0/20
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedADOT
+  RouteTablePublic:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedADOT
+  RouteTableAssociationPublic:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPublic
+      RouteTableId: !Ref RouteTablePublic
+  RouteTablePublicInternetRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Security Group for CW ImmersionDay test instances'
+      GroupName: ObservabilityGettingStartedADOT
+      SecurityGroupIngress:
+        - Description: Ingress to allow access for Apache from Internet on port 80
+          IpProtocol: 6
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: Ingress to allow API invocation on port 4000
+          IpProtocol: 6
+          FromPort: 4000
+          ToPort: 4000
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - Description: Egress to allow ADOT to communicate with CloudWatch and Amazon Managed Prometheus service
+          IpProtocol: 6
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ObservabilityGettingStartedADOT
+      VpcId: !Ref VPC
+  #-------------------------------------------------
+  # IAM ROLE FOR EC2 Instance
+  #-------------------------------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SSMCloudWatchADOTInstanceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
+  RolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AWSDistroOpenTelemetryPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:PutLogEvents
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:DescribeLogGroups
+              - ssm:GetParameters
+              - ssm:PutParameter
+            Resource: '*'
+      Roles:
+        - !Ref InstanceRole
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: SSMCloudWatchADOTInstanceRole
+      Path: '/'
+      Roles:
+        - !Ref InstanceRole
+  #-------------------------------------------------
+  # EC2 instance using the latest Amazon Linux AMI
+  #-------------------------------------------------
+  LinuxEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.small
+      ImageId: !Ref LatestAmazonLinuxAmiId
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+          SubnetId: !Ref SubnetPublic
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            #Cloudformation Stack: ${AWS::StackName}
+            sudo yum install httpd -y
+            sudo service httpd start
+            sudo chkconfig httpd on
+            sudo su
+            echo "<b><font size="+3">Welcome to ADOT monitoring for EC2 instances and workloads</font></b>" >> /var/www/html/index.html
+            exit
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: AppServer
+Outputs:
+  IAMRole:
+    Description: IAM Role
+    Value: !Ref InstanceRole
+  WebsiteURL:
+    Description: Website URL "http://<EC2 Instance public IP>/"
+    Value: !Sub "http://${LinuxEC2Instance.PublicIp}/"

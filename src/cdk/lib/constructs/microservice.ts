@@ -13,7 +13,6 @@ import {
     PETSEARCH_JAVA,
     PETSITE,
     PETSTATUSUPDATER,
-    TRAFFICGENERATOR,
     HostType,
     ComputeType,
 } from '../../bin/environment';
@@ -26,7 +25,6 @@ export const MicroservicesNames = {
     PetSearch: PETSEARCH_JAVA.name,
     PetSite: PETSITE.name,
     PetStatusUpdater: PETSTATUSUPDATER.name,
-    TrafficGenerator: TRAFFICGENERATOR.name,
 } as const;
 
 export interface MicroserviceProperties {

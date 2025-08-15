@@ -1,0 +1,74 @@
+plugins {
+    id 'org.springframework.boot' version '2.7.3'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+}
+
+group = 'org.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudAwsVersion', "2.4.2")
+    set('testContainerVersion', '1.16.2')
+    set('opentelemetryVersion', '1.17.0')
+    set('log4j2.version', '2.18.0')
+}
+
+dependencies {
+
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+    implementation 'ch.qos.logback.contrib:logback-jackson:0.1.5'
+    implementation 'ch.qos.logback.contrib:logback-json-classic:0.1.5'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.0'
+    implementation 'org.slf4j:slf4j-api:1.7.25'
+
+
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation "io.awspring.cloud:spring-cloud-starter-aws:${springCloudAwsVersion}"
+    implementation "io.awspring.cloud:spring-cloud-aws-autoconfigure:${springCloudAwsVersion}"
+
+    implementation 'com.amazonaws:aws-java-sdk-core'
+    implementation 'com.amazonaws:aws-java-sdk-s3'
+    implementation 'com.amazonaws:aws-java-sdk-dynamodb'
+    implementation 'com.amazonaws:aws-java-sdk-ssm'
+    implementation 'com.amazonaws:aws-java-sdk-sqs'
+
+    implementation "io.opentelemetry:opentelemetry-api"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations"
+
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation "org.testcontainers:localstack:${testContainerVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainerVersion}"
+    testImplementation group: 'io.vavr', name: 'vavr-test', version: '0.10.4'
+
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "com.amazonaws:aws-xray-recorder-sdk-bom:2.11.2"
+        mavenBom "io.opentelemetry:opentelemetry-bom:${opentelemetryVersion}"
+        mavenBom "io.opentelemetry:opentelemetry-bom-alpha:${opentelemetryVersion}-alpha"
+        mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:${opentelemetryVersion}-alpha"
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.12.297'
+    }
+}
+
+jar { // https://docs.spring.io/spring-boot/docs/current/gradle-plugin/reference/htmlsingle/#packaging-executable.and-plain-archives
+    enabled = false
+}
+
+test {
+    String etags = System.getProperty("excludeTags") ?
+            System.getProperty("excludeTags") : 'skip';
+    useJUnitPlatform {
+        excludeTags etags
+    }
+}
