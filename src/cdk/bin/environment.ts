@@ -112,9 +112,9 @@ export const PAYFORADOPTION_GO = {
 };
 
 /** Pet List Adoptions microservice configuration (Go implementation) */
-export const PETLISTADOPTIONS_GO = {
-    name: 'petlistadoption-go',
-    dockerFilePath: 'src/applications/microservices/petlistadoptions-go',
+export const PETLISTADOPTIONS_PY = {
+    name: 'petlistadoption-py',
+    dockerFilePath: 'src/applications/microservices/petlistadoptions-py',
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
@@ -149,12 +149,12 @@ export const PETSTATUSUPDATER = {
 };
 
 /** Complete list of all microservice applications */
-export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_GO, PETSEARCH_JAVA, PETSITE];
+export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_PY, PETSEARCH_JAVA, PETSITE];
 
 /** Map of microservice names to their deployment configurations */
 export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
     [PAYFORADOPTION_GO.name, PAYFORADOPTION_GO],
-    [PETLISTADOPTIONS_GO.name, PETLISTADOPTIONS_GO],
+    [PETLISTADOPTIONS_PY.name, PETLISTADOPTIONS_PY],
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
     [PETSITE.name, PETSITE],
 ]);

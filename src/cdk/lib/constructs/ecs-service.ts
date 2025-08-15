@@ -32,7 +32,6 @@ import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
-    instrumentation?: string;
     desiredTaskCount: number;
     cloudMapNamespace?: IPrivateDnsNamespace;
 }
@@ -123,34 +122,6 @@ export abstract class EcsService extends Microservice {
             containerPort: properties.port || 80,
             protocol: Protocol.TCP,
         });
-
-        // sidecar for instrumentation collecting
-        switch (properties.instrumentation) {
-            // we don't add any sidecar if instrumentation is none
-            case 'none': {
-                break;
-            }
-
-            // This collector would be used for both traces collected using
-            // open telemetry or X-Ray
-            case 'otel': {
-                this.addOtelCollectorContainer(taskDefinition, logging);
-                break;
-            }
-
-            // Default X-Ray traces collector
-            case 'xray': {
-                this.addXRayContainer(taskDefinition, logging);
-                break;
-            }
-
-            // Default X-Ray traces collector
-            // enabled by default
-            default: {
-                this.addXRayContainer(taskDefinition, logging);
-                break;
-            }
-        }
 
         if (!properties.disableService) {
             if (properties.createLoadBalancer === false) {
@@ -296,29 +267,5 @@ export abstract class EcsService extends Microservice {
         }
 
         return { taskDefinition, loadBalancedService, service, container, taskRole };
-    }
-
-    private addXRayContainer(taskDefinition: TaskDefinition, logging: AwsLogDriver) {
-        taskDefinition
-            .addContainer('xraydaemon', {
-                image: ContainerImage.fromRegistry('public.ecr.aws/xray/aws-xray-daemon:3.3.4'),
-                memoryLimitMiB: 256,
-                cpu: 256,
-                logging,
-            })
-            .addPortMappings({
-                containerPort: 2000,
-                protocol: Protocol.UDP,
-            });
-    }
-
-    private addOtelCollectorContainer(taskDefinition: TaskDefinition, logging: AwsLogDriver) {
-        taskDefinition.addContainer('aws-otel-collector', {
-            image: ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-otel-collector:v0.41.1'),
-            memoryLimitMiB: 256,
-            cpu: 256,
-            command: ['--config', '/etc/ecs/ecs-xray.yaml'],
-            logging,
-        });
     }
 }

@@ -12,7 +12,7 @@ import { ComputeType, HostType } from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
-import { ListAdoptionsService } from '../microservices/list-adoptions';
+import { ListAdoptionsService } from '../microservices/petlist-adoptions';
 import { PetSearchService } from '../microservices/pet-search';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
 import { StatusUpdatedService } from '../constructs/serverless/status-updater';
@@ -89,7 +89,6 @@ export class MicroservicesStack extends Stack {
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
                         table: dynamodbExports.table,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
@@ -118,7 +117,6 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
@@ -147,7 +145,6 @@ export class MicroservicesStack extends Stack {
                         repositoryURI: `${baseURI}/${name}`,
                         database: rdsExports.cluster,
                         secret: rdsExports.adminSecret,
-                        instrumentation: 'otel',
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,

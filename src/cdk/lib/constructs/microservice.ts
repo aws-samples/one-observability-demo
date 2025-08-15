@@ -9,7 +9,7 @@ import { ICluster as IECSCluster } from 'aws-cdk-lib/aws-ecs';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
     PAYFORADOPTION_GO,
-    PETLISTADOPTIONS_GO,
+    PETLISTADOPTIONS_PY,
     PETSEARCH_JAVA,
     PETSITE,
     PETSTATUSUPDATER,
@@ -21,7 +21,7 @@ import { Stack } from 'aws-cdk-lib';
 
 export const MicroservicesNames = {
     PayForAdoption: PAYFORADOPTION_GO.name,
-    PetListAdoptions: PETLISTADOPTIONS_GO.name,
+    PetListAdoptions: PETLISTADOPTIONS_PY.name,
     PetSearch: PETSEARCH_JAVA.name,
     PetSite: PETSITE.name,
     PetStatusUpdater: PETSTATUSUPDATER.name,

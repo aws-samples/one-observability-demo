@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/gradle:7.3-jdk17 as build
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/gradle:7.3-jdk17 as build
 
 WORKDIR /app
 COPY ./build.gradle ./build.gradle
@@ -6,7 +6,7 @@ COPY ./src ./src
 COPY ./settings.gradle ./settings.gradle
 
 ENV GRADLE_OPTS "-Dorg.gradle.daemon=false"
-RUN gradle build -DexcludeTags='integration'
+RUN gradle build -DexcludeTags='integration' --no-daemon --stacktrace
 
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2-generic-jdk
 WORKDIR /app
