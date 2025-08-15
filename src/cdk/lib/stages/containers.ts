@@ -243,7 +243,7 @@ export class ContainersStack extends Stack {
                     'codepipeline:GetPipelineState',
                     'codepipeline:ListPipelineExecutions',
                 ],
-                resources: [this.pipeline.pipelineArn],
+                resources: [this.pipeline.pipelineArn, `${this.pipeline.pipelineArn}/*`],
             }),
         );
 

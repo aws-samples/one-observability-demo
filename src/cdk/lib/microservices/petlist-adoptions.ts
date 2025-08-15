@@ -21,7 +21,7 @@ export class ListAdoptionsService extends EcsService {
     constructor(scope: Construct, id: string, properties: ListAdoptionsServiceProperties) {
         super(scope, id, properties);
 
-        new ApplicationSignalsIntegration(this, 'petsearch-integration', {
+        new ApplicationSignalsIntegration(this, 'petlist-integration', {
             taskDefinition: this.taskDefinition,
             instrumentation: {
                 sdkVersion: PythonInstrumentationVersion.V0_9_0,
