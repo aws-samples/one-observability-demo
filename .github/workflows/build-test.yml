@@ -40,22 +40,21 @@ jobs:
                       path: PetAdoptions/petsite/petsite
                     - name: trafficgenerator
                       path: PetAdoptions/trafficgenerator/trafficgenerator
+        steps:
+            - uses: actions/checkout@v3
 
-                steps:
-                    - uses: actions/checkout@v3
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v2
 
-                    - name: Set up Docker Buildx
-                      uses: docker/setup-buildx-action@v2
-
-                    - name: Build ${{ matrix.service.name }}
-                      uses: docker/build-push-action@v4
-                      with:
-                          context: ${{ matrix.service.path }}
-                          push: false
-                          load: true
-                          tags: ${{ matrix.service.name }}:test
-                          cache-from: type=gha
-                          cache-to: type=gha,mode=max
+            - name: Build ${{ matrix.service.name }}
+              uses: docker/build-push-action@v4
+              with:
+                  context: ${{ matrix.service.path }}
+                  push: false
+                  load: true
+                  tags: ${{ matrix.service.name }}:test
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
 
     nodejs-builds:
         runs-on: ubuntu-latest
