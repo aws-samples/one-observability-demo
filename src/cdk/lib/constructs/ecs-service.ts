@@ -18,7 +18,6 @@ import {
     BaseService,
     FireLensLogDriver,
     FirelensLogRouterType,
-    FirelensConfigFileType,
     LogDriver,
 } from 'aws-cdk-lib/aws-ecs';
 import {
@@ -126,9 +125,12 @@ export abstract class EcsService extends Microservice {
         // Add OpenSearch permissions if collection is provided
         if (properties.openSearchCollection) {
             executionRoleActions.push(
+                'aoss:WriteDocument',
+                'aoss:CreateIndex',
+                'aoss:DescribeIndex',
+                'aoss:UpdateIndex',
                 'es:ESHttpPost',
                 'es:ESHttpPut',
-                'aoss:APIAccessAll', // OpenSearch Serverless permissions
             );
         }
 
@@ -367,24 +369,17 @@ export abstract class EcsService extends Microservice {
 
         return new FireLensLogDriver({
             options: {
-                // Route to multiple outputs
-                Name: 'forward',
-                Match: '*',
-                'Forward.0.Name': 'cloudwatch_logs',
-                'Forward.0.Match': '*',
-                'Forward.0.log_group_name': logGroup.logGroupName,
-                'Forward.0.log_stream_prefix': 'ecs/',
-                'Forward.0.region': Stack.of(this).region,
-                'Forward.1.Name': 'opensearch',
-                'Forward.1.Match': '*',
-                'Forward.1.Host': openSearchEndpoint.replace('https://', ''),
-                'Forward.1.Port': '443',
-                'Forward.1.Index': `${properties.name}-logs`,
-                'Forward.1.Type': '_doc',
-                'Forward.1.AWS_Region': Stack.of(this).region,
-                'Forward.1.AWS_Auth': 'On',
-                'Forward.1.tls': 'On',
-                'Forward.1.tls.verify': 'Off',
+                Name: 'es',
+                Host: openSearchEndpoint.replace('https://', ''),
+                Port: '443',
+                aws_auth: 'On',
+                AWS_Region: Stack.of(this).region,
+                AWS_Service_Name: 'aoss',
+                Index: `${properties.name}-logs`,
+                tls: 'Off',
+                Suppress_Type_Name: 'On',
+                Trace_Error: 'On',
+                Trace_Output: 'On',
             },
         });
     }
@@ -393,8 +388,8 @@ export abstract class EcsService extends Microservice {
         // Add FireLens log router using the task definition method
         const logRouter = taskDefinition.addFirelensLogRouter('log-router', {
             image: ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:stable'),
-            memoryLimitMiB: 256,
-            cpu: 128,
+            memoryLimitMiB: 512,
+            cpu: 256,
             essential: true,
             logging: new AwsLogDriver({
                 streamPrefix: 'firelens',
@@ -408,8 +403,6 @@ export abstract class EcsService extends Microservice {
                 type: FirelensLogRouterType.FLUENTBIT,
                 options: {
                     enableECSLogMetadata: true,
-                    configFileType: FirelensConfigFileType.FILE,
-                    configFileValue: '/fluent-bit/etc/fluent-bit.conf',
                 },
             },
         });
@@ -428,7 +421,14 @@ export abstract class EcsService extends Microservice {
             taskDefinition.taskRole.addToPrincipalPolicy(
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: ['aoss:APIAccessAll', 'es:ESHttpPost', 'es:ESHttpPut'],
+                    actions: [
+                        'aoss:WriteDocument',
+                        'aoss:CreateIndex',
+                        'aoss:DescribeIndex',
+                        'aoss:UpdateIndex',
+                        'es:ESHttpPost',
+                        'es:ESHttpPut',
+                    ],
                     resources: [collectionArn],
                 }),
             );

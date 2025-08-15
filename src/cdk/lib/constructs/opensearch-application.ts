@@ -5,10 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import { CfnApplication } from 'aws-cdk-lib/aws-opensearchservice';
 import { Construct } from 'constructs';
-import {
-    OPENSEARCH_APPLICATION_ARN_EXPORT_NAME,
-    OPENSEARCH_APPLICATION_ID_EXPORT_NAME,
-} from '../../bin/constants';
+import { OPENSEARCH_APPLICATION_ARN_EXPORT_NAME, OPENSEARCH_APPLICATION_ID_EXPORT_NAME } from '../../bin/constants';
 import { OpenSearchCollection } from './opensearch-collection';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
@@ -75,6 +72,12 @@ export class OpenSearchApplication extends Construct {
         // Create the OpenSearch UI Application
         this.application = new CfnApplication(this, 'Application', {
             name: applicationName,
+            appConfigs: [
+                {
+                    key: 'opensearchDashboards.dashboardAdmin.users',
+                    value: '*',
+                },
+            ],
             dataSources: [
                 {
                     dataSourceArn: collection.collection.attrArn,

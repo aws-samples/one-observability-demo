@@ -50,7 +50,7 @@ export class PetSite extends EKSDeployment {
 
         // Allow CloudFront to access the load balancer
         this.loadBalancer.connections.allowFrom(
-            Peer.prefixList('pl-3b927c52'),
+            Peer.prefixList('pl-b6a144df'),
             Port.tcp(80),
             'Allow CloudFront access',
         );
