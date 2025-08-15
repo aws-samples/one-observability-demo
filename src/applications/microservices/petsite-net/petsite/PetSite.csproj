@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <UserSecretsId>a80ee246-1735-4630-bd6a-0fd3d01d8e35</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Remove="compilerconfig.json" />
+    <Content Update="wwwroot\css\petstyles.css">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="compilerconfig.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="7.0.0" />
+    <PackageReference Include="AWSSDK.Core" Version="4.0.0.21" />
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.2.1" />
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.0.18" />
+    <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="4.0.2.7" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.0.19" />
+    <PackageReference Include="AWSSDK.StepFunctions" Version="4.0.0.19" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.1.9" />
+
+    <PackageReference Include="BuildBundlerMinifier" Version="3.2.449" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
+    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
+    <PackageReference Include="prometheus-net" Version="8.2.1" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
+    <PackageReference Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="PutParams.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Bold.eot" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Bold.svg" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Bold.ttf" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Bold.woff" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Bold.woff2" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Regular.eot" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Regular.svg" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Regular.ttf" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Regular.woff" />
+    <_ContentIncludedByDefault Remove="wwwroot\fonts\Montserrat-Regular.woff2" />
+  </ItemGroup>
+</Project>

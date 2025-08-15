@@ -1,114 +1,113 @@
 name: Build Test
-
+permissions:
+    contents: read
 on:
-  pull_request:
-    branches: [ main, staging ]
-    paths:
-      - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-py/**'
-      - 'PetAdoptions/petsearch-java/**'
-      - 'PetAdoptions/petsite/**'
-      - 'PetAdoptions/petstatusupdater/**'
-      - 'PetAdoptions/trafficgenerator/**'
-  push:
-    branches: [ main, staging ]
-    paths:
-      - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/pethistory/**'
-      - 'PetAdoptions/petlistadoptions-py/**'
-      - 'PetAdoptions/petsearch-java/**'
-      - 'PetAdoptions/petsite/**'
-      - 'PetAdoptions/petstatusupdater/**'
-      - 'PetAdoptions/trafficgenerator/**'
+    pull_request:
+        branches: [main, staging, staging]
+        paths:
+            - 'PetAdoptions/payforadoption-go/**'
+            - 'PetAdoptions/pethistory/**'
+            - 'PetAdoptions/petlistadoptions-py/**'
+            - 'PetAdoptions/petsearch-java/**'
+            - 'PetAdoptions/petsite/**'
+            - 'PetAdoptions/petstatusupdater/**'
+            - 'PetAdoptions/trafficgenerator/**'
+    push:
+        branches: [main, staging, staging]
+        paths:
+            - 'PetAdoptions/payforadoption-go/**'
+            - 'PetAdoptions/pethistory/**'
+            - 'PetAdoptions/petlistadoptions-py/**'
+            - 'PetAdoptions/petsearch-java/**'
+            - 'PetAdoptions/petsite/**'
+            - 'PetAdoptions/petstatusupdater/**'
+            - 'PetAdoptions/trafficgenerator/**'
 
 jobs:
-  docker-builds:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: payforadoption-go
-            path: PetAdoptions/payforadoption-go
-          - name: petlistadoptions-py
-            path: PetAdoptions/petlistadoptions-py
-          - name: petsearch-java
-            path: PetAdoptions/petsearch-java
-          - name: petsite
-            path: PetAdoptions/petsite/petsite
-          - name: trafficgenerator
-            path: PetAdoptions/trafficgenerator/trafficgenerator
+    docker-builds:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service:
+                    - name: payforadoption-go
+                      path: PetAdoptions/payforadoption-go
+                    - name: petlistadoptions-py
+                      path: PetAdoptions/petlistadoptions-py
+                    - name: petsearch-java
+                      path: PetAdoptions/petsearch-java
+                    - name: petsite
+                      path: PetAdoptions/petsite/petsite
+                    - name: trafficgenerator
+                      path: PetAdoptions/trafficgenerator/trafficgenerator
+        steps:
+            - uses: actions/checkout@v3
 
-    steps:
-      - uses: actions/checkout@v3
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+            - name: Build ${{ matrix.service.name }}
+              uses: docker/build-push-action@v4
+              with:
+                  context: ${{ matrix.service.path }}
+                  push: false
+                  load: true
+                  tags: ${{ matrix.service.name }}:test
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
 
-      - name: Build ${{ matrix.service.name }}
-        uses: docker/build-push-action@v4
-        with:
-          context: ${{ matrix.service.path }}
-          push: false
-          load: true
-          tags: ${{ matrix.service.name }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    nodejs-builds:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service:
+                    - name: pethistory
+                      path: PetAdoptions/pethistory
+                      node-version: '18'
 
-  nodejs-builds:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: pethistory
-            path: PetAdoptions/pethistory
-            node-version: '18'
+        steps:
+            - uses: actions/checkout@v3
 
-    steps:
-      - uses: actions/checkout@v3
+            - name: Setup Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.service.node-version }}
+                  cache: 'npm'
+                  cache-dependency-path: ${{ matrix.service.path }}/package-lock.json
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.service.node-version }}
-          cache: 'npm'
-          cache-dependency-path: ${{ matrix.service.path }}/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+              working-directory: ${{ matrix.service.path }}
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ${{ matrix.service.path }}
+            - name: Run tests
+              run: npm test
+              working-directory: ${{ matrix.service.path }}
 
-      - name: Run tests
-        run: npm test
-        working-directory: ${{ matrix.service.path }}
+            - name: Verify build
+              run: npm run build --if-present
+              working-directory: ${{ matrix.service.path }}
 
-      - name: Verify build
-        run: npm run build --if-present
-        working-directory: ${{ matrix.service.path }}
+    dotnet-builds:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                project:
+                    - name: petsite
+                      path: PetAdoptions/petsite/petsite.sln
+                    - name: trafficgenerator
+                      path: PetAdoptions/trafficgenerator/trafficgenerator.sln
+        steps:
+            - uses: actions/checkout@v3
 
-  dotnet-builds:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        project:
-          - name: petsite
-            path: PetAdoptions/petsite/petsite.sln
-          - name: trafficgenerator
-            path: PetAdoptions/trafficgenerator/trafficgenerator.sln
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v3
+              with:
+                  dotnet-version: '8.0.x'
 
-    steps:
-      - uses: actions/checkout@v3
+            - name: Restore dependencies
+              run: dotnet restore ${{ matrix.project.path }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore ${{ matrix.project.path }}
-
-      - name: Build
-        run: dotnet build ${{ matrix.project.path }} --no-restore
+            - name: Build
+              run: dotnet build ${{ matrix.project.path }} --no-restore

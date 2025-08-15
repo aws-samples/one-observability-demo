@@ -1,0 +1,360 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/automated-security-helper/refs/heads/beta/automated_security_helper/schemas/AshConfig.json
+project_name: one-observability-demo
+global_settings:
+    severity_threshold: MEDIUM
+    ignore_paths:
+        - path: src/cdk/cdk.out
+          reason: 'CDK Code is being reviewed by CDK Nag using the AWS Security best practices compliance pack. Additional tools will require duplicated suppressions'
+        - path: src/cdk/node_modules
+          reason: 'Skip node_modules folder'
+        - path: src/cdk/wiki-docs
+          reason: 'Skip wiki docs since it will be built in the pipeline'
+        - path: archive/
+          reason: 'Legacy application being migrated, for now only scan the new code'
+        - path: grafana-dashboards
+          reason: 'Skip legacy code during migration'
+        - path: codepipeline-stack.yaml
+          reason: 'Skip old pipeline since it will be migrated'
+        - path: src/applications/lambda/pethistory-node/template.yaml
+          reason: 'Temporary SAM template, will be moved to CDK'
+        - path: .secrets.baseline
+          reason: 'Secret Baseline file includes the word secret'
+
+    suppressions:
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: '.github/workflows/cdk-test.yml'
+          reason: 'Dummy secret'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: '.secrets.baseline'
+          reason: 'Secret Baseline file includes the word secret'
+        - rule_id: 'SECRET-BASE64-HIGH-ENTROPY-STRING'
+          path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
+          line_start: 8
+          line_end: 11
+          reason: 'Dependency hash for verification, false positive'
+        - rule_id: 'SECRET-HEX-HIGH-ENTROPY-STRING'
+          path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
+          line_start: 8
+          line_end: 11
+          reason: 'Dependency hash for verification, false positive'
+        # CDK-Nag suppressions moved from inline in codebuild-deployment-template.yaml
+        - rule_id: AwsSolutions-S1
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, access logs are not needed'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupRole'
+          reason: 'AWS managed policies are acceptable for a Lambda function'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupRole'
+          reason: 'Wildcard is needed since stack name is automatically generated'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCodeBuildServiceRole'
+          reason: 'AWS managed policies are acceptable for a CodeBuild project'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCodeBuildServiceRole'
+          reason: 'Wildcard is needed since we have no control on the pipeline name'
+        - rule_id: AwsSolutions-CB4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKDeploymentProject'
+          reason: 'CodeBuild Project is used to kickoff the initial CDK deployment. AWS KMS is not required'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunctionRole'
+          reason: 'Use of AWSLambdaBasicExecutionRole is acceptable here'
+        - rule_id: AwsSolutions-IAM4
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackListerRole'
+          reason: 'AWS managed policies are acceptable for Lambda function'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackListerRole'
+          reason: 'Wildcard is acceptable for describe stack action'
+        - rule_id: AwsSolutions-IAM5
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupRole'
+          reason: 'Wildcard is acceptable for describe stack action'
+        - rule_id: AwsSolutions-SF1
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupStateMachine'
+          reason: 'The purpose of the step function is to clean up all resources, additional logs not needed'
+        - rule_id: AwsSolutions-SF2
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKCleanupStateMachine'
+          reason: 'X-Ray is not needed for this function since only CFN endpoint is used'
+        # Checkov suppressions moved from inline comments in codebuild-deployment-template.yaml
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out'
+        - rule_id: CKV_AWS_173
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Custom Resource Lambda, encryption is not included for simplicity'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rResourceCleanupFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+        - rule_id: CKV_AWS_18
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, access logs are not needed'
+        - rule_id: CKV_AWS_21
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rConfigBucket'
+          reason: 'Bucket used to trigger CodePipeline, object versioning is not needed'
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to signal CFN deployment since it will time-out'
+        - rule_id: CKV_AWS_173
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Custom Resource Lambda, encryption is not included for simplicity'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rStartDeploymentFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+        - rule_id: CKV_AWS_117
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackListerFunction'
+          reason: 'Custom Resource Lambda only interacts with AWS endpoints, VPC is not needed'
+        - rule_id: CKV_AWS_116
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackListerFunction'
+          reason: 'DLQ will increase complexity, this is not needed just to check CFN stack status'
+        - rule_id: CKV_AWS_115
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          resource_id: 'rCDKStackListerFunction'
+          reason: 'Function is executed only once, no need for concurrency configurations'
+
+fail_on_findings: true
+ash_plugin_modules: []
+external_reports_to_include: []
+build: null
+converters:
+    archive:
+        name: archive
+        enabled: true
+        options: {}
+    jupyter:
+        name: jupyter
+        enabled: true
+        options:
+            tool_version: '>=7.16.0,<8.0.0'
+            install_timeout: 300
+scanners:
+    bandit:
+        name: bandit
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            confidence_level: all
+            ignore_nosec: false
+            excluded_paths: []
+            additional_formats: []
+            tool_version: '>=1.7.0,<2.0.0'
+            install_timeout: 300
+    cdk-nag:
+        name: cdk-nag
+        enabled: true
+        options:
+            severity_threshold: null
+            nag_packs:
+                AwsSolutionsChecks: true
+                HIPAASecurityChecks: false
+                NIST80053R4Checks: false
+                NIST80053R5Checks: false
+                PCIDSS321Checks: false
+    cfn-nag:
+        name: cfn-nag
+        enabled: true
+        options:
+            severity_threshold: null
+    checkov:
+        name: checkov
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            skip_path: []
+            additional_formats:
+                - cyclonedx_json
+            offline: false
+            frameworks:
+                - all
+            skip_frameworks: []
+            tool_version: null
+            install_timeout: 300
+    detect-secrets:
+        name: detect-secrets
+        enabled: true
+        options:
+            severity_threshold: null
+            baseline_file: .secrets.baseline
+            scan_settings:
+                version: null
+                generated_at: null
+                plugins_used: []
+                filters_used: []
+                results: {}
+    grype:
+        name: grype
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            offline: false
+    npm-audit:
+        name: npm-audit
+        enabled: true
+        options:
+            severity_threshold: null
+            offline: false
+    opengrep:
+        name: opengrep
+        enabled: false
+        options:
+            severity_threshold: null
+            config: auto
+            exclude:
+                - '*-converted.py'
+                - '*_report_result.txt'
+            exclude_rule: []
+            severity: []
+            metrics: auto
+            offline: false
+            patterns: []
+            version: v1.1.5
+    semgrep:
+        name: semgrep
+        enabled: true
+        options:
+            severity_threshold: null
+            config: auto
+            exclude:
+                - '*-converted.py'
+                - '*_report_result.txt'
+            exclude_rule: []
+            severity: []
+            metrics: auto
+            offline: false
+            tool_version: null
+            install_timeout: 300
+    syft:
+        name: syft
+        enabled: true
+        options:
+            severity_threshold: null
+            config_file: null
+            exclude: []
+            additional_outputs:
+                - syft-table
+reporters:
+    csv:
+        name: csv
+        enabled: true
+        options: {}
+        extension: csv
+    cyclonedx:
+        name: cyclonedx
+        enabled: true
+        options: {}
+        extension: cdx.json
+    html:
+        name: html
+        enabled: true
+        options: {}
+        extension: html
+    flat-json:
+        name: flat-json
+        enabled: true
+        options:
+            include_scanner_metrics: true
+            include_summary_metrics: true
+            include_metadata: true
+        extension: flat.json
+    gitlab-sast:
+        name: gitlab-sast
+        enabled: true
+        options: {}
+        extension: gl-sast-report.json
+    junitxml:
+        name: junitxml
+        enabled: true
+        options:
+            respect_severity_threshold: true
+        extension: junit.xml
+    markdown:
+        name: markdown
+        enabled: true
+        options:
+            include_summary: true
+            include_findings_table: false
+            include_detailed_findings: true
+            max_detailed_findings: 20
+            top_hotspots_limit: 10
+            use_collapsible_details: true
+        extension: summary.md
+    ocsf:
+        name: ocsf
+        enabled: true
+        options: {}
+        extension: ocsf.json
+    sarif:
+        name: sarif
+        enabled: true
+        options: {}
+        extension: sarif
+    spdx:
+        name: spdx
+        enabled: false
+        options: {}
+        extension: spdx.json
+    text:
+        name: text
+        enabled: true
+        options:
+            include_summary: true
+            include_findings_table: false
+            include_detailed_findings: false
+            max_detailed_findings: 20
+            top_hotspots_limit: 20
+        extension: summary.txt
+    yaml:
+        name: yaml
+        enabled: false
+        options: {}
+        extension: yaml
+mcp-resource-management:
+    max_concurrent_scans: 3
+    max_concurrent_tasks: 20
+    thread_pool_max_workers: 4
+    scan_timeout_seconds: 1800
+    operation_timeout_seconds: 180
+    shutdown_timeout_seconds: 30
+    memory_warning_threshold_mb: 1024
+    memory_critical_threshold_mb: 2048
+    task_count_warning_threshold: 15
+    max_message_size_bytes: 10485760
+    max_path_length: 4096
+    max_directory_size_mb: 1000
+    enable_health_checks: true
+    health_check_interval_seconds: 60
+    enable_resource_logging: true
+    log_resource_operations: false

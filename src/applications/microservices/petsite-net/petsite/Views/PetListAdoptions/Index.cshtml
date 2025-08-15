@@ -1,0 +1,32 @@
+@model List<Pet>
+
+@{
+    ViewData["Title"] = "Pet Adoption List";
+}
+
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
+
+
+<div class="container">
+    @if (Model.Any())
+    {
+        <div class="pet-items row">
+            @foreach (var pet in Model)
+            {
+                <div class="pet-item col-md-4">
+                    <partial name="_AdoptionItem" for="@pet" />
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="pet-items row">
+            No adoption data retrieved
+        </div>
+    }
+</div>

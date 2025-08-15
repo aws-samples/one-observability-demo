@@ -1,0 +1,1337 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+# Workshop deployment template for CDK projects - CloudFormation
+# Version: 1.0.0 - Simplified
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Automates CDK project deployment for workshop environments. Provisions S3 storage, CodeBuild project, and monitoring resources to bootstrap AWS accounts and deploy CDK applications consistently. Includes error handling and cleanup mechanisms for failed deployments. For more details, see: https://github.com/aws-samples/one-observability-demo
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Repository Configuration
+        Parameters:
+          - pConfigFileUrl
+          - pOrganizationName
+          - pRepositoryName
+          - pBranchName
+          - pWorkingFolder
+      - Label:
+          default: User Defined Tags
+        Parameters:
+          - pUserDefinedTagKey1
+          - pUserDefinedTagValue1
+          - pUserDefinedTagKey2
+          - pUserDefinedTagValue2
+          - pUserDefinedTagKey3
+          - pUserDefinedTagValue3
+          - pUserDefinedTagKey4
+          - pUserDefinedTagValue4
+          - pUserDefinedTagKey5
+          - pUserDefinedTagValue5
+
+Parameters:
+  pConfigFileUrl:
+    Type: String
+    Description: URL to the initial configuration file
+    AllowedPattern: ^https?://.*$
+    ConstraintDescription: Must be a valid HTTP or HTTPS URL
+    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/typedoc.json
+
+  pOrganizationName:
+    Type: String
+    Description: GitHub/CodeCommit organization name
+    AllowedPattern: '[A-Za-z0-9_.-]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+    Default: aws-samples
+
+  pRepositoryName:
+    Type: String
+    Description: Repository containing the CDK code
+    AllowedPattern: '[A-Za-z0-9_.-]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+    Default: one-observability-demo
+
+  pBranchName:
+    Type: String
+    Description: Branch to deploy from
+    Default: feat/cdkpipeline
+    AllowedPattern: '[A-Za-z0-9_.-/]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores,
+      periods, slashes, or hyphens
+
+  pWorkingFolder:
+    Type: String
+    Description: Working folder for deployment
+    Default: src/cdk
+    AllowedPattern: '[A-Za-z0-9_.-/]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+
+  pApplicationName:
+    Type: String
+    Description: Application name used for tagging deployed stacks
+    Default: One Observability Workshop
+    AllowedPattern: ^[A-Za-z0-9\s_.-]+$
+    ConstraintDescription: Must contain only alphanumeric characters, spaces, underscores, periods, or hyphens
+
+  pUserDefinedTagKey1:
+    Type: String
+    Description: Key for user defined tag 1
+    AllowedPattern: ^(?!aws:)[A-Za-z0-9\s_.:=+-@/]{0,128}
+    ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
+      only contain alphanumeric characters or special characters ( _ . : / = + -
+      or @) up to 128 characters'
+    Default: WorkshopName
+
+  pUserDefinedTagValue1:
+    Type: String
+    Description: Value for user defined tag 1
+    AllowedPattern: ^[\w\s_.:=+-@/]{0,256}$
+    ConstraintDescription: 'Must match the allowable values for a Tag Value. This
+      can only contain alphanumeric characters or special characters ( _ . : / =
+      + - or @) up to 256 characters'
+    Default: one-observability-demo
+
+  pUserDefinedTagKey2:
+    Type: String
+    Description: Key for user defined tag 2
+    AllowedPattern: ^(?!aws:)[A-Za-z0-9\s_.:=+-@/]{0,128}
+    ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
+      only contain alphanumeric characters or special characters ( _ . : / = + -
+      or @) up to 128 characters'
+    Default: Version
+
+  pUserDefinedTagValue2:
+    Type: String
+    Description: Value for user defined tag 2
+    AllowedPattern: ^[\w\s_.:=+-@/]{0,256}$
+    ConstraintDescription: 'Must match the allowable values for a Tag Value. This
+      can only contain alphanumeric characters or special characters ( _ . : / =
+      + - or @) up to 256 characters'
+    Default: 1.0.0
+
+  pUserDefinedTagKey3:
+    Type: String
+    Description: Key for user defined tag 3
+    AllowedPattern: ^(?!aws:)[A-Za-z0-9\s_.:=+-@/]{0,128}
+    ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
+      only contain alphanumeric characters or special characters ( _ . : / = + -
+      or @) up to 128 characters'
+
+  pUserDefinedTagValue3:
+    Type: String
+    Description: Value for user defined tag 3
+    AllowedPattern: ^[\w\s_.:=+-@/]{0,256}$
+    ConstraintDescription: 'Must match the allowable values for a Tag Value. This
+      can only contain alphanumeric characters or special characters ( _ . : / =
+      + - or @) up to 256 characters'
+
+  pUserDefinedTagKey4:
+    Type: String
+    Description: Key for user defined tag 4
+    AllowedPattern: ^(?!aws:)[A-Za-z0-9\s_.:=+-@/]{0,128}
+    ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
+      only contain alphanumeric characters or special characters ( _ . : / = + -
+      or @) up to 128 characters'
+
+  pUserDefinedTagValue4:
+    Type: String
+    Description: Value for user defined tag 4
+    AllowedPattern: ^[\w\s_.:=+-@/]{0,256}$
+    ConstraintDescription: 'Must match the allowable values for a Tag Value. This
+      can only contain alphanumeric characters or special characters ( _ . : / =
+      + - or @) up to 256 characters'
+
+  pUserDefinedTagKey5:
+    Type: String
+    Description: Key for user defined tag 5
+    AllowedPattern: ^(?!aws:)[A-Za-z0-9\s_.:=+-@/]{0,128}
+    ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
+      only contain alphanumeric characters or special characters ( _ . : / = + -
+      or @) up to 128 characters'
+
+  pUserDefinedTagValue5:
+    Type: String
+    Description: Value for user defined tag 5
+    AllowedPattern: ^[\w\s_.:=+-@/]{0,256}$
+    ConstraintDescription: 'Must match the allowable values for a Tag Value. This
+      can only contain alphanumeric characters or special characters ( _ . : / =
+      + - or @) up to 256 characters'
+
+Conditions:
+  # Conditions to control creation of user-defined tags
+  cCreateTag1: !And
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagKey1
+        - ''
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagValue1
+        - ''
+
+  cCreateTag2: !And
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagKey2
+        - ''
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagValue2
+        - ''
+
+  cCreateTag3: !And
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagKey3
+        - ''
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagValue3
+        - ''
+
+  cCreateTag4: !And
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagKey4
+        - ''
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagValue4
+        - ''
+
+  cCreateTag5: !And
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagKey5
+        - ''
+    - !Not
+      - !Equals
+        - !Ref pUserDefinedTagValue5
+        - ''
+
+Resources:
+  # Lambda execution role for resource cleanup
+  rResourceCleanupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ResourceCleanup
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                  - s3:ListBucketVersions
+                  - s3:DeleteObjectVersion
+                Resource:
+                  - !Sub ${rConfigBucket.Arn}/*
+                  - !GetAtt rConfigBucket.Arn
+
+  # Lambda function to clean up resources
+  rResourceCleanupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rResourceCleanupRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              try:
+                  if event['RequestType'] == 'Delete':
+                      # Clean up S3 bucket
+                      s3 = boto3.client('s3')
+                      bucket = event['ResourceProperties']['BucketName']
+                      paginator = s3.get_paginator('list_object_versions')
+                      for page in paginator.paginate(Bucket=bucket):
+                          delete_keys = []
+                          if 'Versions' in page:
+                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
+                          if 'DeleteMarkers' in page:
+                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
+                          if delete_keys:
+                              s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Create S3 bucket to store configuration files
+  rConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Custom resource to clean up resources on deletion
+  rResourceCleanup:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt rResourceCleanupFunction.Arn
+      BucketName: !Ref rConfigBucket
+      StackName: !Ref AWS::StackName
+
+  # Bucket policy to enforce HTTPS-only access
+  rConfigBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt rConfigBucket.Arn
+              - !Sub ${rConfigBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+  # Create IAM role for CodeBuild project
+  rCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+      Policies:
+        - PolicyName: EnhancedPipelineMonitoring
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codepipeline:ListPipelineExecutions
+                  - codepipeline:GetPipelineExecution
+                  - codepipeline:GetPipelineState
+                  - codepipeline:ListActionExecutions
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'aws:RequestedRegion': !Ref AWS::Region
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-codebuild-role
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Create wait condition handle for signaling completion
+  rCDKDeploymentWaitConditionHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  # Create wait condition to ensure CodeBuild project completes successfully
+  rCDKDeploymentWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref rCDKDeploymentWaitConditionHandle
+      Timeout: 3600
+      Count: 1
+
+  # Create CodeBuild project to orchestrate CDK deployment
+  rCDKDeploymentProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub ${AWS::StackName}-cdk-deployment
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: CONFIG_FILE_URL
+            Value: !Ref pConfigFileUrl
+            Type: PLAINTEXT
+          - Name: CONFIG_BUCKET
+            Value: !Ref rConfigBucket
+            Type: PLAINTEXT
+          - Name: ORGANIZATION_NAME
+            Value: !Ref pOrganizationName
+            Type: PLAINTEXT
+          - Name: REPOSITORY_NAME
+            Value: !Ref pRepositoryName
+            Type: PLAINTEXT
+          - Name: BRANCH_NAME
+            Value: !Ref pBranchName
+            Type: PLAINTEXT
+          - Name: WORKING_FOLDER
+            Value: !Ref pWorkingFolder
+            Type: PLAINTEXT
+          - Name: STACK_NAME
+            Value: !Ref AWS::StackName
+            Type: PLAINTEXT
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+            Type: PLAINTEXT
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+            Type: PLAINTEXT
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 22
+                python: 3.12
+              commands:
+                - npm install -g aws-cdk
+                - pip3 install git-remote-s3
+            pre_build:
+              commands:
+                # Configure git with generic user info
+                - git config --global user.email "codebuild@aws.amazon.com"
+                - git config --global user.name "AWS CodeBuild"
+                # Clone repository with shallow clone
+                - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
+                - cd ./repo
+                # Download configuration file to repository root
+                - curl -o ./config.json "$CONFIG_FILE_URL"
+                # Create .env file with all environment variables
+                - |
+                  cat > .env << EOF
+                  CONFIG_FILE_URL=$CONFIG_FILE_URL
+                  CONFIG_BUCKET=$CONFIG_BUCKET
+                  ORGANIZATION_NAME=$ORGANIZATION_NAME
+                  REPOSITORY_NAME=$REPOSITORY_NAME
+                  BRANCH_NAME=$BRANCH_NAME
+                  WORKING_FOLDER=$WORKING_FOLDER
+                  STACK_NAME=$STACK_NAME
+                  AWS_REGION=$AWS_REGION
+                  AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+                  EOF
+                # Add config file and .env file to repository
+                - git add config.json .env -f
+                - git commit -m "Add configuration file from $CONFIG_FILE_URL and environment variables"
+                # Configure S3 remote with s3+zip protocol for CodePipeline
+                - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
+                - git push s3 $BRANCH_NAME
+                # Check if account is bootstrapped
+                - |
+                  if ! aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then
+                    echo "Account not bootstrapped, bootstrapping now..."
+                    cdk bootstrap
+                  else
+                    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name CDKToolkit --query 'Stacks[0].StackStatus' --output text)
+                    if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+                      echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
+                      # Force remove ECR and S3 buckets
+                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
+                      aws s3 ls | grep cdk- | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                      # Delete the stack
+                      aws cloudformation delete-stack --stack-name CDKToolkit
+                      aws cloudformation wait stack-delete-complete --stack-name CDKToolkit
+                      # Bootstrap again
+                      cdk bootstrap
+                    fi
+                  fi
+            build:
+              commands:
+                - cd $WORKING_FOLDER
+                # Install dependencies and synthesize CDK
+                - npm install
+                - cdk synth
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                # Extract pipeline ARN for later use
+                - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
+                - |
+                  if [ -z "$PIPELINE_ARN" ] || [ "$PIPELINE_ARN" = "null" ]; then
+                    echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
+                    exit 1
+                  fi
+                - |
+                  echo "Pipeline ARN: $PIPELINE_ARN"
+                - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
+                - |
+                  echo "Pipeline Name: $PIPELINE_NAME"
+                # Wait for pipeline to complete using direct status checking with retry handling
+                - |
+                  echo "Waiting for pipeline ${PIPELINE_NAME} execution to complete..."
+                  TIMEOUT=3600  # 1 hour timeout
+                  ELAPSED=0
+                  SLEEP_INTERVAL=30
+                  INITIAL_EXECUTION_ID=""
+                  RETRY_COUNT=0
+                  MAX_RETRIES=3
+                  RETRY_LOOP_COUNT=0
+                  MAX_RETRY_LOOPS=10
+
+                  # Get the initial execution ID to track retries
+                  INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
+                    --pipeline-name "$PIPELINE_NAME" \
+                    --max-items 1 \
+                    --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
+                    --output text)
+
+                  echo "Initial pipeline execution ID: $INITIAL_EXECUTION_ID"
+
+                  while [ $ELAPSED -lt $TIMEOUT ]; do
+                    # Get the most recent pipeline execution details
+                    EXECUTION_DETAILS=$(aws codepipeline list-pipeline-executions \
+                      --pipeline-name "$PIPELINE_NAME" \
+                      --max-items 1 \
+                      --query 'pipelineExecutionSummaries[0].[pipelineExecutionId,status]' \
+                      --output text)
+
+                    CURRENT_EXECUTION_ID=$(echo "$EXECUTION_DETAILS" | cut -f1)
+                    EXECUTION_STATUS=$(echo "$EXECUTION_DETAILS" | cut -f2)
+
+                    # Check if this is a new execution (retry scenario)
+                    if [ "$CURRENT_EXECUTION_ID" != "$INITIAL_EXECUTION_ID" ]; then
+                      RETRY_COUNT=$((RETRY_COUNT + 1))
+                      echo "Detected new pipeline execution (retry #$RETRY_COUNT): $CURRENT_EXECUTION_ID"
+                      INITIAL_EXECUTION_ID="$CURRENT_EXECUTION_ID"
+                      RETRY_LOOP_COUNT=0  # Reset retry loop counter for new execution
+                      echo "Continuing to monitor new execution..."
+                    fi
+
+                    echo "Current pipeline execution status: $EXECUTION_STATUS (ID: $CURRENT_EXECUTION_ID)"
+
+                    case "$EXECUTION_STATUS" in
+                      "Succeeded")
+                        echo "Pipeline execution completed successfully!"
+                        if [ $RETRY_COUNT -gt 0 ]; then
+                          echo "Success achieved after $RETRY_COUNT retry(ies)"
+                        fi
+                        echo "Signaling CloudFormation SUCCESS"
+                        WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                        curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "SUCCESS","Reason" : "Pipeline completed successfully","UniqueId" : "'$(uuidgen)'","Data" : "Pipeline execution finished"}' "$WAIT_HANDLE_URL"
+                        break
+                        ;;
+                      "Failed")
+                        echo "Pipeline execution failed with status: $EXECUTION_STATUS"
+                        RETRY_LOOP_COUNT=$((RETRY_LOOP_COUNT + 1))
+                        echo "Retry loop count: $RETRY_LOOP_COUNT/$MAX_RETRY_LOOPS"
+
+                        if [ $RETRY_LOOP_COUNT -lt $MAX_RETRY_LOOPS ]; then
+                          echo "Waiting for potential retry... (loop $RETRY_LOOP_COUNT of $MAX_RETRY_LOOPS)"
+                          sleep 60
+                          ELAPSED=$((ELAPSED + 60))
+                          continue
+                        else
+                          echo "Maximum retry loops ($MAX_RETRY_LOOPS) reached without new execution. Build failed."
+                          exit 1
+                        fi
+                        ;;
+                      "Cancelled"|"Stopped")
+                        echo "Pipeline execution was cancelled or stopped: $EXECUTION_STATUS"
+                        echo "This may indicate manual intervention or system issues."
+                        exit 1
+                        ;;
+                      "Superseded")
+                        echo "Pipeline execution was superseded by a newer execution"
+                        echo "Continuing to monitor the newer execution..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      "InProgress")
+                        echo "Pipeline execution in progress..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      "Stopping")
+                        echo "Pipeline execution is stopping..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                      *)
+                        echo "Unknown pipeline status: $EXECUTION_STATUS"
+                        echo "Continuing to monitor..."
+                        sleep $SLEEP_INTERVAL
+                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+                        ;;
+                    esac
+
+                    # Additional safety check for stuck executions
+                    if [ $ELAPSED -gt 0 ] && [ $((ELAPSED % 300)) -eq 0 ]; then
+                      echo "Progress check: $((ELAPSED / 60)) minutes elapsed, status: $EXECUTION_STATUS"
+
+                      # Get detailed stage information for better visibility
+                      aws codepipeline get-pipeline-state \
+                        --name "$PIPELINE_NAME" \
+                        --query 'stageStates[*].[stageName,latestExecution.status]' \
+                        --output table || echo "Could not retrieve detailed stage information"
+                    fi
+                  done
+
+                  if [ $ELAPSED -ge $TIMEOUT ]; then
+                    echo "Timeout reached after $((TIMEOUT / 60)) minutes"
+                    echo "Final pipeline status: $EXECUTION_STATUS"
+                    echo "Total retries attempted: $RETRY_COUNT"
+
+                    # Get final pipeline state for debugging
+                    echo "Final pipeline state:"
+                    aws codepipeline get-pipeline-state \
+                      --name "$PIPELINE_NAME" \
+                      --query 'stageStates[*].[stageName,latestExecution.status,latestExecution.errorDetails.message]' \
+                      --output table || echo "Could not retrieve final pipeline state"
+
+                    exit 1
+                  fi
+            post_build:
+              commands:
+                - |
+                  if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
+                    echo "Build failed, cleaning up S3 bucket for rollback"
+                    aws s3 rm s3://$CONFIG_BUCKET --recursive
+                    echo "Triggering CDK stack cleanup via Step Function"
+                    aws stepfunctions start-execution \
+                      --state-machine-arn "arn:aws:states:$AWS_REGION:$AWS_ACCOUNT_ID:stateMachine:$STACK_NAME-cdk-cleanup" \
+                      --input '{}' || echo "Failed to trigger cleanup, continuing..."
+                    WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                    curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
+                  else
+                    echo "Build completed - signal already sent during pipeline monitoring"
+                  fi
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-deployment
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+  # Start the CodeBuild project to begin deployment
+  rStartDeployment:
+    Type: Custom::StartDeployment
+    DependsOn:
+      - rConfigBucket
+      - rCDKDeploymentWaitConditionHandle
+    Properties:
+      ServiceToken: !GetAtt rStartDeploymentFunction.Arn
+      CodeBuildProjectName: !Ref rCDKDeploymentProject
+
+  # Create Lambda function to start the CodeBuild project
+  rStartDeploymentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rStartDeploymentFunctionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import time
+
+          def handler(event, context):
+              if event['RequestType'] in ['Create', 'Update']:
+                  try:
+                      codebuild = boto3.client('codebuild')
+                      project_name = event['ResourceProperties']['CodeBuildProjectName']
+
+                      # Start the CodeBuild project
+                      response = codebuild.start_build(projectName=project_name)
+                      build_id = response['build']['id']
+
+                      # Wait a few seconds to ensure the build starts
+                      time.sleep(5)
+
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                          'BuildId': build_id
+                      })
+                  except Exception as e:
+                      print(f"Error starting CodeBuild project: {str(e)}")
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {
+                          'Error': str(e)
+                      })
+              else:  # Delete
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+      Timeout: 30
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-function
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Create IAM role for start deployment Lambda function
+  rStartDeploymentFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                Resource: !GetAtt rCDKDeploymentProject.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-role
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Step Function for CDK Stack Cleanup
+  rCDKCleanupStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
+      RoleArn: !GetAtt rCDKCleanupRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "CDK Stack Cleanup State Machine",
+          "StartAt": "ListTaggedStacks",
+          "States": {
+            "ListTaggedStacks": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCDKStackListerFunction}",
+                "Payload": {}
+              },
+              "ResultPath": "$.stackList",
+              "Next": "CheckStacksFound"
+            },
+            "CheckStacksFound": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.stackList.Payload.stacks",
+                  "IsPresent": true,
+                  "Next": "DeleteStacks"
+                }
+              ],
+              "Default": "NoStacksToClean"
+            },
+            "DeleteStacks": {
+              "Type": "Map",
+              "ItemsPath": "$.stackList.Payload.stacks",
+              "MaxConcurrency": 1,
+              "Iterator": {
+                "StartAt": "DescribeStack",
+                "States": {
+                  "DescribeStack": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                    "Parameters": {
+                      "StackName.$": "$"
+                    },
+                    "Assign": {
+                      "stackInfo.$": "$.Stacks[0]"
+                    },
+                    "Next": "DeleteStack",
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["CloudFormation.CloudFormationException"],
+                        "Next": "StackAlreadyDeleted"
+                      }
+                    ]
+                  },
+                  "DeleteStack": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+                    "Parameters": {
+                      "StackName.$": "$stackInfo.StackName"
+                    },
+                    "Next": "WaitForDeletion",
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "Next": "DeletionFailed"
+                      }
+                    ]
+                  },
+                  "WaitForDeletion": {
+                    "Type": "Wait",
+                    "Seconds": 30,
+                    "Next": "CheckDeletionStatus"
+                  },
+                  "CheckDeletionStatus": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                    "Parameters": {
+                      "StackName.$": "$stackInfo.StackName"
+                    },
+                    "ResultPath": "$.stackStatus",
+                    "Next": "EvaluateDeletionStatus",
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
+                        "Next": "DeletionComplete"
+                      }
+                    ]
+                  },
+                  "EvaluateDeletionStatus": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
+                        "StringEquals": "DELETE_IN_PROGRESS",
+                        "Next": "WaitForDeletion"
+                      },
+                      {
+                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
+                        "StringEquals": "DELETE_COMPLETE",
+                        "Next": "DeletionComplete"
+                      }
+                    ],
+                    "Default": "DeletionFailed"
+                  },
+                  "DeletionComplete": {
+                    "Type": "Pass",
+                    "Result": "Stack deleted successfully",
+                    "End": true
+                  },
+                  "DeletionFailed": {
+                    "Type": "Pass",
+                    "Result": "Stack deletion failed or cancelled",
+                    "End": true
+                  },
+                  "StackAlreadyDeleted": {
+                    "Type": "Pass",
+                    "Result": "Stack already deleted or does not exist",
+                    "End": true
+                  }
+                }
+              },
+              "Next": "CleanupComplete"
+            },
+            "NoStacksToClean": {
+              "Type": "Pass",
+              "Result": "No tagged stacks found to clean up",
+              "End": true
+            },
+            "CleanupComplete": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCleanupCompletionFunction}",
+                "Payload": {
+                  "StackName": "${AWS::StackName}"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+
+  # IAM Role for Step Function
+  rCDKCleanupRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CDKCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt rCDKStackListerFunction.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:DeleteStack
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt rCleanupCompletionFunction.Arn
+
+  # Lambda function to list CDK stacks by tag
+  rCDKStackListerFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cdk-stack-lister
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCDKStackListerRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: !Sub |
+          import boto3
+
+          def handler(event, context):
+              cf_client = boto3.client('cloudformation')
+              stacks = []
+
+              try:
+                  paginator = cf_client.get_paginator('list_stacks')
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
+                      for stack in page['StackSummaries']:
+                          # Skip nested stacks
+                          if 'ParentId' in stack:
+                              continue
+
+                          try:
+                              # Get stack tags
+                              stack_detail = cf_client.describe_stacks(StackName=stack['StackName'])
+                              tags = stack_detail['Stacks'][0].get('Tags', [])
+
+                              # Check if stack has the required application tag
+                              has_app_tag = False
+                              sequence_value = 1  # Default sequence value
+
+                              for tag in tags:
+                                  if tag['Key'] == 'application' and tag['Value'] == '${pApplicationName}':
+                                      has_app_tag = True
+                                  elif tag['Key'] == 'sequence':
+                                      try:
+                                          sequence_value = int(tag['Value'])
+                                      except ValueError:
+                                          sequence_value = 1
+
+                              if has_app_tag:
+                                  stacks.append({
+                                      'name': stack['StackName'],
+                                      'sequence': sequence_value
+                                  })
+                          except Exception as e:
+                              print(f"Error checking stack {stack['StackName']}: {str(e)}")
+                              continue
+
+                  # Sort stacks by sequence in descending order (highest first)
+                  stacks.sort(key=lambda x: x['sequence'], reverse=True)
+
+                  # Return just the stack names in sorted order
+                  return {'stacks': [stack['name'] for stack in stacks]}
+              except Exception as e:
+                  print(f"Error listing stacks: {str(e)}")
+                  return {'stacks': []}
+
+  # IAM Role for CDK Stack Lister Lambda
+  rCDKStackListerRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CDKStackListerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:DescribeStacks
+                Resource: "*"
+
+  # Lambda function to clean up retained resources after Step Function completes
+  rCleanupCompletionFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cleanup-completion
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCleanupCompletionRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          import time
+
+          def handler(event, context):
+              stack_name = event.get('StackName')
+              if not stack_name:
+                  print("No stack name provided")
+                  return
+
+              # Wait a bit to ensure all cleanup operations are complete
+              time.sleep(30)
+
+              try:
+                  cf_client = boto3.client('cloudformation')
+
+                  # List of resources to delete (in order)
+                  resources_to_delete = [
+                      f"{stack_name}-cdk-cleanup",  # Step Function
+                      f"{stack_name}-cdk-stack-lister",  # Lambda function
+                  ]
+
+                  # Delete Step Function
+                  try:
+                      sf_client = boto3.client('stepfunctions')
+                      sf_arn = f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup"
+                      sf_client.delete_state_machine(stateMachineArn=sf_arn)
+                      print(f"Deleted Step Function: {sf_arn}")
+                  except Exception as e:
+                      print(f"Error deleting Step Function: {str(e)}")
+
+                  # Delete Lambda function
+                  try:
+                      lambda_client = boto3.client('lambda')
+                      lambda_client.delete_function(FunctionName=f"{stack_name}-cdk-stack-lister")
+                      print(f"Deleted Lambda function: {stack_name}-cdk-stack-lister")
+                  except Exception as e:
+                      print(f"Error deleting Lambda function: {str(e)}")
+
+                  # Delete EventBridge rules
+                  try:
+                      events_client = boto3.client('events')
+
+                      # Get rules that match our stack
+                      rules = events_client.list_rules()['Rules']
+                      for rule in rules:
+                          if stack_name in rule.get('Description', '') or stack_name in rule['Name']:
+                              try:
+                                  # Remove targets first
+                                  targets = events_client.list_targets_by_rule(Rule=rule['Name'])
+                                  if targets['Targets']:
+                                      target_ids = [target['Id'] for target in targets['Targets']]
+                                      events_client.remove_targets(Rule=rule['Name'], Ids=target_ids)
+
+                                  # Delete rule
+                                  events_client.delete_rule(Name=rule['Name'])
+                                  print(f"Deleted EventBridge rule: {rule['Name']}")
+                              except Exception as e:
+                                  print(f"Error deleting rule {rule['Name']}: {str(e)}")
+                  except Exception as e:
+                      print(f"Error deleting EventBridge rules: {str(e)}")
+
+                  # Delete IAM roles (these will be deleted automatically when no longer referenced)
+                  print("Cleanup completion function executed successfully")
+
+                  # Finally, delete this function itself
+                  try:
+                      lambda_client.delete_function(FunctionName=f"{stack_name}-cleanup-completion")
+                      print("Deleted cleanup completion function")
+                  except Exception as e:
+                      print(f"Error deleting cleanup completion function: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error in cleanup completion: {str(e)}")
+
+  # IAM Role for Cleanup Completion Lambda
+  rCleanupCompletionRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CleanupCompletionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Step Function deletion - specific to this stack's state machine
+              - Effect: Allow
+                Action:
+                  - states:DeleteStateMachine
+                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-cdk-cleanup"
+              # Lambda function deletion - specific to this stack's functions
+              - Effect: Allow
+                Action:
+                  - lambda:DeleteFunction
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cdk-stack-lister"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cleanup-completion"
+              # EventBridge rules - list and manage rules for this stack
+              - Effect: Allow
+                Action:
+                  - events:ListRules
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - events:ListTargetsByRule
+                  - events:RemoveTargets
+                  - events:DeleteRule
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*"
+                Condition:
+                  StringLike:
+                    "events:source": "aws.cloudformation"
+              # IAM role management - only for roles created by this stack
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DetachRolePolicy
+                  - iam:DeleteRolePolicy
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
+
+  # EventBridge Rule for Stack Deletion
+  rStackDeletionRule:
+    Type: AWS::Events::Rule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Trigger cleanup when stack is being deleted
+      EventPattern:
+        source: ["aws.cloudformation"]
+        detail-type: ["CloudFormation Stack Status Change"]
+        detail:
+          stack-id: [!Ref "AWS::StackId"]
+          status-details:
+            status: ["DELETE_IN_PROGRESS"]
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt rCDKCleanupStateMachine.Arn
+          Id: "CDKCleanupTarget"
+          RoleArn: !GetAtt rEventBridgeRole.Arn
+
+  # EventBridge Rule for CodeBuild Failure
+  rCodeBuildFailureRule:
+    Type: AWS::Events::Rule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Trigger cleanup when CodeBuild fails
+      EventPattern:
+        source: ["aws.codebuild"]
+        detail-type: ["CodeBuild Build State Change"]
+        detail:
+          project-name: [!Ref rCDKDeploymentProject]
+          build-status: ["FAILED", "FAULT", "STOPPED", "TIMED_OUT"]
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt rCDKCleanupStateMachine.Arn
+          Id: "CDKCleanupTarget"
+          RoleArn: !GetAtt rEventBridgeRole.Arn
+
+  # IAM Role for EventBridge to invoke Step Function
+  rEventBridgeRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !GetAtt rCDKCleanupStateMachine.Arn
+
+
+Outputs:
+  oConfigBucketName:
+    Description: Name of the S3 bucket storing configuration files
+    Value: !Ref rConfigBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-ConfigBucketName
+
+  oCodeBuildProjectName:
+    Description: Name of the CodeBuild project orchestrating CDK deployment
+    Value: !Ref rCDKDeploymentProject
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeBuildProjectName
+
+  oDeploymentStatus:
+    Description: Status of the CDK deployment
+    Value: !Sub Check CodeBuild project ${rCDKDeploymentProject} for deployment status
+    Export:
+      Name: !Sub ${AWS::StackName}-DeploymentStatus
+
+  oCDKCleanupStateMachine:
+    Description: ARN of the Step Function that handles CDK stack cleanup
+    Value: !GetAtt rCDKCleanupStateMachine.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CDKCleanupStateMachine
+
+  oRepositoryInfo:
+    Description: Repository information used for deployment
+    Value: !Sub 'Organization: ${pOrganizationName}, Repository: ${pRepositoryName},
+      Branch: ${pBranchName}'
+    Export:
+      Name: !Sub ${AWS::StackName}-RepositoryInfo

@@ -1,3 +1,7 @@
+<!--
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
 # Contributing Guidelines
 
 Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or additional
@@ -49,6 +53,112 @@ This project has adopted the [Amazon Open Source Code of Conduct](https://aws.gi
 For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq) or contact
 opensource-codeofconduct@amazon.com with any additional questions or comments.
 
+
+## Security Scanning and Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and security. The following hooks are configured:
+
+### Security Hooks
+- **python-safety-dependencies-check**: Scans Python dependencies for known security vulnerabilities
+- **detect-secrets**: Prevents secrets from being committed to the repository
+- **detect-private-key**: Detects private keys in code
+- **detect-aws-credentials**: Prevents AWS credentials from being committed
+
+### Code Quality Hooks
+- **commitizen**: Enforces conventional commit message format
+- **check-json**: Validates JSON file syntax
+- **check-yaml**: Validates YAML file syntax
+- **trailing-whitespace**: Removes trailing whitespace
+- **mixed-line-ending**: Ensures consistent line endings
+- **check-merge-conflict**: Detects merge conflict markers
+- **codespell**: Checks for common spelling mistakes
+- **eslint**: Lints JavaScript/TypeScript files
+- **dockerfile_lint**: Lints Dockerfile syntax
+- **black**: Formats Python code
+- **flake8**: Python code linting
+- **mypy**: Python type checking
+- **cfn-python-lint**: CloudFormation template linting
+- **jest**: Runs unit tests
+- **ash-simple-scan**: AWS security scanning
+
+### Installing Pre-commit Hooks
+
+**Mac:**
+```bash
+brew install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+**Windows:**
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+## Local Development
+
+For faster development without waiting for the pipeline, you can use the local CDK application located in `bin/local.ts`. This deploys resources directly using CDK commands.
+
+**Prerequisites:** Authenticate with your target AWS account
+
+**Usage:**
+```bash
+cdk -a "npx ts-node bin/local.ts" <cdk-command>
+```
+
+Example commands:
+```bash
+# Deploy the stack
+cdk -a "npx ts-node bin/local.ts" deploy
+
+# Show differences
+cdk -a "npx ts-node bin/local.ts" diff
+
+# Destroy the stack
+cdk -a "npx ts-node bin/local.ts" destroy
+```
+
+## Deployment Scripts
+
+### Environment Validation Script
+
+The `scripts/deploy-check.sh` script validates your environment and prepares the repository for deployment.
+
+**Setup:**
+1. Copy `src/cdk/.env.sample` to `src/cdk/.env`
+2. Update the `.env` file with your AWS account details:
+   - `CONFIG_BUCKET`: Your S3 bucket name
+   - `BRANCH_NAME`: Your git branch name
+   - `AWS_ACCOUNT_ID`: Your AWS account ID
+   - `AWS_REGION`: Your target AWS region
+
+**Usage:**
+```bash
+./scripts/deploy-check.sh
+```
+
+The script will:
+- Validate AWS credentials and display current role/account
+- Check if the S3 bucket exists (create if needed)
+- Verify the repository archive exists in S3 (upload if needed)
+
+### Application Redeployment Script
+
+The `src/cdk/scripts/redeploy-app.sh` script helps developers quickly redeploy individual microservices for testing new versions.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- One of: Docker, Finch, or Podman installed
+- Deployed One Observability Demo infrastructure
+
+**Usage:**
+```bash
+./src/cdk/scripts/redeploy-app.sh
+```
+
+See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
 
 ## Security issue notifications
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
