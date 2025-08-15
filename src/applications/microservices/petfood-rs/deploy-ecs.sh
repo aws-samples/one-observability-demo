@@ -6,7 +6,7 @@
 set -euxo pipefail
 
 AWS_REGION="us-west-2"
-ECS_CLUSTER_NAME="Services-PetListAdoptions1706E0DF-obMtiY9kiBGO"
+ECS_CLUSTER_NAME="Services-PetListAdoptions1706E0DF-obMtiY9kiBGO" #pragma: allowlist secret
 NEW_TAG="throwaway-$(date +%H%M%S)"
 
 echo "🚀 Quick deployment with new tag: $NEW_TAG"

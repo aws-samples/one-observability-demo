@@ -16,7 +16,7 @@ COPY . .
 # Build the application
 RUN cargo build --release
 
-# Runtime stage  
+# Runtime stage
 FROM debian:bookworm-slim
 
 # Install runtime dependencies

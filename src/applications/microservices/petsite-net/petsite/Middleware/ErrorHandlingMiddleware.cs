@@ -25,17 +25,17 @@ namespace PetSite.Middleware
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An unhandled exception occurred");
-                
+
                 // Preserve userId and exception message
                 var userId = context.Request.Query["userId"].ToString();
                 var errorMessage = Uri.EscapeDataString(ex.Message);
-                
+
                 var errorPath = $"/Home/Error?message={errorMessage}";
                 if (!string.IsNullOrEmpty(userId))
                 {
                     errorPath += $"&userId={userId}";
                 }
-                
+
                 context.Response.Redirect(errorPath);
             }
         }

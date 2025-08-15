@@ -39,11 +39,11 @@ make_request() {
     local url=$2
     local data=$3
     local description=$4
-    
+
     echo ""
     print_step "$description"
     echo "Request: $method $url"
-    
+
     if [ -n "$data" ]; then
         echo "Data: $data"
         response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X "$method" "$url" \
@@ -52,22 +52,22 @@ make_request() {
     else
         response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X "$method" "$url")
     fi
-    
+
     # Extract HTTP status and body
     http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
     body=$(echo "$response" | sed '/HTTP_STATUS:/d')
-    
+
     echo "Status: $http_status"
     echo "Response:"
     echo "$body" | jq . 2>/dev/null || echo "$body"
-    
+
     # Check if request was successful
     if [[ "$http_status" =~ ^2[0-9][0-9]$ ]]; then
         print_success "Request completed successfully"
     else
         print_error "Request failed with status $http_status"
     fi
-    
+
     echo "----------------------------------------"
 }
 
