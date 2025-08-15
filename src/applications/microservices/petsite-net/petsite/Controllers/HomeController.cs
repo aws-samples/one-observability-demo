@@ -77,7 +77,7 @@ namespace PetSite.Controllers
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
             string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
-            
+
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString();
             var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
@@ -97,10 +97,10 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.type", selectedPetType);
                 currentActivity.SetTag("pet.color", selectedPetColor);
                 currentActivity.SetTag("pet.id", petid);
-                
+
                 _logger.LogInformation($"Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
             }
-            
+
             List<Pet> Pets;
 
             try
@@ -152,7 +152,7 @@ namespace PetSite.Controllers
                     SelectedPetType = selectedPetType
                 }
             };
-            
+
             _logger.LogInformation("Search completed with {PetCount} pets found", Pets.Count);
 
             // Sets the metric value to the number of pets available for adoption at the moment
@@ -169,10 +169,11 @@ namespace PetSite.Controllers
                 ViewBag.UserId = userId;
                 ViewData["UserId"] = userId;
             }
-            
+
             ViewBag.ErrorMessage = message;
-            
-            return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
+
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
     }
 }
+

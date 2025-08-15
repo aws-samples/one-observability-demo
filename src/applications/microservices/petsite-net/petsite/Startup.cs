@@ -35,7 +35,7 @@ namespace PetSite
             services.AddHttpClient();
             services.AddHttpContextAccessor();
             services.AddScoped<PetSite.Services.IPetSearchService, PetSite.Services.PetSearchService>();
-            
+
             // Configure AWS Services
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
             services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
@@ -60,7 +60,7 @@ namespace PetSite
 
             app.UseRouting();
             app.UseHttpMetrics();
-            
+
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
@@ -73,3 +73,4 @@ namespace PetSite
         }
     }
 }
+

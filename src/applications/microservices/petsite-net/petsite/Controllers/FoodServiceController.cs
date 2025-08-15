@@ -38,10 +38,10 @@ namespace PetSite.Controllers
                 var url = UrlHelper.BuildUrl(foodApiUrl, ("userId", userId));
                 var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
-                
+
                 var jsonContent = await response.Content.ReadAsStringAsync();
                 var foodResponse = JsonSerializer.Deserialize<FoodResponse>(jsonContent);
-                
+
                 return Json(foodResponse?.foods ?? new List<Food>());
             }
             catch (Exception ex)
@@ -60,11 +60,11 @@ namespace PetSite.Controllers
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var purchaseApiUrl = _configuration["FOOD_PURCHASE_API_URL"] ?? "https://api.example.com/purchase";
-               // var userId = ViewBag.UserId?.ToString();
+                // var userId = ViewBag.UserId?.ToString();
                 var url = UrlHelper.BuildUrl(purchaseApiUrl, ("foodId", foodId), ("userId", userId));
                 var response = await httpClient.PostAsync(url, null);
                 response.EnsureSuccessStatusCode();
-                
+
                 // Food purchase successful - could add ViewData or redirect with status
             }
             catch (Exception ex)
@@ -77,3 +77,4 @@ namespace PetSite.Controllers
         }
     }
 }
+

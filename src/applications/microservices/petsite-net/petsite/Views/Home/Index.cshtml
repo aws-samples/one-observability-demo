@@ -7,7 +7,7 @@
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
     </div>
 </section>
 
@@ -17,14 +17,14 @@
         <form method="get">
             <label class="pet-label" data-title="Type">
                 <select name="selectedPetType" asp-for="@Model.Varieties.SelectedPetType"
-                        asp-items="@Model.Varieties.PetTypes" class="pet-filter"></select>
+                    asp-items="@Model.Varieties.PetTypes" class="pet-filter"></select>
             </label>
             <label class="pet-label" data-title="Color">
                 <select name="selectedPetColor" asp-for="@Model.Varieties.SelectedPetColor"
-                        asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
+                    asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
             </label>
             <input type="hidden" name="userId" value="@ViewBag.UserId" />
-            <input id="searchpets" type="submit" value="Search" class="rounded-lg"/>
+            <input id="searchpets" type="submit" value="Search" class="rounded-lg" />
 
         </form>
     </div>
@@ -38,25 +38,25 @@
             @foreach (var pet in Model.Pets)
             {
                 <div class="pet-item col-md-4">
-                    <partial name="_PetItem" for="@pet"/>
+                    <partial name="_PetItem" for="@pet" />
                 </div>
             }
         </div>
     }
     else if (ViewBag.ErrorMessage != null)
     {
-        <br/>
+        <br />
         <div class="container align-items-center">
             <div class="alert alert-danger" role="alert">
                 <h4 class="alert-heading">Error</h4>
-                <hr/>
+                <hr />
                 <p class="mb-0">@Html.Raw(ViewBag.ErrorMessage.Replace("\n", "<br>"))</p>
             </div>
         </div>
     }
     else
     {
-        <br/>
+        <br />
         <div class="container align-items-center">
             <div class="alert alert-warning" role="alert">
                 <h4 class="alert-heading">No result</h4>

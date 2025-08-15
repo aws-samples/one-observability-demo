@@ -25,7 +25,7 @@ namespace PetSite.Controllers
         {
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
-            _logger=  logger;
+            _logger = logger;
         }
 
         // GET
@@ -65,3 +65,4 @@ namespace PetSite.Controllers
         }
     }
 }
+

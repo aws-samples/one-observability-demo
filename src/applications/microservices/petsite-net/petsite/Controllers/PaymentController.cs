@@ -38,10 +38,10 @@ namespace PetSite.Controllers
         public ActionResult Index([FromQuery] string userId, string status)
         {
             if (EnsureUserId()) return new EmptyResult();
-            
+
             // Transfer Session to ViewData for the view
             ViewData["txStatus"] = status;
-            
+
             // ViewData["FoodPurchaseStatus"] = HttpContext.Session.GetString("FoodPurchaseStatus");
             // ViewData["PurchasedFoodId"] = HttpContext.Session.GetString("PurchasedFoodId");
             //
@@ -60,7 +60,7 @@ namespace PetSite.Controllers
             //if (EnsureUserId()) return new EmptyResult();
 
             if (string.IsNullOrEmpty(userId)) EnsureUserId();
-            
+
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -86,7 +86,7 @@ namespace PetSite.Controllers
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"], 
+                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"],
                         ("petId", petId), ("petType", pettype), ("userId", userId));
                     await httpClient.PostAsync(url, null);
                 }
@@ -105,3 +105,4 @@ namespace PetSite.Controllers
         }
     }
 }
+
