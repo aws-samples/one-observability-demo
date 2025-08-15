@@ -185,6 +185,7 @@ export class MicroservicesStack extends Stack {
                         petFoodCartTable: dynamodbExports.petFoodsCartTable,
                         assetsBucket: assetsBucket,
                         containerPort: 8080,
+                        openSearchCollection: openSearchExports,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);

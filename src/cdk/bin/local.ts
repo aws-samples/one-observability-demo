@@ -91,6 +91,10 @@ new MicroservicesStack(app, 'DevMicroservicesStack', {
     tags: TAGS,
     microservicesPlacement: MICROSERVICES_PLACEMENT,
     lambdaFunctions: LAMBDA_FUNCTIONS,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 }).addDependency(compute, 'Need to know where to run');
 
 /** Tag all resources to indicate local deployment */

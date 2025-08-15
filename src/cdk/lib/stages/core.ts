@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { Stack, Stage } from 'aws-cdk-lib';
+import { Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
@@ -25,7 +25,7 @@ import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 /**
  * Configuration properties for the CoreStage.
  */
-export interface CoreStageProperties {
+export interface CoreStageProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
     /** Whether to create a new VPC (default: true) */
