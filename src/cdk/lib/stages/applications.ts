@@ -20,6 +20,7 @@ import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
 import { PetFoodECSService } from '../microservices/petfood';
 
@@ -65,6 +66,7 @@ export class MicroservicesStack extends Stack {
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
+        const openSearchExports = OpenSearchCollection.importFromExports();
         const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
 
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;

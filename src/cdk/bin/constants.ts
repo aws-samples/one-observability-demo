@@ -52,6 +52,15 @@ export const AURORA_ADMIN_SECRET_ARN_EXPORT_NAME = 'WorkshopAuroraAdminSecretArn
 export const DYNAMODB_TABLE_ARN_EXPORT_NAME = 'WorkshopDynamoDBTableArn';
 export const DYNAMODB_TABLE_NAME_EXPORT_NAME = 'WorkshopDynamoDBTableName';
 
+// OpenSearch Serverless Export Names
+export const OPENSEARCH_COLLECTION_ARN_EXPORT_NAME = 'WorkshopOpenSearchCollectionArn';
+export const OPENSEARCH_COLLECTION_ID_EXPORT_NAME = 'WorkshopOpenSearchCollectionId';
+export const OPENSEARCH_COLLECTION_ENDPOINT_EXPORT_NAME = 'WorkshopOpenSearchCollectionEndpoint';
+
+// OpenSearch Application Export Names
+export const OPENSEARCH_APPLICATION_ARN_EXPORT_NAME = 'WorkshopOpenSearchApplicationArn';
+export const OPENSEARCH_APPLICATION_ID_EXPORT_NAME = 'WorkshopOpenSearchApplicationId';
+
 // VPC Endpoint Export Names
 export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
 export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';

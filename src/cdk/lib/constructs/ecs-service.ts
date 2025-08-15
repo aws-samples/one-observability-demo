@@ -16,6 +16,9 @@ import {
     Ec2Service,
     FargateService,
     BaseService,
+    FireLensLogDriver,
+    FirelensLogRouterType,
+    LogDriver,
 } from 'aws-cdk-lib/aws-ecs';
 import {
     ApplicationLoadBalancedEc2Service,
@@ -28,12 +31,19 @@ import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
+import { OpenSearchCollection } from './opensearch-collection';
 
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
     desiredTaskCount: number;
     cloudMapNamespace?: IPrivateDnsNamespace;
+    openSearchCollection?:
+        | OpenSearchCollection
+        | {
+              collectionArn: string;
+              collectionEndpoint: string;
+          };
 }
 
 export abstract class EcsService extends Microservice {
@@ -65,14 +75,25 @@ export abstract class EcsService extends Microservice {
         let loadBalancedService: ApplicationLoadBalancedServiceBase | undefined;
         let service: BaseService | undefined;
 
-        const logging = new AwsLogDriver({
-            streamPrefix: 'logs',
-            logGroup: new LogGroup(this, 'ecs-log-group', {
-                logGroupName: properties.logGroupName || `/ecs/${properties.name}`,
-                removalPolicy: RemovalPolicy.DESTROY,
-                retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
-            }),
+        // Create CloudWatch log group
+        const logGroup = new LogGroup(this, 'ecs-log-group', {
+            logGroupName: properties.logGroupName || `/ecs/${properties.name}`,
+            removalPolicy: RemovalPolicy.DESTROY,
+            retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
         });
+
+        // Configure logging based on whether OpenSearch collection is provided
+        let logging: LogDriver;
+        if (properties.openSearchCollection) {
+            // Use FireLens for dual routing to CloudWatch and OpenSearch
+            logging = this.createFireLensLogDriver(properties, logGroup);
+        } else {
+            // Use standard CloudWatch logging
+            logging = new AwsLogDriver({
+                streamPrefix: 'logs',
+                logGroup: logGroup,
+            });
+        }
 
         const taskRole = new Role(this, `taskRole`, {
             assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -90,20 +111,40 @@ export abstract class EcsService extends Microservice {
                       enableFaultInjection: true,
                   });
 
+        // Add execution role permissions
+        const executionRoleActions = [
+            'ecr:GetAuthorizationToken',
+            'ecr:BatchCheckLayerAvailability',
+            'ecr:GetDownloadUrlForLayer',
+            'ecr:BatchGetImage',
+            'logs:CreateLogStream',
+            'logs:PutLogEvents',
+        ];
+
+        // Add OpenSearch permissions if collection is provided
+        if (properties.openSearchCollection) {
+            executionRoleActions.push(
+                'aoss:WriteDocument',
+                'aoss:CreateIndex',
+                'aoss:DescribeIndex',
+                'aoss:UpdateIndex',
+                'es:ESHttpPost',
+                'es:ESHttpPut',
+            );
+        }
+
         taskDefinition.addToExecutionRolePolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: [
-                    'ecr:GetAuthorizationToken',
-                    'ecr:BatchCheckLayerAvailability',
-                    'ecr:GetDownloadUrlForLayer',
-                    'ecr:BatchGetImage',
-                    'logs:CreateLogStream',
-                    'logs:PutLogEvents',
-                ],
+                actions: executionRoleActions,
                 resources: ['*'],
             }),
         );
+
+        // Add FireLens log router container if OpenSearch collection is provided
+        if (properties.openSearchCollection) {
+            this.addFireLensLogRouter(taskDefinition, properties);
+        }
 
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
@@ -250,7 +291,20 @@ export abstract class EcsService extends Microservice {
                 [
                     {
                         id: 'AwsSolutions-IAM5',
-                        reason: 'Allowing * for ECR pull',
+                        reason: 'Allowing * for ECR pull and log access',
+                    },
+                ],
+                true,
+            );
+        }
+
+        if (taskDefinition.taskRole && properties.openSearchCollection) {
+            NagSuppressions.addResourceSuppressions(
+                taskDefinition.taskRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'OpenSearch Serverless requires broad permissions for log ingestion',
                     },
                 ],
                 true,
@@ -268,4 +322,56 @@ export abstract class EcsService extends Microservice {
 
         return { taskDefinition, loadBalancedService, service, container, taskRole };
     }
+
+    private addFireLensLogRouter(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
+        // Add FireLens log router using the task definition method
+        const logRouter = taskDefinition.addFirelensLogRouter('log-router', {
+            image: ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:stable'),
+            memoryLimitMiB: 512,
+            cpu: 256,
+            essential: true,
+            logging: new AwsLogDriver({
+                streamPrefix: 'firelens',
+                logGroup: new LogGroup(this, 'firelens-log-group', {
+                    logGroupName: `/ecs/firelens/${properties.name}`,
+                    removalPolicy: RemovalPolicy.DESTROY,
+                    retention: RetentionDays.ONE_WEEK,
+                }),
+            }),
+            firelensConfig: {
+                type: FirelensLogRouterType.FLUENTBIT,
+                options: {
+                    enableECSLogMetadata: true,
+                },
+            },
+        });
+
+        // Add port mappings for the log router (required by ECS)
+        logRouter.addPortMappings({
+            containerPort: 24224,
+            protocol: Protocol.TCP,
+        });
+
+        // Add task role permissions for OpenSearch access
+        if (properties.openSearchCollection) {
+            const collection = properties.openSearchCollection;
+            const collectionArn = 'collection' in collection ? collection.collection.attrArn : collection.collectionArn;
+
+            taskDefinition.taskRole.addToPrincipalPolicy(
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: [
+                        'aoss:WriteDocument',
+                        'aoss:CreateIndex',
+                        'aoss:DescribeIndex',
+                        'aoss:UpdateIndex',
+                        'es:ESHttpPost',
+                        'es:ESHttpPut',
+                    ],
+                    resources: [collectionArn],
+                }),
+            );
+        }
+    }
+
 }
