@@ -93,10 +93,6 @@ export class MicroservicesStack extends Stack {
                         secret: rdsExports.adminSecret,
                         table: dynamodbExports.table,
                         instrumentation: 'otel',
-                        openSearchCollection: {
-                            collectionArn: openSearchExports.collectionArn,
-                            collectionEndpoint: openSearchExports.collectionEndpoint,
-                        },
                         healthCheck: '/health/status',
                         vpc: vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
