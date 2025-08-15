@@ -26,31 +26,25 @@ namespace PetSite.Controllers
             _petSearchService = petSearchService;
             _logger = logger;
         }
-
+        
         // GET: Adoption
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
             if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
-
-            // Check if pet data exists in TempData (from TakeMeHome redirect)
-            if (TempData["SelectedPet"] != null)
-            {
-                var petJson = TempData["SelectedPet"].ToString();
-                pet = JsonSerializer.Deserialize<Pet>(petJson);
-            }
-
-            _logger.LogInformation($"In Index Adoption/Index method and about to render the View with: {TempData["SelectedPet"]}");
-
+            
+            _logger.LogInformation($"In Index Adoption/Index method with pet: {JsonSerializer.Serialize(pet)}");
+            
             return View(pet);
         }
-
+        
 
 
         [HttpPost]
-        public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams)
+        public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams, string userId)
         {
-            EnsureUserId();
+            if(string.IsNullOrEmpty(userId)) EnsureUserId();
+            
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -58,12 +52,12 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.id", searchParams.petid);
                 currentActivity.SetTag("pet.type", searchParams.pettype);
                 currentActivity.SetTag("pet.color", searchParams.petcolor);
-
+                
                 _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
             }
-
+            
             List<Pet> pets;
-
+            
             try
             {
                 // Create tracing span for Search API operation
@@ -76,7 +70,7 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.color", searchParams.petcolor);
                     }
                     _logger.LogInformation($"Inside Adoption/TakeMeHome with - pettype: {searchParams.pettype}, petcolor: {searchParams.petcolor}, petid: {searchParams.petid}");
-                    pets = await _petSearchService.GetPetDetails(searchParams.pettype, searchParams.petcolor, searchParams.petid);
+                    pets = await _petSearchService.GetPetDetails(searchParams.pettype, searchParams.petcolor, searchParams.petid, "userxxx");
                 }
             }
             catch (Exception e)
@@ -89,11 +83,18 @@ namespace PetSite.Controllers
             var selectedPet = pets.FirstOrDefault();
             if (selectedPet != null)
             {
-                TempData["SelectedPet"] = JsonSerializer.Serialize(selectedPet);
+                return RedirectToAction("Index", new { 
+                    userId = userId,
+                    petid = selectedPet.petid,
+                    pettype = selectedPet.pettype,
+                    petcolor = selectedPet.petcolor,
+                    peturl = selectedPet.peturl,
+                    price = selectedPet.price,
+                    cuteness_rate = selectedPet.cuteness_rate
+                });
             }
-            _logger.LogInformation($"Redirecting to Index page with : {JsonSerializer.Serialize(selectedPet)}");
-
-            return RedirectToAction("Index", new { userId = ViewBag.UserId });
+            
+            return RedirectToAction("Index", new { userId = userId });
         }
     }
 }

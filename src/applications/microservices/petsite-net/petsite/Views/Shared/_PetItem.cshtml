@@ -1,16 +1,17 @@
+﻿@using Microsoft.AspNetCore.Http.Features
 @using Microsoft.CodeAnalysis.CSharp.Syntax
 @model Pet;
 
     <form asp-controller="adoption" asp-action="takemehome" method="post">
         <div style="position: relative; display: inline-block;">
             <img class="pet-thumbnail" src="@Model.peturl" style="border: 1px solid #000000; border-radius: 23px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
-
+            
             <!-- Pet type and color overlay - top left -->
             <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@Model.pettype-@Model.petcolor</span>
-
+            
             <!-- Price overlay - bottom right -->
             <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;font-size: 18px;">$@Model.price</span>
-
+            
             <!-- Cuteness rating overlay - bottom center -->
             <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px;">
                 @for (int i = 0; i < Int32.Parse(Model.cuteness_rate); i++)
@@ -19,7 +20,7 @@
                 }
             </div>
         </div>
-
+        
         @if (Model.availability == "yes")
         {
             <br/>
@@ -38,4 +39,6 @@
         <input type="hidden" asp-for="@Model.peturl" name="peturl" />
         <input type="hidden" asp-for="@Model.price" name="price" />
         <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+        <input type="hidden" name="userId" value="@ViewBag.UserId" />
+        
     </form>

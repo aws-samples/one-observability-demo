@@ -1,4 +1,4 @@
-@{
+﻿@{
   ViewData["Title"] = "Complete Adoption";
 }
 
@@ -61,7 +61,7 @@
         <p class="mb-0">Sorry, something went wrong</p>
       </div>
     </div>
-    <p>Error @ViewData["error"]</p>
+    <p>Error @ViewData["txStatus"]</p>
   }
 </div>
 
@@ -78,7 +78,7 @@
       const response = await fetch('/FoodService/GetFoods');
       const foods = await response.json();
       const grid = document.getElementById('food-grid');
-
+      
       foods.forEach(food => {
         const foodItem = `
           <div class="col-md-4 mb-3">
@@ -91,6 +91,7 @@
                 <p class="card-text"><small class="text-muted">For: ${food.food_for} | Type: ${food.food_type}</small></p>
                 <form method="post" action="/FoodService/BuyFood">
                   <input type="hidden" name="foodId" value="${food.food_id}">
+                  <input type="hidden" name="userId" value="@ViewBag.UserId">
                   <button type="submit" class="btn btn-primary">Buy</button>
                 </form>
               </div>
@@ -103,7 +104,7 @@
       console.error('Error loading foods:', error);
     }
   }
-
+  
   // Load foods when page loads
   //document.addEventListener('DOMContentLoaded', loadFoods);
 </script>

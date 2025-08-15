@@ -12,6 +12,7 @@ using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -76,10 +77,11 @@ namespace PetSite.Controllers
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
             string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
-
+            
             using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString() ?? HttpContext.Session.GetString("userId");
-            await httpClient.PostAsync($"{cleanupadoptionsurl}?userId={userId}", null);
+            var userId = ViewBag.UserId?.ToString();
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            await httpClient.PostAsync(url, null);
 
             return View();
         }
@@ -95,10 +97,10 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.type", selectedPetType);
                 currentActivity.SetTag("pet.color", selectedPetColor);
                 currentActivity.SetTag("pet.id", petid);
-
+                
                 _logger.LogInformation($"Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
             }
-
+            
             List<Pet> Pets;
 
             try
@@ -113,7 +115,8 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.id", petid);
                     }
 
-                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid);
+                    var userId = Request.Query["userId"].ToString();
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid, userId);
                 }
             }
             catch (HttpRequestException e)
@@ -149,7 +152,7 @@ namespace PetSite.Controllers
                     SelectedPetType = selectedPetType
                 }
             };
-
+            
             _logger.LogInformation("Search completed with {PetCount} pets found", Pets.Count);
 
             // Sets the metric value to the number of pets available for adoption at the moment
@@ -159,8 +162,16 @@ namespace PetSite.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(string userId, string message)
         {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                ViewBag.UserId = userId;
+                ViewData["UserId"] = userId;
+            }
+            
+            ViewBag.ErrorMessage = message;
+            
             return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
         }
     }
