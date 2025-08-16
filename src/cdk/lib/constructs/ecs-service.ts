@@ -45,8 +45,6 @@ export interface EcsServiceProperties extends MicroserviceProperties {
           };
 }
 
-export const OPENSEARCH_PORT = 24_224;
-
 export abstract class EcsService extends Microservice {
     public readonly taskDefinition: TaskDefinition;
     public readonly loadBalancedService?: ApplicationLoadBalancedServiceBase;
@@ -139,11 +137,6 @@ export abstract class EcsService extends Microservice {
             }),
         );
 
-        // Add FireLens log router container if OpenSearch collection is provided
-        if (properties.openSearchCollection) {
-            this.addFireLensLogRouter(taskDefinition, properties);
-        }
-
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
         const container = taskDefinition.addContainer('container', {
@@ -161,6 +154,11 @@ export abstract class EcsService extends Microservice {
             containerPort: properties.containerPort || 80,
             protocol: Protocol.TCP,
         });
+
+        // Add FireLens log router container if OpenSearch collection is provided
+        if (properties.openSearchCollection) {
+            this.addFireLensLogRouter(taskDefinition, properties);
+        }
 
         if (!properties.disableService) {
             if (properties.createLoadBalancer === false) {
@@ -256,13 +254,6 @@ export abstract class EcsService extends Microservice {
                             Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
-                        if (properties.openSearchCollection) {
-                            properties.securityGroup.addIngressRule(
-                                loadBalancedService.loadBalancer.connections.securityGroups[0],
-                                Port.tcp(OPENSEARCH_PORT),
-                                'Allow load balancer to reach OpenSearch for health check',
-                            );
-                        }
                     }
 
                     // Allow traffic from specified subnet type to load balancer
@@ -371,12 +362,6 @@ export abstract class EcsService extends Microservice {
                     enableECSLogMetadata: true,
                 },
             },
-        });
-
-        // Add port mappings for the log router (required by ECS)
-        logRouter.addPortMappings({
-            containerPort: OPENSEARCH_PORT,
-            protocol: Protocol.TCP,
         });
 
         // Add task role permissions for OpenSearch access
