@@ -1,13 +1,13 @@
-@{
+﻿@{
   ViewData["Title"] = "Complete Adoption";
 }
 
 <section class="pet-hero">
   <div class="container">
-    <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+    <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
   </div>
 </section>
-<br />
+<br/>
 
 <div class="container align-items-center">
   @if (ViewData["txStatus"].ToString() == "success")
@@ -17,7 +17,7 @@
       <hr>
       <p class="mb-0">Thank you for adopting me!</p>
       <canvas id="confetti-canvas"
-        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></canvas>
+              style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></canvas>
     </div>
     <script>
       const canvas = document.getElementById('confetti-canvas');
@@ -53,7 +53,7 @@
   }
   else
   {
-    <br />
+    <br/>
     <div class="container align-items-center">
       <div class="alert alert-danger" role="alert">
         <h4 class="alert-heading">Error</h4>
@@ -78,7 +78,7 @@
       const response = await fetch('/FoodService/GetFoods');
       const foods = await response.json();
       const grid = document.getElementById('food-grid');
-
+      
       foods.forEach(food => {
         const foodItem = `
           <div class="col-md-4 mb-3">
@@ -104,7 +104,7 @@
       console.error('Error loading foods:', error);
     }
   }
-
+  
   // Load foods when page loads
   //document.addEventListener('DOMContentLoaded', loadFoods);
 </script>
