@@ -26,25 +26,25 @@ namespace PetSite.Controllers
             _petSearchService = petSearchService;
             _logger = logger;
         }
-
+        
         // GET: Adoption
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
             if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
-
+            
             _logger.LogInformation($"In Index Adoption/Index method with pet: {JsonSerializer.Serialize(pet)}");
-
+            
             return View(pet);
         }
-
+        
 
 
         [HttpPost]
         public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams, string userId)
         {
-            if (string.IsNullOrEmpty(userId)) EnsureUserId();
-
+            if(string.IsNullOrEmpty(userId)) EnsureUserId();
+            
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
@@ -52,12 +52,12 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.id", searchParams.petid);
                 currentActivity.SetTag("pet.type", searchParams.pettype);
                 currentActivity.SetTag("pet.color", searchParams.petcolor);
-
+                
                 _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
             }
-
+            
             List<Pet> pets;
-
+            
             try
             {
                 // Create tracing span for Search API operation
@@ -83,8 +83,7 @@ namespace PetSite.Controllers
             var selectedPet = pets.FirstOrDefault();
             if (selectedPet != null)
             {
-                return RedirectToAction("Index", new
-                {
+                return RedirectToAction("Index", new { 
                     userId = userId,
                     petid = selectedPet.petid,
                     pettype = selectedPet.pettype,
@@ -94,9 +93,8 @@ namespace PetSite.Controllers
                     cuteness_rate = selectedPet.cuteness_rate
                 });
             }
-
+            
             return RedirectToAction("Index", new { userId = userId });
         }
     }
 }
-
