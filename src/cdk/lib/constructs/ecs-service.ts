@@ -26,7 +26,7 @@ import {
 } from 'aws-cdk-lib/aws-ecs-patterns';
 import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, Fn } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
@@ -324,16 +324,19 @@ export abstract class EcsService extends Microservice {
         const openSearchEndpoint =
             'collection' in collection ? collection.collection.attrCollectionEndpoint : collection.collectionEndpoint;
 
+        // Use CloudFormation functions to strip https:// prefix at deployment time
+        const openSearchHostWithoutProtocol = Fn.select(1, Fn.split('https://', openSearchEndpoint));
+
         return new FireLensLogDriver({
             options: {
-                Name: 'es',
-                Host: openSearchEndpoint.replace('https://', ''),
+                Name: 'opensearch',
+                Host: openSearchHostWithoutProtocol,
                 Port: '443',
                 aws_auth: 'On',
                 AWS_Region: Stack.of(this).region,
                 AWS_Service_Name: 'aoss',
                 Index: `${properties.name}-logs`,
-                tls: 'Off',
+                tls: 'On',
                 Suppress_Type_Name: 'On',
                 Trace_Error: 'On',
                 Trace_Output: 'On',
@@ -372,14 +375,7 @@ export abstract class EcsService extends Microservice {
             taskDefinition.taskRole.addToPrincipalPolicy(
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'aoss:WriteDocument',
-                        'aoss:CreateIndex',
-                        'aoss:DescribeIndex',
-                        'aoss:UpdateIndex',
-                        'es:ESHttpPost',
-                        'es:ESHttpPut',
-                    ],
+                    actions: ['aoss:*', 'es:ESHttpPost', 'es:ESHttpPut'],
                     resources: [collectionArn],
                 }),
             );
