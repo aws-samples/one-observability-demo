@@ -35,7 +35,6 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub aws: AwsConfig,
     pub observability: ObservabilityConfig,
-    pub error_simulation: ErrorSimulationConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -84,16 +83,6 @@ pub struct ObservabilityConfig {
     pub enable_json_logging: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ErrorSimulationConfig {
-    #[serde(default = "default_error_mode_enabled")]
-    pub enabled: bool,
-    #[serde(default = "default_parameter_prefix")]
-    pub parameter_prefix: String,
-    #[serde(default = "default_cache_ttl")]
-    pub cache_ttl_seconds: u64,
-}
-
 pub struct ParameterStoreConfig {
     ssm_client: SsmClient,
     cache: Arc<RwLock<HashMap<String, (String, Instant)>>>,
@@ -117,7 +106,6 @@ impl Config {
         let server = ServerConfig::from_env()?;
         let database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
-        let error_simulation = ErrorSimulationConfig::from_env()?;
 
         // Initialize AWS configuration
         let aws_config = aws_config::defaults(BehaviorVersion::latest())
@@ -131,7 +119,7 @@ impl Config {
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(
             ssm_client.clone(),
-            Duration::from_secs(error_simulation.cache_ttl_seconds),
+            Duration::from_secs(5 * 60),
         ));
 
         let aws = AwsConfig {
@@ -146,7 +134,6 @@ impl Config {
             database,
             aws,
             observability,
-            error_simulation,
         };
 
         // Validate configuration
@@ -206,7 +193,7 @@ impl Config {
 impl ServerConfig {
     fn from_env() -> Result<Self, ConfigError> {
         let settings = config::Config::builder()
-            .add_source(config::Environment::with_prefix("PETFOOD_SERVER"))
+            .add_source(config::Environment::with_prefix("PETFOOD"))
             .build()
             .map_err(|e| ConfigError::LoadError {
                 message: format!("Failed to load server config: {}", e),
@@ -227,7 +214,7 @@ impl ServerConfig {
 impl DatabaseConfig {
     fn from_env() -> Result<Self, ConfigError> {
         let settings = config::Config::builder()
-            .add_source(config::Environment::with_prefix("PETFOOD_DATABASE"))
+            .add_source(config::Environment::with_prefix("PETFOOD"))
             .build()
             .map_err(|e| ConfigError::LoadError {
                 message: format!("Failed to load database config: {}", e),
@@ -244,7 +231,7 @@ impl DatabaseConfig {
 impl ObservabilityConfig {
     fn from_env() -> Result<Self, ConfigError> {
         let settings = config::Config::builder()
-            .add_source(config::Environment::with_prefix("PETFOOD_OBSERVABILITY"))
+            .add_source(config::Environment::with_prefix("PETFOOD"))
             .build()
             .map_err(|e| ConfigError::LoadError {
                 message: format!("Failed to load observability config: {}", e),
@@ -255,27 +242,6 @@ impl ObservabilityConfig {
             .map_err(|e| ConfigError::LoadError {
                 message: format!("Failed to deserialize observability config: {}", e),
             })
-    }
-}
-
-impl ErrorSimulationConfig {
-    fn from_env() -> Result<Self, ConfigError> {
-        let settings = config::Config::builder()
-            .add_source(config::Environment::with_prefix("PETFOOD_ERROR_SIMULATION"))
-            .build()
-            .map_err(|e| ConfigError::LoadError {
-                message: format!("Failed to load error simulation config: {}", e),
-            })?;
-
-        settings
-            .try_deserialize()
-            .map_err(|e| ConfigError::LoadError {
-                message: format!("Failed to deserialize error simulation config: {}", e),
-            })
-    }
-
-    pub fn cache_ttl(&self) -> Duration {
-        Duration::from_secs(self.cache_ttl_seconds)
     }
 }
 
@@ -395,11 +361,11 @@ pub(crate) fn default_service_version() -> String {
 }
 
 pub(crate) fn default_otlp_endpoint_option() -> Option<String> {
-    std::env::var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT").ok()
+    std::env::var("PETFOOD_OTLP_ENDPOINT").ok()
 }
 
 pub(crate) fn default_enable_json_logging() -> bool {
-    std::env::var("PETFOOD_OBSERVABILITY_ENABLE_JSON_LOGGING")
+    std::env::var("PETFOOD_ENABLE_JSON_LOGGING")
         .map(|v| v.to_lowercase() == "true")
         .unwrap_or(false)
 }
@@ -410,18 +376,6 @@ pub(crate) fn default_metrics_port() -> u16 {
 
 pub(crate) fn default_log_level() -> String {
     "info".to_string()
-}
-
-pub(crate) fn default_error_mode_enabled() -> bool {
-    false
-}
-
-pub(crate) fn default_parameter_prefix() -> String {
-    "/petstore".to_string()
-}
-
-pub(crate) fn default_cache_ttl() -> u64 {
-    300 // 5 minutes
 }
 
 #[cfg(test)]

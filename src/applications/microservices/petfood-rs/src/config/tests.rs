@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod config_tests {
     use crate::config::{
-        default_cache_ttl, default_carts_table, default_error_mode_enabled, default_foods_table,
-        default_host, default_log_level, default_max_request_size, default_metrics_port,
-        default_otlp_endpoint_option, default_parameter_prefix, default_port, default_region,
-        default_service_name, default_timeout, ConfigError, DatabaseConfig, ErrorSimulationConfig,
+        default_carts_table, default_foods_table, default_host, default_log_level,
+        default_max_request_size, default_metrics_port, default_otlp_endpoint_option, default_port,
+        default_region, default_service_name, default_timeout, ConfigError, DatabaseConfig,
         ObservabilityConfig, ParameterStoreConfig, ServerConfig,
     };
     use aws_sdk_ssm::Client as SsmClient;
@@ -14,10 +13,10 @@ mod config_tests {
     #[test]
     fn test_server_config_defaults() {
         // Ensure no environment variables are set
-        env::remove_var("PETFOOD_SERVER_HOST");
-        env::remove_var("PETFOOD_SERVER_PORT");
-        env::remove_var("PETFOOD_SERVER_REQUEST_TIMEOUT_SECONDS");
-        env::remove_var("PETFOOD_SERVER_MAX_REQUEST_SIZE");
+        env::remove_var("PETFOOD_HOST");
+        env::remove_var("PETFOOD_PORT");
+        env::remove_var("PETFOOD_REQUEST_TIMEOUT_SECONDS");
+        env::remove_var("PETFOOD_MAX_REQUEST_SIZE");
 
         // Wait a bit to ensure environment changes take effect
         std::thread::sleep(std::time::Duration::from_millis(10));
@@ -32,9 +31,9 @@ mod config_tests {
 
     #[test]
     fn test_database_config_from_env() {
-        env::set_var("PETFOOD_DATABASE_FOODS_TABLE_NAME", "TestFoods");
-        env::set_var("PETFOOD_DATABASE_CARTS_TABLE_NAME", "TestCarts");
-        env::set_var("PETFOOD_DATABASE_REGION", "us-west-2");
+        env::set_var("PETFOOD_FOODS_TABLE_NAME", "TestFoods");
+        env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
+        env::set_var("PETFOOD_REGION", "us-west-2");
 
         let config = DatabaseConfig::from_env().unwrap();
 
@@ -43,18 +42,18 @@ mod config_tests {
         assert_eq!(config.region, "us-west-2");
 
         // Clean up
-        env::remove_var("PETFOOD_DATABASE_FOODS_TABLE_NAME");
-        env::remove_var("PETFOOD_DATABASE_CARTS_TABLE_NAME");
-        env::remove_var("PETFOOD_DATABASE_REGION");
+        env::remove_var("PETFOOD_FOODS_TABLE_NAME");
+        env::remove_var("PETFOOD_CARTS_TABLE_NAME");
+        env::remove_var("PETFOOD_REGION");
     }
 
     #[test]
     fn test_observability_config_from_env() {
-        env::set_var("PETFOOD_OBSERVABILITY_SERVICE_NAME", "test-service");
-        env::set_var("PETFOOD_OBSERVABILITY_SERVICE_VERSION", "1.0.0");
-        //env::set_var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT", "http://test:4317");
-        env::set_var("PETFOOD_OBSERVABILITY_METRICS_PORT", "9091");
-        env::set_var("PETFOOD_OBSERVABILITY_LOG_LEVEL", "debug");
+        env::set_var("PETFOOD_SERVICE_NAME", "test-service");
+        env::set_var("PETFOOD_SERVICE_VERSION", "1.0.0");
+        env::set_var("PETFOOD_OTLP_ENDPOINT", "http://test:4317");
+        env::set_var("PETFOOD_METRICS_PORT", "9091");
+        env::set_var("PETFOOD_LOG_LEVEL", "debug");
 
         let config = ObservabilityConfig::from_env().unwrap();
 
@@ -65,29 +64,11 @@ mod config_tests {
         assert_eq!(config.log_level, "debug");
 
         // Clean up
-        env::remove_var("PETFOOD_OBSERVABILITY_SERVICE_NAME");
-        env::remove_var("PETFOOD_OBSERVABILITY_SERVICE_VERSION");
-        env::remove_var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT");
-        env::remove_var("PETFOOD_OBSERVABILITY_METRICS_PORT");
-        env::remove_var("PETFOOD_OBSERVABILITY_LOG_LEVEL");
-    }
-
-    #[test]
-    fn test_error_simulation_config_from_env() {
-        env::set_var("PETFOOD_ERROR_SIMULATION_ENABLED", "true");
-        env::set_var("PETFOOD_ERROR_SIMULATION_PARAMETER_PREFIX", "/test");
-        env::set_var("PETFOOD_ERROR_SIMULATION_CACHE_TTL_SECONDS", "600");
-
-        let config = ErrorSimulationConfig::from_env().unwrap();
-
-        assert!(config.enabled);
-        assert_eq!(config.parameter_prefix, "/test");
-        assert_eq!(config.cache_ttl_seconds, 600);
-
-        // Clean up
-        env::remove_var("PETFOOD_ERROR_SIMULATION_ENABLED");
-        env::remove_var("PETFOOD_ERROR_SIMULATION_PARAMETER_PREFIX");
-        env::remove_var("PETFOOD_ERROR_SIMULATION_CACHE_TTL_SECONDS");
+        env::remove_var("PETFOOD_SERVICE_NAME");
+        env::remove_var("PETFOOD_SERVICE_VERSION");
+        env::remove_var("PETFOOD_OTLP_ENDPOINT");
+        env::remove_var("PETFOOD_METRICS_PORT");
+        env::remove_var("PETFOOD_LOG_LEVEL");
     }
 
     #[test]
@@ -100,17 +81,6 @@ mod config_tests {
         };
 
         assert_eq!(config.request_timeout(), Duration::from_secs(45));
-    }
-
-    #[test]
-    fn test_error_simulation_config_cache_ttl() {
-        let config = ErrorSimulationConfig {
-            enabled: true,
-            parameter_prefix: "/test".to_string(),
-            cache_ttl_seconds: 120,
-        };
-
-        assert_eq!(config.cache_ttl(), Duration::from_secs(120));
     }
 
     #[tokio::test]
@@ -170,11 +140,11 @@ mod config_tests {
         assert_eq!(default_carts_table(), "PetFoodCarts");
         assert_eq!(default_region(), "us-west-2");
         assert_eq!(default_service_name(), "petfood-rs");
-        assert_eq!(default_otlp_endpoint_option(), None,);
+        assert_eq!(
+            default_otlp_endpoint_option(),
+            Some("http://test:4317".to_string())
+        );
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
-        assert!(!default_error_mode_enabled());
-        assert_eq!(default_parameter_prefix(), "/petstore");
-        assert_eq!(default_cache_ttl(), 300);
     }
 }
