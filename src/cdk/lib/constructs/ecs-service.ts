@@ -43,6 +43,7 @@ export interface EcsServiceProperties extends MicroserviceProperties {
               collectionArn: string;
               collectionEndpoint: string;
           };
+    additionalEnvironment?: { [key: string]: string };
 }
 
 export abstract class EcsService extends Microservice {
@@ -139,15 +140,23 @@ export abstract class EcsService extends Microservice {
 
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
+        // Merge default environment variables with additional ones
+        const defaultEnvironment = {
+            // clear text, not for sensitive data
+            AWS_REGION: Stack.of(this).region,
+        };
+        
+        const environment = {
+            ...defaultEnvironment,
+            ...(properties.additionalEnvironment || {}),
+        };
+
         const container = taskDefinition.addContainer('container', {
             image: image,
             memoryLimitMiB: 512,
             cpu: 256,
             logging,
-            environment: {
-                // clear text, not for sensitive data
-                AWS_REGION: Stack.of(this).region,
-            },
+            environment,
         });
 
         container.addPortMappings({
