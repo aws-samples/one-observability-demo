@@ -26,7 +26,7 @@ import {
 } from 'aws-cdk-lib/aws-ecs-patterns';
 import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, Fn } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
@@ -44,8 +44,6 @@ export interface EcsServiceProperties extends MicroserviceProperties {
               collectionEndpoint: string;
           };
 }
-
-export const OPENSEARCH_PORT = 24_224;
 
 export abstract class EcsService extends Microservice {
     public readonly taskDefinition: TaskDefinition;
@@ -139,11 +137,6 @@ export abstract class EcsService extends Microservice {
             }),
         );
 
-        // Add FireLens log router container if OpenSearch collection is provided
-        if (properties.openSearchCollection) {
-            this.addFireLensLogRouter(taskDefinition, properties);
-        }
-
         const image = ContainerImage.fromRegistry(properties.repositoryURI);
 
         const container = taskDefinition.addContainer('container', {
@@ -161,6 +154,11 @@ export abstract class EcsService extends Microservice {
             containerPort: properties.containerPort || 80,
             protocol: Protocol.TCP,
         });
+
+        // Add FireLens log router container if OpenSearch collection is provided
+        if (properties.openSearchCollection) {
+            this.addFireLensLogRouter(taskDefinition, properties);
+        }
 
         if (!properties.disableService) {
             if (properties.createLoadBalancer === false) {
@@ -256,13 +254,6 @@ export abstract class EcsService extends Microservice {
                             Port.tcp(properties.containerPort || 80),
                             'Allow load balancer to reach ECS tasks',
                         );
-                        if (properties.openSearchCollection) {
-                            properties.securityGroup.addIngressRule(
-                                loadBalancedService.loadBalancer.connections.securityGroups[0],
-                                Port.tcp(OPENSEARCH_PORT),
-                                'Allow load balancer to reach OpenSearch for health check',
-                            );
-                        }
                     }
 
                     // Allow traffic from specified subnet type to load balancer
@@ -333,16 +324,19 @@ export abstract class EcsService extends Microservice {
         const openSearchEndpoint =
             'collection' in collection ? collection.collection.attrCollectionEndpoint : collection.collectionEndpoint;
 
+        // Use CloudFormation functions to strip https:// prefix at deployment time
+        const openSearchHostWithoutProtocol = Fn.select(1, Fn.split('https://', openSearchEndpoint));
+
         return new FireLensLogDriver({
             options: {
-                Name: 'es',
-                Host: openSearchEndpoint.replace('https://', ''),
+                Name: 'opensearch',
+                Host: openSearchHostWithoutProtocol,
                 Port: '443',
                 aws_auth: 'On',
                 AWS_Region: Stack.of(this).region,
                 AWS_Service_Name: 'aoss',
                 Index: `${properties.name}-logs`,
-                tls: 'Off',
+                tls: 'On',
                 Suppress_Type_Name: 'On',
                 Trace_Error: 'On',
                 Trace_Output: 'On',
@@ -373,12 +367,6 @@ export abstract class EcsService extends Microservice {
             },
         });
 
-        // Add port mappings for the log router (required by ECS)
-        logRouter.addPortMappings({
-            containerPort: OPENSEARCH_PORT,
-            protocol: Protocol.TCP,
-        });
-
         // Add task role permissions for OpenSearch access
         if (properties.openSearchCollection) {
             const collection = properties.openSearchCollection;
@@ -387,14 +375,7 @@ export abstract class EcsService extends Microservice {
             taskDefinition.taskRole.addToPrincipalPolicy(
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'aoss:WriteDocument',
-                        'aoss:CreateIndex',
-                        'aoss:DescribeIndex',
-                        'aoss:UpdateIndex',
-                        'es:ESHttpPost',
-                        'es:ESHttpPut',
-                    ],
+                    actions: ['aoss:*', 'es:ESHttpPost', 'es:ESHttpPut'],
                     resources: [collectionArn],
                 }),
             );
