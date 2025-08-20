@@ -415,7 +415,10 @@ $RECYCLE.BIN/
 
 # Allow CDK lib folder
 !src/cdk/lib
-!src/applications/microservices/petsite-net/petsite/wwwroot/lib
+
+# Allow wwwroot from petsite-net
+!src/applications/microservices/petsite-net/petsite/wwwroot/
+
 .ash/ash_output
 # editor settings
 .vscode/settings.json
