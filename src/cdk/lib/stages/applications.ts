@@ -183,6 +183,9 @@ export class MicroservicesStack extends Stack {
                         cloudMapNamespace: cloudMap,
                         petFoodTable: dynamodbExports.petFoodsTable,
                         petFoodCartTable: dynamodbExports.petFoodsCartTable,
+                        additionalEnvironment: {
+                            ENABLE_JSON_LOGGING: 'true',
+                        },
                         assetsBucket: assetsBucket,
                         containerPort: 8080,
                         openSearchCollection: openSearchExports,
