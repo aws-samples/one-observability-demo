@@ -272,7 +272,11 @@ export class CDKPipeline extends Stack {
             new Policy(this, 'CloudFormationPolicy', {
                 statements: [
                     new PolicyStatement({
-                        actions: ['cloudformation:DescribeStacks', 'cloudformation:ListResources'],
+                        actions: [
+                            'cloudformation:DescribeStacks',
+                            'cloudformation:ListResources',
+                            'ec2:DescribeManagedPrefixLists',
+                        ],
                         resources: ['*'],
                     }),
                 ],
