@@ -431,3 +431,6 @@ PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml
 
 # Dot net build files
 **/obj/**
+
+# Exclude cdk.context.json since each workshop account will be unique
+cdk.context.json

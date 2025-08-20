@@ -56,7 +56,7 @@ export enum ComputeType {
 dotenv.config();
 
 /** AWS Account ID from environment variable */
-export const ACCOUNT_ID = process.env.AWS_ACCOUNT;
+export const ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
 
 /** AWS Region from environment variable */
 export const REGION = process.env.AWS_REGION;
