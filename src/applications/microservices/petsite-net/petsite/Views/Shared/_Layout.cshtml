@@ -39,13 +39,22 @@
                     </a>
                 </section>
                 
-                <section class="col-lg-8 col-md-8 col-12 align-self-center" style="display: flex; justify-content: flex-end; gap: 2rem;">
+                <section class="col-lg-8 col-md-8 col-12 align-self-center" style="display: flex; justify-content: flex-end; gap: 2rem; align-items: center;">
+                    <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="puppy" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                        Buy Food
+                    </a>
+                    
                     <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId" id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
                         See Adoption List
                     </a>
                     
                     <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId" id="performhousekeeping" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
                         Perform Housekeeping
+                    </a>
+                    
+                    <a asp-controller="Checkout" asp-action="Index" asp-route-userId="@ViewBag.UserId" style="color: #00ff00; font-size: 1.5rem; text-decoration: none; position: relative; filter: brightness(1.5) saturate(2);">
+                        🛒
+                        <span id="cart-count" style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; display: none;"></span>
                     </a>
                 </section>
             </article>
@@ -56,8 +65,32 @@
 
 
 </div>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script>
+$(document).ready(function() {
+    // Update cart count on every page load
+    var userId = '@ViewBag.UserId';
+    if (userId) {
+        $.ajax({
+            url: '/FoodService/GetCartCount',
+            type: 'GET',
+            data: { userId: userId },
+            success: function(response) {
+                if (response.totalItems > 0) {
+                    $('#cart-count').text(response.totalItems).show();
+                } else {
+                    $('#cart-count').hide();
+                }
+            },
+            error: function(xhr) {
+                $('#cart-count').hide();
+            }
+        });
+    }
+});
+</script>
 @RenderSection("Scripts", required: false)
 </body>
 </html>

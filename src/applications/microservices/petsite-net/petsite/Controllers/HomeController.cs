@@ -80,7 +80,7 @@ namespace PetSite.Controllers
             
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString();
-            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, null, ("userId", userId));
             await httpClient.PostAsync(url, null);
 
             return View();

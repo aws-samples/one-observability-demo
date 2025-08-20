@@ -68,7 +68,7 @@ namespace PetSite.Services
             
             try
             {
-                var url = UrlHelper.BuildUrl(searchapiurl,
+                var url = UrlHelper.BuildUrl(searchapiurl, null,
                     ("pettype", pettype != "all" ? pettype : null),
                     ("petcolor", petcolor != "all" ? petcolor : null),
                     ("petid", petid != "all" ? petid : null),

@@ -1,26 +1,42 @@
+#nullable enable
 using System;
 
 namespace PetSite.Helpers
 {
     public static class UrlHelper
     {
-        public static string BuildUrl(string baseUrl, params (string key, string value)[] parameters)
+        public static string BuildUrl(string baseUrl, string[]? path, params (string key, string value)[] parameters)
         {
             if (string.IsNullOrEmpty(baseUrl))
                 return string.Empty;
 
-            var url = baseUrl;
-            var hasQuery = url.Contains("?");
+            var url = baseUrl.TrimEnd('/');
 
-            foreach (var (key, value) in parameters)
+            // Add path segments
+            if (path != null && path.Length > 0)
             {
-                if (!string.IsNullOrEmpty(value))
+                foreach (var segment in path)
                 {
-                    var separator = hasQuery ? "&" : "?";
-                    url += $"{separator}{key}={Uri.EscapeDataString(value)}";
-                    hasQuery = true;
+                    if (!string.IsNullOrEmpty(segment))
+                    {
+                        url += "/" + segment.Trim('/');
+                    }
                 }
             }
+
+            var hasQuery = url.Contains("?");
+
+
+            if (parameters != null)
+                foreach (var (key, value) in parameters)
+                {
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        var separator = hasQuery ? "&" : "?";
+                        url += $"{separator}{key}={Uri.EscapeDataString(value)}";
+                        hasQuery = true;
+                    }
+                }
 
             return url;
         }

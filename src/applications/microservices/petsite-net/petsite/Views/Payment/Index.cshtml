@@ -1,4 +1,5 @@
-﻿@{
+﻿@model PetSite.ViewModels.FoodApiResponse
+@{
   ViewData["Title"] = "Complete Adoption";
 }
 
@@ -10,7 +11,7 @@
 <br/>
 
 <div class="container align-items-center">
-  @if (ViewData["txStatus"].ToString() == "success")
+  @if (ViewData["txStatus"]?.ToString() == "success")
   {
     <div class="alert alert-success" role="alert" id="success-alert">
       <h4 class="alert-heading">Adoption Complete</h4>
@@ -19,6 +20,38 @@
       <canvas id="confetti-canvas"
               style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></canvas>
     </div>
+    @if (ViewData["PetDetails"] != null)
+    {
+      var pet = (PetSite.ViewModels.Pet)ViewData["PetDetails"];
+      <div class="container mt-2">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="pet-items mb-4" style="position: relative;">
+              <div style="position: relative; display: inline-block;">
+                <img class="pet-thumbnail" src="@pet.peturl" style="border: 1px solid #000000; border-radius: 23px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@pet.pettype-@pet.petcolor</span>
+                <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 18px;">$@pet.price</span>
+                @if (!string.IsNullOrEmpty(pet.cuteness_rate) && Int32.TryParse(pet.cuteness_rate, out int rating))
+                {
+                  <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px;">
+                    @for (int i = 0; i < rating; i++)
+                    {
+                      <span style="color: #ffd700;">★</span>
+                    }
+                  </div>
+                }
+              </div>
+              <div style="position: absolute; bottom: 0; right: 0;">
+                <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="@pet.pettype" asp-route-petId="@pet.petid" class="btn btn-primary btn-lg">
+                  Buy food for me
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    }
     <script>
       const canvas = document.getElementById('confetti-canvas');
       const ctx = canvas.getContext('2d');
@@ -65,46 +98,3 @@
   }
 </div>
 
-<div class="container mt-4">
-  <h3>Pet Food Available</h3>
-  <div id="food-grid" class="row">
-    <!-- Food items will be loaded here -->
-  </div>
-</div>
-
-<script>
-  async function loadFoods() {
-    try {
-      const response = await fetch('/FoodService/GetFoods');
-      const foods = await response.json();
-      const grid = document.getElementById('food-grid');
-      
-      foods.forEach(food => {
-        const foodItem = `
-          <div class="col-md-4 mb-3">
-            <div class="card">
-              <img src="/images/food/${food.food_image}" class="card-img-top" alt="${food.food_name}" style="height: 200px; object-fit: cover;">
-              <div class="card-body">
-                <h5 class="card-title">${food.food_name}</h5>
-                <p class="card-text">${food.food_description}</p>
-                <p class="card-text"><strong>$${food.food_price}</strong></p>
-                <p class="card-text"><small class="text-muted">For: ${food.food_for} | Type: ${food.food_type}</small></p>
-                <form method="post" action="/FoodService/BuyFood">
-                  <input type="hidden" name="foodId" value="${food.food_id}">
-                  <input type="hidden" name="userId" value="@ViewBag.UserId">
-                  <button type="submit" class="btn btn-primary">Buy</button>
-                </form>
-              </div>
-            </div>
-          </div>
-        `;
-        grid.innerHTML += foodItem;
-      });
-    } catch (error) {
-      console.error('Error loading foods:', error);
-    }
-  }
-  
-  // Load foods when page loads
-  //document.addEventListener('DOMContentLoaded', loadFoods);
-</script>

@@ -50,10 +50,15 @@ namespace PetSite.Controllers
                     string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
-                    var url = UrlHelper.BuildUrl(petlistadoptionsurl, ("userId", userId));
+                    var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, null);
                     result = await httpClient.GetStringAsync(url);
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }
+            }
+            catch (HttpRequestException e) when (e.Message.Contains("404"))
+            {
+                _logger.LogWarning("PetListAdoptions API returned 404 - returning empty pets list");
+                Pets = new List<Pet>();
             }
             catch (Exception e)
             {

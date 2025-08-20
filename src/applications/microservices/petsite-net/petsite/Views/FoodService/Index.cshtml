@@ -1,0 +1,147 @@
+@model PetSite.ViewModels.FoodApiResponse
+@{
+    ViewData["Title"] = "Pet Food Store";
+}
+
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+    </div>
+</section>
+
+<div class="container mt-4">
+    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+    
+    <div class="mb-4">
+        <label style="font-weight: bold; font-size: 18px; color: #333; margin-right: 20px;">Find food for:</label>
+        <input type="radio" name="petType" id="puppy" value="puppy" @(ViewBag.PetType == "puppy" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
+        <label for="puppy" style="margin-right: 20px;">Puppy</label>
+        <input type="radio" name="petType" id="kitten" value="kitten" @(ViewBag.PetType == "kitten" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
+        <label for="kitten" style="margin-right: 20px;">Kitten</label>
+        <input type="radio" name="petType" id="bunny" value="bunny" @(ViewBag.PetType == "bunny" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
+        <label for="bunny">Bunny</label>
+    </div>
+    
+    <h2 class="text-center mb-4" style="color: #006400; font-weight: bold;">🍽️ Delicious food for your @(Model?.foods?.FirstOrDefault()?.pet_type ?? "Pet") 🍽️</h2>
+    <div class="row">
+        @if (Model?.foods != null)
+        {
+            @foreach (var food in Model.foods)
+            {
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <img src="/images/food/@food.image" class="card-img-top" alt="@food.name" style="height: 200px; object-fit: cover;">
+                        <div class="card-body" style="position: relative;">
+                            <h5 class="card-title">@food.name</h5>
+                            <p class="card-text">@food.description</p>
+                            <p class="card-text"><strong>$@food.price</strong> | In Stock: @food.stock_quantity</p>
+                            <p class="card-text"><small class="text-muted">For: @food.pet_type | Type: @food.food_type</small></p>
+                            <button class="btn btn-primary add-to-cart" data-food-id="@food.id" data-user-id="@ViewBag.UserId">Add to cart</button>
+                            <span class="success-message" style="background-color: green; color: lightgreen; padding: 8px 12px; border-radius: 5px; font-size: 14px; font-weight: bold; margin-left: 10px; display: none;">Added to cart</span>
+                            <button class="btn btn-info show-more" style="position: absolute; bottom: 10px; right: 10px; background-color: #17a2b8;" 
+                                    data-food-name="@food.name" 
+                                    data-food-description="@food.description" 
+                                    data-food-price="@food.price" 
+                                    data-food-quantity="@food.stock_quantity"
+                                    data-food-type="@food.food_type" 
+                                    data-food-pet-type="@food.pet_type"
+                                    data-food-guidelines="@food.feeding_guidelines"
+                                    data-food-ingredients="@string.Join(", ", food.ingredients ?? new List<string>())"
+                                    data-food-nutrition="@(food.nutritional_info != null ? $"Calories: {food.nutritional_info.calories_per_serving}, Protein: {food.nutritional_info.protein_percentage}%, Fat: {food.nutritional_info.fat_percentage}%, Serving: {food.nutritional_info.serving_size}" : "Info not available")"
+                                    data-food-image="@food.image">Show more...</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <p class="text-muted">No food items available at the moment.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="foodModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.add-to-cart').click(function() {
+        var foodId = $(this).data('food-id');
+        var userId = $(this).data('user-id');
+        
+        $.ajax({
+            url: '/FoodService/AddToCart',
+            type: 'POST',
+            data: { foodId: foodId, userId: userId },
+            success: function(response) {
+                $('#error-message').hide();
+                if (response.totalItems > 0) {
+                    $('#cart-count').text(response.totalItems).show();
+                }
+                
+                // Show success message next to the clicked button
+                var button = $(this);
+                var successMessage = button.siblings('.success-message');
+                successMessage.show();
+                setTimeout(function() {
+                    successMessage.hide();
+                }, 3000);
+            }.bind(this),
+            error: function(xhr) {
+                $('#error-message').text('Error adding item to cart: ' + xhr.responseText).show();
+                $('html, body').animate({ scrollTop: $('#error-message').offset().top - 20 }, 500);
+            }
+        });
+    });
+    
+    $('input[name="petType"]').change(function() {
+        var petType = $(this).val();
+        var userId = '@ViewBag.UserId';
+        window.location.href = '/FoodService/Index?userId=' + userId + '&petType=' + petType;
+    });
+    
+    $('.show-more').click(function() {
+        var name = $(this).data('food-name');
+        var description = $(this).data('food-description');
+        var price = $(this).data('food-price');
+        var type = $(this).data('food-type');
+        var petType = $(this).data('food-pet-type');
+        var quantity = $(this).data('food-quantity');
+        var guidelines = $(this).data('food-guidelines');
+        var ingredients = $(this).data('food-ingredients');
+        var nutrition = $(this).data('food-nutrition');
+        var image = $(this).data('food-image');
+        
+        $('#modalTitle').text(name);
+        $('#modalBody').html(`
+            <img src="/images/food/${image}" class="img-fluid mb-3" alt="${name}" style="max-height: 200px; object-fit: cover;">
+            <p><strong>Description:</strong> ${description}</p>
+            <p><strong>Price:</strong> $${price} | <strong>Quantity:</strong> ${quantity}</p>
+            <p><strong>For:</strong> ${petType} | <strong>Type:</strong> ${type}</p>
+            <p><strong>Feeding Guidelines:</strong> ${guidelines}</p>
+            <p><strong>Ingredients:</strong> ${ingredients}</p>
+            <p><strong>Nutritional Info:</strong> ${nutrition}</p>
+        `);
+        
+        $('#foodModal').modal('show');
+    });
+});
+</script>

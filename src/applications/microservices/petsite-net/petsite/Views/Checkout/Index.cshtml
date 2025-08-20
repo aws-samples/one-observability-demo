@@ -1,0 +1,215 @@
+@model PetSite.ViewModels.CartResponse
+@{
+    ViewData["Title"] = "Checkout";
+}
+
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+    </div>
+</section>
+
+<div class="container mt-4">
+    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+    <h2 class="text-center mb-4" style="color: #006400; font-weight: bold;">🛒 Your Cart 🛒</h2>
+    
+    @if (Model?.items != null && Model.items.Any())
+    {
+        <div class="row">
+            <div class="col-md-6">
+                @foreach (var item in Model.items)
+                {
+                    <div class="card mb-3">
+                        <div class="row g-0">
+                            <div class="col-md-4">
+                                <img src="/images/food/@item.food_image" class="img-fluid rounded-start" alt="@item.food_name" style="height: 120px; object-fit: cover;">
+                            </div>
+                            <div class="col-md-8">
+                                <div class="card-body">
+                                    <h6 class="card-title">@item.food_name</h6>
+                                    <p class="card-text small">
+                                        <strong>$@item.unit_price</strong> x @item.quantity = <strong>$@item.total_price</strong>
+                                    </p>
+                                    @if (!item.is_available)
+                                    {
+                                        <span class="badge bg-warning">Out of Stock</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5>Total Items: @Model.total_items</h5>
+                        <h4 style="color: #006400;">Total: $@Model.total_price</h4>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Payment Details</h4>
+                        <div class="alert alert-warning">
+                            This is a demo - no real payment will be processed
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="cardName">Name on Card</label>
+                            <input type="text" class="form-control" id="cardName" value="John Doe" readonly>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="cardNumber">Card Number</label>
+                            <input type="text" class="form-control" id="cardNumber" value="4111 1111 1111 1111" readonly>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="expiry">Expiry Date</label>
+                                    <input type="text" class="form-control" id="expiry" value="12/25" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="cvv">CVV</label>
+                                    <input type="text" class="form-control" id="cvv" value="123" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="mt-4 mb-3">Shipping Address</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label>Name</label>
+                                <input type="text" class="form-control mb-2" value="John Doe" readonly>
+                                <label>City</label>
+                                <input type="text" class="form-control mb-2" value="Seattle" readonly>
+                                <label>Zip Code</label>
+                                <input type="text" class="form-control mb-2" value="98101" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Street</label>
+                                <input type="text" class="form-control mb-2" value="123 Main St" readonly>
+                                <label>State</label>
+                                <input type="text" class="form-control mb-2" value="WA" readonly>
+                                <label>Country</label>
+                                <input type="text" class="form-control mb-2" value="USA" readonly>
+                            </div>
+                        </div>
+                        
+                        <h5 class="mt-3 mb-3">Billing Address</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label>Name</label>
+                                <input type="text" class="form-control mb-2" value="John Doe" readonly>
+                                <label>City</label>
+                                <input type="text" class="form-control mb-2" value="Seattle" readonly>
+                                <label>Zip Code</label>
+                                <input type="text" class="form-control mb-2" value="98101" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Street</label>
+                                <input type="text" class="form-control mb-2" value="123 Main St" readonly>
+                                <label>State</label>
+                                <input type="text" class="form-control mb-2" value="WA" readonly>
+                                <label>Country</label>
+                                <input type="text" class="form-control mb-2" value="USA" readonly>
+                            </div>
+                        </div>
+                        
+                        <button id="payCheckoutBtn" class="btn btn-primary btn-lg btn-block w-100">Pay and Checkout</button>
+                        <div id="success-message" class="alert alert-success mt-3" style="display: none;">Thank you for your order!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <h4>Your cart is empty</h4>
+            <p class="text-muted">Add some delicious food items to your cart!</p>
+            <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="puppy" class="btn btn-primary btn-lg">Buy Food</a>
+        </div>
+    }
+</div>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Update cart count on page load
+     var userId = '@ViewBag.UserId';
+    // if (userId) {
+    //     $.ajax({
+    //         url: '/FoodService/GetCartCount',
+    //         type: 'GET',
+    //         data: { userId: userId },
+    //         success: function(response) {
+    //             if (response.totalItems > 0) {
+    //                 $('#cart-count').text(response.totalItems).show();
+    //             }
+    //         },
+    //         error: function(xhr) {
+    //             console.log('Error fetching cart count');
+    //         }
+    //     });
+    // }
+    
+    // Pay and Checkout button click
+    $('#payCheckoutBtn').click(function() {
+        var paymentData = {
+            payment_method: {
+                CreditCard: {
+                    card_number: $('#cardNumber').val().replace(/\s/g, ''),
+                    expiry_month: parseInt($('#expiry').val().split('/')[0]),
+                    expiry_year: parseInt('20' + $('#expiry').val().split('/')[1]),
+                    cvv: $('#cvv').val(),
+                    cardholder_name: $('#cardName').val()
+                }
+            },
+            shipping_address: {
+                name: $('h5:contains("Shipping Address")').next('.row').find('input').eq(0).val(),
+                street: $('h5:contains("Shipping Address")').next('.row').find('input').eq(3).val(),
+                city: $('h5:contains("Shipping Address")').next('.row').find('input').eq(1).val(),
+                state: $('h5:contains("Shipping Address")').next('.row').find('input').eq(4).val(),
+                zip_code: $('h5:contains("Shipping Address")').next('.row').find('input').eq(2).val(),
+                country: $('h5:contains("Shipping Address")').next('.row').find('input').eq(5).val()
+            },
+            billing_address: {
+                name: $('h5:contains("Billing Address")').next('.row').find('input').eq(0).val(),
+                street: $('h5:contains("Billing Address")').next('.row').find('input').eq(3).val(),
+                city: $('h5:contains("Billing Address")').next('.row').find('input').eq(1).val(),
+                state: $('h5:contains("Billing Address")').next('.row').find('input').eq(4).val(),
+                zip_code: $('h5:contains("Billing Address")').next('.row').find('input').eq(2).val(),
+                country: $('h5:contains("Billing Address")').next('.row').find('input').eq(5).val()
+            }
+        };
+        
+        $.ajax({
+            url: '/Checkout/PayAndCheckOut',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ ...paymentData, userId: userId }),
+            success: function(response) {
+                var orderDetails = `
+                    <strong>Order placed successfully</strong><br>
+                    <strong>Order Id:</strong> ${response.orderId}<br>
+                    <strong>Order status:</strong> ${response.status}<br>
+                    <strong>Order created date:</strong> ${response.createdDate}<br>
+                    <strong>Estimated delivery date:</strong> ${response.deliveryDate}
+                `;
+                $('#success-message').html(orderDetails).show();
+                $('#payCheckoutBtn').prop('disabled', true);
+                $('#cart-count').hide();
+            },
+            error: function(xhr) {
+                $('#error-message').text('Payment failed: ' + xhr.responseText).show();
+                $('html, body').animate({ scrollTop: $('#error-message').offset().top - 20 }, 500);
+            }
+        });
+    });
+});
+</script>

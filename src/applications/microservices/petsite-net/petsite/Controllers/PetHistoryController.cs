@@ -47,7 +47,7 @@ public class PetHistoryController : BaseController
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = ViewBag.UserId?.ToString() ?? "unknown";
-                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", ("userId", userId));
+                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", null, ("userId", userId));
                 ViewData["pethistory"] = await httpClient.GetStringAsync(url);
             }
         }
@@ -82,7 +82,7 @@ public class PetHistoryController : BaseController
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = ViewBag.UserId?.ToString() ?? "unknown";
-                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", ("userId", userId));
+                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions",null, ("userId", userId));
                 ViewData["pethistory"] = await httpClient.DeleteAsync(url);
             }
         }

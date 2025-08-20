@@ -18,8 +18,13 @@ a {
 
 .btn-primary {
   color: #fff;
-  background-color: #19dc91;
-  border-color: #19dc91;
+  background-color: #006400;
+  border-color: #006400;
+}
+
+.btn-primary:hover {
+  background-color: #004d00;
+  border-color: #004d00;
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {

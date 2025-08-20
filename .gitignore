@@ -3,6 +3,7 @@
 # Go binaries
 # cspell:ignore petadoptions
 PetAdoptions/payforadoption-go/petadoptions
+src/applications/microservices/petsite-net/petsite/bin
 
 **/.DS_Store
 **/assets
@@ -414,6 +415,7 @@ $RECYCLE.BIN/
 
 # Allow CDK lib folder
 !src/cdk/lib
+!src/applications/microservices/petsite-net/petsite/wwwroot/lib
 .ash/ash_output
 # editor settings
 .vscode/settings.json

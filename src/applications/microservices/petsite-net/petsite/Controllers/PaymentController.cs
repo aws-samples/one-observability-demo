@@ -8,6 +8,10 @@ using Amazon.SQS;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using PetSite.Helpers;
+using PetSite.ViewModels;
+using PetSite.Services;
+using System.Text.Json;
+using System.Linq;
 using Prometheus;
 
 namespace PetSite.Controllers
@@ -20,55 +24,66 @@ namespace PetSite.Controllers
 
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly IPetSearchService _petSearchService;
 
         //Prometheus metric to count the number of Pets adopted
         private static readonly Counter PetAdoptionCount =
             Metrics.CreateCounter("petsite_petadoptions_total", "Count the number of Pets adopted");
 
         public PaymentController(ILogger<PaymentController> logger, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory, IPetSearchService petSearchService)
         {
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
+            _petSearchService = petSearchService;
             _logger = logger;
         }
 
         // GET: Payment
         [HttpGet]
-        public ActionResult Index([FromQuery] string userId, string status)
+        public async Task<ActionResult> Index([FromQuery] string userId, string status, string petId, string petType)
         {
             if (EnsureUserId()) return new EmptyResult();
-            
+
             // Transfer Session to ViewData for the view
             ViewData["txStatus"] = status;
-            
-            // ViewData["FoodPurchaseStatus"] = HttpContext.Session.GetString("FoodPurchaseStatus");
-            // ViewData["PurchasedFoodId"] = HttpContext.Session.GetString("PurchasedFoodId");
-            //
-            // Clear session data after reading
-            // HttpContext.Session.Remove("FoodPurchaseStatus");
-            // HttpContext.Session.Remove("PurchasedFoodId");
-            //
+
+            Pet petDetails = null;
+            if (!string.IsNullOrEmpty(petId) && !string.IsNullOrEmpty(petType))
+            {
+                try
+                {
+                    var pets = await _petSearchService.GetPetDetails(petType, "all", petId, userId);
+                    petDetails = pets?.FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching pet details after payment.");
+                    ViewData["txStatus"] = ex.Message;
+                    throw ex;
+                }
+            }
+            ViewData["PetDetails"] = petDetails;
             return View();
         }
 
         // POST: Payment/MakePayment
         [HttpPost]
         // [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MakePayment(string petId, string pettype, string userId)
+        public async Task<IActionResult> MakePayment(string petId, string petType, string userId)
         {
             //if (EnsureUserId()) return new EmptyResult();
 
             if (string.IsNullOrEmpty(userId)) EnsureUserId();
-            
+
             // Add custom span attributes using Activity API
             var currentActivity = Activity.Current;
             if (currentActivity != null)
             {
                 currentActivity.SetTag("pet.id", petId);
-                currentActivity.SetTag("pet.type", pettype);
+                currentActivity.SetTag("pet.type", petType);
 
-                _logger.LogInformation($"Inside MakePayment Action method - PetId:{petId} - PetType:{pettype}");
+                _logger.LogInformation($"Inside MakePayment Action method - PetId:{petId} - PetType:{petType}");
             }
 
             try
@@ -79,21 +94,21 @@ namespace PetSite.Controllers
                     if (activity != null)
                     {
                         activity.SetTag("pet.id", petId);
-                        activity.SetTag("pet.type", pettype);
+                        activity.SetTag("pet.type", petType);
                     }
 
                     // userId parameter is already available
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"], 
-                        ("petId", petId), ("petType", pettype), ("userId", userId));
+                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"], null,
+                        ("petId", petId), ("petType", petType), ("userId", userId));
                     await httpClient.PostAsync(url, null);
                 }
 
                 //Increase purchase metric count
                 PetAdoptionCount.Inc();
-                return RedirectToAction("Index", new { userId = userId, status = "success" });
+                return RedirectToAction("Index", new { userId = userId, status = "success", petType = petType, petId = petId });
             }
             catch (Exception ex)
             {
