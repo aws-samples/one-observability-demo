@@ -276,6 +276,7 @@ export class CDKPipeline extends Stack {
                             'cloudformation:DescribeStacks',
                             'cloudformation:ListResources',
                             'ec2:DescribeManagedPrefixLists',
+                            'ec2:GetManagedPrefixListEntries',
                         ],
                         resources: ['*'],
                     }),
