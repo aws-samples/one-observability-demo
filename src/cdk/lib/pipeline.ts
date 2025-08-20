@@ -210,6 +210,10 @@ export class CDKPipeline extends Stack {
                     bucketName: properties.configBucketName,
                     bucketKey: bucketKey,
                 },
+                env: {
+                    account: this.account,
+                    region: this.region,
+                },
             }),
         );
 
@@ -227,6 +231,10 @@ export class CDKPipeline extends Stack {
                 parent: this.stackName,
                 sequence: (stageSequence++).toString(),
             },
+            env: {
+                account: this.account,
+                region: this.region,
+            },
         });
 
         backendWave.addStage(storageStage);
@@ -236,6 +244,10 @@ export class CDKPipeline extends Stack {
                 ...properties.tags,
                 parent: this.stackName,
                 sequence: (stageSequence++).toString(),
+            },
+            env: {
+                account: this.account,
+                region: this.region,
             },
         });
 
@@ -251,6 +263,10 @@ export class CDKPipeline extends Stack {
             new MicroservicesStage(this, 'Microservices', {
                 ...properties.microservicesProperties,
                 tags: microservicesStageTags,
+                env: {
+                    account: this.account,
+                    region: this.region,
+                },
             }),
         );
 
