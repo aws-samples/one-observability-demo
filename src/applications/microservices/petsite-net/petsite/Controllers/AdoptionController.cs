@@ -75,9 +75,9 @@ namespace PetSite.Controllers
             }
             catch (Exception e)
             {
-                // Log the exception
                 _logger.LogError(e, "Error calling PetSearch API");
-                throw e;
+                ViewBag.ErrorMessage = $"Unable to process adoption request at this time. Please try again later.\nError message: {e.Message}";
+                return View("Error", new PetSite.Models.ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
 
             var selectedPet = pets.FirstOrDefault();

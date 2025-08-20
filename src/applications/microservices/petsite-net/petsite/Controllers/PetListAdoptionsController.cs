@@ -50,8 +50,8 @@ namespace PetSite.Controllers
                     string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
-                    var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, null);
-                    result = await httpClient.GetStringAsync(url);
+                    //var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, ("userId",userId));
+                    result = await httpClient.GetStringAsync(petlistadoptionsurl);
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }
             }
@@ -63,7 +63,8 @@ namespace PetSite.Controllers
             catch (Exception e)
             {
                 _logger.LogError(e, $"Error calling PetListAdoptions API: {e.Message}");
-                throw;
+                ViewBag.ErrorMessage = $"Unable to load adoption list at this time. Please try again later.\nError message: {e.Message}";
+                return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
 
             return View(Pets);

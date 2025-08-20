@@ -54,10 +54,10 @@ namespace PetSite.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching food data from FoodService API");
-                throw ex;
+                ViewBag.ErrorMessage = $"Unable to load food items at this time. Please try again later.\nError message: {ex.Message}";
+                return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
 
-            return View(new PetSite.ViewModels.FoodApiResponse());
         }
 
         [HttpPost]

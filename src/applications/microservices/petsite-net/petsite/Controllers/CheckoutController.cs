@@ -47,7 +47,8 @@ namespace PetSite.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching cart data");
-                return View(new CartResponse());
+                ViewBag.ErrorMessage = $"Unable to load cart data at this time. Please try again later.\nError message: {ex.Message}";
+                return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
         }
         
@@ -95,7 +96,7 @@ namespace PetSite.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Payment failed for user: {userId}");
-                return BadRequest(ex.Message);
+                return BadRequest($"Payment processing failed. Please try again.\nError: {ex.Message}");
             }
         }
     }

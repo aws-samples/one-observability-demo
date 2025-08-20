@@ -59,8 +59,8 @@ namespace PetSite.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error fetching pet details after payment.");
-                    ViewData["txStatus"] = ex.Message;
-                    throw ex;
+                    ViewBag.ErrorMessage = $"Unable to load payment details at this time. Please try again later.\nError message: {ex.Message}";
+                    return View("Error", new PetSite.Models.ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
                 }
             }
             ViewData["PetDetails"] = petDetails;

@@ -123,22 +123,19 @@ namespace PetSite.Controllers
             {
                 _logger.LogError(e, "HTTP error received after calling PetSearch API");
                 ViewBag.ErrorMessage = $"Unable to search pets at this time. Please try again later. \nError message received - {e.Message}";
-                Pets = new List<Pet>();
-                throw e;
+                return View("Error", new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
             catch (TaskCanceledException e)
             {
                 _logger.LogError(e, "Timeout calling PetSearch API");
-                ViewBag.ErrorMessage = "Search request timed out. Please try again.";
-                Pets = new List<Pet>();
-                throw e;
+                ViewBag.ErrorMessage = $"Search request timed out. Please try again.\n Error message received: {e.Message}";
+                return View("Error", new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Unexpected error calling PetSearch API");
-                ViewBag.ErrorMessage = "An unexpected error occurred. Please try again.";
-                Pets = new List<Pet>();
-                throw e;
+                ViewBag.ErrorMessage = $"An unexpected error occurred. Please try again.\n Error message received: {e.Message}";
+                return View("Error", new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
 
             var PetDetails = new PetDetails()
