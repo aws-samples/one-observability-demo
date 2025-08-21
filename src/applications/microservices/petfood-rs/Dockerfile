@@ -5,13 +5,14 @@ RUN cargo build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
-COPY --from=builder /target/ ./target/
+COPY --from=builder /target/release/petfood-rs /app/petfood-rs
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    openssl \
+    pkg-config \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
 EXPOSE 8080
-CMD ["/target/release/petfood-rs"]
+CMD ["/app/petfood-rs"]
