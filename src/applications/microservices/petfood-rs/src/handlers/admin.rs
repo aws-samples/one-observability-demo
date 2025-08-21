@@ -363,7 +363,10 @@ pub async fn delete_food(
 
 /// Helper function to create S3 URL for an image
 fn create_s3_image_url(bucket: &str, image_name: &str) -> String {
-    format!("https://{}.s3.amazonaws.com/petfood/images/{}", bucket, image_name)
+    format!(
+        "https://{}.s3.amazonaws.com/petfood/images/{}",
+        bucket, image_name
+    )
 }
 
 /// Create sample food data for all pet types
@@ -542,7 +545,10 @@ mod tests {
     #[test]
     fn test_create_s3_image_url() {
         let url = create_s3_image_url("my-bucket", "test-image.jpg");
-        assert_eq!(url, "https://my-bucket.s3.amazonaws.com/petfood/images/test-image.jpg");
+        assert_eq!(
+            url,
+            "https://my-bucket.s3.amazonaws.com/petfood/images/test-image.jpg"
+        );
     }
 
     #[test]
@@ -567,7 +573,9 @@ mod tests {
             assert!(!food.ingredients.is_empty());
             assert!(food.stock_quantity > 0);
             // All images should be S3 URLs
-            assert!(food.image.starts_with("https://test-bucket.s3.amazonaws.com/petfood/images/"));
+            assert!(food
+                .image
+                .starts_with("https://test-bucket.s3.amazonaws.com/petfood/images/"));
         }
     }
 
