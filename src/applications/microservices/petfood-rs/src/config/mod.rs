@@ -109,14 +109,32 @@ impl Config {
         let database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
 
-        // Initialize AWS configuration
+        // Initialize AWS configuration with timeout and retry settings
+        info!(
+            "Initializing AWS configuration for region: {}",
+            database.region
+        );
+
         let aws_config = aws_config::defaults(BehaviorVersion::latest())
             .region(aws_config::Region::new(database.region.clone()))
+            .timeout_config(
+                aws_config::timeout::TimeoutConfig::builder()
+                    .operation_timeout(Duration::from_secs(60))
+                    .operation_attempt_timeout(Duration::from_secs(30))
+                    .build(),
+            )
+            .retry_config(aws_config::retry::RetryConfig::standard().with_max_attempts(3))
             .load()
             .await;
 
+        info!("AWS configuration loaded successfully");
+
         let dynamodb_client = DynamoDbClient::new(&aws_config);
         let ssm_client = SsmClient::new(&aws_config);
+
+        info!("AWS clients created successfully");
+        info!("Region: {}", database.region);
+        info!("DynamoDB endpoint: {:?}", aws_config.endpoint_url());
 
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(
