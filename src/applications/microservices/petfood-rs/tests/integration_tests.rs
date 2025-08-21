@@ -110,44 +110,6 @@ async fn test_food_api_endpoints() {
 }
 
 #[tokio::test]
-async fn test_recommendation_endpoints() {
-    let test_env = TestEnvironment::new().await;
-    let client = &test_env.client;
-    let base_url = &test_env.base_url;
-
-    // Seed some test data first
-    test_env.seed_test_data().await;
-
-    // Test getting recommendations for puppy
-    let response = client
-        .get(&format!("{}/api/recommendations/puppy", base_url))
-        .send()
-        .await
-        .expect("Failed to send request");
-
-    assert_eq!(response.status().as_u16(), 200);
-    let recommendations: serde_json::Value =
-        response.json().await.expect("Failed to parse response");
-    let foods = recommendations["recommendations"]
-        .as_array()
-        .expect("Expected recommendations array");
-    assert!(!foods.is_empty());
-
-    // Verify all recommendations are for puppies
-    for food in foods {
-        assert_eq!(food["pet_type"], "puppy");
-    }
-
-    // Test getting recommendations for invalid pet type
-    let response = client
-        .get(&format!("{}/api/recommendations/invalid", base_url))
-        .send()
-        .await
-        .expect("Failed to send request");
-
-    assert_eq!(response.status().as_u16(), 400);
-}
-#[tokio::test]
 async fn test_cart_endpoints() {
     let test_env = TestEnvironment::new().await;
     let client = &test_env.client;

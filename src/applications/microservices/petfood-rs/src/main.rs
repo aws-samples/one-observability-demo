@@ -81,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         table_manager,
         config.database.foods_table_name.clone(),
         config.database.carts_table_name.clone(),
+        config.database.assets_bucket.clone(),
     );
 
     // Create socket address
@@ -116,6 +117,7 @@ fn create_app(
     table_manager: Arc<TableManager>,
     foods_table_name: String,
     carts_table_name: String,
+    assets_bucket: String,
 ) -> Router {
     let metrics_for_middleware = metrics.clone();
 
@@ -131,6 +133,7 @@ fn create_app(
         table_manager,
         foods_table_name,
         carts_table_name,
+        assets_bucket,
     };
 
     Router::new()

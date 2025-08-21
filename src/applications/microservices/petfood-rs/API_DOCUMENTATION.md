@@ -168,7 +168,7 @@ curl -X GET "http://localhost:8080/api/foods?food_type=dry&max_price=15.00"
       "food_type": "dry",
       "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
       "price": "12.99",
-      "image": "beef-turkey-kibbles.jpg",
+      "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
       "nutritional_info": null,
       "ingredients": ["beef", "turkey", "rice", "vegetables"],
       "feeding_guidelines": "Feed 2-3 times daily based on puppy's weight",
@@ -205,7 +205,7 @@ curl -X GET http://localhost:8080/api/foods/F12345678
   "food_type": "dry",
   "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
   "price": "12.99",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "nutritional_info": null,
   "ingredients": ["beef", "turkey", "rice", "vegetables"],
   "feeding_guidelines": "Feed 2-3 times daily based on puppy's weight",
@@ -233,7 +233,7 @@ curl -X POST http://localhost:8080/api/admin/foods \
     "food_type": "dry",
     "description": "High-quality dry food for puppies",
     "price": "24.99",
-    "image": "premium-puppy-chow.jpg",
+    "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
     "nutritional_info": {
       "calories_per_serving": 350,
       "protein_percentage": "28.0",
@@ -255,7 +255,7 @@ curl -X POST http://localhost:8080/api/admin/foods \
   "food_type": "dry",
   "description": "High-quality dry food for puppies",
   "price": "24.99",
-  "image": "premium-puppy-chow.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
   "nutritional_info": {
     "calories_per_serving": 350,
     "protein_percentage": "28.0",
@@ -302,7 +302,7 @@ curl -X PUT http://localhost:8080/api/admin/foods/F87654321 \
   "food_type": "dry",
   "description": "High-quality dry food for puppies",
   "price": "22.99",
-  "image": "premium-puppy-chow.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
   "nutritional_info": {
     "calories_per_serving": 350,
     "protein_percentage": "28.0",
@@ -383,7 +383,7 @@ curl -X POST http://localhost:8080/api/cart/user001/items \
 {
   "food_id": "F12345678",
   "name": "Beef and Turkey Kibbles",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "quantity": 2,
   "unit_price": "12.99",
   "total_price": "25.98",
@@ -407,7 +407,7 @@ curl -X GET http://localhost:8080/api/cart/user001
     {
       "food_id": "F12345678",
       "name": "Beef and Turkey Kibbles",
-      "image": "beef-turkey-kibbles.jpg",
+      "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
       "quantity": 2,
       "unit_price": "12.99",
       "total_price": "25.98",
@@ -442,7 +442,7 @@ curl -X PUT http://localhost:8080/api/cart/user001/items/F12345678 \
 {
   "food_id": "F12345678",
   "name": "Beef and Turkey Kibbles",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "quantity": 5,
   "unit_price": "12.99",
   "total_price": "64.95",
@@ -851,3 +851,11 @@ All timestamps use ISO 8601 format in UTC (e.g., `"2024-01-15T10:30:00Z"`).
 ---
 
 This documentation provides everything needed to integrate with the PetFood microservice API. For additional questions or issues, refer to the service logs or contact the development team.
+
+
+
+// TODO - generate more foods, and images for those 
+// TODO - fix tracing, otel instr
+// TODO - API refinements
+// TODO - Book London!
+// TODO - Book UK

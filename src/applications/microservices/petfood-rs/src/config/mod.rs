@@ -57,6 +57,8 @@ pub struct DatabaseConfig {
     pub carts_table_name: String,
     #[serde(default = "default_region")]
     pub region: String,
+    #[serde(default = "default_assets_bucket")]
+    pub assets_bucket: String,
 }
 
 #[derive(Debug, Clone)]
@@ -171,6 +173,12 @@ impl Config {
         if self.database.carts_table_name.is_empty() {
             return Err(ConfigError::ValidationError {
                 message: "Carts table name cannot be empty".to_string(),
+            });
+        }
+
+        if self.database.assets_bucket.is_empty() {
+            return Err(ConfigError::ValidationError {
+                message: "Assets bucket name cannot be empty".to_string(),
             });
         }
 
@@ -350,6 +358,10 @@ pub(crate) fn default_carts_table() -> String {
 
 pub(crate) fn default_region() -> String {
     "us-west-2".to_string()
+}
+
+pub(crate) fn default_assets_bucket() -> String {
+    "petfood-assets".to_string()
 }
 
 pub(crate) fn default_service_name() -> String {
