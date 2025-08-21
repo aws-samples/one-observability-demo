@@ -3,14 +3,8 @@ name: Tests
 on:
   pull_request:
     branches: [ main, staging, feat/cdkpipeline ]
-    paths:
-      - 'src/cdk/****'
-      - 'src/application/microservices/petfood-rs/**'
   push:
     branches: [ main, staging, feat/cdkpipeline ]
-    paths:
-      - 'src/cdk/****'
-      - 'src/application/microservices/petfood-rs/**'
 
 jobs:
   cdk-synth-test:

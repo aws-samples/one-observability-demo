@@ -4,24 +4,8 @@ permissions:
 on:
     pull_request:
         branches: [main, staging, feat/cdkpipeline]
-        paths:
-            - 'src/application/lambda/pethistory-node/**'
-            - 'src/application/lambda/petstatusupdater/**'
-            - 'src/application/microservices/payforadoption-go/**'
-            - 'src/application/microservices/petfood-rs/**'
-            - 'src/application/microservices/petlistadoptions-py/**'
-            - 'src/application/microservices/petsearch-java/**'
-            - 'src/application/microservices/petsite-net/**'
     push:
         branches: [main, staging, feat/cdkpipeline]
-        paths:
-            - 'src/application/lambda/pethistory-node/**'
-            - 'src/application/lambda/petstatusupdater/**'
-            - 'src/application/microservices/payforadoption-go/**'
-            - 'src/application/microservices/petfood-rs/**'
-            - 'src/application/microservices/petlistadoptions-py/**'
-            - 'src/application/microservices/petsearch-java/**'
-            - 'src/application/microservices/petsite-net/**'
 jobs:
     docker-builds:
         runs-on: ubuntu-latest
