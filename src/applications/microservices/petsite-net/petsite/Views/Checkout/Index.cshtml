@@ -45,6 +45,13 @@
                         <h4 style="color: #006400;">Total: $@Model.total_price</h4>
                     </div>
                 </div>
+                
+                <div class="mt-3">
+                    <form asp-controller="Checkout" asp-action="ClearCart" method="post">
+                        <input type="hidden" name="userId" value="@ViewBag.UserId" />
+                        <button id="clearCartBtn"type="submit" class="btn btn-danger btn-lg w-100">Remove all items from cart</button>
+                    </form>
+                </div>
             </div>
             
             <div class="col-md-6">
@@ -142,21 +149,6 @@
 $(document).ready(function() {
     // Update cart count on page load
      var userId = '@ViewBag.UserId';
-    // if (userId) {
-    //     $.ajax({
-    //         url: '/FoodService/GetCartCount',
-    //         type: 'GET',
-    //         data: { userId: userId },
-    //         success: function(response) {
-    //             if (response.totalItems > 0) {
-    //                 $('#cart-count').text(response.totalItems).show();
-    //             }
-    //         },
-    //         error: function(xhr) {
-    //             console.log('Error fetching cart count');
-    //         }
-    //     });
-    // }
     
     // Pay and Checkout button click
     $('#payCheckoutBtn').click(function() {
@@ -203,6 +195,7 @@ $(document).ready(function() {
                 `;
                 $('#success-message').html(orderDetails).show();
                 $('#payCheckoutBtn').prop('disabled', true);
+                $('#clearCartBtn').prop('disabled', true);
                 $('#cart-count').hide();
             },
             error: function(xhr) {

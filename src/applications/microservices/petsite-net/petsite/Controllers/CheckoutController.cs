@@ -99,5 +99,25 @@ namespace PetSite.Controllers
                 return BadRequest($"Payment processing failed. Please try again.\nError: {ex.Message}");
             }
         }
+        
+        [HttpPost]
+        public async Task<IActionResult> ClearCart(string userId)
+        {
+            try
+            {
+                using var httpClient = _httpClientFactory.CreateClient();
+                var clearCartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[] { "api", "cart", userId }, null);
+                var response = await httpClient.DeleteAsync(clearCartUrl);
+                response.EnsureSuccessStatusCode();
+                
+                return RedirectToAction("Index", new { userId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to clear cart for user: {userId}");
+                ViewBag.ErrorMessage = $"Unable to clear cart. Please try again later.\nError: {ex.Message}";
+                return RedirectToAction("Index", new { userId });
+            }
+        }
     }
 }
