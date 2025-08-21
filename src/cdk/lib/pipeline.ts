@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
 import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { IRole, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { IRole, ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { NagSuppressions } from 'cdk-nag';
@@ -210,6 +210,7 @@ export class CDKPipeline extends Stack {
                     bucketName: properties.configBucketName,
                     bucketKey: bucketKey,
                 },
+                env: properties.env,
             }),
         );
 
@@ -227,6 +228,7 @@ export class CDKPipeline extends Stack {
                 parent: this.stackName,
                 sequence: (stageSequence++).toString(),
             },
+            env: properties.env,
         });
 
         backendWave.addStage(storageStage);
@@ -237,6 +239,7 @@ export class CDKPipeline extends Stack {
                 parent: this.stackName,
                 sequence: (stageSequence++).toString(),
             },
+            env: properties.env,
         });
 
         backendWave.addStage(computeStage);
@@ -251,6 +254,7 @@ export class CDKPipeline extends Stack {
             new MicroservicesStage(this, 'Microservices', {
                 ...properties.microservicesProperties,
                 tags: microservicesStageTags,
+                env: properties.env,
             }),
         );
 
@@ -260,6 +264,26 @@ export class CDKPipeline extends Stack {
          * @see https://github.com/cdklabs/cdk-nag?tab=readme-ov-file#suppressing-aws-cdk-libpipelines-violations
          */
         pipeline.buildPipeline();
+
+        /**
+         * Grant access to describe Prefix lists
+         */
+        if (pipeline.synthProject.role) {
+            new Policy(this, 'CloudFormationPolicy', {
+                statements: [
+                    new PolicyStatement({
+                        actions: [
+                            'cloudformation:DescribeStacks',
+                            'cloudformation:ListResources',
+                            'ec2:DescribeManagedPrefixLists',
+                            'ec2:GetManagedPrefixListEntries',
+                        ],
+                        resources: ['*'],
+                    }),
+                ],
+                roles: [pipeline.synthProject.role],
+            });
+        }
 
         /**
          * Add CodeArtifact read access to the synth project role.
