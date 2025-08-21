@@ -14,15 +14,15 @@ jobs:
             matrix:
                 service:
                     - name: payforadoption-go
-                      path: src/application/microservices/payforadoption-go
+                      path: src/applications/microservices/payforadoption-go
                     - name: petfood-rs
-                      path: src/application/microservices/petfood-rs
+                      path: src/applications/microservices/petfood-rs
                     - name: petlistadoptions-py
-                      path: src/application/microservices/petlistadoptions-py
+                      path: src/applications/microservices/petlistadoptions-py
                     - name: petsearch-java
-                      path: src/application/microservices/petsearch-java
+                      path: src/applications/microservices/petsearch-java
                     - name: petsite-net
-                      path: src/application/microservices/petsite-net
+                      path: src/applications/microservices/petsite-net
         steps:
             - uses: actions/checkout@v3
 
@@ -46,7 +46,7 @@ jobs:
             matrix:
                 service:
                     - name: pethistory
-                      path: src/application/lambda/pethistory-node/
+                      path: src/applications/lambda/pethistory-node/
                       node-version: '18'
 
         steps:
@@ -78,7 +78,7 @@ jobs:
             matrix:
                 project:
                     - name: petsite
-                      path: src/application/microservices/petsite-net/petsite.sln
+                      path: src/applications/microservices/petsite-net/petsite.sln
         steps:
             - uses: actions/checkout@v3
 
