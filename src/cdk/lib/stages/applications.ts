@@ -187,15 +187,13 @@ export class MicroservicesStack extends Stack {
                             ENABLE_JSON_LOGGING: 'true',
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
-                            PETFOOD_FOODS_TABLE_NAME: dynamodbExports.petFoodsTable,
-                            PETFOOD_CARTS_TABLE_NAME: dynamodbExports.petFoodsCartTable,
+                            PETFOOD_FOODS_TABLE_NAME: dynamodbExports.petFoodsTable.tableName,
+                            PETFOOD_CARTS_TABLE_NAME: dynamodbExports.petFoodsCartTable.tableName,
                             PETFOOD_ASSETS_BUCKET_NAME: assetsBucket.bucketName,
                         },
                         assetsBucket: assetsBucket,
                         containerPort: 8080,
                         openSearchCollection: openSearchExports,
-                        loggingGroup: logGroup,
-                        enableLogging: true
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
