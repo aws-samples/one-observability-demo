@@ -418,6 +418,7 @@ $RECYCLE.BIN/
 
 # Allow wwwroot from petsite-net
 !src/applications/microservices/petsite-net/petsite/wwwroot/
+!src/applications/microservices/petsite-net/petsite/wwwroot/**
 
 .ash/ash_output
 # editor settings
