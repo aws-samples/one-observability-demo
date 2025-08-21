@@ -20,13 +20,9 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
     <link rel="stylesheet" href="~/css/site.css"/>
     <link rel="stylesheet" href="~/css/petstyles.css"/>
-    <style>
-        * {
-            font-family: 'Roboto', sans-serif;
-        }
-    </style>
+
 </head>
-<body>
+<body style="padding-bottom: 60px;">
 <div class="pet-wrapper">
     <header class="pet-header">
 
@@ -63,6 +59,13 @@
     </header>
     @RenderBody()
 
+    <footer style="position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f8f9fa; border-top: 1px solid #dee2e6; text-align: center; padding: 10px 0; z-index: 1000;">
+        <div class="container">
+            <p class="mb-0" style="color: #6c757d; font-size: 0.9rem;">
+                Built with ❤️ in association with <a href="https://aws.amazon.com/q/developer/" target="_blank" style="color: #007bff; text-decoration: none;">Amazon Q Developer</a>
+            </p>
+        </div>
+    </footer>
 
 </div>
 <script src="~/lib/jquery/dist/jquery.min.js"></script>

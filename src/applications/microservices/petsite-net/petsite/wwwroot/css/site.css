@@ -1,6 +1,26 @@
 ﻿/* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
 for details on configuring this project to bundle and minify static web assets. */
 
+/* Override Bootstrap font declarations to use Roboto everywhere */
+:root {
+  --bs-font-sans-serif: 'Roboto', sans-serif !important;
+  --bs-body-font-family: 'Roboto', sans-serif !important;
+}
+
+body, html {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Force Roboto on all Bootstrap elements */
+* {
+  font-family: 'Roboto', sans-serif !important;
+}
+
+/* Preserve monospace for code elements */
+code, kbd, pre, samp, .font-monospace {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
 a.navbar-brand {
   white-space: normal;
   text-align: center;
