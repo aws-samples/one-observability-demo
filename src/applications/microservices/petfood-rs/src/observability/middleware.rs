@@ -14,6 +14,7 @@ use super::Metrics;
     request_id = %Uuid::new_v4(),
     method = %request.method(),
     uri = %request.uri(),
+    user_agent = tracing::field::Empty,
 ))]
 pub async fn observability_middleware(
     metrics: Arc<Metrics>,
@@ -23,6 +24,14 @@ pub async fn observability_middleware(
     let start_time = Instant::now();
     let method = request.method().to_string();
     let uri = request.uri().to_string();
+
+    // Extract User-Agent header
+    let user_agent = request
+        .headers()
+        .get("user-agent")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("unknown")
+        .to_string();
 
     // Try to get the matched path for better endpoint grouping
     let endpoint = request
@@ -34,11 +43,12 @@ pub async fn observability_middleware(
     // Add request information to the current span
     let current_span = Span::current();
     current_span.record("endpoint", &endpoint);
+    current_span.record("user_agent", &user_agent);
 
     // Increment in-flight requests
     metrics.increment_in_flight(&method, &endpoint);
 
-    info!("Processing request");
+    info!(user_agent = %user_agent, "Processing request");
 
     // Process the request
     let response = next.run(request).await;
@@ -61,12 +71,14 @@ pub async fn observability_middleware(
         error!(
             status_code = status_code,
             duration_ms = duration.as_millis(),
+            user_agent = %user_agent,
             "Request completed with error"
         );
     } else {
         info!(
             status_code = status_code,
             duration_ms = duration.as_millis(),
+            user_agent = %user_agent,
             "Request completed successfully"
         );
     }
@@ -312,6 +324,33 @@ mod tests {
         let request = Request::builder()
             .method(Method::GET)
             .uri("/test")
+            .header("user-agent", "test-client/1.0")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Verify metrics were recorded
+        let encoded = metrics.encode().unwrap();
+        assert!(encoded.contains("http_requests_total"));
+    }
+
+    #[tokio::test]
+    async fn test_observability_middleware_missing_user_agent() {
+        let metrics = Arc::new(Metrics::new().unwrap());
+        let metrics_clone = metrics.clone();
+
+        let app = Router::new()
+            .route("/test", get(test_handler))
+            .layer(middleware::from_fn(move |req, next| {
+                observability_middleware(metrics_clone.clone(), req, next)
+            }));
+
+        // Request without user-agent header
+        let request = Request::builder()
+            .method(Method::GET)
+            .uri("/test")
             .body(Body::empty())
             .unwrap();
 
@@ -337,6 +376,7 @@ mod tests {
         let request = Request::builder()
             .method(Method::GET)
             .uri("/error")
+            .header("user-agent", "error-test-client/1.0")
             .body(Body::empty())
             .unwrap();
 

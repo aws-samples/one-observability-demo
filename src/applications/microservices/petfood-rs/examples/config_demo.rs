@@ -4,13 +4,13 @@ use std::env;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set some environment variables for demonstration
-    env::set_var("PETFOOD_SERVER_HOST", "127.0.0.1");
-    env::set_var("PETFOOD_SERVER_PORT", "8080");
-    env::set_var("PETFOOD_DATABASE_FOODS_TABLE_NAME", "DemoFoods");
-    env::set_var("PETFOOD_DATABASE_CARTS_TABLE_NAME", "DemoCarts");
-    env::set_var("PETFOOD_DATABASE_REGION", "us-west-2");
-    env::set_var("PETFOOD_OBSERVABILITY_SERVICE_NAME", "demo-service");
-    env::set_var("PETFOOD_ERROR_SIMULATION_ENABLED", "true");
+    env::set_var("PETFOOD_HOST", "127.0.0.1");
+    env::set_var("PETFOOD_PORT", "8080");
+    env::set_var("PETFOOD_FOODS_TABLE_NAME", "DemoFoods");
+    env::set_var("PETFOOD_CARTS_TABLE_NAME", "DemoCarts");
+    env::set_var("PETFOOD_REGION", "us-west-2");
+    env::set_var("PETFOOD_SERVICE_NAME", "demo-service");
+    env::set_var("PETFOOD_SIMULATION_ENABLED", "true");
 
     println!("Loading configuration...");
 
@@ -25,7 +25,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "Service: {} v{}",
                 config.observability.service_name, config.observability.service_version
             );
-            println!("Error Simulation: {}", config.error_simulation.enabled);
 
             // Test parameter store functionality
             println!("\nTesting Parameter Store...");

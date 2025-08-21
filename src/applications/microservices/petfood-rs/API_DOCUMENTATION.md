@@ -168,7 +168,7 @@ curl -X GET "http://localhost:8080/api/foods?food_type=dry&max_price=15.00"
       "food_type": "dry",
       "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
       "price": "12.99",
-      "image": "beef-turkey-kibbles.jpg",
+      "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
       "nutritional_info": null,
       "ingredients": ["beef", "turkey", "rice", "vegetables"],
       "feeding_guidelines": "Feed 2-3 times daily based on puppy's weight",
@@ -205,7 +205,7 @@ curl -X GET http://localhost:8080/api/foods/F12345678
   "food_type": "dry",
   "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
   "price": "12.99",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "nutritional_info": null,
   "ingredients": ["beef", "turkey", "rice", "vegetables"],
   "feeding_guidelines": "Feed 2-3 times daily based on puppy's weight",
@@ -233,7 +233,7 @@ curl -X POST http://localhost:8080/api/admin/foods \
     "food_type": "dry",
     "description": "High-quality dry food for puppies",
     "price": "24.99",
-    "image": "premium-puppy-chow.jpg",
+    "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
     "nutritional_info": {
       "calories_per_serving": 350,
       "protein_percentage": "28.0",
@@ -255,7 +255,7 @@ curl -X POST http://localhost:8080/api/admin/foods \
   "food_type": "dry",
   "description": "High-quality dry food for puppies",
   "price": "24.99",
-  "image": "premium-puppy-chow.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
   "nutritional_info": {
     "calories_per_serving": 350,
     "protein_percentage": "28.0",
@@ -302,7 +302,7 @@ curl -X PUT http://localhost:8080/api/admin/foods/F87654321 \
   "food_type": "dry",
   "description": "High-quality dry food for puppies",
   "price": "22.99",
-  "image": "premium-puppy-chow.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
   "nutritional_info": {
     "calories_per_serving": 350,
     "protein_percentage": "28.0",
@@ -383,7 +383,7 @@ curl -X POST http://localhost:8080/api/cart/user001/items \
 {
   "food_id": "F12345678",
   "name": "Beef and Turkey Kibbles",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "quantity": 2,
   "unit_price": "12.99",
   "total_price": "25.98",
@@ -407,7 +407,7 @@ curl -X GET http://localhost:8080/api/cart/user001
     {
       "food_id": "F12345678",
       "name": "Beef and Turkey Kibbles",
-      "image": "beef-turkey-kibbles.jpg",
+      "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
       "quantity": 2,
       "unit_price": "12.99",
       "total_price": "25.98",
@@ -442,7 +442,7 @@ curl -X PUT http://localhost:8080/api/cart/user001/items/F12345678 \
 {
   "food_id": "F12345678",
   "name": "Beef and Turkey Kibbles",
-  "image": "beef-turkey-kibbles.jpg",
+  "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/beef-turkey-kibbles.jpg",
   "quantity": 5,
   "unit_price": "12.99",
   "total_price": "64.95",
@@ -483,7 +483,71 @@ curl -X POST http://localhost:8080/api/cart/user001/clear
 (Empty response body)
 ```
 
-### 7. Delete Cart
+### 7. Checkout Cart
+
+**Endpoint**: `POST /api/cart/{user_id}/checkout`
+
+**Description**: Process checkout for the user's cart and create an order.
+
+**Request**:
+```bash
+curl -X POST http://localhost:8080/api/cart/user001/checkout \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_method": {
+      "CreditCard": {
+        "card_number": "4111111111111111",
+        "expiry_month": 12,
+        "expiry_year": 2025,
+        "cvv": "123",
+        "cardholder_name": "John Doe"
+      }
+    },
+    "shipping_address": {
+      "name": "John Doe",
+      "street": "123 Main St",
+      "city": "Seattle",
+      "state": "WA",
+      "zip_code": "98101",
+      "country": "USA"
+    },
+    "billing_address": {
+      "name": "John Doe",
+      "street": "123 Main St",
+      "city": "Seattle",
+      "state": "WA",
+      "zip_code": "98101",
+      "country": "USA"
+    }
+  }'
+```
+
+**Response** (Status: 201 Created):
+```json
+{
+  "order_id": "ORDER-USER001-1705312200",
+  "user_id": "user001",
+  "items": [
+    {
+      "food_id": "F12345678",
+      "food_name": "Beef and Turkey Kibbles",
+      "quantity": 2,
+      "unit_price": "12.99",
+      "total_price": "25.98"
+    }
+  ],
+  "subtotal": "25.98",
+  "tax": "2.34",
+  "shipping": "5.99",
+  "total_amount": "34.31",
+  "payment_method": "CreditCard",
+  "status": "confirmed",
+  "created_at": "2024-01-15T11:30:00Z",
+  "estimated_delivery": "2024-01-19T11:30:00Z"
+}
+```
+
+### 8. Delete Cart
 
 **Endpoint**: `DELETE /api/cart/{user_id}`
 
@@ -568,6 +632,29 @@ curl -X DELETE http://localhost:8080/api/cart/user001/items/F34567890
 
 # 7. Final cart check
 curl -X GET http://localhost:8080/api/cart/user001
+
+# 8. Checkout the cart
+curl -X POST http://localhost:8080/api/cart/user001/checkout \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_method": {
+      "CreditCard": {
+        "card_number": "4111111111111111",
+        "expiry_month": 12,
+        "expiry_year": 2025,
+        "cvv": "123",
+        "cardholder_name": "John Doe"
+      }
+    },
+    "shipping_address": {
+      "name": "John Doe",
+      "street": "123 Main St",
+      "city": "Seattle",
+      "state": "WA",
+      "zip_code": "98101",
+      "country": "USA"
+    }
+  }'
 ```
 
 ### Step 4: Cleanup
@@ -631,6 +718,22 @@ All errors return a JSON response with the following structure:
 }
 ```
 
+**400 Bad Request (Empty Cart)**:
+```json
+{
+  "error": "Cannot checkout empty cart",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+**400 Bad Request (Invalid Payment Method)**:
+```json
+{
+  "error": "Invalid payment method format",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
 ---
 
 ## Data Models
@@ -651,6 +754,60 @@ All errors return a JSON response with the following structure:
 - `out_of_stock`
 - `discontinued`
 - `pre_order`
+
+### Payment Methods
+The checkout endpoint supports the following payment methods:
+
+**Credit Card**:
+```json
+{
+  "CreditCard": {
+    "card_number": "4111111111111111",
+    "expiry_month": 12,
+    "expiry_year": 2025,
+    "cvv": "123",
+    "cardholder_name": "John Doe"
+  }
+}
+```
+
+**PayPal**:
+```json
+{
+  "PayPal": {
+    "email": "user@example.com"
+  }
+}
+```
+
+**Bank Transfer**:
+```json
+{
+  "BankTransfer": {
+    "account_number": "1234567890",
+    "routing_number": "021000021"
+  }
+}
+```
+
+### Order Status
+- `pending` - Order has been created but not yet confirmed
+- `confirmed` - Order has been confirmed and payment processed
+- `processing` - Order is being prepared for shipment
+- `shipped` - Order has been shipped
+- `delivered` - Order has been delivered
+- `cancelled` - Order has been cancelled
+
+### Nutritional Information
+The nutritional info object contains the following optional fields:
+- `calories_per_serving` (number) - Calories per serving
+- `protein_percentage` (decimal string) - Protein percentage (e.g., "28.0")
+- `fat_percentage` (decimal string) - Fat percentage (e.g., "15.0")
+- `carbohydrate_percentage` (decimal string) - Carbohydrate percentage
+- `fiber_percentage` (decimal string) - Fiber percentage
+- `moisture_percentage` (decimal string) - Moisture percentage
+- `serving_size` (string) - Serving size description (e.g., "1 cup")
+- `servings_per_container` (number) - Number of servings per container
 
 ### Price Format
 All prices are returned as decimal strings (e.g., `"12.99"`) to maintain precision.
@@ -681,12 +838,12 @@ All timestamps use ISO 8601 format in UTC (e.g., `"2024-01-15T10:30:00Z"`).
 - Use the admin seed endpoint to populate test data
 - Handle all HTTP status codes appropriately
 - Implement proper error handling for network failures
+- The checkout endpoint clears the cart automatically upon successful completion
+- Payment method validation is performed server-side
 
 ### Performance Considerations
 - Food listings can return large datasets; consider implementing pagination in your UI
 - Cart operations are optimized for individual users
 - Food filtering is optimized for better performance
-
----
-
-This documentation provides everything needed to integrate with the PetFood microservice API. For additional questions or issues, refer to the service logs or contact the development team.
+- Checkout operations include inventory validation and may take longer for large carts
+- Order IDs are generated using timestamps and user IDs for uniqueness

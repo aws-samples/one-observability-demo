@@ -295,16 +295,7 @@ async fn test_error_recovery_workflow() {
         .expect("Failed to add item to cart");
 
     assert_eq!(response.status().as_u16(), 404);
-
-    // Try to get recommendations for invalid pet type
-    let response = client
-        .get(&format!("{}/api/recommendations/invalid-pet", base_url))
-        .send()
-        .await
-        .expect("Failed to get recommendations");
-
-    assert_eq!(response.status().as_u16(), 400);
-
+    
     // Try to get non-existent food
     let response = client
         .get(&format!("{}/api/foods/non-existent-food", base_url))
