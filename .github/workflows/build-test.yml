@@ -3,26 +3,25 @@ permissions:
     contents: read
 on:
     pull_request:
-        branches: [main, staging, staging]
+        branches: [main, staging, feat/cdkpipeline]
         paths:
-            - 'PetAdoptions/payforadoption-go/**'
-            - 'PetAdoptions/pethistory/**'
-            - 'PetAdoptions/petlistadoptions-py/**'
-            - 'PetAdoptions/petsearch-java/**'
-            - 'PetAdoptions/petsite/**'
-            - 'PetAdoptions/petstatusupdater/**'
-            - 'PetAdoptions/trafficgenerator/**'
+            - 'src/application/lambda/pethistory-node/**'
+            - 'src/application/lambda/petstatusupdater/**'
+            - 'src/application/microservices/payforadoption-go/**'
+            - 'src/application/microservices/petfood-rs/**'
+            - 'src/application/microservices/petlistadoptions-py/**'
+            - 'src/application/microservices/petsearch-java/**'
+            - 'src/application/microservices/petsite-net/**'
     push:
-        branches: [main, staging, staging]
+        branches: [main, staging, feat/cdkpipeline]
         paths:
-            - 'PetAdoptions/payforadoption-go/**'
-            - 'PetAdoptions/pethistory/**'
-            - 'PetAdoptions/petlistadoptions-py/**'
-            - 'PetAdoptions/petsearch-java/**'
-            - 'PetAdoptions/petsite/**'
-            - 'PetAdoptions/petstatusupdater/**'
-            - 'PetAdoptions/trafficgenerator/**'
-
+            - 'src/application/lambda/pethistory-node/**'
+            - 'src/application/lambda/petstatusupdater/**'
+            - 'src/application/microservices/payforadoption-go/**'
+            - 'src/application/microservices/petfood-rs/**'
+            - 'src/application/microservices/petlistadoptions-py/**'
+            - 'src/application/microservices/petsearch-java/**'
+            - 'src/application/microservices/petsite-net/**'
 jobs:
     docker-builds:
         runs-on: ubuntu-latest
@@ -31,15 +30,15 @@ jobs:
             matrix:
                 service:
                     - name: payforadoption-go
-                      path: PetAdoptions/payforadoption-go
+                      path: src/application/microservices/payforadoption-go
+                    - name: petfood-rs
+                      path: src/application/microservices/petfood-rs
                     - name: petlistadoptions-py
-                      path: PetAdoptions/petlistadoptions-py
+                      path: src/application/microservices/petlistadoptions-py
                     - name: petsearch-java
-                      path: PetAdoptions/petsearch-java
-                    - name: petsite
-                      path: PetAdoptions/petsite/petsite
-                    - name: trafficgenerator
-                      path: PetAdoptions/trafficgenerator/trafficgenerator
+                      path: src/application/microservices/petsearch-java
+                    - name: petsite-net
+                      path: src/application/microservices/petsite-net
         steps:
             - uses: actions/checkout@v3
 
@@ -63,7 +62,7 @@ jobs:
             matrix:
                 service:
                     - name: pethistory
-                      path: PetAdoptions/pethistory
+                      path: src/application/lambda/pethistory-node/
                       node-version: '18'
 
         steps:
@@ -95,9 +94,7 @@ jobs:
             matrix:
                 project:
                     - name: petsite
-                      path: PetAdoptions/petsite/petsite.sln
-                    - name: trafficgenerator
-                      path: PetAdoptions/trafficgenerator/trafficgenerator.sln
+                      path: src/application/microservices/petsite-net/petsite.sln
         steps:
             - uses: actions/checkout@v3
 
