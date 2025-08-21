@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('src/application/microservices/petfood-rs/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
@@ -98,38 +98,38 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('src/application/microservices/petfood-rs/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-index-
 
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: src/application/microservices/petfood-rs/target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('src/application/microservices/petfood-rs/Cargo.lock') }}
+          path: src/applications/microservices/petfood-rs/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
 
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
-        working-directory: src/application/microservices/petfood-rs
+        working-directory: src/applications/microservices/petfood-rs
 
       - name: Run Clippy (linting)
         run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: src/application/microservices/petfood-rs
+        working-directory: src/applications/microservices/petfood-rs
 
       - name: Run cargo unit tests
         run: cargo test --lib --bins
-        working-directory: src/application/microservices/petfood-rs
+        working-directory: src/applications/microservices/petfood-rs
         env:
           RUST_BACKTRACE: 1
 
       # - name: Run cargo tests with all features
       #   run: cargo test --all-features --verbose
-      #   working-directory: src/application/microservices/petfood-rs
+      #   working-directory: src/applications/microservices/petfood-rs
       #   env:
       #     RUST_BACKTRACE: 1
 
       - name: Check cargo build
         run: cargo build --release
-        working-directory: src/application/microservices/petfood-rs
+        working-directory: src/applications/microservices/petfood-rs

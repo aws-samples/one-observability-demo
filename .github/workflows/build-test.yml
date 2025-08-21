@@ -22,7 +22,7 @@ jobs:
                     - name: petsearch-java
                       path: src/applications/microservices/petsearch-java
                     - name: petsite-net
-                      path: src/applications/microservices/petsite-net
+                      path: src/applications/microservices/petsite-net/petsite
         steps:
             - uses: actions/checkout@v3
 
