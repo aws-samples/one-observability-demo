@@ -1,3 +1,8 @@
+/* Roboto font for all pet elements */
+.pet-item, .pet-name, .pet-price, .pet-button, .pet-filter, .pet-label {
+    font-family: 'Roboto', sans-serif;
+}
+
 .pet-hero {
     background-image: url("../images/main_banner.png");
     background-size: cover;
