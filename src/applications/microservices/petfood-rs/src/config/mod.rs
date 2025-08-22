@@ -219,6 +219,7 @@ impl Config {
 impl ServerConfig {
     fn from_env() -> Result<Self, ConfigError> {
         let settings = config::Config::builder()
+            // cSpell:ignore PETFOOD
             .add_source(config::Environment::with_prefix("PETFOOD"))
             .build()
             .map_err(|e| ConfigError::LoadError {

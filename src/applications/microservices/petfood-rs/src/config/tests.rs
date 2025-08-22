@@ -129,8 +129,8 @@ mod config_tests {
     #[test]
     fn test_default_values() {
         // Clean up any environment variables that might affect defaults
-        env::remove_var("PETFOOD_OBSERVABILITY_OTLP_ENDPOINT");
-        env::remove_var("PETFOOD_OBSERVABILITY_ENABLE_JSON_LOGGING");
+        env::remove_var("PETFOOD_OTLP_ENDPOINT");
+        env::remove_var("PETFOOD_ENABLE_JSON_LOGGING");
 
         assert_eq!(default_host(), "0.0.0.0");
         assert_eq!(default_port(), 8080);
