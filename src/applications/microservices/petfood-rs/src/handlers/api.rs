@@ -70,6 +70,7 @@ pub fn create_api_router(
         )
         .route("/api/cart/:user_id/clear", post(clear_cart))
         .route("/api/cart/:user_id/checkout", post(checkout_cart))
+        .route("/api/cart/:user_id/summary", get(get_cart_summary))
         .with_state(state)
 }
 
@@ -292,6 +293,34 @@ pub async fn clear_cart(
         }
     }
 }
+
+#[instrument(skip(state))]
+pub async fn get_cart_summary(
+    State(state): State<ApiState>,
+    Path(user_id): Path<String>,
+) -> Result<Json<CartSummaryResponse>, (StatusCode, Json<Value>)> {
+    info!("Getting cart summary for user: {}", user_id);
+
+    // Get cart details
+    let cart = match state.cart_service.get_cart(&user_id).await {
+        Ok(cart) => cart,
+        Err(err) => {
+            error!("Failed to get cart for summary: {}", err);
+            return Err(service_error_to_response(err));
+        }
+    };
+
+    let summary = CartSummaryResponse {
+        user_id: cart.user_id,
+        total_items: cart.total_items,
+        total_price: cart.total_price,
+        is_empty: cart.total_items == 0,
+    };
+
+    info!("Successfully retrieved cart summary");
+    Ok(Json(summary))
+}
+
 
 /// Delete the entire cart
 #[instrument(name = "delete_cart", skip(state), fields(
