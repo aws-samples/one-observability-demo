@@ -81,7 +81,7 @@ impl TableManager {
 
         // Define PetType GSI
         let pet_type_gsi = GlobalSecondaryIndex::builder()
-            .index_name(format!("{}-PetTypeIndex", table_name))
+            .index_name("PetTypeIndex")
             .key_schema(
                 KeySchemaElement::builder()
                     .attribute_name("pet_type")
@@ -112,7 +112,7 @@ impl TableManager {
 
         // Define FoodType GSI
         let food_type_gsi = GlobalSecondaryIndex::builder()
-            .index_name(format!("{}-FoodTypeIndex", table_name))
+            .index_name("FoodTypeIndex")
             .key_schema(
                 KeySchemaElement::builder()
                     .attribute_name("food_type")

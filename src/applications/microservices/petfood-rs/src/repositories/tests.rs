@@ -243,8 +243,8 @@ mod repository_tests {
             let repo = DynamoDbFoodRepository::new(client, "PetFoods".to_string());
 
             assert_eq!(repo.table_name(), "PetFoods");
-            assert_eq!(repo.pet_type_index(), "PetFoods-PetTypeIndex");
-            assert_eq!(repo.food_type_index(), "PetFoods-FoodTypeIndex");
+            assert_eq!(repo.pet_type_index(), "PetTypeIndex");
+            assert_eq!(repo.food_type_index(), "FoodTypeIndex");
         }
     }
 

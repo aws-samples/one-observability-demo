@@ -95,7 +95,7 @@ export class DynamoDatabase extends Construct {
         this.petFoodsTable.addGlobalSecondaryIndex({
             indexName: 'PetTypeIndex',
             partitionKey: {
-                name: '[pet_type]',
+                name: 'pet_type',
                 type: AttributeType.STRING,
             },
             sortKey: {
@@ -185,6 +185,7 @@ export class DynamoDatabase extends Construct {
 
         const petFoodsTable = Table.fromTableAttributes(scope, `${id}-PetFoodsTable`, {
             tableArn: petFoodsTableArn,
+            grantIndexPermissions: true,
         });
 
         const petFoodsCartTable = Table.fromTableAttributes(scope, `${id}-PetFoodsCartTable`, {

@@ -88,6 +88,35 @@ pub struct FoodListResponse {
     pub page_size: Option<u32>,
 }
 
+/// Response model for food listings with dynamically generated image URLs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FoodListApiResponse {
+    pub foods: Vec<FoodResponse>,
+    pub total_count: usize,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+/// Response model for food with dynamically generated image URL
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FoodResponse {
+    pub id: String,
+    pub pet_type: PetType,
+    pub name: String,
+    pub food_type: FoodType,
+    pub description: String,
+    pub price: Decimal,
+    pub image: String, // This will contain the full CDN URL
+    pub nutritional_info: Option<NutritionalInfo>,
+    pub ingredients: Vec<String>,
+    pub feeding_guidelines: Option<String>,
+    pub availability_status: AvailabilityStatus,
+    pub stock_quantity: u32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub is_active: bool,
+}
+
 impl Food {
     /// Create a new Food instance with generated ID and timestamps
     pub fn new(request: CreateFoodRequest) -> Self {
@@ -227,6 +256,43 @@ impl Food {
 
         true
     }
+
+    /// Convert Food to FoodResponse with full image URL
+    pub fn to_response(&self, assets_cdn_url: &str) -> FoodResponse {
+        // Handle trailing slash in CDN URL to avoid double slashes
+        let cdn_url = if assets_cdn_url.ends_with('/') {
+            assets_cdn_url.trim_end_matches('/')
+        } else {
+            assets_cdn_url
+        };
+
+        FoodResponse {
+            id: self.id.clone(),
+            pet_type: self.pet_type.clone(),
+            name: self.name.clone(),
+            food_type: self.food_type.clone(),
+            description: self.description.clone(),
+            price: self.price,
+            image: format!("{}/{}", cdn_url, self.image),
+            nutritional_info: self.nutritional_info.clone(),
+            ingredients: self.ingredients.clone(),
+            feeding_guidelines: self.feeding_guidelines.clone(),
+            availability_status: self.availability_status.clone(),
+            stock_quantity: self.stock_quantity,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            is_active: self.is_active,
+        }
+    }
+}
+
+impl FoodResponse {
+    /// Check if the food is available for purchase
+    pub fn is_available(&self) -> bool {
+        self.is_active
+            && self.availability_status == AvailabilityStatus::InStock
+            && self.stock_quantity > 0
+    }
 }
 
 #[cfg(test)]
@@ -331,5 +397,53 @@ mod tests {
         let deserialized: Food = serde_json::from_str(&json).unwrap();
 
         assert_eq!(food, deserialized);
+    }
+
+    #[test]
+    fn test_image_url_generation() {
+        // Create a food with petfood path
+        let request = CreateFoodRequest {
+            pet_type: PetType::Puppy,
+            name: "Test Kibble".to_string(),
+            food_type: FoodType::Dry,
+            description: "Test food".to_string(),
+            price: dec!(12.99),
+            image: "petfood/test-kibble.jpg".to_string(), // Full path with petfood prefix
+            nutritional_info: None,
+            ingredients: vec!["chicken".to_string()],
+            feeding_guidelines: Some("Feed twice daily".to_string()),
+            stock_quantity: 10,
+        };
+
+        let food = Food::new(request);
+        assert_eq!(food.image, "petfood/test-kibble.jpg");
+
+        // Test conversion to response with different CDN URLs
+        let s3_cdn_url = "https://petfood-assets.s3.amazonaws.com";
+        let cloudfront_cdn_url = "https://d1234567890.cloudfront.net/images";
+        let cloudfront_cdn_url_with_slash = "https://d1234567890.cloudfront.net/images/";
+
+        let s3_response = food.to_response(s3_cdn_url);
+        let cloudfront_response = food.to_response(cloudfront_cdn_url);
+        let cloudfront_response_with_slash = food.to_response(cloudfront_cdn_url_with_slash);
+
+        // Verify the URLs are correctly generated
+        assert_eq!(
+            s3_response.image,
+            "https://petfood-assets.s3.amazonaws.com/petfood/test-kibble.jpg"
+        );
+        assert_eq!(
+            cloudfront_response.image,
+            "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
+        );
+        assert_eq!(
+            cloudfront_response_with_slash.image,
+            "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
+        );
+
+        // Verify other fields are preserved
+        assert_eq!(s3_response.name, food.name);
+        assert_eq!(s3_response.price, food.price);
+        assert_eq!(s3_response.pet_type, food.pet_type);
     }
 }

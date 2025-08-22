@@ -46,8 +46,9 @@ prop_compose! {
 }
 
 prop_compose! {
-    fn arb_valid_price()(price in 0.01f64..1000.0) -> Decimal {
-        Decimal::from_f64_retain(price).unwrap()
+    fn arb_valid_price()(cents in 1u32..100000) -> Decimal {
+        // Generate prices as cents and convert to decimal with exactly 2 decimal places
+        Decimal::from_parts(cents, 0, 0, false, 2)
     }
 }
 
@@ -114,7 +115,13 @@ proptest! {
         if let Some(price) = Decimal::from_f64_retain(price_f64) {
             let result = validate_food_price(&price);
 
-            if price > Decimal::ZERO && price <= Decimal::from(10000) {
+            // Check if price is in valid range AND has valid precision (max 2 decimal places)
+            let min_price = Decimal::from_parts(1, 0, 0, false, 2); // 0.01
+            let max_price = Decimal::from(10000);
+            let valid_range = price >= min_price && price <= max_price;
+            let valid_precision = price.scale() <= 2;
+
+            if valid_range && valid_precision {
                 prop_assert!(result.is_ok());
             } else {
                 prop_assert!(result.is_err());
@@ -264,7 +271,7 @@ mod edge_case_tests {
 
     #[test]
     fn test_zero_and_negative_values() {
-        assert!(validate_food_price(&Decimal::ZERO).is_ok()); // Zero is allowed
+        assert!(validate_food_price(&Decimal::ZERO).is_err()); // Zero is not allowed (minimum is 0.01)
         assert!(validate_food_price(&Decimal::from(-1)).is_err()); // Negative is not allowed
         assert!(validate_cart_quantity(0).is_err()); // Zero quantity not allowed
     }
@@ -279,11 +286,11 @@ mod edge_case_tests {
 
         // Test boundary values for quantity
         assert!(validate_cart_quantity(1).is_ok()); // Minimum valid
-        assert!(validate_cart_quantity(100).is_ok()); // Maximum valid
-        assert!(validate_cart_quantity(101).is_err()); // Too high
+        assert!(validate_cart_quantity(1000).is_ok()); // Maximum valid
+        assert!(validate_cart_quantity(1001).is_err()); // Too high
 
-        // Test boundary values for price (MIN_PRICE = 0, MAX_PRICE = 9999.99)
-        assert!(validate_food_price(&Decimal::ZERO).is_ok()); // Minimum valid
+        // Test boundary values for price (MIN_PRICE = 0.01, MAX_PRICE = 9999.99)
+        assert!(validate_food_price(&Decimal::from_parts(1, 0, 0, false, 2)).is_ok()); // Minimum valid (0.01)
         assert!(validate_food_price(&Decimal::from_parts(999999, 0, 0, false, 2)).is_ok()); // Maximum valid (9999.99)
         assert!(validate_food_price(&Decimal::from(10000)).is_err()); // Too high
     }
