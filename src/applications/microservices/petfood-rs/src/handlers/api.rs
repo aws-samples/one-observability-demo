@@ -26,7 +26,9 @@ pub struct ApiState {
 /// Query parameters for listing foods
 #[derive(Debug, Deserialize)]
 pub struct ListFoodsQuery {
+    #[serde(alias = "pettype")]
     pub pet_type: Option<String>,
+    #[serde(alias = "foodtype")]
     pub food_type: Option<String>,
     pub availability_status: Option<String>,
     pub min_price: Option<rust_decimal::Decimal>,

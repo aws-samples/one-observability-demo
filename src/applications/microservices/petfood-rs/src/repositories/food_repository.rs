@@ -57,8 +57,8 @@ impl DynamoDbFoodRepository {
         Self {
             client,
             table_name: table_name.clone(),
-            pet_type_index: format!("{}-PetTypeIndex", table_name),
-            food_type_index: format!("{}-FoodTypeIndex", table_name),
+            pet_type_index: "PetTypeIndex".to_string(),
+            food_type_index: "FoodTypeIndex".to_string(),
         }
     }
 
@@ -846,8 +846,8 @@ mod tests {
         let repo = DynamoDbFoodRepository::new(client, "test-table".to_string());
 
         assert_eq!(repo.table_name, "test-table");
-        assert_eq!(repo.pet_type_index, "test-table-PetTypeIndex");
-        assert_eq!(repo.food_type_index, "test-table-FoodTypeIndex");
+        assert_eq!(repo.pet_type_index, "PetTypeIndex");
+        assert_eq!(repo.food_type_index, "FoodTypeIndex");
     }
 
     // Note: Integration tests with actual DynamoDB would be in a separate test file
