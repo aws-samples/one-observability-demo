@@ -24,7 +24,7 @@ async fn test_food_api_endpoints() {
         food_type: FoodType::Dry,
         description: "A test food for puppies".to_string(),
         price: dec!(15.99),
-        image: "test-puppy-food.jpg".to_string(),
+        image: "petfood/test-puppy-food.jpg".to_string(),
         nutritional_info: None,
         ingredients: vec!["chicken".to_string(), "rice".to_string()],
         feeding_guidelines: Some("Feed twice daily".to_string()),

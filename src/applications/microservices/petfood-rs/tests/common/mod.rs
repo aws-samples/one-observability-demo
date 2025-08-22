@@ -12,6 +12,7 @@ use serde_json::json;
 use tokio::net::TcpListener;
 
 type CartState = Arc<Mutex<HashMap<String, serde_json::Value>>>;
+type FoodState = Arc<Mutex<std::collections::HashSet<String>>>;
 
 pub struct TestEnvironment {
     pub client: Client,
@@ -29,7 +30,10 @@ async fn mock_health() -> Json<serde_json::Value> {
 
 use axum::extract::Query;
 
-async fn mock_list_foods(Query(params): Query<HashMap<String, String>>) -> Json<serde_json::Value> {
+async fn mock_list_foods(
+    Query(params): Query<HashMap<String, String>>,
+    Extension(deleted_foods): Extension<FoodState>,
+) -> Json<serde_json::Value> {
     let all_foods = vec![
         json!({
             "id": "F001",
@@ -108,11 +112,19 @@ async fn mock_list_foods(Query(params): Query<HashMap<String, String>>) -> Json<
         }),
     ];
 
-    // Filter foods based on query parameters
+    // Filter foods based on query parameters and deleted state
+    let deleted = deleted_foods.lock().unwrap();
     let filtered_foods: Vec<_> = all_foods
         .into_iter()
         .filter(|food| {
             let mut matches = true;
+
+            // Check if food is deleted
+            if let Some(food_id) = food["id"].as_str() {
+                if deleted.contains(food_id) {
+                    return false;
+                }
+            }
 
             if let Some(food_type) = params.get("food_type") {
                 matches = matches && food["food_type"].as_str() == Some(food_type);
@@ -139,7 +151,15 @@ async fn mock_admin_seed() -> Json<serde_json::Value> {
     }))
 }
 
-async fn mock_admin_cleanup() -> Json<serde_json::Value> {
+async fn mock_admin_cleanup(
+    Extension(deleted_foods): Extension<FoodState>,
+) -> Json<serde_json::Value> {
+    // Mark all foods as deleted
+    let mut deleted = deleted_foods.lock().unwrap();
+    deleted.insert("F001".to_string());
+    deleted.insert("F002".to_string());
+    deleted.insert("F003".to_string());
+
     Json(json!({
         "message": "Database cleaned up successfully",
         "foods_deleted": 3
@@ -150,7 +170,22 @@ use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 
-async fn mock_get_food(Path(food_id): Path<String>) -> Response {
+async fn mock_get_food(
+    Path(food_id): Path<String>,
+    Extension(deleted_foods): Extension<FoodState>,
+) -> Response {
+    // Check if food is deleted
+    let deleted = deleted_foods.lock().unwrap();
+    if deleted.contains(&food_id) {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "Food not found"
+            })),
+        )
+            .into_response();
+    }
+    drop(deleted);
     match food_id.as_str() {
         "F001" => Json(json!({
             "id": "F001",
@@ -171,20 +206,28 @@ async fn mock_get_food(Path(food_id): Path<String>) -> Response {
                 "serving_size": "1 cup",
                 "servings_per_container": 50
             },
-            "ingredients": ["chicken", "rice", "vegetables"],
-            "nutritional_info": {
-                "calories_per_serving": 350,
-                "protein_percentage": 25.0,
-                "fat_percentage": 15.0,
-                "carbohydrate_percentage": 45.0,
-                "fiber_percentage": 4.0,
-                "moisture_percentage": 10.0,
-                "serving_size": "1 cup",
-                "servings_per_container": 50
-            },
             "feeding_guidelines": "Feed 2-3 cups daily",
             "stock_quantity": 50,
-            "is_active": true, "availability_status": "instock",
+            "is_active": true,
+            "availability_status": "instock",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z"
+        }))
+        .into_response(),
+        "F12345678" => Json(json!({
+            "id": "F12345678",
+            "name": "Test Puppy Food",
+            "pet_type": "puppy",
+            "food_type": "dry",
+            "price": 15.99,
+            "description": "A test food for puppies",
+            "image": "https://example.com/petfood/test-puppy-food.jpg",
+            "ingredients": ["chicken", "rice"],
+            "nutritional_info": null,
+            "feeding_guidelines": "Feed twice daily",
+            "stock_quantity": 100,
+            "is_active": true,
+            "availability_status": "instock",
             "created_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:00:00Z"
         }))
@@ -282,18 +325,80 @@ async fn mock_add_cart_item(
     }
 }
 
-async fn mock_update_cart_item() -> Json<serde_json::Value> {
+async fn mock_update_cart_item(
+    Path((user_id, food_id)): Path<(String, String)>,
+    Extension(cart_state): Extension<CartState>,
+    ExtractJson(payload): ExtractJson<serde_json::Value>,
+) -> Response {
+    let quantity = payload
+        .get("quantity")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1);
+    let unit_price = 29.99;
+    let total_price = unit_price * quantity as f64;
+
+    // Update cart state
+    let mut carts = cart_state.lock().unwrap();
+    if let Some(cart) = carts.get_mut(&user_id) {
+        if let Some(items) = cart["items"].as_array_mut() {
+            for item in items.iter_mut() {
+                if item["food_id"].as_str() == Some(&food_id) {
+                    item["quantity"] = json!(quantity);
+                    item["total_price"] = json!(total_price);
+                    break;
+                }
+            }
+            // Calculate totals
+            let total_items: u64 = items
+                .iter()
+                .map(|item| item["quantity"].as_u64().unwrap_or(0))
+                .sum();
+            let total_price_sum: f64 = items
+                .iter()
+                .map(|item| item["total_price"].as_f64().unwrap_or(0.0))
+                .sum();
+
+            // Update cart totals
+            cart["total_items"] = json!(total_items);
+            cart["total_price"] = json!(total_price_sum);
+        }
+    }
+
     Json(json!({
-        "food_id": "F001",
+        "food_id": food_id,
         "food_name": "Premium Puppy Food",
-        "quantity": 3,
-        "unit_price": 29.99,
-        "total_price": 89.97,
+        "quantity": quantity,
+        "unit_price": unit_price,
+        "total_price": total_price,
         "added_at": "2024-01-01T00:00:00Z"
     }))
+    .into_response()
 }
 
-async fn mock_delete_cart_item() -> Response {
+async fn mock_delete_cart_item(
+    Path((user_id, food_id)): Path<(String, String)>,
+    Extension(cart_state): Extension<CartState>,
+) -> Response {
+    // Remove item from cart state
+    let mut carts = cart_state.lock().unwrap();
+    if let Some(cart) = carts.get_mut(&user_id) {
+        if let Some(items) = cart["items"].as_array_mut() {
+            items.retain(|item| item["food_id"].as_str() != Some(&food_id));
+            // Calculate totals
+            let total_items: u64 = items
+                .iter()
+                .map(|item| item["quantity"].as_u64().unwrap_or(0))
+                .sum();
+            let total_price_sum: f64 = items
+                .iter()
+                .map(|item| item["total_price"].as_f64().unwrap_or(0.0))
+                .sum();
+
+            // Update cart totals
+            cart["total_items"] = json!(total_items);
+            cart["total_price"] = json!(total_price_sum);
+        }
+    }
     StatusCode::NO_CONTENT.into_response()
 }
 
@@ -306,16 +411,111 @@ async fn mock_delete_cart(
     StatusCode::NO_CONTENT.into_response()
 }
 
+async fn mock_create_food(ExtractJson(payload): ExtractJson<serde_json::Value>) -> Response {
+    // Validate that required fields are present
+    if payload.get("name").is_none() || payload.get("pet_type").is_none() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "Missing required fields"
+            })),
+        )
+            .into_response();
+    }
+
+    // Return a mock created food
+    let created_food = json!({
+        "id": "F12345678",
+        "name": payload.get("name").unwrap_or(&json!("Test Food")),
+        "pet_type": payload.get("pet_type").unwrap_or(&json!("puppy")),
+        "food_type": payload.get("food_type").unwrap_or(&json!("dry")),
+        "description": payload.get("description").unwrap_or(&json!("Test description")),
+        "price": payload.get("price").unwrap_or(&json!(15.99)),
+        "image": "https://example.com/petfood/test-food.jpg",
+        "ingredients": payload.get("ingredients").unwrap_or(&json!(["chicken", "rice"])),
+        "feeding_guidelines": payload.get("feeding_guidelines"),
+        "nutritional_info": payload.get("nutritional_info"),
+        "availability_status": "instock",
+        "stock_quantity": payload.get("stock_quantity").unwrap_or(&json!(100)),
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "is_active": true
+    });
+
+    (StatusCode::CREATED, Json(created_food)).into_response()
+}
+
+async fn mock_update_food(
+    Path(food_id): Path<String>,
+    ExtractJson(payload): ExtractJson<serde_json::Value>,
+) -> Response {
+    if food_id == "F12345678" {
+        // Return updated food
+        let updated_food = json!({
+            "id": food_id,
+            "name": payload.get("name").unwrap_or(&json!("Updated Test Puppy Food")),
+            "pet_type": "puppy",
+            "food_type": "dry",
+            "description": payload.get("description").unwrap_or(&json!("An updated test food for puppies")),
+            "price": payload.get("price").unwrap_or(&json!(17.99)),
+            "image": "https://example.com/petfood/test-food.jpg",
+            "ingredients": ["chicken", "rice"],
+            "feeding_guidelines": "Feed twice daily",
+            "nutritional_info": null,
+            "availability_status": "instock",
+            "stock_quantity": payload.get("stock_quantity").unwrap_or(&json!(150)),
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "is_active": true
+        });
+
+        Json(updated_food).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "Food not found"
+            })),
+        )
+            .into_response()
+    }
+}
+
+async fn mock_delete_food(
+    Path(food_id): Path<String>,
+    Extension(deleted_foods): Extension<FoodState>,
+) -> Response {
+    if food_id == "F12345678" {
+        // Mark food as deleted
+        let mut deleted = deleted_foods.lock().unwrap();
+        deleted.insert(food_id);
+        StatusCode::NO_CONTENT.into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": "Food not found"
+            })),
+        )
+            .into_response()
+    }
+}
+
 fn create_mock_app() -> Router {
     use axum::routing::put;
 
     let cart_state: CartState = Arc::new(Mutex::new(HashMap::new()));
+    let deleted_foods: FoodState = Arc::new(Mutex::new(std::collections::HashSet::new()));
 
     Router::new()
         .route("/health/status", get(mock_health))
         .route("/api/foods", get(mock_list_foods))
         .route("/api/foods/:food_id", get(mock_get_food))
-        // .route("/api/admin/foods", post(create_food))
+        .route("/api/admin/foods", post(mock_create_food))
+        .route(
+            "/api/admin/foods/:food_id",
+            put(mock_update_food).delete(mock_delete_food),
+        )
         .route(
             "/api/cart/:user_id",
             get(mock_get_cart).delete(mock_delete_cart),
@@ -328,6 +528,7 @@ fn create_mock_app() -> Router {
         .route("/api/admin/seed", post(mock_admin_seed))
         .route("/api/admin/cleanup", post(mock_admin_cleanup))
         .layer(Extension(cart_state))
+        .layer(Extension(deleted_foods))
 }
 
 impl TestEnvironment {

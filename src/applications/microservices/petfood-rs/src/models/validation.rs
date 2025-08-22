@@ -20,10 +20,10 @@ pub const MAX_INGREDIENT_LENGTH: usize = 100;
 pub const MAX_INGREDIENTS_COUNT: usize = 50;
 pub const MAX_FEEDING_GUIDELINES_LENGTH: usize = 500;
 pub const MAX_IMAGE_URL_LENGTH: usize = 500;
-pub const MIN_PRICE: Decimal = Decimal::ZERO;
+pub const MIN_PRICE: Decimal = Decimal::from_parts(1, 0, 0, false, 2); // 0.01
 pub const MAX_PRICE: Decimal = Decimal::from_parts(999999, 0, 0, false, 2); // 9999.99
 pub const MAX_STOCK_QUANTITY: u32 = 999999;
-pub const MAX_CART_QUANTITY: u32 = 100;
+pub const MAX_CART_QUANTITY: u32 = 1000;
 pub const MIN_CART_QUANTITY: u32 = 1;
 
 impl Validate for CreateFoodRequest {
@@ -426,6 +426,7 @@ mod tests {
         assert!(validate_food_price(&dec!(999.99)).is_ok());
 
         // Invalid prices
+        assert!(validate_food_price(&dec!(0.00)).is_err()); // Zero not allowed
         assert!(validate_food_price(&dec!(-1.00)).is_err()); // Negative
         assert!(validate_food_price(&dec!(10000.00)).is_err()); // Too high
     }
@@ -475,6 +476,7 @@ mod tests {
         // Valid quantities
         assert!(validate_cart_quantity(1).is_ok());
         assert!(validate_cart_quantity(50).is_ok());
+        assert!(validate_cart_quantity(500).is_ok());
         assert!(validate_cart_quantity(MAX_CART_QUANTITY).is_ok());
 
         // Invalid quantities
