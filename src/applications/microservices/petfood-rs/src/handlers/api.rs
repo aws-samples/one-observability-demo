@@ -308,7 +308,6 @@ pub async fn get_cart_summary(
     Ok(Json(summary))
 }
 
-
 /// Delete the entire cart
 #[instrument(skip(state))]
 pub async fn delete_cart(

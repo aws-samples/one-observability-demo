@@ -372,17 +372,22 @@ impl CartService {
                 }
                 None => {
                     warn!("Food not found for cart item: {}", cart_item.food_id);
-                    // Create a placeholder response for missing food with CDN URL
-                    let cdn_url = if self.assets_cdn_url.ends_with('/') {
-                        self.assets_cdn_url.trim_end_matches('/')
+                    // Create a placeholder response for missing food with optional CDN URL
+                    let placeholder_image = if self.assets_cdn_url.is_empty() {
+                        "placeholder.jpg".to_string()
                     } else {
-                        &self.assets_cdn_url
+                        let cdn_url = if self.assets_cdn_url.ends_with('/') {
+                            self.assets_cdn_url.trim_end_matches('/')
+                        } else {
+                            &self.assets_cdn_url
+                        };
+                        format!("{}/placeholder.jpg", cdn_url)
                     };
-                    
+
                     let item_response = CartItemResponse {
                         food_id: cart_item.food_id.clone(),
                         food_name: "Product not found".to_string(),
-                        food_image: format!("{}/placeholder.jpg", cdn_url),
+                        food_image: placeholder_image,
                         quantity: cart_item.quantity,
                         unit_price: cart_item.unit_price,
                         total_price: cart_item.total_price(),
@@ -416,17 +421,23 @@ impl CartService {
         cart_item: &CartItem,
         food: &crate::models::Food,
     ) -> ServiceResult<CartItemResponse> {
-        // Handle trailing slash in CDN URL to avoid double slashes
-        let cdn_url = if self.assets_cdn_url.ends_with('/') {
-            self.assets_cdn_url.trim_end_matches('/')
+        // If CDN URL is empty, use the original image path
+        let food_image = if self.assets_cdn_url.is_empty() {
+            food.image.clone()
         } else {
-            &self.assets_cdn_url
+            // Handle trailing slash in CDN URL to avoid double slashes
+            let cdn_url = if self.assets_cdn_url.ends_with('/') {
+                self.assets_cdn_url.trim_end_matches('/')
+            } else {
+                &self.assets_cdn_url
+            };
+            format!("{}/{}", cdn_url, food.image)
         };
 
         Ok(CartItemResponse {
             food_id: cart_item.food_id.clone(),
             food_name: food.name.clone(),
-            food_image: format!("{}/{}", cdn_url, food.image),
+            food_image,
             quantity: cart_item.quantity,
             unit_price: cart_item.unit_price,
             total_price: cart_item.total_price(),
@@ -1049,9 +1060,46 @@ mod tests {
         assert!(result.is_ok());
         let cart_response = result.unwrap();
         assert_eq!(cart_response.items.len(), 1);
-        
+
         let item = &cart_response.items[0];
         assert!(item.food_image.starts_with(cdn_url));
         assert_eq!(item.food_image, format!("{}/test.jpg", cdn_url));
+    }
+
+    #[tokio::test]
+    async fn test_cart_item_response_with_empty_cdn_url() {
+        let mut mock_cart_repo = MockTestCartRepository::new();
+        let mut mock_food_repo = MockTestFoodRepository::new();
+        let test_cart = create_test_cart();
+        let test_food = create_test_food();
+
+        mock_cart_repo
+            .expect_find_cart()
+            .with(mockall::predicate::eq("user123".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_cart.clone())));
+
+        mock_food_repo
+            .expect_find_by_id()
+            .with(mockall::predicate::eq("F001".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_food.clone())));
+
+        // Test with empty CDN URL
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "".to_string(), // Empty CDN URL
+        );
+
+        let result = service.get_cart("user123").await;
+
+        assert!(result.is_ok());
+        let cart_response = result.unwrap();
+        assert_eq!(cart_response.items.len(), 1);
+
+        let item = &cart_response.items[0];
+        // Should return the original image path without CDN prefix
+        assert_eq!(item.food_image, "test.jpg");
     }
 }

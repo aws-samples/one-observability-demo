@@ -259,11 +259,17 @@ impl Food {
 
     /// Convert Food to FoodResponse with full image URL
     pub fn to_response(&self, assets_cdn_url: &str) -> FoodResponse {
-        // Handle trailing slash in CDN URL to avoid double slashes
-        let cdn_url = if assets_cdn_url.ends_with('/') {
-            assets_cdn_url.trim_end_matches('/')
+        // If CDN URL is empty, use the original image path
+        let image_url = if assets_cdn_url.is_empty() {
+            self.image.clone()
         } else {
-            assets_cdn_url
+            // Handle trailing slash in CDN URL to avoid double slashes
+            let cdn_url = if assets_cdn_url.ends_with('/') {
+                assets_cdn_url.trim_end_matches('/')
+            } else {
+                assets_cdn_url
+            };
+            format!("{}/{}", cdn_url, self.image)
         };
 
         FoodResponse {
@@ -273,7 +279,7 @@ impl Food {
             food_type: self.food_type.clone(),
             description: self.description.clone(),
             price: self.price,
-            image: format!("{}/{}", cdn_url, self.image),
+            image: image_url,
             nutritional_info: self.nutritional_info.clone(),
             ingredients: self.ingredients.clone(),
             feeding_guidelines: self.feeding_guidelines.clone(),
@@ -422,10 +428,12 @@ mod tests {
         let s3_cdn_url = "https://petfood-assets.s3.amazonaws.com";
         let cloudfront_cdn_url = "https://d1234567890.cloudfront.net/images";
         let cloudfront_cdn_url_with_slash = "https://d1234567890.cloudfront.net/images/";
+        let empty_cdn_url = "";
 
         let s3_response = food.to_response(s3_cdn_url);
         let cloudfront_response = food.to_response(cloudfront_cdn_url);
         let cloudfront_response_with_slash = food.to_response(cloudfront_cdn_url_with_slash);
+        let empty_cdn_response = food.to_response(empty_cdn_url);
 
         // Verify the URLs are correctly generated
         assert_eq!(
@@ -440,6 +448,8 @@ mod tests {
             cloudfront_response_with_slash.image,
             "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
         );
+        // Test empty CDN URL - should return original image path
+        assert_eq!(empty_cdn_response.image, "petfood/test-kibble.jpg");
 
         // Verify other fields are preserved
         assert_eq!(s3_response.name, food.name);
