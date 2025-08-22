@@ -69,7 +69,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize services
     let food_service = Arc::new(FoodService::new(food_repository.clone()));
-    let cart_service = Arc::new(CartService::new(cart_repository, food_repository));
+    let cart_service = Arc::new(CartService::new(
+        cart_repository,
+        food_repository,
+        config.database.assets_cdn_url.clone(),
+    ));
     info!("Services initialized successfully");
 
     // Build the application router
