@@ -48,9 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics = Arc::new(Metrics::new()?);
     info!("Metrics initialized successfully");
 
-    // Initialize AWS clients
-    let aws_config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let dynamodb_client = Arc::new(aws_sdk_dynamodb::Client::new(&aws_config));
+    // Use AWS clients from config (already properly configured with region and credentials)
+    let dynamodb_client = Arc::new(config.aws.dynamodb_client.clone());
     info!("AWS clients initialized successfully");
 
     // Initialize table manager
@@ -81,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         table_manager,
         config.database.foods_table_name.clone(),
         config.database.carts_table_name.clone(),
+        config.database.assets_bucket.clone(),
     );
 
     // Create socket address
@@ -116,6 +116,7 @@ fn create_app(
     table_manager: Arc<TableManager>,
     foods_table_name: String,
     carts_table_name: String,
+    assets_bucket: String,
 ) -> Router {
     let metrics_for_middleware = metrics.clone();
 
@@ -131,6 +132,7 @@ fn create_app(
         table_manager,
         foods_table_name,
         carts_table_name,
+        assets_bucket,
     };
 
     Router::new()

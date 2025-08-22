@@ -1,45 +1,25 @@
 # Build stage
-FROM rust:latest AS builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy everything and build
+FROM rust:1.89-bookworm AS builder
 COPY . .
-
-# Build the application
 RUN cargo build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
 
-# Install runtime dependencies
+# Install runtime dependencies and CA certificates
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+    openssl \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
 
-# Create app user
-RUN useradd -m -u 1001 appuser
+COPY --from=builder /target/release/petfood-rs /app/petfood-rs
 
-# Copy the binary from builder stage
-COPY --from=builder /app/target/release/petfood-rs /usr/local/bin/petfood-rs
+# Create a non-root user for security
+RUN useradd -r -s /bin/false petfood && \
+    chown petfood:petfood /app/petfood-rs
 
-# Change ownership and make executable
-RUN chown appuser:appuser /usr/local/bin/petfood-rs && \
-    chmod +x /usr/local/bin/petfood-rs
-
-# Switch to non-root user
-USER appuser
-
-# Expose port
+USER petfood
 EXPOSE 8080
-
-# Set the binary as entrypoint
-ENTRYPOINT ["/usr/local/bin/petfood-rs"]
+CMD ["/app/petfood-rs"]
