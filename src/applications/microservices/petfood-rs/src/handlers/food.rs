@@ -9,7 +9,8 @@ use std::sync::Arc;
 use tracing::{error, info, instrument};
 
 use crate::models::{
-    CreateFoodRequest, Food, FoodFilters, FoodListResponse, ServiceError, UpdateFoodRequest,
+    CreateFoodRequest, FoodFilters, FoodListApiResponse, FoodResponse, ServiceError,
+    UpdateFoodRequest,
 };
 use crate::services::FoodService;
 
@@ -29,6 +30,7 @@ pub struct ListFoodsQuery {
 #[derive(Clone)]
 pub struct FoodHandlerState {
     pub food_service: Arc<FoodService>,
+    pub assets_cdn_url: String,
 }
 
 /// List all foods with optional filters
@@ -36,7 +38,7 @@ pub struct FoodHandlerState {
 pub async fn list_foods(
     State(state): State<FoodHandlerState>,
     Query(query): Query<ListFoodsQuery>,
-) -> Result<Json<FoodListResponse>, (StatusCode, Json<Value>)> {
+) -> Result<Json<FoodListApiResponse>, (StatusCode, Json<Value>)> {
     info!("Listing foods with filters");
 
     // Convert query parameters to filters
@@ -58,7 +60,22 @@ pub async fn list_foods(
     match state.food_service.list_foods(filters).await {
         Ok(response) => {
             info!("Successfully listed {} foods", response.total_count);
-            Ok(Json(response))
+
+            // Convert Food to FoodResponse with full image URLs
+            let food_responses: Vec<FoodResponse> = response
+                .foods
+                .iter()
+                .map(|food| food.to_response(&state.assets_cdn_url))
+                .collect();
+
+            let response_with_urls = FoodListApiResponse {
+                foods: food_responses,
+                total_count: response.total_count,
+                page: response.page,
+                page_size: response.page_size,
+            };
+
+            Ok(Json(response_with_urls))
         }
         Err(err) => {
             error!("Failed to list foods: {}", err);
@@ -72,13 +89,14 @@ pub async fn list_foods(
 pub async fn get_food(
     State(state): State<FoodHandlerState>,
     Path(food_id): Path<String>,
-) -> Result<Json<Food>, (StatusCode, Json<Value>)> {
+) -> Result<Json<FoodResponse>, (StatusCode, Json<Value>)> {
     info!("Getting food with ID: {}", food_id);
 
     match state.food_service.get_food(&food_id).await {
         Ok(food) => {
             info!("Successfully retrieved food: {}", food.name);
-            Ok(Json(food))
+            let food_response = food.to_response(&state.assets_cdn_url);
+            Ok(Json(food_response))
         }
         Err(err) => {
             error!("Failed to get food {}: {}", food_id, err);
@@ -92,13 +110,14 @@ pub async fn get_food(
 pub async fn create_food(
     State(state): State<FoodHandlerState>,
     Json(request): Json<CreateFoodRequest>,
-) -> Result<(StatusCode, Json<Food>), (StatusCode, Json<Value>)> {
+) -> Result<(StatusCode, Json<FoodResponse>), (StatusCode, Json<Value>)> {
     info!("Creating new food: {}", request.name);
 
     match state.food_service.create_food(request).await {
         Ok(food) => {
             info!("Successfully created food with ID: {}", food.id);
-            Ok((StatusCode::CREATED, Json(food)))
+            let food_response = food.to_response(&state.assets_cdn_url);
+            Ok((StatusCode::CREATED, Json(food_response)))
         }
         Err(err) => {
             error!("Failed to create food: {}", err);
@@ -113,13 +132,14 @@ pub async fn update_food(
     State(state): State<FoodHandlerState>,
     Path(food_id): Path<String>,
     Json(request): Json<UpdateFoodRequest>,
-) -> Result<Json<Food>, (StatusCode, Json<Value>)> {
+) -> Result<Json<FoodResponse>, (StatusCode, Json<Value>)> {
     info!("Updating food with ID: {}", food_id);
 
     match state.food_service.update_food(&food_id, request).await {
         Ok(food) => {
             info!("Successfully updated food: {}", food.name);
-            Ok(Json(food))
+            let food_response = food.to_response(&state.assets_cdn_url);
+            Ok(Json(food_response))
         }
         Err(err) => {
             error!("Failed to update food {}: {}", food_id, err);

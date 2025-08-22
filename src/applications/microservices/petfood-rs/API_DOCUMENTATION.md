@@ -223,6 +223,8 @@ curl -X GET http://localhost:8080/api/foods/F12345678
 
 **Description**: Create a new food product. This is an admin-only operation.
 
+**Note**: The `image` field should contain the path with petfood prefix (e.g., "petfood/premium-puppy-chow.jpg"). The full CDN URL will be dynamically generated in API responses based on the configured CDN URL.
+
 **Request**:
 ```bash
 curl -X POST http://localhost:8080/api/admin/foods \
@@ -233,7 +235,7 @@ curl -X POST http://localhost:8080/api/admin/foods \
     "food_type": "dry",
     "description": "High-quality dry food for puppies",
     "price": "24.99",
-    "image": "https://petfood-assets.s3.amazonaws.com/petfood/images/premium-puppy-chow.jpg",
+    "image": "petfood/premium-puppy-chow.jpg",
     "nutritional_info": {
       "calories_per_serving": 350,
       "protein_percentage": "28.0",
@@ -826,24 +828,28 @@ All timestamps use ISO 8601 format in UTC (e.g., `"2024-01-15T10:30:00Z"`).
 
 ---
 
-## Development Notes
+## Image URL Handling
 
-### Testing the API
-- Use the provided curl examples
-- Consider using Postman or similar tools for interactive testing
-- The admin endpoints are essential for setting up test data
+### Dynamic Image URL Generation
 
-### Integration Tips
-- Always check the health endpoint before making other requests
-- Use the admin seed endpoint to populate test data
-- Handle all HTTP status codes appropriately
-- Implement proper error handling for network failures
-- The checkout endpoint clears the cart automatically upon successful completion
-- Payment method validation is performed server-side
+The PetFood service uses dynamic image URL generation to provide flexibility in serving images from different CDN providers:
 
-### Performance Considerations
-- Food listings can return large datasets; consider implementing pagination in your UI
-- Cart operations are optimized for individual users
-- Food filtering is optimized for better performance
-- Checkout operations include inventory validation and may take longer for large carts
-- Order IDs are generated using timestamps and user IDs for uniqueness
+- **Storage**: Image paths with petfood prefix are stored in the database (e.g., "petfood/beef-turkey-kibbles.jpg")
+- **Response**: Full CDN URLs are dynamically generated in API responses (e.g., "https://d1234567890.cloudfront.net/images/petfood/beef-turkey-kibbles.jpg")
+- **Configuration**: The CDN base URL is configurable via the `PETFOOD_ASSETS_CDN_URL` environment variable
+- **Benefits**: Easy switching between S3, CloudFront, or other CDN providers without database changes
+
+### Configuration
+
+Set the CDN URL via environment variable (with or without trailing slash):
+```bash
+# For S3 direct access
+export PETFOOD_ASSETS_CDN_URL="https://petfood-assets.s3.amazonaws.com"
+
+# For CloudFront distribution
+export PETFOOD_ASSETS_CDN_URL="https://d1234567890.cloudfront.net/images"
+# or with trailing slash
+export PETFOOD_ASSETS_CDN_URL="https://d1234567890.cloudfront.net/images/"
+```
+
+The service will automatically handle trailing slashes and combine the CDN URL with the stored path.

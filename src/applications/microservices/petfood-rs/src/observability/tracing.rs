@@ -26,7 +26,7 @@ pub enum ObservabilityError {
 pub fn init_observability(
     service_name: &str,
     service_version: &str,
-    otlp_endpoint: Option<&str>,
+    otlp_endpoint: &str,
     enable_json_logging: bool,
 ) -> Result<(), ObservabilityError> {
     info!(
@@ -88,7 +88,7 @@ pub fn init_observability(
 fn init_opentelemetry_tracer(
     service_name: &str,
     service_version: &str,
-    otlp_endpoint: Option<&str>,
+    otlp_endpoint: &str,
 ) -> Result<opentelemetry_sdk::trace::Tracer, ObservabilityError> {
     info!("Initializing OpenTelemetry tracer");
 
@@ -102,9 +102,9 @@ fn init_opentelemetry_tracer(
     // Configure OTLP exporter
     let mut exporter = opentelemetry_otlp::new_exporter().tonic();
 
-    if let Some(endpoint) = otlp_endpoint {
-        info!("Using custom OTLP endpoint: {}", endpoint);
-        exporter = exporter.with_endpoint(endpoint);
+    if !otlp_endpoint.is_empty() {
+        info!("Using custom OTLP endpoint: {}", otlp_endpoint);
+        exporter = exporter.with_endpoint(otlp_endpoint);
     } else {
         // Default to localhost for development, will be overridden in production
         info!("Using default OTLP endpoint: http://localhost:4317");
@@ -190,7 +190,7 @@ mod tests {
         // For now, just test that the function signature is correct
         let _result = std::panic::catch_unwind(|| {
             // This will fail but we're just testing the function exists
-            let _ = init_observability("test-service-dev", "0.1.0", None, false);
+            let _ = init_observability("test-service-dev", "0.1.0", "", false);
         });
 
         // Test passes if we can call the function without compilation errors
@@ -206,7 +206,7 @@ mod tests {
             let _ = init_observability(
                 "test-service-prod",
                 "0.1.0",
-                Some("http://test-endpoint:4317"),
+                "http://test-endpoint:4317",
                 true,
             );
         });

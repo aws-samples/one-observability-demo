@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_observability(
         &config.observability.service_name,
         &config.observability.service_version,
-        config.observability.otlp_endpoint.as_deref(),
+        &config.observability.otlp_endpoint,
         config.observability.enable_json_logging,
     )?;
 
@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         table_manager,
         config.database.foods_table_name.clone(),
         config.database.carts_table_name.clone(),
-        config.database.assets_bucket.clone(),
+        config.database.assets_cdn_url.clone(),
     );
 
     // Create socket address
@@ -116,7 +116,7 @@ fn create_app(
     table_manager: Arc<TableManager>,
     foods_table_name: String,
     carts_table_name: String,
-    assets_bucket: String,
+    assets_cdn_url: String,
 ) -> Router {
     let metrics_for_middleware = metrics.clone();
 
@@ -124,6 +124,7 @@ fn create_app(
     let api_state = api::ApiState {
         food_service: food_service.clone(),
         cart_service,
+        assets_cdn_url: assets_cdn_url.clone(),
     };
 
     // Create the admin state
@@ -132,7 +133,7 @@ fn create_app(
         table_manager,
         foods_table_name,
         carts_table_name,
-        assets_bucket,
+        assets_cdn_url,
     };
 
     Router::new()

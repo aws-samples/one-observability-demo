@@ -57,8 +57,8 @@ pub struct DatabaseConfig {
     pub carts_table_name: String,
     #[serde(default = "default_region")]
     pub region: String,
-    #[serde(default = "default_assets_bucket")]
-    pub assets_bucket: String,
+    #[serde(default = "default_assets_cdn_url")]
+    pub assets_cdn_url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -76,7 +76,7 @@ pub struct ObservabilityConfig {
     #[serde(default = "default_service_version")]
     pub service_version: String,
     #[serde(default = "default_otlp_endpoint_option")]
-    pub otlp_endpoint: Option<String>,
+    pub otlp_endpoint: String,
     #[serde(default = "default_metrics_port")]
     pub metrics_port: u16,
     #[serde(default = "default_log_level")]
@@ -194,9 +194,9 @@ impl Config {
             });
         }
 
-        if self.database.assets_bucket.is_empty() {
+        if self.database.assets_cdn_url.is_empty() {
             return Err(ConfigError::ValidationError {
-                message: "Assets bucket name cannot be empty".to_string(),
+                message: "Assets CDN URL cannot be empty".to_string(),
             });
         }
 
@@ -379,8 +379,8 @@ pub(crate) fn default_region() -> String {
     "us-west-2".to_string()
 }
 
-pub(crate) fn default_assets_bucket() -> String {
-    "petfood-assets".to_string()
+pub(crate) fn default_assets_cdn_url() -> String {
+    "".to_string()
 }
 
 pub(crate) fn default_service_name() -> String {
@@ -391,8 +391,8 @@ pub(crate) fn default_service_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-pub(crate) fn default_otlp_endpoint_option() -> Option<String> {
-    std::env::var("PETFOOD_OTLP_ENDPOINT").ok()
+pub(crate) fn default_otlp_endpoint_option() -> String {
+    "http://localhost:4317".to_string()
 }
 
 pub(crate) fn default_enable_json_logging() -> bool {

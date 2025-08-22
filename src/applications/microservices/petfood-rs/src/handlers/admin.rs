@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
-use crate::models::{CreateFoodRequest, Food, FoodType, PetType, UpdateFoodRequest};
+use crate::models::{CreateFoodRequest, FoodType, PetType, UpdateFoodRequest};
 use crate::repositories::TableManager;
 use crate::services::FoodService;
 
@@ -21,7 +21,7 @@ pub struct AdminState {
     pub table_manager: Arc<TableManager>,
     pub foods_table_name: String,
     pub carts_table_name: String,
-    pub assets_bucket: String,
+    pub assets_cdn_url: String,
 }
 
 /// Response for seeding operations
@@ -54,14 +54,14 @@ pub fn create_admin_router(
     table_manager: Arc<TableManager>,
     foods_table_name: String,
     carts_table_name: String,
-    assets_bucket: String,
+    assets_cdn_url: String,
 ) -> Router {
     let state = AdminState {
         food_service,
         table_manager,
         foods_table_name,
         carts_table_name,
-        assets_bucket,
+        assets_cdn_url,
     };
 
     Router::new()
@@ -133,7 +133,7 @@ pub async fn seed_database(
 
     info!("Seeding database with sample data");
 
-    let sample_foods = create_sample_foods(&state.assets_bucket);
+    let sample_foods = create_sample_foods(&state.assets_cdn_url);
     let mut created_count = 0;
     let mut errors = Vec::new();
 
@@ -263,7 +263,7 @@ pub async fn cleanup_database(
 pub async fn create_food(
     State(state): State<AdminState>,
     Json(request): Json<CreateFoodRequest>,
-) -> Result<(StatusCode, Json<Food>), (StatusCode, Json<Value>)> {
+) -> Result<(StatusCode, Json<crate::models::FoodResponse>), (StatusCode, Json<Value>)> {
     let timestamp = chrono::Utc::now().to_rfc3339();
 
     info!("Admin creating new food: {}", request.name);
@@ -271,7 +271,8 @@ pub async fn create_food(
     match state.food_service.create_food(request).await {
         Ok(food) => {
             info!("Successfully created food with ID: {}", food.id);
-            Ok((StatusCode::CREATED, Json(food)))
+            let food_response = food.to_response(&state.assets_cdn_url);
+            Ok((StatusCode::CREATED, Json(food_response)))
         }
         Err(err) => {
             error!("Failed to create food: {}", err);
@@ -293,7 +294,7 @@ pub async fn update_food(
     State(state): State<AdminState>,
     Path(food_id): Path<String>,
     Json(request): Json<UpdateFoodRequest>,
-) -> Result<Json<Food>, (StatusCode, Json<Value>)> {
+) -> Result<Json<crate::models::FoodResponse>, (StatusCode, Json<Value>)> {
     let timestamp = chrono::Utc::now().to_rfc3339();
 
     info!("Admin updating food with ID: {}", food_id);
@@ -301,7 +302,8 @@ pub async fn update_food(
     match state.food_service.update_food(&food_id, request).await {
         Ok(food) => {
             info!("Successfully updated food: {}", food.name);
-            Ok(Json(food))
+            let food_response = food.to_response(&state.assets_cdn_url);
+            Ok(Json(food_response))
         }
         Err(err) => {
             error!("Failed to update food {}: {}", food_id, err);
@@ -361,16 +363,13 @@ pub async fn delete_food(
 // HELPER FUNCTIONS
 // =============================================================================
 
-/// Helper function to create S3 URL for an image
-fn create_s3_image_url(bucket: &str, image_name: &str) -> String {
-    format!(
-        "https://{}.s3.amazonaws.com/petfood/images/{}",
-        bucket, image_name
-    )
+/// Helper function to create image path with petfood prefix
+fn create_image_path(image_name: &str) -> String {
+    format!("petfood/{}", image_name)
 }
 
 /// Create sample food data for all pet types
-fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
+fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
     vec![
         // Puppy foods
         CreateFoodRequest {
@@ -381,7 +380,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
                 "A nutritious blend of beef and turkey, specially formulated for growing puppies."
                     .to_string(),
             price: rust_decimal_macros::dec!(12.99),
-            image: create_s3_image_url(assets_bucket, "beef-turkey-kibbles.jpg"),
+            image: create_image_path("beef-turkey-kibbles.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "beef".to_string(),
@@ -399,7 +398,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             description: "Tender raw chicken bites, ideal for puppies who love a meaty treat."
                 .to_string(),
             price: rust_decimal_macros::dec!(10.99),
-            image: create_s3_image_url(assets_bucket, "raw-chicken-bites.jpg"),
+            image: create_image_path("raw-chicken-bites.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken".to_string(),
@@ -416,7 +415,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             description: "Small, soft treats perfect for training sessions with puppies."
                 .to_string(),
             price: rust_decimal_macros::dec!(8.99),
-            image: create_s3_image_url(assets_bucket, "puppy-training-treats.jpg"),
+            image: create_image_path("puppy-training-treats.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken meal".to_string(),
@@ -433,7 +432,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Wet,
             description: "A delectable mix of salmon and tuna, perfect for kittens.".to_string(),
             price: rust_decimal_macros::dec!(14.99),
-            image: create_s3_image_url(assets_bucket, "salmon-tuna-delight.jpg"),
+            image: create_image_path("salmon-tuna-delight.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "salmon".to_string(),
@@ -452,7 +451,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
                 "High-protein dry food specially formulated for kitten growth and development."
                     .to_string(),
             price: rust_decimal_macros::dec!(16.99),
-            image: create_s3_image_url(assets_bucket, "kitten-growth-formula.jpg"),
+            image: create_image_path("kitten-growth-formula.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken meal".to_string(),
@@ -471,7 +470,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Treats,
             description: "Irresistible catnip-infused treats that kittens love.".to_string(),
             price: rust_decimal_macros::dec!(6.99),
-            image: create_s3_image_url(assets_bucket, "catnip-kitten-treats.jpg"),
+            image: create_image_path("catnip-kitten-treats.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken".to_string(),
@@ -489,7 +488,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             description: "Crunchy carrot and herb treats, specially designed for bunnies."
                 .to_string(),
             price: rust_decimal_macros::dec!(8.99),
-            image: create_s3_image_url(assets_bucket, "carrot-herb-crunchies.jpg"),
+            image: create_image_path("carrot-herb-crunchies.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "carrots".to_string(),
@@ -507,7 +506,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             description: "High-fiber timothy hay pellets essential for bunny digestive health."
                 .to_string(),
             price: rust_decimal_macros::dec!(12.99),
-            image: create_s3_image_url(assets_bucket, "timothy-hay-pellets.jpg"),
+            image: create_image_path("timothy-hay-pellets.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "timothy hay".to_string(),
@@ -524,7 +523,7 @@ fn create_sample_foods(assets_bucket: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Wet,
             description: "A fresh mix of vegetables perfect for bunny nutrition.".to_string(),
             price: rust_decimal_macros::dec!(9.99),
-            image: create_s3_image_url(assets_bucket, "fresh-veggie-mix.jpg"),
+            image: create_image_path("fresh-veggie-mix.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "carrots".to_string(),
@@ -543,17 +542,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_s3_image_url() {
-        let url = create_s3_image_url("my-bucket", "test-image.jpg");
-        assert_eq!(
-            url,
-            "https://my-bucket.s3.amazonaws.com/petfood/images/test-image.jpg"
-        );
+    fn test_create_image_path() {
+        let path = create_image_path("test-image.jpg");
+        assert_eq!(path, "petfood/test-image.jpg");
     }
 
     #[test]
     fn test_create_sample_foods() {
-        let sample_foods = create_sample_foods("test-bucket");
+        let sample_foods = create_sample_foods("https://test-cdn.example.com");
 
         // Should have foods for all pet types
         assert!(sample_foods.iter().any(|f| f.pet_type == PetType::Puppy));
@@ -572,10 +568,10 @@ mod tests {
             assert!(food.price > rust_decimal::Decimal::ZERO);
             assert!(!food.ingredients.is_empty());
             assert!(food.stock_quantity > 0);
-            // All images should be S3 URLs
-            assert!(food
-                .image
-                .starts_with("https://test-bucket.s3.amazonaws.com/petfood/images/"));
+            // All images should be paths with petfood prefix
+            assert!(food.image.starts_with("petfood/"));
+            assert!(food.image.ends_with(".jpg"));
+            assert!(!food.image.contains("http"));
         }
     }
 
