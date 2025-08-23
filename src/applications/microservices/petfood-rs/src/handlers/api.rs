@@ -78,7 +78,11 @@ pub fn create_api_router(
 // =============================================================================
 
 /// List all foods with optional filters
-#[instrument(skip(state))]
+#[instrument(name = "list_foods", skip(state), fields(
+    pet_type = query.pet_type.as_deref(),
+    food_type = query.food_type.as_deref(),
+    search = query.search.as_deref(),
+))]
 pub async fn list_foods(
     State(state): State<ApiState>,
     Query(query): Query<ListFoodsQuery>,
@@ -129,7 +133,7 @@ pub async fn list_foods(
 }
 
 /// Get a specific food by ID
-#[instrument(skip(state))]
+#[instrument(name = "get_food", skip(state), fields(food_id = %food_id))]
 pub async fn get_food(
     State(state): State<ApiState>,
     Path(food_id): Path<String>,
@@ -154,7 +158,7 @@ pub async fn get_food(
 // =============================================================================
 
 /// Get a user's cart
-#[instrument(skip(state))]
+#[instrument(name = "get_cart", skip(state), fields(user_id = %user_id))]
 pub async fn get_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -177,7 +181,11 @@ pub async fn get_cart(
 }
 
 /// Add an item to the cart
-#[instrument(skip(state, request))]
+#[instrument(name = "add_cart_item", skip(state, request), fields(
+    user_id = %user_id,
+    food_id = %request.food_id,
+    quantity = %request.quantity,
+))]
 pub async fn add_cart_item(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -201,7 +209,11 @@ pub async fn add_cart_item(
 }
 
 /// Update the quantity of an item in the cart
-#[instrument(skip(state, request))]
+#[instrument(name = "update_cart_item", skip(state, request), fields(
+    user_id = %user_id,
+    food_id = %food_id,
+    quantity = %request.quantity,
+))]
 pub async fn update_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
@@ -229,7 +241,10 @@ pub async fn update_cart_item(
 }
 
 /// Remove an item from the cart
-#[instrument(skip(state))]
+#[instrument(name = "remove_cart_item", skip(state), fields(
+    user_id = %user_id,
+    food_id = %food_id,
+))]
 pub async fn remove_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
@@ -252,7 +267,9 @@ pub async fn remove_cart_item(
 }
 
 /// Clear all items from the cart
-#[instrument(skip(state))]
+#[instrument(name = "clear_cart", skip(state), fields(
+    user_id = %user_id,
+))]
 pub async fn clear_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -272,7 +289,9 @@ pub async fn clear_cart(
 }
 
 /// Delete the entire cart
-#[instrument(skip(state))]
+#[instrument(name = "delete_cart", skip(state), fields(
+    user_id = %user_id,
+))]
 pub async fn delete_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -292,7 +311,11 @@ pub async fn delete_cart(
 }
 
 /// Checkout cart and create order
-#[instrument(skip(state, request))]
+#[instrument(name = "checkout_cart", skip(state, request), fields(
+    user_id = %user_id,
+    has_shipping_address = request.shipping_address.is_some(),
+    has_billing_address = request.billing_address.is_some(),
+))]
 pub async fn checkout_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,

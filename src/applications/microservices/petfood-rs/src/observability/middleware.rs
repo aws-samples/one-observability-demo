@@ -4,18 +4,11 @@ use axum::{
     response::Response,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{error, info, instrument, Span};
-use uuid::Uuid;
+use tracing::{error, info, instrument, Instrument};
 
 use super::Metrics;
 
 /// Middleware for automatic request tracing and metrics collection
-#[instrument(skip_all, fields(
-    request_id = %Uuid::new_v4(),
-    method = %request.method(),
-    uri = %request.uri(),
-    user_agent = tracing::field::Empty,
-))]
 pub async fn observability_middleware(
     metrics: Arc<Metrics>,
     request: Request,
@@ -40,50 +33,72 @@ pub async fn observability_middleware(
         .map(|matched_path| matched_path.as_str().to_string())
         .unwrap_or_else(|| uri.clone());
 
-    // Add request information to the current span
-    let current_span = Span::current();
-    current_span.record("endpoint", &endpoint);
-    current_span.record("user_agent", &user_agent);
+    // Create a span with the actual endpoint name instead of generic middleware name
+    let span_name = format!("{} {}", method, endpoint);
 
-    // Increment in-flight requests
-    metrics.increment_in_flight(&method, &endpoint);
+    // Create a span with the endpoint-specific name
+    let span = tracing::info_span!(
+        target: "petfood_rs::http",
+        "{}", span_name,
+        otel.name = %span_name,
+        otel.kind = "server",
+        http.method = %method,
+        http.route = %endpoint,
+        http.url = %uri,
+        http.user_agent = %user_agent,
+        http.status_code = tracing::field::Empty,
+        http.response_time_ms = tracing::field::Empty,
+    );
 
-    info!(user_agent = %user_agent, "Processing request");
+    // Execute the rest of the middleware within this span
+    async {
+        // Increment in-flight requests
+        metrics.increment_in_flight(&method, &endpoint);
 
-    // Process the request
-    let response = next.run(request).await;
+        info!(user_agent = %user_agent, "Processing request");
 
-    // Calculate duration
-    let duration = start_time.elapsed();
-    let duration_seconds = duration.as_secs_f64();
+        // Process the request
+        let response = next.run(request).await;
 
-    // Get status code
-    let status_code = response.status().as_u16();
+        // Calculate duration
+        let duration = start_time.elapsed();
+        let duration_seconds = duration.as_secs_f64();
+        let duration_ms = duration.as_millis();
 
-    // Record metrics
-    metrics.record_http_request(&method, &endpoint, status_code, duration_seconds);
+        // Get status code
+        let status_code = response.status().as_u16();
 
-    // Decrement in-flight requests
-    metrics.decrement_in_flight(&method, &endpoint);
+        // Record additional span attributes
+        tracing::Span::current().record("http.status_code", status_code);
+        tracing::Span::current().record("http.response_time_ms", duration_ms);
 
-    // Log request completion
-    if status_code >= 400 {
-        error!(
-            status_code = status_code,
-            duration_ms = duration.as_millis(),
-            user_agent = %user_agent,
-            "Request completed with error"
-        );
-    } else {
-        info!(
-            status_code = status_code,
-            duration_ms = duration.as_millis(),
-            user_agent = %user_agent,
-            "Request completed successfully"
-        );
+        // Record metrics
+        metrics.record_http_request(&method, &endpoint, status_code, duration_seconds);
+
+        // Decrement in-flight requests
+        metrics.decrement_in_flight(&method, &endpoint);
+
+        // Log request completion
+        if status_code >= 400 {
+            error!(
+                status_code = status_code,
+                duration_ms = duration_ms,
+                user_agent = %user_agent,
+                "Request completed with error"
+            );
+        } else {
+            info!(
+                status_code = status_code,
+                duration_ms = duration_ms,
+                user_agent = %user_agent,
+                "Request completed successfully"
+            );
+        }
+
+        response
     }
-
-    response
+    .instrument(span)
+    .await
 }
 
 /// Middleware specifically for database operation tracing

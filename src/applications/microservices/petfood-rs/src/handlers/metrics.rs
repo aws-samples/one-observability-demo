@@ -9,7 +9,7 @@ use tracing::{error, instrument};
 use crate::observability::Metrics;
 
 /// Handler for Prometheus metrics endpoint
-#[instrument(skip(metrics))]
+#[instrument(name = "metrics_handler", skip(metrics))]
 pub async fn metrics_handler(State(metrics): State<Arc<Metrics>>) -> Response {
     match metrics.encode() {
         Ok(metrics_text) => (

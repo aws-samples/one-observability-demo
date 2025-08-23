@@ -83,7 +83,10 @@ pub fn create_admin_router(
 // =============================================================================
 
 /// Set up the required DynamoDB tables
-#[instrument(skip(state))]
+#[instrument(name = "setup_tables", skip(state), fields(
+    foods_table = %state.foods_table_name,
+    carts_table = %state.carts_table_name,
+))]
 pub async fn setup_tables(
     State(state): State<AdminState>,
 ) -> Result<Json<SetupTablesResponse>, (StatusCode, Json<Value>)> {
@@ -125,7 +128,9 @@ pub async fn setup_tables(
 }
 
 /// Seed the database with sample food data for all pet types
-#[instrument(skip(state))]
+#[instrument(name = "seed_database", skip(state), fields(
+    foods_table = %state.foods_table_name,
+))]
 pub async fn seed_database(
     State(state): State<AdminState>,
 ) -> Result<Json<SeedResponse>, (StatusCode, Json<Value>)> {
@@ -185,7 +190,9 @@ pub async fn seed_database(
 }
 
 /// Clean up the database (for workshop reset functionality)
-#[instrument(skip(state))]
+#[instrument(name = "cleanup_database", skip(state), fields(
+    foods_table = %state.foods_table_name,
+))]
 pub async fn cleanup_database(
     State(state): State<AdminState>,
 ) -> Result<Json<CleanupResponse>, (StatusCode, Json<Value>)> {
@@ -259,7 +266,12 @@ pub async fn cleanup_database(
 // =============================================================================
 
 /// Create a new food product (admin only)
-#[instrument(skip(state, request))]
+#[instrument(name = "create_food", skip(state, request), fields(
+    food_name = %request.name,
+    pet_type = ?request.pet_type,
+    food_type = ?request.food_type,
+    price = %request.price,
+))]
 pub async fn create_food(
     State(state): State<AdminState>,
     Json(request): Json<CreateFoodRequest>,
@@ -289,7 +301,12 @@ pub async fn create_food(
 }
 
 /// Update an existing food product (admin only)
-#[instrument(skip(state, request))]
+#[instrument(name = "update_food", skip(state, request), fields(
+    food_id = %food_id,
+    food_name = request.name.as_deref(),
+    price = request.price.as_ref().map(|p| p.to_string()).as_deref(),
+    stock_quantity = ?request.stock_quantity,
+))]
 pub async fn update_food(
     State(state): State<AdminState>,
     Path(food_id): Path<String>,
@@ -326,7 +343,9 @@ pub async fn update_food(
 }
 
 /// Delete a food product (admin only)
-#[instrument(skip(state))]
+#[instrument(name = "delete_food", skip(state), fields(
+    food_id = %food_id,
+))]
 pub async fn delete_food(
     State(state): State<AdminState>,
     Path(food_id): Path<String>,
