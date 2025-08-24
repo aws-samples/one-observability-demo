@@ -9,7 +9,10 @@ use thiserror::Error;
 use tracing::{error, info, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+    fmt::format::FmtSpan,
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+    EnvFilter, Layer,
 };
 
 #[derive(Debug, Error)]
@@ -43,7 +46,7 @@ pub fn init_observability(
     // Create environment filter
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         format!(
-            "{}=info,tower_http=info,aws_sdk_dynamodb=warn,aws_config=warn",
+            "{}=info,tower_http=info,aws_sdk_dynamodb=info,aws_config=info,aws_smithy_runtime=info",
             service_name.replace('-', "_")
         )
         .into()
@@ -51,22 +54,30 @@ pub fn init_observability(
 
     // Initialize tracing subscriber with different formatters based on configuration
     if enable_json_logging {
-        // JSON formatter for production/structured logging
+        // For JSON logging - create a custom layer that excludes span context
+        // We need to use a different approach to avoid automatic span inclusion
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .json()
+            .with_current_span(false)  // This is key - don't include current span context
+            .with_span_list(false)     // Don't include span list
+            .with_target(false)
+            .with_thread_ids(false)
+            .with_thread_names(false)
+            .with_level(true)
+            .with_file(false)
+            .with_line_number(false)
+            .log_internal_errors(false)
+            .with_span_events(FmtSpan::NONE)
+            .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
         tracing_subscriber::registry()
             .with(env_filter)
             .with(opentelemetry_layer)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_thread_names(true)
-                    .with_span_events(FmtSpan::CLOSE)
-                    .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
-            )
+            .with(fmt_layer)
             .init();
     } else {
         // Human-readable formatter for development
+        // Clean logs with minimal span information
         tracing_subscriber::registry()
             .with(env_filter)
             .with(opentelemetry_layer)
@@ -74,7 +85,11 @@ pub fn init_observability(
                 tracing_subscriber::fmt::layer()
                     .with_target(false)
                     .with_thread_ids(false)
-                    .with_span_events(FmtSpan::CLOSE)
+                    .with_thread_names(false)
+                    .with_file(false)
+                    .with_line_number(false)
+                    // No span events
+                    .with_span_events(FmtSpan::NONE)
                     .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
             )
             .init();
@@ -82,6 +97,59 @@ pub fn init_observability(
 
     info!("Observability initialized successfully");
     Ok(())
+}
+
+/// Extract the current trace ID from the active span context
+pub fn get_current_trace_id() -> Option<String> {
+    use opentelemetry::trace::TraceContextExt;
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+    let current_span = tracing::Span::current();
+    let context = current_span.context();
+    let span = context.span();
+    let span_context = span.span_context();
+
+    if span_context.is_valid() {
+        Some(span_context.trace_id().to_string())
+    } else {
+        None
+    }
+}
+
+/// Macro to log info messages with trace ID
+#[macro_export]
+macro_rules! info_with_trace {
+    ($($arg:tt)*) => {
+        if let Some(trace_id) = $crate::observability::tracing::get_current_trace_id() {
+            tracing::info!(trace_id = %trace_id, $($arg)*);
+        } else {
+            tracing::info!($($arg)*);
+        }
+    };
+}
+
+/// Macro to log error messages with trace ID
+#[macro_export]
+macro_rules! error_with_trace {
+    ($($arg:tt)*) => {
+        if let Some(trace_id) = $crate::observability::tracing::get_current_trace_id() {
+            tracing::error!(trace_id = %trace_id, $($arg)*);
+        } else {
+            tracing::error!($($arg)*);
+        }
+    };
+}
+
+/// Macro to log warn messages with trace ID
+#[macro_export]
+macro_rules! warn_with_trace {
+    ($($arg:tt)*) => {
+        if let Some(trace_id) = $crate::observability::tracing::get_current_trace_id() {
+            tracing::warn!(trace_id = %trace_id, $($arg)*);
+        } else {
+            tracing::warn!($($arg)*);
+        }
+    };
 }
 
 /// Initialize OpenTelemetry tracer with OTLP exporter for CloudWatch X-Ray integration
@@ -92,12 +160,21 @@ fn init_opentelemetry_tracer(
 ) -> Result<opentelemetry_sdk::trace::Tracer, ObservabilityError> {
     info!("Initializing OpenTelemetry tracer");
 
-    // Create resource with service information
-    let resource = Resource::new(vec![
+    // Create resource with service information - platform agnostic
+    let resource_attributes = vec![
         KeyValue::new("service.name", service_name.to_string()),
         KeyValue::new("service.version", service_version.to_string()),
         KeyValue::new("service.namespace", "petadoptions"),
-    ]);
+        KeyValue::new("cloud.provider", "aws"),
+        // Generic cloud platform - let the collector/X-Ray detect the actual platform
+        KeyValue::new("cloud.platform", "aws_container"),
+        // OpenTelemetry SDK information
+        KeyValue::new("telemetry.sdk.name", "opentelemetry"),
+        KeyValue::new("telemetry.sdk.language", "rust"),
+        KeyValue::new("telemetry.sdk.version", "1.44.1"),
+    ];
+
+    let resource = Resource::new(resource_attributes);
 
     // Configure OTLP exporter
     let mut exporter = opentelemetry_otlp::new_exporter().tonic();

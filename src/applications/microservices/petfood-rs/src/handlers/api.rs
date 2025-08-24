@@ -191,18 +191,18 @@ pub async fn add_cart_item(
     Path(user_id): Path<String>,
     Json(request): Json<AddCartItemRequest>,
 ) -> Result<(StatusCode, Json<CartItemResponse>), (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Adding item to cart for user: {}, food_id: {}, quantity: {}",
         user_id, request.food_id, request.quantity
     );
 
     match state.cart_service.add_item(&user_id, request).await {
         Ok(item) => {
-            info!("Successfully added item to cart");
+            crate::info_with_trace!("Successfully added item to cart");
             Ok((StatusCode::CREATED, Json(item)))
         }
         Err(err) => {
-            error!("Failed to add item to cart: {}", err);
+            crate::error_with_trace!("Failed to add item to cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -219,7 +219,7 @@ pub async fn update_cart_item(
     Path((user_id, food_id)): Path<(String, String)>,
     Json(request): Json<UpdateCartItemRequest>,
 ) -> Result<Json<CartItemResponse>, (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Updating cart item for user: {}, food_id: {}, new_quantity: {}",
         user_id, food_id, request.quantity
     );
@@ -230,11 +230,11 @@ pub async fn update_cart_item(
         .await
     {
         Ok(item) => {
-            info!("Successfully updated cart item");
+            crate::info_with_trace!("Successfully updated cart item");
             Ok(Json(item))
         }
         Err(err) => {
-            error!("Failed to update cart item: {}", err);
+            crate::error_with_trace!("Failed to update cart item: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -249,18 +249,18 @@ pub async fn remove_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Removing item from cart for user: {}, food_id: {}",
         user_id, food_id
     );
 
     match state.cart_service.remove_item(&user_id, &food_id).await {
         Ok(()) => {
-            info!("Successfully removed item from cart");
+            crate::info_with_trace!("Successfully removed item from cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to remove item from cart: {}", err);
+            crate::error_with_trace!("Failed to remove item from cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -274,15 +274,15 @@ pub async fn clear_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Clearing cart for user: {}", user_id);
+    crate::info_with_trace!("Clearing cart for user: {}", user_id);
 
     match state.cart_service.clear_cart(&user_id).await {
         Ok(()) => {
-            info!("Successfully cleared cart");
+            crate::info_with_trace!("Successfully cleared cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to clear cart: {}", err);
+            crate::error_with_trace!("Failed to clear cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -296,15 +296,15 @@ pub async fn delete_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Deleting cart for user: {}", user_id);
+    crate::info_with_trace!("Deleting cart for user: {}", user_id);
 
     match state.cart_service.delete_cart(&user_id).await {
         Ok(()) => {
-            info!("Successfully deleted cart");
+            crate::info_with_trace!("Successfully deleted cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to delete cart: {}", err);
+            crate::error_with_trace!("Failed to delete cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
@@ -325,14 +325,14 @@ pub async fn checkout_cart(
 
     match state.cart_service.checkout(&user_id, request).await {
         Ok(checkout_response) => {
-            info!(
+            crate::info_with_trace!(
                 "Checkout completed successfully for order: {}",
                 checkout_response.order_id
             );
             Ok(Json(checkout_response))
         }
         Err(err) => {
-            error!("Failed to process checkout: {}", err);
+            crate::error_with_trace!("Failed to process checkout: {}", err);
             Err(service_error_to_response(err))
         }
     }

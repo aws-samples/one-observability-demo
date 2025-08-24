@@ -3,7 +3,7 @@ use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, warn, Instrument};
 
 use crate::models::{Cart, CartItem, RepositoryError, RepositoryResult};
 
@@ -33,12 +33,62 @@ pub trait CartRepository: Send + Sync {
 pub struct DynamoDbCartRepository {
     client: Arc<DynamoDbClient>,
     table_name: String,
+    region: String,
 }
 
 impl DynamoDbCartRepository {
     /// Create a new DynamoDB cart repository
-    pub fn new(client: Arc<DynamoDbClient>, table_name: String) -> Self {
-        Self { client, table_name }
+    pub fn new(client: Arc<DynamoDbClient>, table_name: String, region: String) -> Self {
+        Self { client, table_name, region }
+    }
+
+    /// Create a DynamoDB subsegment span with proper X-Ray attributes
+    fn create_dynamodb_span(&self, operation: &str) -> tracing::Span {
+        tracing::info_span!(
+            "DynamoDB",
+            // AWS X-Ray specific attributes
+            "aws.service" = "DynamoDB",
+            "aws.operation" = operation,
+            "aws.region" = %self.region,
+            "aws.dynamodb.table_name" = %self.table_name,
+            "aws.request_id" = tracing::field::Empty,
+            "aws.agent" = "rust-aws-sdk",
+            
+            // Resource identification for X-Ray
+            "aws.remote.service" = "AWS::DynamoDB",
+            "aws.remote.operation" = operation,
+            "aws.remote.resource.type" = "AWS::DynamoDB::Table",
+            "aws.remote.resource.identifier" = %self.table_name,
+            "remote.resource.cfn.primary.identifier" = %self.table_name,
+            
+            // Table-specific attributes
+            "table_name" = %self.table_name,
+            "table.name" = %self.table_name,
+            "resource_names" = format!("[{}]", self.table_name),
+            "endpoint" = format!("https://dynamodb.{}.amazonaws.com", self.region),
+
+            // OpenTelemetry semantic conventions
+            "otel.kind" = "client",
+            "otel.name" = format!("DynamoDB.{}", operation),
+
+            // RPC semantic conventions for AWS API calls
+            "rpc.system" = "aws-api",
+            "rpc.service" = "AmazonDynamoDBv2",
+            "rpc.method" = operation,
+
+            // HTTP semantic conventions (AWS APIs are HTTP-based)
+            "http.method" = "POST",
+            "http.url" = format!("https://dynamodb.{}.amazonaws.com", self.region),
+            "http.status_code" = tracing::field::Empty,
+
+            // Database semantic conventions
+            "db.system" = "dynamodb",
+            "db.name" = %self.table_name,
+            "db.operation" = operation,
+
+            // Component identification for X-Ray
+            "component" = "aws-sdk-dynamodb",
+        )
     }
 
     /// Get the table name (for testing)
@@ -214,14 +264,20 @@ impl CartRepository for DynamoDbCartRepository {
     async fn find_cart(&self, user_id: &str) -> RepositoryResult<Option<Cart>> {
         info!("Finding cart for user");
 
-        let response = self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("user_id", AttributeValue::S(user_id.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let get_span = self.create_dynamodb_span("GetItem");
+
+        let response = async {
+            self.client
+                .get_item()
+                .table_name(&self.table_name)
+                .key("user_id", AttributeValue::S(user_id.to_string()))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(get_span)
+        .await?;
 
         match response.item {
             Some(item) => {
@@ -242,13 +298,20 @@ impl CartRepository for DynamoDbCartRepository {
 
         let item = self.cart_to_item(&cart);
 
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .set_item(Some(item))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let put_span = self.create_dynamodb_span("PutItem");
+
+        async {
+            self.client
+                .put_item()
+                .table_name(&self.table_name)
+                .set_item(Some(item))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(put_span)
+        .await?;
 
         info!("Cart saved successfully");
         Ok(cart)
@@ -258,31 +321,44 @@ impl CartRepository for DynamoDbCartRepository {
     async fn delete_cart(&self, user_id: &str) -> RepositoryResult<()> {
         info!("Deleting cart");
 
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("user_id", AttributeValue::S(user_id.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let delete_span = self.create_dynamodb_span("DeleteItem");
 
-        info!("Cart deleted successfully");
-        Ok(())
+        async {
+            self.client
+                .delete_item()
+                .table_name(&self.table_name)
+                .key("user_id", AttributeValue::S(user_id.to_string()))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))?;
+
+            info!("Cart deleted successfully");
+            Ok(())
+        }
+        .instrument(delete_span)
+        .await
     }
 
     #[instrument(skip(self), fields(table = %self.table_name, user_id = %user_id))]
     async fn cart_exists(&self, user_id: &str) -> RepositoryResult<bool> {
         info!("Checking if cart exists");
 
-        let response = self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("user_id", AttributeValue::S(user_id.to_string()))
-            .projection_expression("user_id")
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let get_span = self.create_dynamodb_span("GetItem");
+
+        let response = async {
+            self.client
+                .get_item()
+                .table_name(&self.table_name)
+                .key("user_id", AttributeValue::S(user_id.to_string()))
+                .projection_expression("user_id")
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(get_span)
+        .await?;
 
         let exists = response.item.is_some();
         info!("Cart exists: {}", exists);
@@ -293,13 +369,19 @@ impl CartRepository for DynamoDbCartRepository {
     async fn find_all_carts(&self) -> RepositoryResult<Vec<Cart>> {
         info!("Finding all carts");
 
-        let response = self
-            .client
-            .scan()
-            .table_name(&self.table_name)
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let scan_span = self.create_dynamodb_span("Scan");
+
+        let response = async {
+            self.client
+                .scan()
+                .table_name(&self.table_name)
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(scan_span)
+        .await?;
 
         let mut carts = Vec::new();
         if let Some(items) = response.items {
@@ -322,14 +404,20 @@ impl CartRepository for DynamoDbCartRepository {
     async fn count_carts(&self) -> RepositoryResult<usize> {
         info!("Counting carts");
 
-        let response = self
-            .client
-            .scan()
-            .table_name(&self.table_name)
-            .select(aws_sdk_dynamodb::types::Select::Count)
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let scan_span = self.create_dynamodb_span("Scan");
+
+        let response = async {
+            self.client
+                .scan()
+                .table_name(&self.table_name)
+                .select(aws_sdk_dynamodb::types::Select::Count)
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(scan_span)
+        .await?;
 
         let count = response.count() as usize;
         info!("Cart count: {}", count);
@@ -357,7 +445,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string());
+        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
 
@@ -399,7 +487,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string());
+        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
         let converted_cart = repo.item_to_cart(item).unwrap();
@@ -434,7 +522,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string());
+        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
         let converted_cart = repo.item_to_cart(item).unwrap();
@@ -451,7 +539,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string());
+        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let mut item_map = HashMap::new();
         item_map.insert("food_id".to_string(), AttributeValue::S("F001".to_string()));
@@ -479,7 +567,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-cart-table".to_string());
+        let repo = DynamoDbCartRepository::new(client, "test-cart-table".to_string(), "us-east-1".to_string());
 
         assert_eq!(repo.table_name(), "test-cart-table");
     }
@@ -491,8 +579,7 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string());
-
+        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
         // Missing required field
         let mut invalid_item_map = HashMap::new();
         invalid_item_map.insert("quantity".to_string(), AttributeValue::N("3".to_string()));
