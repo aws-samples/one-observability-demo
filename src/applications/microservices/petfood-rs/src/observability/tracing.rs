@@ -9,10 +9,7 @@ use thiserror::Error;
 use tracing::{error, info, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-    fmt::format::FmtSpan,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    EnvFilter, Layer,
+    fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 
 #[derive(Debug, Error)]
@@ -58,8 +55,8 @@ pub fn init_observability(
         // We need to use a different approach to avoid automatic span inclusion
         let fmt_layer = tracing_subscriber::fmt::layer()
             .json()
-            .with_current_span(false)  // This is key - don't include current span context
-            .with_span_list(false)     // Don't include span list
+            .with_current_span(false) // This is key - don't include current span context
+            .with_span_list(false) // Don't include span list
             .with_target(false)
             .with_thread_ids(false)
             .with_thread_names(false)

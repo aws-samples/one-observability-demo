@@ -193,7 +193,9 @@ pub async fn add_cart_item(
 ) -> Result<(StatusCode, Json<CartItemResponse>), (StatusCode, Json<Value>)> {
     crate::info_with_trace!(
         "Adding item to cart for user: {}, food_id: {}, quantity: {}",
-        user_id, request.food_id, request.quantity
+        user_id,
+        request.food_id,
+        request.quantity
     );
 
     match state.cart_service.add_item(&user_id, request).await {
@@ -221,7 +223,9 @@ pub async fn update_cart_item(
 ) -> Result<Json<CartItemResponse>, (StatusCode, Json<Value>)> {
     crate::info_with_trace!(
         "Updating cart item for user: {}, food_id: {}, new_quantity: {}",
-        user_id, food_id, request.quantity
+        user_id,
+        food_id,
+        request.quantity
     );
 
     match state
@@ -251,7 +255,8 @@ pub async fn remove_cart_item(
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
     crate::info_with_trace!(
         "Removing item from cart for user: {}, food_id: {}",
-        user_id, food_id
+        user_id,
+        food_id
     );
 
     match state.cart_service.remove_item(&user_id, &food_id).await {

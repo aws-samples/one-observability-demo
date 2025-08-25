@@ -4,9 +4,9 @@ use axum::{
     response::Response,
 };
 use opentelemetry::trace::TraceContextExt;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, Instrument};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use super::Metrics;
 
@@ -67,14 +67,16 @@ pub async fn observability_middleware(
         http.client_ip = %client_ip,
         client.address = %client_ip,
         http.status_code = tracing::field::Empty,
+        http.response.status_code = tracing::field::Empty,
         http.response_time_ms = tracing::field::Empty,
+        response.status = tracing::field::Empty,
     );
 
     // Execute the rest of the middleware within this span
     async {
         // Increment in-flight requests
         metrics.increment_in_flight(&method, &endpoint);
-        
+
         // Get trace ID from current span context (after entering the span)
         let trace_id = tracing::Span::current()
             .context()
@@ -100,7 +102,18 @@ pub async fn observability_middleware(
         tracing::Span::current().record("http.status_code", status_code);
         tracing::Span::current().record("http.response.status_code", status_code);
         tracing::Span::current().record("http.response_time_ms", duration_ms);
-        
+        tracing::Span::current().record("response.status", status_code);
+
+        // Set span status based on HTTP status code for X-Ray
+        let current_span = tracing::Span::current();
+        let span_context = current_span.context();
+        let otel_span = span_context.span();
+        if status_code >= 400 {
+            otel_span.set_status(opentelemetry::trace::Status::error("HTTP error"));
+        } else {
+            otel_span.set_status(opentelemetry::trace::Status::Ok);
+        }
+
         // tracing::Span::current().record("http.response.content_length", response.body().size_hint().exact()); //TODO get content length
 
         // Record metrics

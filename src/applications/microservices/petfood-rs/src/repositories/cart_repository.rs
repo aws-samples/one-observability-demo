@@ -39,7 +39,11 @@ pub struct DynamoDbCartRepository {
 impl DynamoDbCartRepository {
     /// Create a new DynamoDB cart repository
     pub fn new(client: Arc<DynamoDbClient>, table_name: String, region: String) -> Self {
-        Self { client, table_name, region }
+        Self {
+            client,
+            table_name,
+            region,
+        }
     }
 
     /// Create a DynamoDB subsegment span with proper X-Ray attributes
@@ -53,14 +57,14 @@ impl DynamoDbCartRepository {
             "aws.dynamodb.table_name" = %self.table_name,
             "aws.request_id" = tracing::field::Empty,
             "aws.agent" = "rust-aws-sdk",
-            
+
             // Resource identification for X-Ray
             "aws.remote.service" = "AWS::DynamoDB",
             "aws.remote.operation" = operation,
             "aws.remote.resource.type" = "AWS::DynamoDB::Table",
             "aws.remote.resource.identifier" = %self.table_name,
             "remote.resource.cfn.primary.identifier" = %self.table_name,
-            
+
             // Table-specific attributes
             "table_name" = %self.table_name,
             "table.name" = %self.table_name,
@@ -445,7 +449,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
 
@@ -487,7 +492,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
         let converted_cart = repo.item_to_cart(item).unwrap();
@@ -522,7 +528,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.cart_to_item(&cart);
         let converted_cart = repo.item_to_cart(item).unwrap();
@@ -539,7 +546,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let mut item_map = HashMap::new();
         item_map.insert("food_id".to_string(), AttributeValue::S("F001".to_string()));
@@ -567,7 +575,11 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-cart-table".to_string(), "us-east-1".to_string());
+        let repo = DynamoDbCartRepository::new(
+            client,
+            "test-cart-table".to_string(),
+            "us-east-1".to_string(),
+        );
 
         assert_eq!(repo.table_name(), "test-cart-table");
     }
@@ -579,7 +591,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
         // Missing required field
         let mut invalid_item_map = HashMap::new();
         invalid_item_map.insert("quantity".to_string(), AttributeValue::N("3".to_string()));

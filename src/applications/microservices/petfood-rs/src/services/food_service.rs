@@ -202,7 +202,9 @@ impl FoodService {
 
         crate::info_with_trace!(
             "Food availability check: available={}, requested_quantity={}, stock={}",
-            available, quantity, food.stock_quantity
+            available,
+            quantity,
+            food.stock_quantity
         );
 
         Ok(available)

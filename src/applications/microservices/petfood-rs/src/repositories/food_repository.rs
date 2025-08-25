@@ -76,14 +76,14 @@ impl DynamoDbFoodRepository {
             "aws.dynamodb.table_name" = %self.table_name,
             "aws.request_id" = tracing::field::Empty,
             "aws.agent" = "rust-aws-sdk",
-            
+
             // Resource identification for X-Ray
             "aws.remote.service" = "AWS::DynamoDB",
             "aws.remote.operation" = operation,
             "aws.remote.resource.type" = "AWS::DynamoDB::Table",
             "aws.remote.resource.identifier" = %self.table_name,
             "remote.resource.cfn.primary.identifier" = %self.table_name,
-            
+
             // Table-specific attributes
             "table_name" = %self.table_name,
             "table.name" = %self.table_name,
@@ -903,7 +903,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.food_to_item(&food);
 
@@ -935,7 +936,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.food_to_item(&food);
         let converted_food = repo.item_to_food(item).unwrap();
@@ -963,7 +965,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         assert_eq!(repo.table_name, "test-table");
         assert_eq!(repo.pet_type_index, "PetTypeIndex");

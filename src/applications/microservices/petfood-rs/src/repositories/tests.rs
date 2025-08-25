@@ -65,7 +65,11 @@ mod repository_tests {
         fn test_food_to_item_conversion_complete() {
             let food = create_test_food();
             let client = create_test_client();
-            let repo = DynamoDbFoodRepository::new(client, "test-foods".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbFoodRepository::new(
+                client,
+                "test-foods".to_string(),
+                "us-east-1".to_string(),
+            );
             let item = repo.food_to_item(&food);
 
             // Verify all required fields are present
@@ -130,7 +134,11 @@ mod repository_tests {
             let original_food = create_test_food();
             let client = create_test_client();
 
-            let repo = DynamoDbFoodRepository::new(client, "test-foods".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbFoodRepository::new(
+                client,
+                "test-foods".to_string(),
+                "us-east-1".to_string(),
+            );
 
             // Convert to item and back
             let item = repo.food_to_item(&original_food);
@@ -220,7 +228,11 @@ mod repository_tests {
             let food = Food::new(request);
             let client = create_test_client();
 
-            let repo = DynamoDbFoodRepository::new(client, "test-foods".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbFoodRepository::new(
+                client,
+                "test-foods".to_string(),
+                "us-east-1".to_string(),
+            );
 
             let item = repo.food_to_item(&food);
             let converted_food = repo.item_to_food(item).unwrap();
@@ -240,7 +252,11 @@ mod repository_tests {
         fn test_repository_index_names() {
             let client = create_test_client();
 
-            let repo = DynamoDbFoodRepository::new(client, "PetFoods".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbFoodRepository::new(
+                client,
+                "PetFoods".to_string(),
+                "us-east-1".to_string(),
+            );
 
             assert_eq!(repo.table_name(), "PetFoods");
             assert_eq!(repo.pet_type_index(), "PetTypeIndex");
@@ -256,7 +272,11 @@ mod repository_tests {
             let cart = create_test_cart();
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
             let item = repo.cart_to_item(&cart);
 
             // Verify all required fields are present
@@ -307,7 +327,11 @@ mod repository_tests {
             let original_cart = create_test_cart();
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
 
             // Convert to item and back
             let item = repo.cart_to_item(&original_cart);
@@ -381,7 +405,11 @@ mod repository_tests {
             let empty_cart = Cart::new("empty-user".to_string());
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
 
             let item = repo.cart_to_item(&empty_cart);
             let converted_cart = repo.item_to_cart(item).unwrap();
@@ -396,7 +424,11 @@ mod repository_tests {
         fn test_map_to_cart_item_valid() {
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
 
             let mut item_map = HashMap::new();
             item_map.insert("food_id".to_string(), AttributeValue::S("F123".to_string()));
@@ -422,7 +454,11 @@ mod repository_tests {
         fn test_map_to_cart_item_missing_fields() {
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
 
             // Test missing food_id
             let mut incomplete_map = HashMap::new();
@@ -446,7 +482,11 @@ mod repository_tests {
         fn test_map_to_cart_item_invalid_types() {
             let client = create_test_client();
 
-            let repo = DynamoDbCartRepository::new(client, "test-carts".to_string(), "us-east-1".to_string());
+            let repo = DynamoDbCartRepository::new(
+                client,
+                "test-carts".to_string(),
+                "us-east-1".to_string(),
+            );
 
             // Test invalid quantity (string instead of number)
             let mut invalid_map = HashMap::new();
