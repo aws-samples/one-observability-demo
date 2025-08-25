@@ -1,9 +1,10 @@
 use async_trait::async_trait;
+use aws_sdk_dynamodb::operation::RequestId;
 use aws_sdk_dynamodb::types::{AttributeValue, Select};
 use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, warn, Instrument};
 
 use crate::models::{
     AvailabilityStatus, Food, FoodFilters, FoodType, PetType, RepositoryError, RepositoryResult,
@@ -49,17 +50,68 @@ pub struct DynamoDbFoodRepository {
     table_name: String,
     pet_type_index: String,
     food_type_index: String,
+    region: String,
 }
 
 impl DynamoDbFoodRepository {
     /// Create a new DynamoDB food repository
-    pub fn new(client: Arc<DynamoDbClient>, table_name: String) -> Self {
+    pub fn new(client: Arc<DynamoDbClient>, table_name: String, region: String) -> Self {
         Self {
             client,
             table_name: table_name.clone(),
             pet_type_index: "PetTypeIndex".to_string(),
             food_type_index: "FoodTypeIndex".to_string(),
+            region,
         }
+    }
+
+    /// Create a DynamoDB subsegment span with proper X-Ray attributes
+    fn create_dynamodb_span(&self, operation: &str) -> tracing::Span {
+        tracing::info_span!(
+            "DynamoDB",
+            // AWS X-Ray specific attributes
+            "aws.service" = "DynamoDB",
+            "aws.operation" = operation,
+            "aws.region" = %self.region,
+            "aws.dynamodb.table_name" = %self.table_name,
+            "aws.request_id" = tracing::field::Empty,
+            "aws.agent" = "rust-aws-sdk",
+
+            // Resource identification for X-Ray
+            "aws.remote.service" = "AWS::DynamoDB",
+            "aws.remote.operation" = operation,
+            "aws.remote.resource.type" = "AWS::DynamoDB::Table",
+            "aws.remote.resource.identifier" = %self.table_name,
+            "remote.resource.cfn.primary.identifier" = %self.table_name,
+
+            // Table-specific attributes
+            "table_name" = %self.table_name,
+            "table.name" = %self.table_name,
+            "resource_names" = format!("[{}]", self.table_name),
+            "endpoint" = format!("https://dynamodb.{}.amazonaws.com", self.region),
+
+            // OpenTelemetry semantic conventions
+            "otel.kind" = "client",
+            "otel.name" = format!("DynamoDB.{}", operation),
+
+            // RPC semantic conventions for AWS API calls
+            "rpc.system" = "aws-api",
+            "rpc.service" = "AmazonDynamoDBv2",
+            "rpc.method" = operation,
+
+            // HTTP semantic conventions (AWS APIs are HTTP-based)
+            "http.method" = "POST",
+            "http.url" = format!("https://dynamodb.{}.amazonaws.com", self.region),
+            "http.status_code" = tracing::field::Empty,
+
+            // Database semantic conventions
+            "db.system" = "dynamodb",
+            "db.name" = %self.table_name,
+            "db.operation" = operation,
+
+            // Component identification for X-Ray
+            "component" = "aws-sdk-dynamodb",
+        )
     }
 
     /// Get the table name (for testing)
@@ -491,14 +543,36 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_id(&self, id: &str) -> RepositoryResult<Option<Food>> {
         info!("Finding food by ID");
 
-        let response = self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("id", AttributeValue::S(id.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let get_span = self.create_dynamodb_span("GetItem");
+
+        let response = async {
+            let result = self
+                .client
+                .get_item()
+                .table_name(&self.table_name)
+                .key("id", AttributeValue::S(id.to_string()))
+                .send()
+                .await;
+
+            // Record additional span attributes based on response
+            match &result {
+                Ok(output) => {
+                    tracing::Span::current().record("http.status_code", 200);
+                    if let Some(request_id) = output.request_id() {
+                        tracing::Span::current().record("aws.request_id", request_id);
+                    }
+                }
+                Err(e) => {
+                    tracing::Span::current().record("http.status_code", 400); // Generic error code
+                    error!("DynamoDB GetItem failed: {}", e);
+                }
+            }
+
+            result.map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(get_span)
+        .await?;
 
         match response.item {
             Some(item) => {
@@ -517,16 +591,22 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_pet_type(&self, pet_type: PetType) -> RepositoryResult<Vec<Food>> {
         info!("Finding foods by pet type using GSI");
 
-        let response = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name(&self.pet_type_index)
-            .key_condition_expression("pet_type = :pet_type")
-            .expression_attribute_values(":pet_type", AttributeValue::S(pet_type.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let query_span = self.create_dynamodb_span("Query");
+
+        let response = async {
+            self.client
+                .query()
+                .table_name(&self.table_name)
+                .index_name(&self.pet_type_index)
+                .key_condition_expression("pet_type = :pet_type")
+                .expression_attribute_values(":pet_type", AttributeValue::S(pet_type.to_string()))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(query_span)
+        .await?;
 
         let mut foods = Vec::new();
         if let Some(items) = response.items {
@@ -549,16 +629,22 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn find_by_food_type(&self, food_type: FoodType) -> RepositoryResult<Vec<Food>> {
         info!("Finding foods by food type using GSI");
 
-        let response = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name(&self.food_type_index)
-            .key_condition_expression("food_type = :food_type")
-            .expression_attribute_values(":food_type", AttributeValue::S(food_type.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let query_span = self.create_dynamodb_span("Query");
+
+        let response = async {
+            self.client
+                .query()
+                .table_name(&self.table_name)
+                .index_name(&self.food_type_index)
+                .key_condition_expression("food_type = :food_type")
+                .expression_attribute_values(":food_type", AttributeValue::S(food_type.to_string()))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(query_span)
+        .await?;
 
         let mut foods = Vec::new();
         if let Some(items) = response.items {
@@ -583,14 +669,21 @@ impl FoodRepository for DynamoDbFoodRepository {
 
         let item = self.food_to_item(&food);
 
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .set_item(Some(item))
-            .condition_expression("attribute_not_exists(id)")
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let put_span = self.create_dynamodb_span("PutItem");
+
+        async {
+            self.client
+                .put_item()
+                .table_name(&self.table_name)
+                .set_item(Some(item))
+                .condition_expression("attribute_not_exists(id)")
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(put_span)
+        .await?;
 
         info!("Food created successfully");
         Ok(food)
@@ -602,14 +695,21 @@ impl FoodRepository for DynamoDbFoodRepository {
 
         let item = self.food_to_item(&food);
 
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .set_item(Some(item))
-            .condition_expression("attribute_exists(id)")
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let put_span = self.create_dynamodb_span("PutItem");
+
+        async {
+            self.client
+                .put_item()
+                .table_name(&self.table_name)
+                .set_item(Some(item))
+                .condition_expression("attribute_exists(id)")
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(put_span)
+        .await?;
 
         info!("Food updated successfully");
         Ok(food)
@@ -619,23 +719,30 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn soft_delete(&self, id: &str) -> RepositoryResult<()> {
         info!("Soft deleting food");
 
-        self.client
-            .update_item()
-            .table_name(&self.table_name)
-            .key("id", AttributeValue::S(id.to_string()))
-            .update_expression(
-                "SET is_active = :inactive, availability_status = :discontinued, updated_at = :now",
-            )
-            .expression_attribute_values(":inactive", AttributeValue::Bool(false))
-            .expression_attribute_values(
-                ":discontinued",
-                AttributeValue::S(AvailabilityStatus::Discontinued.to_string()),
-            )
-            .expression_attribute_values(":now", AttributeValue::S(chrono::Utc::now().to_rfc3339()))
-            .condition_expression("attribute_exists(id)")
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let update_span = self.create_dynamodb_span("UpdateItem");
+
+        async {
+            self.client
+                .update_item()
+                .table_name(&self.table_name)
+                .key("id", AttributeValue::S(id.to_string()))
+                .update_expression(
+                    "SET is_active = :inactive, availability_status = :discontinued, updated_at = :now",
+                )
+                .expression_attribute_values(":inactive", AttributeValue::Bool(false))
+                .expression_attribute_values(
+                    ":discontinued",
+                    AttributeValue::S(AvailabilityStatus::Discontinued.to_string()),
+                )
+                .expression_attribute_values(":now", AttributeValue::S(chrono::Utc::now().to_rfc3339()))
+                .condition_expression("attribute_exists(id)")
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(update_span)
+        .await?;
 
         info!("Food soft deleted successfully");
         Ok(())
@@ -645,31 +752,44 @@ impl FoodRepository for DynamoDbFoodRepository {
     async fn delete(&self, id: &str) -> RepositoryResult<()> {
         info!("Hard deleting food");
 
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("id", AttributeValue::S(id.to_string()))
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let delete_span = self.create_dynamodb_span("DeleteItem");
 
-        info!("Food deleted successfully");
-        Ok(())
+        async {
+            self.client
+                .delete_item()
+                .table_name(&self.table_name)
+                .key("id", AttributeValue::S(id.to_string()))
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))?;
+
+            info!("Food deleted successfully");
+            Ok(())
+        }
+        .instrument(delete_span)
+        .await
     }
 
     #[instrument(skip(self), fields(table = %self.table_name, id = %id))]
     async fn exists(&self, id: &str) -> RepositoryResult<bool> {
         info!("Checking if food exists");
 
-        let response = self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("id", AttributeValue::S(id.to_string()))
-            .projection_expression("id")
-            .send()
-            .await
-            .map_err(|e| self.map_dynamodb_error(e.into()))?;
+        // Create a DynamoDB subsegment
+        let get_span = self.create_dynamodb_span("GetItem");
+
+        let response = async {
+            self.client
+                .get_item()
+                .table_name(&self.table_name)
+                .key("id", AttributeValue::S(id.to_string()))
+                .projection_expression("id")
+                .send()
+                .await
+                .map_err(|e| self.map_dynamodb_error(e.into()))
+        }
+        .instrument(get_span)
+        .await?;
 
         let exists = response.item.is_some();
         info!("Food exists: {}", exists);
@@ -783,7 +903,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.food_to_item(&food);
 
@@ -815,7 +936,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let item = repo.food_to_item(&food);
         let converted_food = repo.item_to_food(item).unwrap();
@@ -843,7 +965,8 @@ mod tests {
             .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
             .build();
         let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
-        let repo = DynamoDbFoodRepository::new(client, "test-table".to_string());
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         assert_eq!(repo.table_name, "test-table");
         assert_eq!(repo.pet_type_index, "PetTypeIndex");

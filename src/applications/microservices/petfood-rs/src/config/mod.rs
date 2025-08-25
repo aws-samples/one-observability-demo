@@ -194,10 +194,14 @@ impl Config {
             });
         }
 
-        if self.database.assets_cdn_url.is_empty() {
-            return Err(ConfigError::ValidationError {
-                message: "Assets CDN URL cannot be empty".to_string(),
-            });
+        // Assets CDN URL is optional - if empty, images will be served without CDN prefix
+        if !self.database.assets_cdn_url.is_empty() {
+            info!(
+                "Assets CDN URL configured: {}",
+                self.database.assets_cdn_url
+            );
+        } else {
+            info!("Assets CDN URL not configured - images will be served without CDN prefix");
         }
 
         // Test AWS connectivity

@@ -3,19 +3,14 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use opentelemetry::trace::TraceContextExt;
 use std::{sync::Arc, time::Instant};
-use tracing::{error, info, instrument, Span};
-use uuid::Uuid;
+use tracing::{error, info, instrument, Instrument};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use super::Metrics;
 
 /// Middleware for automatic request tracing and metrics collection
-#[instrument(skip_all, fields(
-    request_id = %Uuid::new_v4(),
-    method = %request.method(),
-    uri = %request.uri(),
-    user_agent = tracing::field::Empty,
-))]
 pub async fn observability_middleware(
     metrics: Arc<Metrics>,
     request: Request,
@@ -33,6 +28,22 @@ pub async fn observability_middleware(
         .unwrap_or("unknown")
         .to_string();
 
+    // Extract client IP from various headers (X-Forwarded-For, X-Real-IP, or connection info)
+    let client_ip = request
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next()) // Take first IP if multiple
+        .or_else(|| {
+            request
+                .headers()
+                .get("x-real-ip")
+                .and_then(|value| value.to_str().ok())
+        })
+        .unwrap_or("unknown")
+        .trim()
+        .to_string();
+
     // Try to get the matched path for better endpoint grouping
     let endpoint = request
         .extensions()
@@ -40,50 +51,106 @@ pub async fn observability_middleware(
         .map(|matched_path| matched_path.as_str().to_string())
         .unwrap_or_else(|| uri.clone());
 
-    // Add request information to the current span
-    let current_span = Span::current();
-    current_span.record("endpoint", &endpoint);
-    current_span.record("user_agent", &user_agent);
+    // Create a span with the actual endpoint name instead of generic middleware name
+    let span_name = format!("{} {}", method, endpoint);
 
-    // Increment in-flight requests
-    metrics.increment_in_flight(&method, &endpoint);
+    // Create a span with the endpoint-specific name
+    let span = tracing::info_span!(
+        target: "petfood_rs::http",
+        "{}", span_name,
+        otel.name = %span_name,
+        otel.kind = "server",
+        http.method = %method,
+        http.route = %endpoint,
+        http.url = %uri,
+        http.user_agent = %user_agent,
+        http.client_ip = %client_ip,
+        client.address = %client_ip,
+        http.status_code = tracing::field::Empty,
+        http.response.status_code = tracing::field::Empty,
+        http.response_time_ms = tracing::field::Empty,
+        response.status = tracing::field::Empty,
+    );
 
-    info!(user_agent = %user_agent, "Processing request");
+    // Execute the rest of the middleware within this span
+    async {
+        // Increment in-flight requests
+        metrics.increment_in_flight(&method, &endpoint);
 
-    // Process the request
-    let response = next.run(request).await;
+        // Get trace ID from current span context (after entering the span)
+        let trace_id = tracing::Span::current()
+            .context()
+            .span()
+            .span_context()
+            .trace_id()
+            .to_string();
 
-    // Calculate duration
-    let duration = start_time.elapsed();
-    let duration_seconds = duration.as_secs_f64();
+        info!(trace_id = %trace_id, method = %method, path = %endpoint, user_agent = %user_agent, client_ip = %client_ip, "Processing request");
 
-    // Get status code
-    let status_code = response.status().as_u16();
+        // Process the request
+        let response = next.run(request).await;
 
-    // Record metrics
-    metrics.record_http_request(&method, &endpoint, status_code, duration_seconds);
+        // Calculate duration
+        let duration = start_time.elapsed();
+        let duration_seconds = duration.as_secs_f64();
+        let duration_ms = duration.as_millis();
 
-    // Decrement in-flight requests
-    metrics.decrement_in_flight(&method, &endpoint);
+        // Get status code
+        let status_code = response.status().as_u16();
 
-    // Log request completion
-    if status_code >= 400 {
-        error!(
-            status_code = status_code,
-            duration_ms = duration.as_millis(),
-            user_agent = %user_agent,
-            "Request completed with error"
-        );
-    } else {
-        info!(
-            status_code = status_code,
-            duration_ms = duration.as_millis(),
-            user_agent = %user_agent,
-            "Request completed successfully"
-        );
+        // Record additional span attributes with proper X-Ray format
+        tracing::Span::current().record("http.status_code", status_code);
+        tracing::Span::current().record("http.response.status_code", status_code);
+        tracing::Span::current().record("http.response_time_ms", duration_ms);
+        tracing::Span::current().record("response.status", status_code);
+
+        // Set span status based on HTTP status code for X-Ray
+        let current_span = tracing::Span::current();
+        let span_context = current_span.context();
+        let otel_span = span_context.span();
+        if status_code >= 400 {
+            otel_span.set_status(opentelemetry::trace::Status::error("HTTP error"));
+        } else {
+            otel_span.set_status(opentelemetry::trace::Status::Ok);
+        }
+
+        // tracing::Span::current().record("http.response.content_length", response.body().size_hint().exact()); //TODO get content length
+
+        // Record metrics
+        metrics.record_http_request(&method, &endpoint, status_code, duration_seconds);
+
+        // Decrement in-flight requests
+        metrics.decrement_in_flight(&method, &endpoint);
+
+        // Log request completion with trace ID
+        if status_code >= 400 {
+            error!(
+                trace_id = %trace_id,
+                method = %method,
+                path = %endpoint,
+                status_code = status_code,
+                duration_ms = duration_ms,
+                user_agent = %user_agent,
+                client_ip = %client_ip,
+                "Request completed with error"
+            );
+        } else {
+            info!(
+                trace_id = %trace_id,
+                method = %method,
+                path = %endpoint,
+                status_code = status_code,
+                duration_ms = duration_ms,
+                user_agent = %user_agent,
+                client_ip = %client_ip,
+                "Request completed successfully"
+            );
+        }
+
+        response
     }
-
-    response
+    .instrument(span)
+    .await
 }
 
 /// Middleware specifically for database operation tracing

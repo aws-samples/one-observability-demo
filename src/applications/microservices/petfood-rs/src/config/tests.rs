@@ -146,4 +146,25 @@ mod config_tests {
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
     }
+
+    #[test]
+    fn test_database_config_with_empty_cdn_url() {
+        // Test that database config works with empty CDN URL
+        env::remove_var("PETFOOD_ASSETS_CDN_URL");
+        env::set_var("PETFOOD_FOODS_TABLE_NAME", "TestFoods");
+        env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
+        env::set_var("PETFOOD_REGION", "us-west-2");
+
+        let config = DatabaseConfig::from_env().unwrap();
+
+        assert_eq!(config.foods_table_name, "TestFoods");
+        assert_eq!(config.carts_table_name, "TestCarts");
+        assert_eq!(config.region, "us-west-2");
+        assert_eq!(config.assets_cdn_url, ""); // Should default to empty string
+
+        // Clean up
+        env::remove_var("PETFOOD_FOODS_TABLE_NAME");
+        env::remove_var("PETFOOD_CARTS_TABLE_NAME");
+        env::remove_var("PETFOOD_REGION");
+    }
 }

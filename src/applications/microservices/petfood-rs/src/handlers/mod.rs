@@ -1,7 +1,5 @@
 pub mod admin;
 pub mod api;
-pub mod cart;
-pub mod food;
 pub mod health;
 pub mod metrics;
 pub mod middleware;

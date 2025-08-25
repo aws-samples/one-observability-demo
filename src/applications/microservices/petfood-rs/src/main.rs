@@ -60,16 +60,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let food_repository = Arc::new(DynamoDbFoodRepository::new(
         dynamodb_client.clone(),
         config.database.foods_table_name.clone(),
+        config.database.region.clone(),
     ));
     let cart_repository = Arc::new(DynamoDbCartRepository::new(
         dynamodb_client.clone(),
         config.database.carts_table_name.clone(),
+        config.database.region.clone(),
     ));
     info!("Repositories initialized successfully");
 
     // Initialize services
     let food_service = Arc::new(FoodService::new(food_repository.clone()));
-    let cart_service = Arc::new(CartService::new(cart_repository, food_repository));
+    let cart_service = Arc::new(CartService::new(
+        cart_repository,
+        food_repository,
+        config.database.assets_cdn_url.clone(),
+    ));
     info!("Services initialized successfully");
 
     // Build the application router

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tracing::{info, instrument, warn};
+use tracing::instrument;
 
 use crate::models::{
     CreateFoodRequest, Food, FoodFilters, FoodListResponse, FoodType, PetType, ServiceError,
@@ -21,7 +21,7 @@ impl FoodService {
     /// List all foods with optional filters
     #[instrument(skip(self), fields(filters = ?filters))]
     pub async fn list_foods(&self, filters: FoodFilters) -> ServiceResult<FoodListResponse> {
-        info!("Listing foods with filters");
+        crate::info_with_trace!("Listing foods with filters");
 
         let foods = self.repository.find_all(filters.clone()).await?;
 
@@ -33,7 +33,7 @@ impl FoodService {
 
         let total_count = filtered_foods.len();
 
-        info!("Found {} foods matching criteria", total_count);
+        crate::info_with_trace!("Found {} foods matching criteria", total_count);
 
         Ok(FoodListResponse {
             foods: filtered_foods,
@@ -46,7 +46,7 @@ impl FoodService {
     /// Get a specific food by ID
     #[instrument(skip(self), fields(id = %id))]
     pub async fn get_food(&self, id: &str) -> ServiceResult<Food> {
-        info!("Retrieving food details");
+        crate::info_with_trace!("Retrieving food details");
 
         // Validate id format
         if id.is_empty() {
@@ -57,11 +57,11 @@ impl FoodService {
 
         match self.repository.find_by_id(id).await? {
             Some(food) => {
-                info!("Food found successfully");
+                crate::info_with_trace!("Food found successfully");
                 Ok(food)
             }
             None => {
-                warn!("Food not found");
+                crate::warn_with_trace!("Food not found");
                 Err(ServiceError::FoodNotFound { id: id.to_string() })
             }
         }
@@ -70,7 +70,7 @@ impl FoodService {
     /// Create a new food product
     #[instrument(skip(self, request), fields(name = %request.name, pet_type = %request.pet_type))]
     pub async fn create_food(&self, request: CreateFoodRequest) -> ServiceResult<Food> {
-        info!("Creating new food product");
+        crate::info_with_trace!("Creating new food product");
 
         // Validate the request
         self.validate_create_food_request(&request)?;
@@ -79,7 +79,7 @@ impl FoodService {
 
         // Check if food with same ID already exists (unlikely but possible with UUID collision)
         if self.repository.exists(&food.id).await? {
-            warn!("Food ID collision detected, regenerating");
+            crate::warn_with_trace!("Food ID collision detected, regenerating");
             // In a real implementation, we might retry with a new ID
             return Err(ServiceError::ValidationError {
                 message: "Food ID collision detected".to_string(),
@@ -88,14 +88,14 @@ impl FoodService {
 
         let created_food = self.repository.create(food).await?;
 
-        info!("Food created successfully with ID: {}", created_food.id);
+        crate::info_with_trace!("Food created successfully with ID: {}", created_food.id);
         Ok(created_food)
     }
 
     /// Update an existing food product
     #[instrument(skip(self, request), fields(id = %id))]
     pub async fn update_food(&self, id: &str, request: UpdateFoodRequest) -> ServiceResult<Food> {
-        info!("Updating food product");
+        crate::info_with_trace!("Updating food product");
 
         // Validate id
         if id.is_empty() {
@@ -121,14 +121,14 @@ impl FoodService {
         // Save the updated food
         let updated_food = self.repository.update(food).await?;
 
-        info!("Food updated successfully");
+        crate::info_with_trace!("Food updated successfully");
         Ok(updated_food)
     }
 
     /// Soft delete a food product
     #[instrument(skip(self), fields(id = %id))]
     pub async fn delete_food(&self, id: &str) -> ServiceResult<()> {
-        info!("Soft deleting food product");
+        crate::info_with_trace!("Soft deleting food product");
 
         // Validate id
         if id.is_empty() {
@@ -144,7 +144,7 @@ impl FoodService {
 
         self.repository.soft_delete(id).await?;
 
-        info!("Food soft deleted successfully");
+        crate::info_with_trace!("Food soft deleted successfully");
         Ok(())
     }
 
@@ -155,7 +155,7 @@ impl FoodService {
         search_term: &str,
         filters: Option<FoodFilters>,
     ) -> ServiceResult<FoodListResponse> {
-        info!("Searching foods");
+        crate::info_with_trace!("Searching foods");
 
         if search_term.trim().is_empty() {
             return Err(ServiceError::ValidationError {
@@ -172,37 +172,39 @@ impl FoodService {
     /// Get foods by pet type
     #[instrument(skip(self), fields(pet_type = %pet_type))]
     pub async fn get_foods_by_pet_type(&self, pet_type: PetType) -> ServiceResult<Vec<Food>> {
-        info!("Getting foods by pet type");
+        crate::info_with_trace!("Getting foods by pet type");
 
         let foods = self.repository.find_by_pet_type(pet_type.clone()).await?;
 
-        info!("Found {} foods for pet type {}", foods.len(), pet_type);
+        crate::info_with_trace!("Found {} foods for pet type {}", foods.len(), pet_type);
         Ok(foods)
     }
 
     /// Get foods by food type
     #[instrument(skip(self), fields(food_type = %food_type))]
     pub async fn get_foods_by_food_type(&self, food_type: FoodType) -> ServiceResult<Vec<Food>> {
-        info!("Getting foods by food type");
+        crate::info_with_trace!("Getting foods by food type");
 
         let foods = self.repository.find_by_food_type(food_type.clone()).await?;
 
-        info!("Found {} foods for food type {}", foods.len(), food_type);
+        crate::info_with_trace!("Found {} foods for food type {}", foods.len(), food_type);
         Ok(foods)
     }
 
     /// Check if a food is available for purchase
     #[instrument(skip(self), fields(id = %id))]
     pub async fn is_food_available(&self, id: &str, quantity: u32) -> ServiceResult<bool> {
-        info!("Checking food availability");
+        crate::info_with_trace!("Checking food availability");
 
         let food = self.get_food(id).await?;
 
         let available = food.is_available() && food.stock_quantity >= quantity;
 
-        info!(
+        crate::info_with_trace!(
             "Food availability check: available={}, requested_quantity={}, stock={}",
-            available, quantity, food.stock_quantity
+            available,
+            quantity,
+            food.stock_quantity
         );
 
         Ok(available)
@@ -211,11 +213,11 @@ impl FoodService {
     /// Get count of foods matching filters
     #[instrument(skip(self), fields(filters = ?filters))]
     pub async fn count_foods(&self, filters: Option<FoodFilters>) -> ServiceResult<usize> {
-        info!("Counting foods");
+        crate::info_with_trace!("Counting foods");
 
         let count = self.repository.count(filters).await?;
 
-        info!("Food count: {}", count);
+        crate::info_with_trace!("Food count: {}", count);
         Ok(count)
     }
 

@@ -67,6 +67,7 @@ fn bench_food_search_by_pet_type(c: &mut Criterion) {
                             let repository = Arc::new(DynamoDbFoodRepository::new(
                                 client,
                                 "benchmark-foods".to_string(),
+                                "us-east-1".to_string(),
                             ));
                             let food_service = FoodService::new(repository.clone());
 
@@ -118,6 +119,7 @@ fn bench_food_search_by_food_type(c: &mut Criterion) {
                             let repository = Arc::new(DynamoDbFoodRepository::new(
                                 client,
                                 "benchmark-foods".to_string(),
+                                "us-east-1".to_string(),
                             ));
                             let food_service = FoodService::new(repository.clone());
 
@@ -169,6 +171,7 @@ fn bench_food_search_combined_filters(c: &mut Criterion) {
                             let repository = Arc::new(DynamoDbFoodRepository::new(
                                 client,
                                 "benchmark-foods".to_string(),
+                                "us-east-1".to_string(),
                             ));
                             let food_service = FoodService::new(repository.clone());
 
@@ -216,6 +219,7 @@ fn bench_food_get_by_id(c: &mut Criterion) {
                     let repository = Arc::new(DynamoDbFoodRepository::new(
                         client,
                         "benchmark-foods".to_string(),
+                        "us-east-1".to_string(),
                     ));
                     let food_service = FoodService::new(repository.clone());
 

@@ -45,15 +45,6 @@ pub struct CartValidationResponse {
     pub issues: Vec<String>,
 }
 
-/// Response for cart summary operations
-#[derive(Debug, Serialize)]
-pub struct CartSummaryResponse {
-    pub user_id: String,
-    pub total_items: u32,
-    pub total_price: rust_decimal::Decimal,
-    pub is_empty: bool,
-}
-
 /// Create API router with all endpoints
 pub fn create_api_router(
     food_service: Arc<FoodService>,
@@ -87,7 +78,11 @@ pub fn create_api_router(
 // =============================================================================
 
 /// List all foods with optional filters
-#[instrument(skip(state))]
+#[instrument(name = "list_foods", skip(state), fields(
+    pet_type = query.pet_type.as_deref(),
+    food_type = query.food_type.as_deref(),
+    search = query.search.as_deref(),
+))]
 pub async fn list_foods(
     State(state): State<ApiState>,
     Query(query): Query<ListFoodsQuery>,
@@ -138,7 +133,7 @@ pub async fn list_foods(
 }
 
 /// Get a specific food by ID
-#[instrument(skip(state))]
+#[instrument(name = "get_food", skip(state), fields(food_id = %food_id))]
 pub async fn get_food(
     State(state): State<ApiState>,
     Path(food_id): Path<String>,
@@ -163,7 +158,7 @@ pub async fn get_food(
 // =============================================================================
 
 /// Get a user's cart
-#[instrument(skip(state))]
+#[instrument(name = "get_cart", skip(state), fields(user_id = %user_id))]
 pub async fn get_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -186,39 +181,51 @@ pub async fn get_cart(
 }
 
 /// Add an item to the cart
-#[instrument(skip(state, request))]
+#[instrument(name = "add_cart_item", skip(state, request), fields(
+    user_id = %user_id,
+    food_id = %request.food_id,
+    quantity = %request.quantity,
+))]
 pub async fn add_cart_item(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
     Json(request): Json<AddCartItemRequest>,
 ) -> Result<(StatusCode, Json<CartItemResponse>), (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Adding item to cart for user: {}, food_id: {}, quantity: {}",
-        user_id, request.food_id, request.quantity
+        user_id,
+        request.food_id,
+        request.quantity
     );
 
     match state.cart_service.add_item(&user_id, request).await {
         Ok(item) => {
-            info!("Successfully added item to cart");
+            crate::info_with_trace!("Successfully added item to cart");
             Ok((StatusCode::CREATED, Json(item)))
         }
         Err(err) => {
-            error!("Failed to add item to cart: {}", err);
+            crate::error_with_trace!("Failed to add item to cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
 }
 
 /// Update the quantity of an item in the cart
-#[instrument(skip(state, request))]
+#[instrument(name = "update_cart_item", skip(state, request), fields(
+    user_id = %user_id,
+    food_id = %food_id,
+    quantity = %request.quantity,
+))]
 pub async fn update_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
     Json(request): Json<UpdateCartItemRequest>,
 ) -> Result<Json<CartItemResponse>, (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Updating cart item for user: {}, food_id: {}, new_quantity: {}",
-        user_id, food_id, request.quantity
+        user_id,
+        food_id,
+        request.quantity
     );
 
     match state
@@ -227,81 +234,93 @@ pub async fn update_cart_item(
         .await
     {
         Ok(item) => {
-            info!("Successfully updated cart item");
+            crate::info_with_trace!("Successfully updated cart item");
             Ok(Json(item))
         }
         Err(err) => {
-            error!("Failed to update cart item: {}", err);
+            crate::error_with_trace!("Failed to update cart item: {}", err);
             Err(service_error_to_response(err))
         }
     }
 }
 
 /// Remove an item from the cart
-#[instrument(skip(state))]
+#[instrument(name = "remove_cart_item", skip(state), fields(
+    user_id = %user_id,
+    food_id = %food_id,
+))]
 pub async fn remove_cart_item(
     State(state): State<ApiState>,
     Path((user_id, food_id)): Path<(String, String)>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!(
+    crate::info_with_trace!(
         "Removing item from cart for user: {}, food_id: {}",
-        user_id, food_id
+        user_id,
+        food_id
     );
 
     match state.cart_service.remove_item(&user_id, &food_id).await {
         Ok(()) => {
-            info!("Successfully removed item from cart");
+            crate::info_with_trace!("Successfully removed item from cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to remove item from cart: {}", err);
+            crate::error_with_trace!("Failed to remove item from cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
 }
 
 /// Clear all items from the cart
-#[instrument(skip(state))]
+#[instrument(name = "clear_cart", skip(state), fields(
+    user_id = %user_id,
+))]
 pub async fn clear_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Clearing cart for user: {}", user_id);
+    crate::info_with_trace!("Clearing cart for user: {}", user_id);
 
     match state.cart_service.clear_cart(&user_id).await {
         Ok(()) => {
-            info!("Successfully cleared cart");
+            crate::info_with_trace!("Successfully cleared cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to clear cart: {}", err);
+            crate::error_with_trace!("Failed to clear cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
 }
 
 /// Delete the entire cart
-#[instrument(skip(state))]
+#[instrument(name = "delete_cart", skip(state), fields(
+    user_id = %user_id,
+))]
 pub async fn delete_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
-    info!("Deleting cart for user: {}", user_id);
+    crate::info_with_trace!("Deleting cart for user: {}", user_id);
 
     match state.cart_service.delete_cart(&user_id).await {
         Ok(()) => {
-            info!("Successfully deleted cart");
+            crate::info_with_trace!("Successfully deleted cart");
             Ok(StatusCode::NO_CONTENT)
         }
         Err(err) => {
-            error!("Failed to delete cart: {}", err);
+            crate::error_with_trace!("Failed to delete cart: {}", err);
             Err(service_error_to_response(err))
         }
     }
 }
 
 /// Checkout cart and create order
-#[instrument(skip(state, request))]
+#[instrument(name = "checkout_cart", skip(state, request), fields(
+    user_id = %user_id,
+    has_shipping_address = request.shipping_address.is_some(),
+    has_billing_address = request.billing_address.is_some(),
+))]
 pub async fn checkout_cart(
     State(state): State<ApiState>,
     Path(user_id): Path<String>,
@@ -311,14 +330,14 @@ pub async fn checkout_cart(
 
     match state.cart_service.checkout(&user_id, request).await {
         Ok(checkout_response) => {
-            info!(
+            crate::info_with_trace!(
                 "Checkout completed successfully for order: {}",
                 checkout_response.order_id
             );
             Ok(Json(checkout_response))
         }
         Err(err) => {
-            error!("Failed to process checkout: {}", err);
+            crate::error_with_trace!("Failed to process checkout: {}", err);
             Err(service_error_to_response(err))
         }
     }

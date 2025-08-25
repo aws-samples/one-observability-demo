@@ -12,6 +12,7 @@ use crate::repositories::{CartRepository, FoodRepository};
 pub struct CartService {
     cart_repository: Arc<dyn CartRepository>,
     food_repository: Arc<dyn FoodRepository>,
+    assets_cdn_url: String,
 }
 
 impl CartService {
@@ -19,10 +20,12 @@ impl CartService {
     pub fn new(
         cart_repository: Arc<dyn CartRepository>,
         food_repository: Arc<dyn FoodRepository>,
+        assets_cdn_url: String,
     ) -> Self {
         Self {
             cart_repository,
             food_repository,
+            assets_cdn_url,
         }
     }
 
@@ -369,11 +372,22 @@ impl CartService {
                 }
                 None => {
                     warn!("Food not found for cart item: {}", cart_item.food_id);
-                    // Create a placeholder response for missing food
+                    // Create a placeholder response for missing food with optional CDN URL
+                    let placeholder_image = if self.assets_cdn_url.is_empty() {
+                        "placeholder.jpg".to_string()
+                    } else {
+                        let cdn_url = if self.assets_cdn_url.ends_with('/') {
+                            self.assets_cdn_url.trim_end_matches('/')
+                        } else {
+                            &self.assets_cdn_url
+                        };
+                        format!("{}/placeholder.jpg", cdn_url)
+                    };
+
                     let item_response = CartItemResponse {
                         food_id: cart_item.food_id.clone(),
                         food_name: "Product not found".to_string(),
-                        food_image: "placeholder.jpg".to_string(),
+                        food_image: placeholder_image,
                         quantity: cart_item.quantity,
                         unit_price: cart_item.unit_price,
                         total_price: cart_item.total_price(),
@@ -407,10 +421,23 @@ impl CartService {
         cart_item: &CartItem,
         food: &crate::models::Food,
     ) -> ServiceResult<CartItemResponse> {
+        // If CDN URL is empty, use the original image path
+        let food_image = if self.assets_cdn_url.is_empty() {
+            food.image.clone()
+        } else {
+            // Handle trailing slash in CDN URL to avoid double slashes
+            let cdn_url = if self.assets_cdn_url.ends_with('/') {
+                self.assets_cdn_url.trim_end_matches('/')
+            } else {
+                &self.assets_cdn_url
+            };
+            format!("{}/{}", cdn_url, food.image)
+        };
+
         Ok(CartItemResponse {
             food_id: cart_item.food_id.clone(),
             food_name: food.name.clone(),
-            food_image: food.image.clone(),
+            food_image,
             quantity: cart_item.quantity,
             unit_price: cart_item.unit_price,
             total_price: cart_item.total_price(),
@@ -670,7 +697,11 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.get_cart("user123").await;
 
@@ -692,7 +723,11 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.get_cart("user123").await;
 
@@ -723,7 +758,11 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let request = AddCartItemRequest {
             food_id: "F001".to_string(),
@@ -750,7 +789,11 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let request = AddCartItemRequest {
             food_id: "F999".to_string(),
@@ -781,7 +824,11 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let request = AddCartItemRequest {
             food_id: "F001".to_string(),
@@ -824,7 +871,11 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let request = UpdateCartItemRequest { quantity: 5 };
 
@@ -849,7 +900,11 @@ mod tests {
 
         mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.remove_item("user123", "F001").await;
 
@@ -870,7 +925,11 @@ mod tests {
 
         mock_cart_repo.expect_save_cart().times(1).returning(Ok);
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.clear_cart("user123").await;
 
@@ -894,7 +953,11 @@ mod tests {
             .times(1)
             .returning(|_| Ok(()));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.delete_cart("user123").await;
 
@@ -921,7 +984,11 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         let result = service.validate_cart("user123").await;
 
@@ -935,7 +1002,11 @@ mod tests {
     async fn test_validation_errors() {
         let mock_cart_repo = MockTestCartRepository::new();
         let mock_food_repo = MockTestFoodRepository::new();
-        let service = CartService::new(Arc::new(mock_cart_repo), Arc::new(mock_food_repo));
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "https://test-cdn.example.com".to_string(),
+        );
 
         // Test empty user ID
         let result = service.get_cart("").await;
@@ -956,5 +1027,79 @@ mod tests {
         };
         let result = service.add_item("user123", request).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_cart_item_response_includes_cdn_url() {
+        let mut mock_cart_repo = MockTestCartRepository::new();
+        let mut mock_food_repo = MockTestFoodRepository::new();
+        let test_cart = create_test_cart();
+        let test_food = create_test_food();
+
+        mock_cart_repo
+            .expect_find_cart()
+            .with(mockall::predicate::eq("user123".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_cart.clone())));
+
+        mock_food_repo
+            .expect_find_by_id()
+            .with(mockall::predicate::eq("F001".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_food.clone())));
+
+        let cdn_url = "https://petfood-assets.s3.amazonaws.com";
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            cdn_url.to_string(),
+        );
+
+        let result = service.get_cart("user123").await;
+
+        assert!(result.is_ok());
+        let cart_response = result.unwrap();
+        assert_eq!(cart_response.items.len(), 1);
+
+        let item = &cart_response.items[0];
+        assert!(item.food_image.starts_with(cdn_url));
+        assert_eq!(item.food_image, format!("{}/test.jpg", cdn_url));
+    }
+
+    #[tokio::test]
+    async fn test_cart_item_response_with_empty_cdn_url() {
+        let mut mock_cart_repo = MockTestCartRepository::new();
+        let mut mock_food_repo = MockTestFoodRepository::new();
+        let test_cart = create_test_cart();
+        let test_food = create_test_food();
+
+        mock_cart_repo
+            .expect_find_cart()
+            .with(mockall::predicate::eq("user123".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_cart.clone())));
+
+        mock_food_repo
+            .expect_find_by_id()
+            .with(mockall::predicate::eq("F001".to_string()))
+            .times(1)
+            .returning(move |_| Ok(Some(test_food.clone())));
+
+        // Test with empty CDN URL
+        let service = CartService::new(
+            Arc::new(mock_cart_repo),
+            Arc::new(mock_food_repo),
+            "".to_string(), // Empty CDN URL
+        );
+
+        let result = service.get_cart("user123").await;
+
+        assert!(result.is_ok());
+        let cart_response = result.unwrap();
+        assert_eq!(cart_response.items.len(), 1);
+
+        let item = &cart_response.items[0];
+        // Should return the original image path without CDN prefix
+        assert_eq!(item.food_image, "test.jpg");
     }
 }
