@@ -65,7 +65,10 @@ export class PetFoodECSService extends EcsService {
         const taskPolicy = new Policy(this, 'taskPolicy', {
             policyName: 'PetFoodTaskPolicy',
             document: new PolicyDocument({
-                statements: [EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
+                statements: [
+                    EcsService.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
+                    EcsService.getDefaultEventBridgePolicy(this),
+                ],
             }),
             roles: [this.taskRole],
         });
