@@ -3,7 +3,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use opentelemetry::trace::TraceContextExt;
+use opentelemetry::{trace::TraceContextExt, KeyValue};
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, Instrument};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -55,6 +55,7 @@ pub async fn observability_middleware(
     let span_name = format!("{} {}", method, endpoint);
 
     // Create a span with the endpoint-specific name
+    // Note: We don't pre-declare status code fields to avoid setting them to 0
     let span = tracing::info_span!(
         target: "petfood_rs::http",
         "{}", span_name,
@@ -66,10 +67,6 @@ pub async fn observability_middleware(
         http.user_agent = %user_agent,
         http.client_ip = %client_ip,
         client.address = %client_ip,
-        http.status_code = tracing::field::Empty,
-        http.response.status_code = tracing::field::Empty,
-        http.response_time_ms = tracing::field::Empty,
-        response.status = tracing::field::Empty,
     );
 
     // Execute the rest of the middleware within this span
@@ -98,18 +95,31 @@ pub async fn observability_middleware(
         // Get status code
         let status_code = response.status().as_u16();
 
-        // Record additional span attributes with proper X-Ray format
-        tracing::Span::current().record("http.status_code", status_code);
-        tracing::Span::current().record("http.response.status_code", status_code);
-        tracing::Span::current().record("http.response_time_ms", duration_ms);
-        tracing::Span::current().record("response.status", status_code);
-
-        // Set span status based on HTTP status code for X-Ray
+        // Record span attributes using OpenTelemetry semantic conventions
+        // These are the exact attribute names that X-Ray expects
         let current_span = tracing::Span::current();
+        current_span.record("http.status_code", status_code);
+        current_span.record("http.response.status_code", status_code);
+        current_span.record("http.response_time_ms", duration_ms);
+        current_span.record("response.status", status_code);
+
+        // Set OpenTelemetry span attributes and status directly
         let span_context = current_span.context();
         let otel_span = span_context.span();
-        if status_code >= 400 {
-            otel_span.set_status(opentelemetry::trace::Status::error("HTTP error"));
+
+        // Set HTTP response status using OpenTelemetry attributes
+        // Use multiple attribute names for maximum X-Ray compatibility
+        otel_span.set_attribute(KeyValue::new("http.status_code", status_code as i64));
+        otel_span.set_attribute(KeyValue::new("http.response.status_code", status_code as i64));
+        otel_span.set_attribute(KeyValue::new("http.response_code", status_code as i64));
+        otel_span.set_attribute(KeyValue::new("response_code", status_code as i64));
+
+        // Set span status for OpenTelemetry compatibility
+        // Note: X-Ray determines error/fault flags based on HTTP status code, not span status
+        // - X-Ray error = true: HTTP 4xx (automatic based on status code)
+        // - X-Ray fault = true: HTTP 5xx (automatic based on status code)
+        if status_code >= 500 {
+            otel_span.set_status(opentelemetry::trace::Status::error(format!("HTTP {}", status_code)));
         } else {
             otel_span.set_status(opentelemetry::trace::Status::Ok);
         }
