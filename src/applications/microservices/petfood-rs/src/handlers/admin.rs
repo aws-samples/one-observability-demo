@@ -210,7 +210,7 @@ pub async fn cleanup_database(
                 match state.food_service.delete_food(&food.id).await {
                     Ok(()) => {
                         deleted_count += 1;
-                        info!("Successfully deleted food: {}", food.name);
+                        info!("Successfully deleted food: {} (events will be emitted by FoodService)", food.name);
                     }
                     Err(err) => {
                         warn!("Failed to delete food {}: {}", food.name, err);
