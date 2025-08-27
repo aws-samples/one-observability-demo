@@ -51,10 +51,6 @@ export class StorageStage extends Stage {
                     actions: ['ssm:GetParameter'],
                     resources: ['*'],
                 }),
-                new PolicyStatement({
-                    actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-                    resources: ['*'],
-                }),
             ],
         });
 
@@ -63,7 +59,7 @@ export class StorageStage extends Stage {
 
         const seedStep = new CodeBuildStep('DDBSeeding', {
             commands: [
-                'cdk src/cdk',
+                'cd src/cdk',
                 'TABLE_NAME=$(./scripts/get-parameter.sh dynamodbtablename)',
                 './scripts/seed-dynamodb.sh $TABLE_NAME',
             ],
