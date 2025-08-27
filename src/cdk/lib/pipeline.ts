@@ -231,7 +231,9 @@ export class CDKPipeline extends Stack {
             env: properties.env,
         });
 
-        backendWave.addStage(storageStage);
+        backendWave.addStage(storageStage, {
+            post: [storageStage.getDDBSeedingStep()],
+        });
 
         const computeStage = new ComputeStage(this, 'Compute', {
             tags: {

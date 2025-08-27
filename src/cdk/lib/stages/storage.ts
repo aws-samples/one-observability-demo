@@ -11,6 +11,7 @@ import { AuroraDatabase, AuroraDBProperties } from '../constructs/database';
 import { WorkshopNetwork } from '../constructs/network';
 import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
 import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
+import { ShellStep } from 'aws-cdk-lib/pipelines';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
@@ -31,6 +32,15 @@ export class StorageStage extends Stage {
         if (properties.tags) {
             Utilities.TagConstruct(this.stack, properties.tags);
         }
+    }
+    getDDBSeedingStep() {
+        return new ShellStep('DDBSeeding', {
+            commands: [
+                'cdk src/cdk',
+                'TABLE_NAME=$(./scripts/get-parameter.sh dynamodbtablename)',
+                './scripts/seed-dynamodb.sh $TABLE_NAME',
+            ],
+        });
     }
 }
 
