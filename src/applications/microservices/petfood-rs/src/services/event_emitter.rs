@@ -1,4 +1,5 @@
 use crate::models::{EventConfig, EventPayload, FoodEvent, SpanContextData};
+use aws_sdk_eventbridge::operation::RequestId;
 use aws_sdk_eventbridge::{Client as EventBridgeClient, Error as EventBridgeError};
 use aws_smithy_runtime_api::client::result::SdkError;
 use aws_smithy_runtime_api::http::Response;
@@ -6,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::time::sleep;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, warn, Instrument};
 
 /// Errors that can occur during event emission
 #[derive(Error, Debug)]
@@ -58,7 +59,16 @@ impl EventEmitter {
     }
 
     /// Emit a food event to EventBridge with retry logic
-    #[instrument(skip(self, event), fields(event_type = %event.event_type, food_id = %event.food_id))]
+    #[instrument(
+        skip(self, event),
+        fields(
+            event_type = %event.event_type,
+            food_id = %event.food_id,
+            event_bus = %self.config.event_bus_name,
+            source = %self.config.source_name,
+            span.kind = "client"
+        )
+    )]
     pub async fn emit_event(&self, event: FoodEvent) -> Result<(), EventEmitterError> {
         if !self.config.enabled {
             warn!("Event emission is disabled, skipping event");
@@ -119,7 +129,71 @@ impl EventEmitter {
         Err(EventEmitterError::MaxRetriesExceeded)
     }
 
+    /// Create an EventBridge subsegment span with proper X-Ray attributes
+    fn create_eventbridge_span(&self, operation: &str) -> tracing::Span {
+        let region = self
+            .client
+            .config()
+            .region()
+            .map(|r| r.as_ref())
+            .unwrap_or("unknown");
+
+        tracing::info_span!(
+            "EventBridge",
+            // AWS X-Ray specific attributes
+            "aws.service" = "EventBridge",
+            "aws.operation" = operation,
+            "aws.region" = %region,
+            "aws.eventbridge.event_bus_name" = %self.config.event_bus_name,
+            "aws.request_id" = tracing::field::Empty,
+            "aws.agent" = "rust-aws-sdk",
+
+            // Resource identification for X-Ray
+            "aws.remote.service" = "AWS::EventBridge",
+            "aws.remote.operation" = operation,
+            "aws.remote.resource.type" = "AWS::EventBridge::EventBus",
+            "aws.remote.resource.identifier" = %self.config.event_bus_name,
+            "remote.resource.cfn.primary.identifier" = %self.config.event_bus_name,
+
+            // EventBridge-specific attributes
+            "event_bus_name" = %self.config.event_bus_name,
+            "event_bus.name" = %self.config.event_bus_name,
+            "resource_names" = format!("[{}]", self.config.event_bus_name),
+            "endpoint" = format!("https://events.{}.amazonaws.com", region),
+
+            // OpenTelemetry semantic conventions
+            "otel.kind" = "client",
+            "otel.name" = format!("EventBridge.{}", operation),
+
+            // RPC semantic conventions for AWS API calls
+            "rpc.system" = "aws-api",
+            "rpc.service" = "AmazonEventBridge",
+            "rpc.method" = operation,
+
+            // HTTP semantic conventions (AWS APIs are HTTP-based)
+            "http.method" = "POST",
+            "http.url" = format!("https://events.{}.amazonaws.com", region),
+            "http.status_code" = tracing::field::Empty,
+
+            // Messaging semantic conventions
+            "messaging.system" = "aws_eventbridge",
+            "messaging.destination.name" = %self.config.event_bus_name,
+            "messaging.operation" = "publish",
+
+            // Component identification for X-Ray
+            "component" = "aws-sdk-eventbridge",
+        )
+    }
+
     /// Send event to EventBridge
+    #[instrument(
+        skip(self, payload),
+        fields(
+            event_source = %payload.source,
+            event_type = %payload.detail_type,
+            food_id = %payload.detail.food_id
+        )
+    )]
     async fn send_to_eventbridge(&self, payload: &EventPayload) -> Result<(), EventEmitterError> {
         let detail_json = serde_json::to_string(&payload.detail)?;
 
@@ -139,25 +213,72 @@ impl EventEmitter {
 
         let entry = entry_builder.build();
 
-        let request_builder = self.client.put_events().entries(entry);
+        // Create EventBridge remote span
+        let put_events_span = self.create_eventbridge_span("PutEvents");
 
-        let response = request_builder.send().await?;
+        let response = async {
+            let result = self.client.put_events().entries(entry).send().await;
 
-        // Check for failed entries
+            // Record additional span attributes based on response
+            match &result {
+                Ok(output) => {
+                    tracing::Span::current().record("http.status_code", 200);
+                    if let Some(request_id) = output.request_id() {
+                        tracing::Span::current().record("aws.request_id", request_id);
+                    }
+
+                    // Record batch information
+                    let entries = output.entries();
+                    tracing::Span::current()
+                        .record("messaging.batch.message_count", entries.len() as u64);
+
+                    // Count failed entries
+                    let failed_count = entries
+                        .iter()
+                        .filter(|entry| entry.error_code().is_some())
+                        .count();
+
+                    if failed_count > 0 {
+                        tracing::Span::current()
+                            .record("eventbridge.failed_entries", failed_count as u64);
+                        tracing::Span::current().record("error", true);
+                    }
+
+                    tracing::Span::current().record(
+                        "eventbridge.successful_entries",
+                        (entries.len() - failed_count) as u64,
+                    );
+                }
+                Err(e) => {
+                    tracing::Span::current().record("http.status_code", 400); // Generic error code
+                    tracing::Span::current().record("error", true);
+                    tracing::Span::current().record("error.message", e.to_string().as_str());
+                    error!("EventBridge PutEvents failed: {}", e);
+                }
+            }
+
+            result.map_err(EventEmitterError::EventBridgeSdk)
+        }
+        .instrument(put_events_span)
+        .await?;
+
+        // Check for failed entries and handle them
         let entries = response.entries();
+        let mut failed_count = 0;
         for entry in entries {
             if let Some(error_code) = entry.error_code() {
+                failed_count += 1;
                 error!(
                     error_code = error_code,
                     error_message = entry.error_message().unwrap_or("Unknown error"),
                     "EventBridge entry failed"
                 );
-                return Err(EventEmitterError::InvalidConfig(format!(
-                    "EventBridge entry failed: {} - {}",
-                    error_code,
-                    entry.error_message().unwrap_or("Unknown error")
-                )));
             }
+        }
+
+        if failed_count > 0 {
+            let error_msg = format!("EventBridge had {} failed entries", failed_count);
+            return Err(EventEmitterError::InvalidConfig(error_msg));
         }
 
         Ok(())
