@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
 import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { IRole, ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { IRole, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { NagSuppressions } from 'cdk-nag';
@@ -232,7 +232,7 @@ export class CDKPipeline extends Stack {
         });
 
         backendWave.addStage(storageStage, {
-            post: [storageStage.getDDBSeedingStep()],
+            post: [storageStage.getDDBSeedingStep(this, configBucket)],
         });
 
         const computeStage = new ComputeStage(this, 'Compute', {
@@ -286,13 +286,6 @@ export class CDKPipeline extends Stack {
                 roles: [pipeline.synthProject.role],
             });
         }
-
-        /**
-         * Add CodeArtifact read access to the synth project role.
-         */
-        pipeline.synthProject.role?.addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName('AWSCodeArtifactReadOnlyAccess'),
-        );
 
         /**
          * Add CDK-nag suppressions for the pipeline role.
