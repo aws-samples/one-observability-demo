@@ -21,6 +21,7 @@ import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { WorkshopCloudTrail } from '../constructs/cloudtrail';
 import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
+import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
 
 /**
  * Configuration properties for the CoreStage.
@@ -40,6 +41,8 @@ export interface CoreStageProperties extends StackProps {
     defaultRetentionDays?: RetentionDays;
     /** Queue Resources */
     queueProperties?: QueueResourcesProperties;
+    /** CloudWatch Resources */
+    cloudWatchProperties?: CloudWatchTransactionSearchProperties;
 }
 
 /**
@@ -95,7 +98,11 @@ export class CoreStack extends Stack {
         /** Add Queue resources */
         new QueueResources(this, 'QueueResources', properties.queueProperties);
 
+        /** Enable CloudWatch Application Signals Discovery */
         new CfnDiscovery(this, 'ApplicationSignals', {});
+
+        /** CloudWatch Transaction Search setup **/
+        new CloudWatchTransactionSearch(this, 'CloudWatchTransactionSearch', properties.cloudWatchProperties);
 
         if (!properties.createVpc || properties.createVpc) {
             // Create a new VPC with workshop networking configuration
