@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Petfood Cleanup Processor Lambda Function'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+  
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name for pet food images
+  
+  EventBusName:
+    Type: String
+    Default: default
+    Description: EventBridge custom bus name
+  
+  DynamoDBTableName:
+    Type: String
+    Description: DynamoDB table name for pet food data
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs22.x
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        NODE_OPTIONS: '--enable-source-maps'
+    Tracing: Active
+
+Resources:
+  PetfoodCleanupProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'petfood-cleanup-processor-${Environment}'
+      CodeUri: ./
+      Handler: index.handler
+      Description: 'Processes ItemDiscontinued events and cleans up associated resources'
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          S3_BUCKET_NAME: !Ref S3BucketName
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTableName
+          MAX_RETRIES: '3'
+          RETRY_DELAY_MS: '1000'
+          OTEL_PROPAGATORS: tracecontext,baggage,b3,xray
+          OTEL_NODE_DISABLED_INSTRUMENTATIONS: none
+          # Enable Application Signals
+          OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+          LAMBDA_APPLICATION_SIGNALS_REMOTE_ENVIRONMENT: lambda:default
+          OTEL_METRICS_EXPORTER: none
+          OTEL_LOGS_EXPORTER: none
+          OTEL_SERVICE_NAME: 'petfood-cleanup-processor'
+          OTEL_SERVICE_VERSION: '0.1.0'
+      Layers:
+        - arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroJs:8
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            # S3 permissions for image deletion
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:DeleteObject
+                - s3:HeadObject
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+            # DynamoDB permissions for updating records
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+                - dynamodb:GetItem
+                - dynamodb:DeleteItem
+              Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}'
+            # EventBridge permissions for emitting confirmation events
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !Sub 'arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${EventBusName}'
+            # X-Ray permissions for tracing
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource: '*'
+            # CloudWatch Logs permissions
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/petfood-cleanup-processor-${Environment}:*'
+      Events:
+        ItemDiscontinuedEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source: ['petfood.service']
+              detail-type: ['ItemDiscontinued']
+            RetryPolicy:
+              MaximumRetryAttempts: 3
+            DeadLetterConfig:
+              Arn: !GetAtt CleanupProcessorDLQ.Arn
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt CleanupProcessorDLQ.Arn
+
+  # Dead Letter Queue for failed events
+  CleanupProcessorDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'petfood-cleanup-processor-dlq-${Environment}'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: petfood-cleanup-processor
+
+  # CloudWatch Log Group with retention
+  CleanupProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/petfood-cleanup-processor-${Environment}'
+      RetentionInDays: 30
+
+  # CloudWatch Alarms for monitoring
+  CleanupProcessorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'petfood-cleanup-processor-errors-${Environment}'
+      AlarmDescription: 'High error rate for cleanup processor Lambda'
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetfoodCleanupProcessor
+      TreatMissingData: notBreaching
+
+  CleanupProcessorDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'petfood-cleanup-processor-duration-${Environment}'
+      AlarmDescription: 'High duration for cleanup processor Lambda'
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 25000  # 25 seconds
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetfoodCleanupProcessor
+      TreatMissingData: notBreaching
+
+  # DLQ Alarm for failed messages
+  DLQMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'petfood-cleanup-processor-dlq-messages-${Environment}'
+      AlarmDescription: 'Messages in cleanup processor DLQ'
+      MetricName: ApproximateNumberOfVisibleMessages
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CleanupProcessorDLQ.QueueName
+      TreatMissingData: notBreaching
+
+Outputs:
+  PetfoodCleanupProcessorFunction:
+    Description: 'Petfood Cleanup Processor Lambda Function ARN'
+    Value: !GetAtt PetfoodCleanupProcessor.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PetfoodCleanupProcessorFunction'
+
+  PetfoodCleanupProcessorFunctionName:
+    Description: 'Petfood Cleanup Processor Lambda Function Name'
+    Value: !Ref PetfoodCleanupProcessor
+    Export:
+      Name: !Sub '${AWS::StackName}-PetfoodCleanupProcessorFunctionName'
+
+  CleanupProcessorDLQArn:
+    Description: 'Cleanup Processor Dead Letter Queue ARN'
+    Value: !GetAtt CleanupProcessorDLQ.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CleanupProcessorDLQArn'
+
+  CleanupProcessorDLQUrl:
+    Description: 'Cleanup Processor Dead Letter Queue URL'
+    Value: !Ref CleanupProcessorDLQ
+    Export:
+      Name: !Sub '${AWS::StackName}-CleanupProcessorDLQUrl'
