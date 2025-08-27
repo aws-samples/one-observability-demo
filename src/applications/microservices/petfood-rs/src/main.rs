@@ -94,7 +94,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ))
             }
             Err(e) => {
-                warn!("Failed to initialize event emitter: {}, continuing without events", e);
+                warn!(
+                    "Failed to initialize event emitter: {}, continuing without events",
+                    e
+                );
                 Arc::new(FoodService::new(food_repository.clone()))
             }
         }

@@ -210,10 +210,13 @@ pub async fn cleanup_database(
                 match state.food_service.delete_food(&food.id).await {
                     Ok(()) => {
                         deleted_count += 1;
-                        info!("Successfully deleted food: {} (events will be emitted by FoodService)", food.name);
+                        info!(
+                            "Successfully discontinued food: {}",
+                            food.name
+                        );
                     }
                     Err(err) => {
-                        warn!("Failed to delete food {}: {}", food.name, err);
+                        warn!("Failed to discontinue food {}: {}", food.name, err);
                         errors.push(format!("{}: {}", food.name, err));
                     }
                 }
@@ -221,13 +224,13 @@ pub async fn cleanup_database(
 
             if errors.is_empty() {
                 info!(
-                    "Successfully cleaned up database, deleted {} foods",
+                    "Successfully cleaned up database, discontinued {} foods",
                     deleted_count
                 );
 
                 Ok(Json(CleanupResponse {
                     message: format!(
-                        "Database cleaned up successfully, deleted {} foods",
+                        "Database cleaned up successfully, discontinued {} foods",
                         deleted_count
                     ),
                     foods_deleted: deleted_count,
@@ -238,7 +241,7 @@ pub async fn cleanup_database(
 
                 Ok(Json(CleanupResponse {
                     message: format!(
-                        "Database cleanup completed with {} foods deleted, {} errors occurred",
+                        "Database cleanup completed with {} foods discontinued, {} errors occurred",
                         deleted_count,
                         errors.len()
                     ),

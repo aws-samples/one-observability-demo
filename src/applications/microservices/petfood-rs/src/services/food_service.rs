@@ -2,8 +2,8 @@ use std::sync::Arc;
 use tracing::{instrument, warn};
 
 use crate::models::{
-    CreateFoodRequest, Food, FoodFilters, FoodListResponse, FoodType, PetType, ServiceError,
-    ServiceResult, UpdateFoodRequest, FoodEvent,
+    CreateFoodRequest, Food, FoodEvent, FoodFilters, FoodListResponse, FoodType, PetType,
+    ServiceError, ServiceResult, UpdateFoodRequest,
 };
 use crate::repositories::FoodRepository;
 use crate::services::EventEmitter;
@@ -17,7 +17,7 @@ pub struct FoodService {
 impl FoodService {
     /// Create a new FoodService
     pub fn new(repository: Arc<dyn FoodRepository>) -> Self {
-        Self { 
+        Self {
             repository,
             event_emitter: None,
         }
@@ -28,7 +28,7 @@ impl FoodService {
         repository: Arc<dyn FoodRepository>,
         event_emitter: Arc<EventEmitter>,
     ) -> Self {
-        Self { 
+        Self {
             repository,
             event_emitter: Some(event_emitter),
         }
@@ -160,10 +160,10 @@ impl FoodService {
         };
 
         // Check if image-related fields are changing
-        let image_changed = request.image.is_some() || 
-                           request.name.is_some() || 
-                           request.description.is_some() || 
-                           request.ingredients.is_some();
+        let image_changed = request.image.is_some()
+            || request.name.is_some()
+            || request.description.is_some()
+            || request.ingredients.is_some();
 
         let previous_image_path = if image_changed && request.image.is_some() {
             Some(existing_food.image.clone())
@@ -187,8 +187,12 @@ impl FoodService {
                     request.name.or_else(|| Some(updated_food.name.clone())),
                     Some(updated_food.pet_type.clone()),
                     Some(updated_food.food_type.clone()),
-                    request.description.or_else(|| Some(updated_food.description.clone())),
-                    request.ingredients.or_else(|| Some(updated_food.ingredients.clone())),
+                    request
+                        .description
+                        .or_else(|| Some(updated_food.description.clone())),
+                    request
+                        .ingredients
+                        .or_else(|| Some(updated_food.ingredients.clone())),
                     previous_image_path,
                     span_context,
                 );
@@ -683,12 +687,14 @@ mod tests {
     async fn test_delete_food_success() {
         let mut mock_repo = MockTestFoodRepository::new();
         let id = "F001";
+        let test_food = create_test_food();
 
+        // The delete_food method now calls find_by_id first to get food details for event emission
         mock_repo
-            .expect_exists()
+            .expect_find_by_id()
             .with(mockall::predicate::eq(id.to_string()))
             .times(1)
-            .returning(|_| Ok(true));
+            .returning(move |_| Ok(Some(test_food.clone())));
 
         mock_repo
             .expect_soft_delete()
@@ -837,7 +843,7 @@ mod tests {
             .region(aws_sdk_eventbridge::config::Region::new("us-east-1"))
             .build();
         let client = aws_sdk_eventbridge::Client::from_conf(config);
-        
+
         let event_config = crate::models::EventConfig {
             event_bus_name: "test-bus".to_string(),
             source_name: "petfood.service".to_string(),
@@ -848,7 +854,8 @@ mod tests {
         };
 
         let event_emitter = crate::services::EventEmitter::new(client, event_config).unwrap();
-        let service = FoodService::new_with_event_emitter(Arc::new(mock_repo), Arc::new(event_emitter));
+        let service =
+            FoodService::new_with_event_emitter(Arc::new(mock_repo), Arc::new(event_emitter));
         let request = create_test_create_request();
 
         let result = service.create_food(request.clone()).await;
