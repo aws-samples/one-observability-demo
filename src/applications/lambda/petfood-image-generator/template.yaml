@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "Strands Agent Lambda function for pet food image generation"
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  FoodTableName:
+    Type: String
+    Default: DevStorageStack-DynamoDbddbPetFoodsF80A2CEA-1905A6TU62OM0
+    Description: DynamoDB table name for food items
+  S3BucketName:
+    Type: String
+    Default: devstoragestack-workshopassetspetadoptionbucket239-iegigku38mmq
+    Description: S3 bucket name for storing images
+  EventBusName:
+    Type: String
+    Default: default
+    Description: EventBridge custom bus name
+  BedrockModelId:
+    Type: String
+    Default: "amazon.titan-image-generator-v2:0"
+    Description: Bedrock model ID for image generation
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 1024
+    Runtime: python3.13
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  PetFoodImageGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "petfood-image-generator-${Environment}"
+      CodeUri: ./
+      Handler: lambda_function.lambda_handler
+      Description: "Lambda function for automated pet food image generation using Bedrock"
+
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          FOOD_TABLE_NAME: !Ref FoodTableName
+          S3_BUCKET_NAME: !Ref S3BucketName
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          # Explicitly disable OpenTelemetry auto-instrumentation
+          OTEL_PYTHON_DISABLED_INSTRUMENTATIONS: "all"
+          AWS_LAMBDA_EXEC_WRAPPER: ""
+
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        
+        # Bedrock permissions for image generation
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: 
+                - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockModelId}"
+        
+        # S3 permissions for storing generated images
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:GetObject
+              Resource: 
+                - !Sub "arn:aws:s3:::${S3BucketName}/*"
+        
+        # DynamoDB permissions for updating food records
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+                - dynamodb:GetItem
+              Resource: 
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${FoodTableName}"
+
+      Events:
+        FoodItemCreatedEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source: ["petfood.service"]
+              detail-type: ["FoodItemCreated"]
+            RetryPolicy:
+              MaximumRetryAttempts: 3
+
+        FoodItemUpdatedEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source: ["petfood.service"]
+              detail-type: ["FoodItemUpdated"]
+            RetryPolicy:
+              MaximumRetryAttempts: 3
+
+  # Dead Letter Queue for failed events
+  PetFoodEventsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "petfood-events-dlq-${Environment}"
+      Tags:
+        - Key: Purpose
+          Value: DeadLetterQueue
+        - Key: Service
+          Value: PetFoodImageGenerator
+
+  # SQS Queue Policy to enforce SSL
+  PetFoodEventsDLQPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref PetFoodEventsDLQ
+      PolicyDocument:
+        Statement:
+          - Effect: Deny
+            Principal: "*"
+            Action: "sqs:*"
+            Resource: !GetAtt PetFoodEventsDLQ.Arn
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  # CloudWatch Log Group
+  ImageGeneratorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/petfood-image-generator-${Environment}"
+      RetentionInDays: 30
+
+  # CloudWatch Alarms for monitoring
+  PetFoodImageGeneratorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${PetFoodImageGeneratorFunction}-Errors"
+      AlarmDescription: "Pet Food Image Generator Lambda function error rate is too high"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetFoodImageGeneratorFunction
+      TreatMissingData: notBreaching
+
+  PetFoodImageGeneratorDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${PetFoodImageGeneratorFunction}-Duration"
+      AlarmDescription: "Pet Food Image Generator Lambda function duration is too high"
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 250000 # 250 seconds (close to 300s timeout)
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PetFoodImageGeneratorFunction
+      TreatMissingData: notBreaching
+
+Outputs:
+  PetFoodImageGeneratorFunctionArn:
+    Description: "Pet Food Image Generator Lambda Function ARN"
+    Value: !GetAtt PetFoodImageGeneratorFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-PetFoodImageGeneratorFunctionArn"
+
+  PetFoodImageGeneratorFunctionName:
+    Description: "Pet Food Image Generator Lambda Function Name"
+    Value: !Ref PetFoodImageGeneratorFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-PetFoodImageGeneratorFunctionName"
+
+  PetFoodEventsDLQArn:
+    Description: "Image Generator Dead Letter Queue ARN"
+    Value: !GetAtt PetFoodEventsDLQ.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-PetFoodEventsDLQArn"
+
+  PetFoodEventsDLQUrl:
+    Description: "Image Generator Dead Letter Queue URL"
+    Value: !Ref PetFoodEventsDLQ
+    Export:
+      Name: !Sub "${AWS::StackName}-PetFoodEventsDLQUrl"
+
+  PetFoodEventsDLQPolicyArn:
+    Description: "Image Generator Dead Letter Queue Policy ARN"
+    Value: !Ref PetFoodEventsDLQPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-PetFoodEventsDLQPolicyArn"
+
+  ImageGeneratorLogGroupName:
+    Description: "Image Generator Log Group Name"
+    Value: !Ref ImageGeneratorLogGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ImageGeneratorLogGroupName"
