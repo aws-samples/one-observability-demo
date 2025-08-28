@@ -411,8 +411,8 @@ const lambda = new AWS.Lambda();
 exports.handler = async (event) => {
   const concurrentUsers = parseInt(process.env.CONCURRENT_USERS || '50', 10);
 
-  console.log(\`🚀 Starting main traffic generation for \${concurrentUsers} concurrent users...\`);
-  console.log(\`📅 Event: \${JSON.stringify(event)}\`);
+  console.log(\`Starting main traffic generation for \${concurrentUsers} concurrent users...\`);
+  console.log(\`Event: \${JSON.stringify(event)}\`);
 
   // Find the main canary function dynamically
   const canaryFunctionName = await findMainCanaryFunction();
@@ -421,7 +421,7 @@ exports.handler = async (event) => {
     throw new Error('Could not find main canary Lambda function');
   }
 
-  console.log(\`🎯 Found main canary function: \${canaryFunctionName}\`);
+  console.log(\`Found main canary function: \${canaryFunctionName}\`);
 
   const invokePromises = [];
   const startTime = Date.now();
@@ -440,10 +440,10 @@ exports.handler = async (event) => {
         InvocationType: 'Event', // Asynchronous invocation
         Payload: JSON.stringify(payload),
       }).promise().then(result => {
-        console.log(\`✅ Invoked main canary for user \${userId}\`);
+        console.log(\`Invoked main canary for user \${userId}\`);
         return { userId, success: true, result };
       }).catch(error => {
-        console.error(\`❌ Failed to invoke main canary for user \${userId}: \${error.message}\`);
+        console.error(\`Failed to invoke main canary for user \${userId}: \${error.message}\`);
         return { userId, success: false, error: error.message };
       })
     );
@@ -457,10 +457,10 @@ exports.handler = async (event) => {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(\`🎉 Main traffic generation completed!\`);
-    console.log(\`📊 Results: \${successful} successful, \${failed} failed\`);
-    console.log(\`⏱️  Duration: \${duration}ms\`);
-    console.log(\`🚀 Generated \${concurrentUsers} concurrent user sessions\`);
+    console.log(\`Main traffic generation completed!\`);
+    console.log(\`Results: \${successful} successful, \${failed} failed\`);
+    console.log(\`Duration: \${duration}ms\`);
+    console.log(\`Generated \${concurrentUsers} concurrent user sessions\`);
 
     return {
       statusCode: 200,
@@ -474,7 +474,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('❌ Error in main traffic generation:', error);
+    console.error('Error in main traffic generation:', error);
     throw error;
   }
 };
@@ -506,8 +506,8 @@ const lambda = new AWS.Lambda();
 exports.handler = async (event) => {
   const concurrentUsers = parseInt(process.env.CONCURRENT_USERS || '20', 10);
 
-  console.log(\`🧹 Starting housekeeping traffic generation for \${concurrentUsers} concurrent users...\`);
-  console.log(\`📅 Event: \${JSON.stringify(event)}\`);
+  console.log(\`Starting housekeeping traffic generation for \${concurrentUsers} concurrent users...\`);
+  console.log(\`Event: \${JSON.stringify(event)}\`);
 
   // Find the housekeeping canary function dynamically
   const canaryFunctionName = await findHousekeepingCanaryFunction();
@@ -516,7 +516,7 @@ exports.handler = async (event) => {
     throw new Error('Could not find housekeeping canary Lambda function');
   }
 
-  console.log(\`🎯 Found housekeeping canary function: \${canaryFunctionName}\`);
+  console.log(\` Found housekeeping canary function: \${canaryFunctionName}\`);
 
   const invokePromises = [];
   const startTime = Date.now();
@@ -536,10 +536,10 @@ exports.handler = async (event) => {
         InvocationType: 'Event', // Asynchronous invocation
         Payload: JSON.stringify(payload),
       }).promise().then(result => {
-        console.log(\`✅ Invoked housekeeping canary for user \${userId}\`);
+        console.log(\`Invoked housekeeping canary for user \${userId}\`);
         return { userId, success: true, result };
       }).catch(error => {
-        console.error(\`❌ Failed to invoke housekeeping canary for user \${userId}: \${error.message}\`);
+        console.error(\`Failed to invoke housekeeping canary for user \${userId}: \${error.message}\`);
         return { userId, success: false, error: error.message };
       })
     );
@@ -553,10 +553,10 @@ exports.handler = async (event) => {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(\`🎉 Housekeeping traffic generation completed!\`);
-    console.log(\`📊 Results: \${successful} successful, \${failed} failed\`);
-    console.log(\`⏱️  Duration: \${duration}ms\`);
-    console.log(\`🧹 Generated \${concurrentUsers} concurrent housekeeping user sessions\`);
+    console.log(\`Housekeeping traffic generation completed!\`);
+    console.log(\`Results: \${successful} successful, \${failed} failed\`);
+    console.log(\` Duration: \${duration}ms\`);
+    console.log(\`Generated \${concurrentUsers} concurrent housekeeping user sessions\`);
 
     return {
       statusCode: 200,
@@ -570,7 +570,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error('❌ Error in housekeeping traffic generation:', error);
+    console.error('Error in housekeeping traffic generation:', error);
     throw error;
   }
 };
