@@ -1,0 +1,236 @@
+ [
+  {
+    "pettype": "bunny",
+    "petid": "023",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "b4",
+    "petcolor": "white",
+    "price": "75"
+  },
+  {
+    "pettype": "bunny",
+    "petid": "024",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "b3",
+    "petcolor": "brown",
+    "price": "45"
+  },
+  {
+    "pettype": "bunny",
+    "petid": "025",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "b2",
+    "petcolor": "brown",
+    "price": "55"
+  },
+  {
+    "pettype": "bunny",
+    "petid": "026",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "b1",
+    "petcolor": "brown",
+    "price": "95"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "016",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "k1",
+    "petcolor": "white",
+    "price": "79"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "017",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "k3",
+    "petcolor": "white",
+    "price": "89"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "018",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "k6",
+    "petcolor": "black",
+    "price": "99"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "019",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "k2",
+    "petcolor": "grey",
+    "price": "99"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "020",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "k5",
+    "petcolor": "brown",
+    "price": "89"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "021",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "k4",
+    "petcolor": "brown",
+    "price": "65"
+  },
+  {
+    "pettype": "kitten",
+    "petid": "022",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "k7",
+    "petcolor": "black",
+    "price": "75"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "001",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p9",
+    "petcolor": "black",
+    "price": "89"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "002",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p10",
+    "petcolor": "black",
+    "price": "99"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "003",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p1",
+    "petcolor": "brown",
+    "price": "99"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "004",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p11",
+    "petcolor": "black",
+    "price": "89"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "005",
+    "availability": "yes",
+    "cuteness_rate": "3",
+    "image": "p3",
+    "petcolor": "brown",
+    "price": "59"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "006",
+    "availability": "yes",
+    "cuteness_rate": "3",
+    "image": "p6",
+    "petcolor": "brown",
+    "price": "100"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "007",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "p4",
+    "petcolor": "brown",
+    "price": "70"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "008",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p7",
+    "petcolor": "brown",
+    "price": "600"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "009",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p12",
+    "petcolor": "black",
+    "price": "60"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "010",
+    "availability": "yes",
+    "cuteness_rate": "3",
+    "image": "p8",
+    "petcolor": "brown",
+    "price": "80"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "011",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "p14",
+    "petcolor": "white",
+    "price": "59"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "012",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p15",
+    "petcolor": "white",
+    "price": "79"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "013",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "p2",
+    "petcolor": "white",
+    "price": "99"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "014",
+    "availability": "yes",
+    "cuteness_rate": "5",
+    "image": "p13",
+    "petcolor": "black",
+    "price": "79"
+  },
+  {
+    "pettype": "puppy",
+    "petid": "015",
+    "availability": "yes",
+    "cuteness_rate": "4",
+    "image": "p5",
+    "petcolor": "white",
+    "price": "79"
+  }
+]

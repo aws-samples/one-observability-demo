@@ -1,10 +1,10 @@
 # Build stage
-FROM rust:1.89-bookworm AS builder
+FROM public.ecr.aws/docker/library/rust:bookworm AS builder
 COPY . .
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM public.ecr.aws/docker/library/debian:bookworm-slim
 
 # Install runtime dependencies and CA certificates
 RUN apt-get update && apt-get install -y \

@@ -11,6 +11,10 @@ import { AuroraDatabase, AuroraDBProperties } from '../constructs/database';
 import { WorkshopNetwork } from '../constructs/network';
 import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
 import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
+import { CodeBuildStep } from 'aws-cdk-lib/pipelines';
+import { ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { NagSuppressions } from 'cdk-nag';
+import { IBucket } from 'aws-cdk-lib/aws-s3';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
@@ -32,26 +36,75 @@ export class StorageStage extends Stage {
             Utilities.TagConstruct(this.stack, properties.tags);
         }
     }
+    public getDDBSeedingStep(scope: Stack, artifactBucket: IBucket) {
+        const seedingRole = new Role(scope, 'DDBSeedingRole', {
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+            description: 'CodeBuild role for DynamoDB seeding',
+            managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonDynamoDBFullAccess_v2')],
+        });
+
+        artifactBucket.grantRead(seedingRole);
+        new Policy(scope, 'DDBSeedingPolicy', {
+            roles: [seedingRole],
+            statements: [
+                new PolicyStatement({
+                    actions: ['ssm:GetParameter'],
+                    resources: ['*'],
+                }),
+            ],
+        });
+
+        // Seeding action role needs access to retrieve the table
+        // name from Parameter store, and full access to dynamodb
+
+        const seedStep = new CodeBuildStep('DDBSeeding', {
+            commands: [
+                'cd src/cdk',
+                'TABLE_NAME=$(./scripts/get-parameter.sh dynamodbtablename)',
+                './scripts/seed-dynamodb.sh $TABLE_NAME',
+            ],
+            buildEnvironment: {
+                privileged: false,
+            },
+            role: seedingRole,
+        });
+
+        NagSuppressions.addResourceSuppressions(
+            seedingRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'AWS Managed policies is acceptable for the DynamoDB Seeding action',
+                },
+            ],
+            true,
+        );
+
+        return seedStep;
+    }
 }
 
 export class StorageStack extends Stack {
+    public readonly dynamoDatabase: DynamoDatabase;
+    public readonly auroraDatabase: AuroraDatabase;
+    public readonly workshopAssets: WorkshopAssets;
     constructor(scope: Construct, id: string, properties: StorageProperties) {
         super(scope, id, properties);
 
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'vpc');
 
         /** Add Assets resources */
-        new WorkshopAssets(this, 'WorkshopAssets', properties.assetsProperties);
+        this.workshopAssets = new WorkshopAssets(this, 'WorkshopAssets', properties.assetsProperties);
 
         /** Add DynamoDB resource */
-        new DynamoDatabase(this, 'DynamoDb', properties.dynamoDatabaseProperties);
+        this.dynamoDatabase = new DynamoDatabase(this, 'DynamoDb', properties.dynamoDatabaseProperties);
 
         const databaseProperties = properties.auroraDatabaseProperties || {};
         if (databaseProperties) {
             databaseProperties.vpc = vpc;
         }
         /** Add Database resource */
-        new AuroraDatabase(this, 'AuroraDatabase', databaseProperties);
+        this.auroraDatabase = new AuroraDatabase(this, 'AuroraDatabase', databaseProperties);
 
         /** Add OpenSearch Collection resource */
         const openSearchCollection = new OpenSearchCollection(

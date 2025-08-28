@@ -183,6 +183,59 @@ The `src/cdk/scripts/redeploy-app.sh` script helps developers quickly redeploy i
 
 See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
 
+### DynamoDB Seeding Script
+
+The `src/cdk/scripts/seed-dynamodb.sh` script helps populate DynamoDB tables with initial pet adoption data.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- `jq` command-line JSON processor installed
+- CDK resources must be deployed first
+- The script uses data from `src/cdk/scripts/seed.json`
+
+**Usage:**
+```bash
+# Interactive mode
+./src/cdk/scripts/seed-dynamodb.sh
+
+# Non-interactive mode with table name
+./src/cdk/scripts/seed-dynamodb.sh TABLE_NAME
+```
+
+The script will:
+- Accept table name as parameter for non-interactive usage
+- List all DynamoDB tables in your account (interactive mode)
+- Automatically suggest tables containing "Petadoption" in the name (interactive mode)
+- Allow you to select which table to seed (interactive mode)
+- Populate the selected table with pet data from the seed file
+
+**Note:** This script must be executed after the CDK resources are deployed.
+
+### Parameter Store Retrieval Script
+
+The `src/cdk/scripts/get-parameter.sh` script retrieves values from AWS Systems Manager Parameter Store using the configured prefix.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- CDK resources must be deployed first
+
+**Usage:**
+```bash
+./src/cdk/scripts/get-parameter.sh <parameter-key>
+```
+
+**Example:**
+```bash
+./src/cdk/scripts/get-parameter.sh database-endpoint
+```
+
+This retrieves the parameter `/petstore/database-endpoint` from Parameter Store.
+
+**Return Values:**
+- Parameter value if found
+- `-1` if parameter not found or invalid key
+- `-2` if access denied
+
 ## Security issue notifications
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
 
