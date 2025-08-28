@@ -191,9 +191,10 @@ impl DynamoDbCartRepository {
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
-            .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid updated_at".to_string(),
-            })?;
+            .unwrap_or_else(|| {
+                // If updated_at is missing or invalid, use created_at as fallback
+                created_at
+            });
 
         Ok(Cart {
             user_id,
@@ -582,6 +583,31 @@ mod tests {
         );
 
         assert_eq!(repo.table_name(), "test-cart-table");
+    }
+
+    #[test]
+    fn test_item_to_cart_conversion_missing_updated_at() {
+        let cart = create_test_cart();
+        let config = aws_sdk_dynamodb::Config::builder()
+            .region(aws_sdk_dynamodb::config::Region::new("us-east-1"))
+            .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
+            .build();
+        let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
+        let repo =
+            DynamoDbCartRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+
+        let mut item = repo.cart_to_item(&cart);
+        
+        // Remove the updated_at field to simulate legacy data
+        item.remove("updated_at");
+
+        let converted_cart = repo.item_to_cart(item).unwrap();
+
+        assert_eq!(converted_cart.user_id, cart.user_id);
+        assert_eq!(converted_cart.items.len(), cart.items.len());
+
+        // When updated_at is missing, it should fallback to created_at
+        assert_eq!(converted_cart.updated_at, converted_cart.created_at);
     }
 
     #[test]

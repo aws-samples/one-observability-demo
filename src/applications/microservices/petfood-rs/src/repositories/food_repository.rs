@@ -398,9 +398,10 @@ impl DynamoDbFoodRepository {
             .and_then(|v| v.as_s().ok())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
-            .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Invalid updated_at".to_string(),
-            })?;
+            .unwrap_or_else(|| {
+                // If updated_at is missing or invalid, use created_at as fallback
+                created_at
+            });
 
         let is_active = item
             .get("is_active")
@@ -956,6 +957,34 @@ mod tests {
         let nutrition = converted_food.nutritional_info.unwrap();
         assert_eq!(nutrition.calories_per_serving, Some(350));
         assert_eq!(nutrition.protein_percentage, Some(dec!(25.0)));
+    }
+
+    #[test]
+    fn test_item_to_food_conversion_missing_updated_at() {
+        let food = create_test_food();
+        let config = aws_sdk_dynamodb::Config::builder()
+            .region(aws_sdk_dynamodb::config::Region::new("us-east-1"))
+            .behavior_version(aws_sdk_dynamodb::config::BehaviorVersion::latest())
+            .build();
+        let client = Arc::new(aws_sdk_dynamodb::Client::from_conf(config));
+        let repo =
+            DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
+
+        let mut item = repo.food_to_item(&food);
+        
+        // Remove the updated_at field to simulate legacy data
+        item.remove("updated_at");
+
+        let converted_food = repo.item_to_food(item).unwrap();
+
+        assert_eq!(converted_food.id, food.id);
+        assert_eq!(converted_food.name, food.name);
+        assert_eq!(converted_food.pet_type, food.pet_type);
+        assert_eq!(converted_food.food_type, food.food_type);
+        assert_eq!(converted_food.price, food.price);
+
+        // When updated_at is missing, it should fallback to created_at
+        assert_eq!(converted_food.updated_at, converted_food.created_at);
     }
 
     #[test]
