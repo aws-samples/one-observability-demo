@@ -136,9 +136,9 @@ export class CanaryStack extends Stack {
       },
     });
 
-    // Grant Lambda invoke permissions to main traffic generator
+    // Grant Lambda invoke and list permissions to main traffic generator
     mainTrafficGeneratorFunction.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['lambda:InvokeFunction'],
+      actions: ['lambda:InvokeFunction', 'lambda:ListFunctions'],
       resources: ['*'],
     }));
 
@@ -201,9 +201,9 @@ export class CanaryStack extends Stack {
       },
     });
 
-    // Grant Lambda invoke permissions to housekeeping traffic generator
+    // Grant Lambda invoke and list permissions to housekeeping traffic generator
     housekeepingTrafficGeneratorFunction.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['lambda:InvokeFunction'],
+      actions: ['lambda:InvokeFunction', 'lambda:ListFunctions'],
       resources: ['*'],
     }));
 
