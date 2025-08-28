@@ -37,6 +37,7 @@ import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
 import { Utilities } from '../lib/utils/utilities';
+import { CanaryStack } from '../lib/constructs/canaries/canary-stack';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -87,7 +88,7 @@ const compute = new ComputeStack(app, 'DevComputeStack', {
 compute.addDependency(core, 'Network is needed');
 
 /** Deploy microservices stack with pet store application components */
-new MicroservicesStack(app, 'DevMicroservicesStack', {
+const microservices = new MicroservicesStack(app, 'DevMicroservicesStack', {
     tags: TAGS,
     microservicesPlacement: MICROSERVICES_PLACEMENT,
     lambdaFunctions: LAMBDA_FUNCTIONS,
@@ -95,7 +96,18 @@ new MicroservicesStack(app, 'DevMicroservicesStack', {
         account: process.env.AWS_ACCOUNT_ID,
         region: process.env.AWS_REGION,
     },
-}).addDependency(compute, 'Need to know where to run');
+});
+microservices.addDependency(compute, 'Need to know where to run');
+
+/** Deploy observability stack with canaries and alarms */
+const observability = new CanaryStack(app, 'DevObservabilityStack', {
+    tags: TAGS,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
+});
+observability.addDependency(microservices, 'Need microservices to be running');
 
 /** Tag all resources to indicate local deployment */
 Utilities.TagConstruct(app, {
