@@ -1,4 +1,7 @@
 use crate::models::{EventConfig, EventPayload, FoodEvent, SpanContextData};
+
+#[cfg(test)]
+use crate::models::CreationSource;
 use aws_sdk_eventbridge::operation::RequestId;
 use aws_sdk_eventbridge::{Client as EventBridgeClient, Error as EventBridgeError};
 use aws_smithy_runtime_api::client::result::SdkError;
@@ -395,6 +398,7 @@ mod tests {
             FoodType::Dry,
             None,
             None,
+            CreationSource::AdminApi,
             SpanContextData::default(),
         );
 

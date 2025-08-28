@@ -3,6 +3,31 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Source of food item creation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CreationSource {
+    /// Created via admin API endpoint
+    AdminApi,
+    /// Created via seeding operation
+    Seeding,
+    /// Created via bulk import
+    BulkImport,
+    /// Created via migration
+    Migration,
+}
+
+impl std::fmt::Display for CreationSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CreationSource::AdminApi => write!(f, "admin_api"),
+            CreationSource::Seeding => write!(f, "seeding"),
+            CreationSource::BulkImport => write!(f, "bulk_import"),
+            CreationSource::Migration => write!(f, "migration"),
+        }
+    }
+}
+
 /// Event types that can be emitted by the petfood service
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -58,6 +83,7 @@ pub struct FoodEvent {
 
 impl FoodEvent {
     /// Create a new FoodItemCreated event
+    #[allow(clippy::too_many_arguments)]
     pub fn food_item_created(
         food_id: String,
         food_name: String,
@@ -65,10 +91,35 @@ impl FoodEvent {
         food_type: FoodType,
         description: Option<String>,
         ingredients: Option<Vec<String>>,
+        creation_source: CreationSource,
         span_context: SpanContextData,
     ) -> Self {
         let mut metadata = HashMap::new();
         metadata.insert("image_required".to_string(), "true".to_string());
+        metadata.insert("creation_source".to_string(), creation_source.to_string());
+
+        // Add additional metadata based on creation source
+        match creation_source {
+            CreationSource::AdminApi => {
+                metadata.insert("is_manual_creation".to_string(), "true".to_string());
+                metadata.insert("requires_validation".to_string(), "true".to_string());
+            }
+            CreationSource::Seeding => {
+                metadata.insert("is_manual_creation".to_string(), "false".to_string());
+                metadata.insert("is_seed_data".to_string(), "true".to_string());
+                metadata.insert("requires_validation".to_string(), "false".to_string());
+            }
+            CreationSource::BulkImport => {
+                metadata.insert("is_manual_creation".to_string(), "false".to_string());
+                metadata.insert("is_bulk_operation".to_string(), "true".to_string());
+                metadata.insert("requires_validation".to_string(), "true".to_string());
+            }
+            CreationSource::Migration => {
+                metadata.insert("is_manual_creation".to_string(), "false".to_string());
+                metadata.insert("is_migration".to_string(), "true".to_string());
+                metadata.insert("requires_validation".to_string(), "false".to_string());
+            }
+        }
 
         Self {
             event_type: FoodEventType::FoodItemCreated,
@@ -241,6 +292,7 @@ mod tests {
             FoodType::Dry,
             Some("Test description".to_string()),
             Some(vec!["beef".to_string(), "rice".to_string()]),
+            CreationSource::AdminApi,
             span_context.clone(),
         );
 
@@ -251,6 +303,18 @@ mod tests {
         assert_eq!(event.food_type, Some(FoodType::Dry));
         assert_eq!(event.span_context, span_context);
         assert!(event.metadata.contains_key("image_required"));
+        assert_eq!(
+            event.metadata.get("creation_source"),
+            Some(&"admin_api".to_string())
+        );
+        assert_eq!(
+            event.metadata.get("is_manual_creation"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            event.metadata.get("requires_validation"),
+            Some(&"true".to_string())
+        );
     }
 
     #[test]
@@ -289,6 +353,7 @@ mod tests {
             FoodType::Dry,
             None,
             None,
+            CreationSource::Seeding,
             span_context,
         );
 
@@ -311,6 +376,7 @@ mod tests {
             FoodType::Dry,
             None,
             None,
+            CreationSource::BulkImport,
             span_context,
         );
 
@@ -328,5 +394,130 @@ mod tests {
         assert_eq!(span_context.trace_id, "00000000000000000000000000000000");
         assert_eq!(span_context.span_id, "0000000000000000");
         assert_eq!(span_context.trace_flags, "00");
+    }
+
+    #[test]
+    fn test_creation_source_metadata() {
+        let span_context = SpanContextData::default();
+
+        // Test AdminApi creation source
+        let admin_event = FoodEvent::food_item_created(
+            "admin-id".to_string(),
+            "Admin Food".to_string(),
+            PetType::Puppy,
+            FoodType::Dry,
+            None,
+            None,
+            CreationSource::AdminApi,
+            span_context.clone(),
+        );
+
+        assert_eq!(
+            admin_event.metadata.get("creation_source"),
+            Some(&"admin_api".to_string())
+        );
+        assert_eq!(
+            admin_event.metadata.get("is_manual_creation"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            admin_event.metadata.get("requires_validation"),
+            Some(&"true".to_string())
+        );
+
+        // Test Seeding creation source
+        let seed_event = FoodEvent::food_item_created(
+            "seed-id".to_string(),
+            "Seed Food".to_string(),
+            PetType::Puppy,
+            FoodType::Dry,
+            None,
+            None,
+            CreationSource::Seeding,
+            span_context.clone(),
+        );
+
+        assert_eq!(
+            seed_event.metadata.get("creation_source"),
+            Some(&"seeding".to_string())
+        );
+        assert_eq!(
+            seed_event.metadata.get("is_manual_creation"),
+            Some(&"false".to_string())
+        );
+        assert_eq!(
+            seed_event.metadata.get("is_seed_data"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            seed_event.metadata.get("requires_validation"),
+            Some(&"false".to_string())
+        );
+
+        // Test BulkImport creation source
+        let bulk_event = FoodEvent::food_item_created(
+            "bulk-id".to_string(),
+            "Bulk Food".to_string(),
+            PetType::Puppy,
+            FoodType::Dry,
+            None,
+            None,
+            CreationSource::BulkImport,
+            span_context.clone(),
+        );
+
+        assert_eq!(
+            bulk_event.metadata.get("creation_source"),
+            Some(&"bulk_import".to_string())
+        );
+        assert_eq!(
+            bulk_event.metadata.get("is_manual_creation"),
+            Some(&"false".to_string())
+        );
+        assert_eq!(
+            bulk_event.metadata.get("is_bulk_operation"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            bulk_event.metadata.get("requires_validation"),
+            Some(&"true".to_string())
+        );
+
+        // Test Migration creation source
+        let migration_event = FoodEvent::food_item_created(
+            "migration-id".to_string(),
+            "Migration Food".to_string(),
+            PetType::Puppy,
+            FoodType::Dry,
+            None,
+            None,
+            CreationSource::Migration,
+            span_context,
+        );
+
+        assert_eq!(
+            migration_event.metadata.get("creation_source"),
+            Some(&"migration".to_string())
+        );
+        assert_eq!(
+            migration_event.metadata.get("is_manual_creation"),
+            Some(&"false".to_string())
+        );
+        assert_eq!(
+            migration_event.metadata.get("is_migration"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            migration_event.metadata.get("requires_validation"),
+            Some(&"false".to_string())
+        );
+    }
+
+    #[test]
+    fn test_creation_source_display() {
+        assert_eq!(CreationSource::AdminApi.to_string(), "admin_api");
+        assert_eq!(CreationSource::Seeding.to_string(), "seeding");
+        assert_eq!(CreationSource::BulkImport.to_string(), "bulk_import");
+        assert_eq!(CreationSource::Migration.to_string(), "migration");
     }
 }

@@ -2,8 +2,8 @@ use std::sync::Arc;
 use tracing::{instrument, warn};
 
 use crate::models::{
-    CreateFoodRequest, Food, FoodEvent, FoodFilters, FoodListResponse, FoodType, PetType,
-    ServiceError, ServiceResult, UpdateFoodRequest,
+    CreateFoodRequest, CreationSource, Food, FoodEvent, FoodFilters, FoodListResponse, FoodType,
+    PetType, ServiceError, ServiceResult, UpdateFoodRequest,
 };
 use crate::repositories::FoodRepository;
 use crate::services::EventEmitter;
@@ -84,8 +84,12 @@ impl FoodService {
     }
 
     /// Create a new food product
-    #[instrument(skip(self, request), fields(name = %request.name, pet_type = %request.pet_type))]
-    pub async fn create_food(&self, request: CreateFoodRequest) -> ServiceResult<Food> {
+    #[instrument(skip(self, request), fields(name = %request.name, pet_type = %request.pet_type, creation_source = %creation_source))]
+    pub async fn create_food(
+        &self,
+        request: CreateFoodRequest,
+        creation_source: CreationSource,
+    ) -> ServiceResult<Food> {
         crate::info_with_trace!("Creating new food product");
 
         // Validate the request
@@ -114,6 +118,7 @@ impl FoodService {
                 created_food.food_type.clone(),
                 Some(created_food.description.clone()),
                 Some(created_food.ingredients.clone()),
+                creation_source,
                 span_context,
             );
 
@@ -626,7 +631,7 @@ mod tests {
 
         let service = FoodService::new(Arc::new(mock_repo));
 
-        let result = service.create_food(request).await;
+        let result = service.create_food(request, CreationSource::AdminApi).await;
 
         assert!(result.is_ok());
         let food = result.unwrap();
@@ -642,7 +647,7 @@ mod tests {
         let mut request = create_test_create_request();
         request.name = "".to_string(); // Invalid empty name
 
-        let result = service.create_food(request).await;
+        let result = service.create_food(request, CreationSource::AdminApi).await;
 
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -858,7 +863,9 @@ mod tests {
             FoodService::new_with_event_emitter(Arc::new(mock_repo), Arc::new(event_emitter));
         let request = create_test_create_request();
 
-        let result = service.create_food(request.clone()).await;
+        let result = service
+            .create_food(request.clone(), CreationSource::Seeding)
+            .await;
 
         assert!(result.is_ok());
         let created_food = result.unwrap();
