@@ -26,7 +26,7 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 300
+    Timeout: 600  # 10 minutes to account for retries and backoff delays
     MemorySize: 1024
     Runtime: python3.13
     Environment:
@@ -42,6 +42,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       Description: "Lambda function for automated pet food image generation using Bedrock"
 
+
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -49,8 +50,15 @@ Resources:
           S3_BUCKET_NAME: !Ref S3BucketName
           BEDROCK_MODEL_ID: !Ref BedrockModelId
           # Explicitly disable OpenTelemetry auto-instrumentation
-          OTEL_PYTHON_DISABLED_INSTRUMENTATIONS: "all"
-          AWS_LAMBDA_EXEC_WRAPPER: ""
+          OTEL_PYTHON_DISABLED_INSTRUMENTATIONS: "none"
+          OTEL_AWS_APPLICATION_SIGNALS_ENABLED: true
+          OTEL_METRICS_EXPORTER: none
+          OTEL_LOGS_EXPORTER: none
+          OTEL_SERVICE_NAME: 'petfood-image-generator-dev'
+          OTEL_SERVICE_VERSION: '0.1.0'
+          AWS_LAMBDA_EXEC_WRAPPER: "/opt/otel-instrument"
+      Layers:
+        - arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroPython:20
 
       Policies:
         - AWSLambdaBasicExecutionRole
@@ -168,7 +176,7 @@ Resources:
       Statistic: Average
       Period: 300
       EvaluationPeriods: 2
-      Threshold: 250000 # 250 seconds (close to 300s timeout)
+      Threshold: 550000 # 550 seconds (close to 600s timeout)
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: FunctionName
