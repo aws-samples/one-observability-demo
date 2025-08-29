@@ -340,7 +340,7 @@ export class MicroservicesStack extends Stack {
                     name: name,
                     imageBucket: imports.assetsBucket,
                     eventBridgeBus: imports.eventBusExports.eventBus,
-                    petfoodTable: imports.dynamodbExports.petfoodTable,
+                    petfoodTable: imports.dynamodbExports.petFoodsTable,
                 });
             }
             if (name == LambdaFunctionNames.PetfoodImageGenerator) {
@@ -349,7 +349,7 @@ export class MicroservicesStack extends Stack {
                     name: name,
                     imageBucket: imports.assetsBucket,
                     eventBridgeBus: imports.eventBusExports.eventBus,
-                    petfoodTable: imports.dynamodbExports.petfoodTable,
+                    petfoodTable: imports.dynamodbExports.petFoodsTable,
                 });
             }
         }

@@ -65,7 +65,7 @@ export class PetfoodCleanupProcessorFunction extends WokshopLambdaFunction {
             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
             OTEL_METRICS_EXPORTER: 'none',
             OTEL_LOGS_EXPORTER: 'none',
-            OTEL_SERVICE_NAME: this.function.functionName,
+            OTEL_SERVICE_NAME: properties.name,
             OTEL_SERVICE_VERSION: '0.1.0',
             AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',
         };

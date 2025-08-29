@@ -13,9 +13,9 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { Runtime, Function, ILayerVersion } from 'aws-cdk-lib/aws-lambda';
+import { Runtime, Function, ILayerVersion, Architecture } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions, NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
@@ -26,6 +26,7 @@ import {
     TRAFFIC_GENERATOR_FUNCTION,
 } from '../../bin/environment';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 
 /**
  * Properties for configuring a workshop Lambda function.
@@ -42,7 +43,9 @@ export interface WorkshopLambdaFunctionProperties {
     /** Memory allocation for the function in MB */
     memorySize: number;
     /** Handler method name within the entry file */
-    handle: string;
+    handler?: string;
+    /** The path (relative to entry) to the index file containing the exported handler. */
+    index?: string;
     /** Log retention period for CloudWatch logs */
     logRetentionDays?: RetentionDays;
     /** Description of the function's purpose */
@@ -93,18 +96,49 @@ export abstract class WokshopLambdaFunction extends Construct {
     constructor(scope: Construct, id: string, properties: WorkshopLambdaFunctionProperties) {
         super(scope, id);
 
+        const logGroup = new LogGroup(this, 'LogGroup', {
+            logGroupName: `/aws/lambda/${properties.name}`,
+            retention: properties.logRetentionDays ?? RetentionDays.ONE_DAY,
+        });
+
         if (properties.runtime.name.startsWith('nodejs')) {
             /** NodeJS Lambda function */
+            if (!properties.handler) {
+                throw new Error('Handler must be specified for Node.js functions');
+            }
+
             this.function = new NodejsFunction(this, `${properties.name}-function`, {
                 runtime: properties.runtime,
+                architecture: Architecture.X86_64,
                 depsLockFilePath: properties.depsLockFilePath,
                 entry: properties.entry,
-                handler: properties.handle,
+                handler: properties.handler,
                 memorySize: properties.memorySize,
-                logRetention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
+                logGroup: logGroup,
                 layers: this.getLayers(properties),
                 environment: this.getEnvironmentVariables(properties),
                 bundling: this.getBundling(properties),
+                deadLetterQueueEnabled: true,
+                deadLetterQueue: new Queue(this, 'DeadLetterQueue', {
+                    queueName: `${properties.name}-dlq`,
+                    enforceSSL: true,
+                }),
+            });
+        } else if (properties.runtime.name.startsWith('python')) {
+            /** Python Lambda function */
+            if (!properties.index) {
+                throw new Error('Index must be specified for Python functions');
+            }
+
+            this.function = new PythonFunction(this, `${properties.name}-function`, {
+                runtime: properties.runtime,
+                architecture: Architecture.X86_64,
+                index: properties.index,
+                entry: properties.entry,
+                memorySize: properties.memorySize,
+                logGroup: logGroup,
+                layers: this.getLayers(properties),
+                environment: this.getEnvironmentVariables(properties),
                 deadLetterQueueEnabled: true,
                 deadLetterQueue: new Queue(this, 'DeadLetterQueue', {
                     queueName: `${properties.name}-dlq`,

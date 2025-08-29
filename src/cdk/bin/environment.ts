@@ -178,7 +178,7 @@ export const STATUS_UPDATER_FUNCTION = {
     depsLockFilePath: '../applications/lambda/petstatusupdater-node/package-lock.json',
     entry: '../applications/lambda/petstatusupdater-node/index.js',
     memorySize: 128,
-    handle: 'handler',
+    handler: 'handler',
     enableSchedule: false,
 };
 
@@ -188,18 +188,18 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     depsLockFilePath: '../applications/lambda/traffic-generator-node/package-lock.json',
     entry: '../applications/lambda/traffic-generator-node/index.js',
     memorySize: 128,
-    handle: 'handler',
+    handler: 'handler',
     scheduleExpression: 'rate(1 minute)',
     enableSchedule: true,
 };
 
 export const PETFOOD_IMAGE_GENERATOR_FUNCTION = {
-    name: 'petfood-image-generator-node',
-    runtime: Runtime.NODEJS_22_X,
-    depsLockFilePath: '../applications/lambda/petfood-image-generator-node/package-lock.json',
-    entry: '../applications/lambda/petfood-image-generator-node/index.js',
+    name: 'petfood-image-generator-python',
+    runtime: Runtime.PYTHON_3_13,
+    entry: '../applications/lambda/petfood-image-generator-python',
+    index: 'lambda_function.py',
     memorySize: 128,
-    handle: 'handler',
+    handler: 'lambda_handler',
     enableSchedule: false,
 };
 
@@ -209,7 +209,7 @@ export const PETFOOD_CLEANUP_PROCESSOR_FUNCTION = {
     depsLockFilePath: '../applications/lambda/petfood-cleanup-processor-node/package-lock.json',
     entry: '../applications/lambda/petfood-cleanup-processor-node/index.js',
     memorySize: 128,
-    handle: 'handler',
+    handler: 'handler',
     enableSchedule: false,
 };
 
