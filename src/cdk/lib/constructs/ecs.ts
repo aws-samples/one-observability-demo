@@ -25,6 +25,7 @@ import {
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
 } from '../../bin/constants';
+import { OpenSearchPipeline } from './opensearch-pipeline';
 
 /**
  * Properties for configuring the ECS cluster construct.
@@ -38,6 +39,8 @@ export interface EcsProperties {
     ecsEc2Capacity?: number;
     /** EC2 instance type for the ECS cluster nodes */
     ecsEc2InstanceType?: string;
+    /** OpenSearch ingestion pipeline for log routing */
+    openSearchPipeline?: OpenSearchPipeline;
 }
 
 /**
@@ -60,6 +63,8 @@ export class WorkshopEcs extends Construct {
     public readonly autoScalingGroup: AutoScalingGroup;
     /** Security group for ECS cluster resources */
     public readonly securityGroup: SecurityGroup;
+    /** OpenSearch ingestion pipeline for log routing (optional) */
+    public readonly openSearchPipeline?: OpenSearchPipeline;
 
     /**
      * Creates a new WorkshopEcs construct.
@@ -70,6 +75,9 @@ export class WorkshopEcs extends Construct {
      */
     constructor(scope: Construct, id: string, properties: EcsProperties) {
         super(scope, id);
+
+        // Store the pipeline reference for use by ECS services
+        this.openSearchPipeline = properties.openSearchPipeline;
 
         this.securityGroup = new SecurityGroup(this, 'SecurityGroup', {
             vpc: properties.vpc,
@@ -165,13 +173,13 @@ export class WorkshopEcs extends Construct {
      * @param scope - The construct scope where the cluster will be imported
      * @param id - The construct identifier for the imported resources
      * @param vpc - The VPC where the cluster is deployed
-     * @returns Object containing the imported cluster and security group
+     * @returns Object containing the imported cluster, security group, and optional pipeline
      */
     public static importFromExports(
         scope: Construct,
         id: string,
         vpc: IVpc,
-    ): { cluster: ICluster; securityGroup: ISecurityGroup } {
+    ): { cluster: ICluster; securityGroup: ISecurityGroup; openSearchPipeline?: { pipelineEndpoint: string; pipelineArn: string; pipelineRoleArn: string } } {
         const clusterName = Fn.importValue(ECS_CLUSTER_NAME_EXPORT_NAME);
         const securityGroupId = Fn.importValue(ECS_SECURITY_GROUP_ID_EXPORT_NAME);
 
@@ -182,6 +190,23 @@ export class WorkshopEcs extends Construct {
 
         const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);
 
-        return { cluster, securityGroup };
+        // Import OpenSearch pipeline information if available
+        // This provides backward compatibility - if pipeline exports don't exist, 
+        // the import will gracefully handle the missing values
+        let openSearchPipeline: { pipelineEndpoint: string; pipelineArn: string; pipelineRoleArn: string } | undefined;
+        
+        try {
+            const pipelineImports = OpenSearchPipeline.importFromExports();
+            openSearchPipeline = {
+                pipelineEndpoint: pipelineImports.pipelineEndpoint,
+                pipelineArn: pipelineImports.pipelineArn,
+                pipelineRoleArn: pipelineImports.pipelineRoleArn,
+            };
+        } catch (error) {
+            // Pipeline exports don't exist - this is fine for backward compatibility
+            openSearchPipeline = undefined;
+        }
+
+        return { cluster, securityGroup, openSearchPipeline };
     }
 }
