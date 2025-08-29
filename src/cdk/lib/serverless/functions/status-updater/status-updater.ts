@@ -3,11 +3,15 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
-import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../../../constructs/lambda';
+import {
+    WokshopLambdaFunction,
+    WorkshopLambdaFunctionProperties,
+    getLambdaInsightsLayerArn,
+} from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { Arn, ArnFormat, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
     EndpointType,
@@ -163,17 +167,13 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         };
     }
     getLayers(): ILayerVersion[] {
-        const layerArn = Arn.format({
-            account: '580247275435',
-            resource: 'layer',
-            resourceName: 'LambdaInsightsExtension:56',
-            region: Stack.of(this).region,
-            service: 'lambda',
-            partition: 'aws',
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-        });
-
-        return [LayerVersion.fromLayerVersionArn(this, 'LambdaInsightsLayer', layerArn)];
+        return [
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'LambdaInsightsLayer',
+                getLambdaInsightsLayerArn(Stack.of(this).region),
+            ),
+        ];
     }
     getBundling(): BundlingOptions {
         return {

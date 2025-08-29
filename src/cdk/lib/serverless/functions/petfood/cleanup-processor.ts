@@ -1,13 +1,19 @@
 import { Construct } from 'constructs';
-import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../../../constructs/lambda';
+import {
+    WokshopLambdaFunction,
+    WorkshopLambdaFunctionProperties,
+    getLambdaInsightsLayerArn,
+    getOpenTelemetryPythonLayerArn,
+} from '../../../constructs/lambda';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { IEventBus, Rule } from 'aws-cdk-lib/aws-events';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Arn, Stack, ArnFormat } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface PetfoodCleanupProcessorProperties extends WorkshopLambdaFunctionProperties {
     bedrockModelId?: string;
@@ -33,7 +39,7 @@ export class PetfoodCleanupProcessorFunction extends WokshopLambdaFunction {
     }
 
     addFunctionPermissions(properties: PetfoodCleanupProcessorProperties): void {
-        new Policy(this, 'PetfoodImageGeneratorPolicy', {
+        const functionPolicy = new Policy(this, 'PetfoodImageGeneratorPolicy', {
             statements: [
                 new PolicyStatement({
                     effect: Effect.ALLOW,
@@ -53,6 +59,21 @@ export class PetfoodCleanupProcessorFunction extends WokshopLambdaFunction {
             ],
             roles: [this.function.role!],
         });
+
+        NagSuppressions.addResourceSuppressions(
+            [this.function.role!, functionPolicy],
+            [
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'Managed Policies are acceptable for the task role',
+                },
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Permissions are acceptable for the task role',
+                },
+            ],
+            true,
+        );
     }
     createOutputs(): void {}
     getEnvironmentVariables(properties: PetfoodCleanupProcessorProperties): { [key: string]: string } | undefined {
@@ -71,28 +92,17 @@ export class PetfoodCleanupProcessorFunction extends WokshopLambdaFunction {
         };
     }
     getLayers(): ILayerVersion[] {
-        const lambdaInsightesLayerArn = Arn.format({
-            account: '580247275435',
-            resource: 'layer',
-            resourceName: 'LambdaInsightsExtension:56',
-            region: Stack.of(this).region,
-            service: 'lambda',
-            partition: 'aws',
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-        });
-
-        const openTelemetryLaterArn = Arn.format({
-            account: '615299751070',
-            resource: 'AWSOpenTelemetryDistroPython:20',
-            region: Stack.of(this).region,
-            service: 'lambda',
-            partition: 'aws',
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-        });
-
         return [
-            LayerVersion.fromLayerVersionArn(this, 'LambdaInsightsLayer', lambdaInsightesLayerArn),
-            LayerVersion.fromLayerVersionArn(this, 'OpenTelemetryLayer', openTelemetryLaterArn),
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'LambdaInsightsLayer',
+                getLambdaInsightsLayerArn(Stack.of(this).region),
+            ),
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'OpenTelemetryLayer',
+                getOpenTelemetryPythonLayerArn(Stack.of(this).region),
+            ),
         ];
     }
     getBundling(): BundlingOptions {

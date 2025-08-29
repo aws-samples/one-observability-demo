@@ -2,7 +2,11 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../../../constructs/lambda';
+import {
+    WokshopLambdaFunction,
+    WorkshopLambdaFunctionProperties,
+    getLambdaInsightsLayerArn,
+} from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, Policy } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
@@ -19,7 +23,6 @@ export interface TrafficGeneratorFunctionProperties extends WorkshopLambdaFuncti
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
     constructor(scope: Construct, id: string, properties: TrafficGeneratorFunctionProperties) {
-        console.log('TrafficGeneratorFunctionProperties', properties);
         super(scope, id, properties);
 
         this.createOutputs();
@@ -91,16 +94,12 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     }
 
     getLayers(): ILayerVersion[] {
-        const layerArn = Arn.format({
-            account: '580247275435',
-            resource: 'layer',
-            resourceName: 'LambdaInsightsExtension:56',
-            region: Stack.of(this).region,
-            service: 'lambda',
-            partition: 'aws',
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-        });
-
-        return [LayerVersion.fromLayerVersionArn(this, 'LambdaInsightsLayer', layerArn)];
+        return [
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'LambdaInsightsLayer',
+                getLambdaInsightsLayerArn(Stack.of(this).region),
+            ),
+        ];
     }
 }
