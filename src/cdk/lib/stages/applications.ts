@@ -322,7 +322,6 @@ export class MicroservicesStack extends Stack {
             if (name == LambdaFunctionNames.StatusUpdater) {
                 new StatusUpdatedService(this, name, {
                     ...lambdafunction,
-                    name: name,
                     table: imports.dynamodbExports.table,
                     vpcEndpoint: imports.vpcEndpoints.apiGatewayEndpoint,
                 });
@@ -330,14 +329,12 @@ export class MicroservicesStack extends Stack {
             if (name == LambdaFunctionNames.TrafficGenerator) {
                 new TrafficGeneratorFunction(this, name, {
                     ...lambdafunction,
-                    name: name,
                     trafficCanary: trafficCanary.canary,
                 });
             }
             if (name == LambdaFunctionNames.PetfoodCleanupProcessor) {
                 new PetfoodCleanupProcessorFunction(this, name, {
                     ...lambdafunction,
-                    name: name,
                     imageBucket: imports.assetsBucket,
                     eventBridgeBus: imports.eventBusExports.eventBus,
                     petfoodTable: imports.dynamodbExports.petFoodsTable,
@@ -346,7 +343,6 @@ export class MicroservicesStack extends Stack {
             if (name == LambdaFunctionNames.PetfoodImageGenerator) {
                 new PetfoodImageGeneratorFunction(this, name, {
                     ...lambdafunction,
-                    name: name,
                     imageBucket: imports.assetsBucket,
                     eventBridgeBus: imports.eventBusExports.eventBus,
                     petfoodTable: imports.dynamodbExports.petFoodsTable,

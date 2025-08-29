@@ -415,6 +415,7 @@ $RECYCLE.BIN/
 
 # Allow CDK lib folder
 !src/cdk/lib
+src/cdk/cdk.out
 
 # Allow wwwroot from petsite-net
 !src/applications/microservices/petsite-net/petsite/wwwroot/
@@ -438,3 +439,7 @@ cdk.context.json
 
 # AWS SAM cache
 .aws-sam/
+
+# Canaries
+!src/applications/canaries/housekeeping/nodejs/node_modules/index.js
+

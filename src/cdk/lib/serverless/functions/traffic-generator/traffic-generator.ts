@@ -19,8 +19,7 @@ export interface TrafficGeneratorFunctionProperties extends WorkshopLambdaFuncti
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
     constructor(scope: Construct, id: string, properties: TrafficGeneratorFunctionProperties) {
-        properties = { ...properties, description: 'Traffic Generator Trigger' };
-
+        console.log('TrafficGeneratorFunctionProperties', properties);
         super(scope, id, properties);
 
         this.createOutputs();
