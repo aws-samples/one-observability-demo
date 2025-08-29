@@ -61,10 +61,3 @@ reqwest = { version = "0.11", features = ["json"] }
 wiremock = "0.5"
 once_cell = "1.19"
 
-[[bench]]
-name = "food_search"
-harness = false
-
-[[bench]]
-name = "food_operations"
-harness = false
