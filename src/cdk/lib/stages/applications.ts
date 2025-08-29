@@ -2,20 +2,21 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Stack, StackProps, Stage } from 'aws-cdk-lib';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { WorkshopNetwork } from '../constructs/network';
 import { WorkshopEcs } from '../constructs/ecs';
 import { Microservice, MicroservicesNames } from '../constructs/microservice';
-import { ComputeType, HostType } from '../../bin/environment';
+import { ComputeType, HostType, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
 import { ListAdoptionsService } from '../microservices/petlist-adoptions';
 import { PetSearchService } from '../microservices/pet-search';
 import { LambdaFunctionNames, WorkshopLambdaFunctionProperties } from '../constructs/lambda';
-import { StatusUpdatedService } from '../constructs/serverless/status-updater';
+import { StatusUpdatedService } from '../serverless/functions/status-updater/status-updater';
 import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
@@ -23,6 +24,12 @@ import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
 import { PetFoodECSService } from '../microservices/petfood';
+import { CanaryNames, WorkshopCanaryProperties } from '../constructs/canary';
+import { TrafficGeneratorFunction } from '../serverless/functions/traffic-generator/traffic-generator';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { HouseKeepingCanary } from '../serverless/canaries/housekeeping/housekeeping';
+import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator/traffic-generator';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -31,11 +38,25 @@ export interface MicroserviceApplicationPlacement {
     manifestPath?: string;
 }
 
+interface ImportedResources {
+    vpcExports: any;
+    ecsExports: any;
+    eksExports: any;
+    rdsExports: any;
+    dynamodbExports: any;
+    vpcEndpoints: any;
+    cloudMap: any;
+    openSearchExports: any;
+    assetsBucket: any;
+    baseURI: string;
+}
+
 export interface MicroserviceApplicationsProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
     microservicesPlacement: Map<string, MicroserviceApplicationPlacement>;
     lambdaFunctions: Map<string, WorkshopLambdaFunctionProperties>;
+    canaries: Map<string, WorkshopCanaryProperties>;
 }
 
 export class MicroservicesStage extends Stage {
@@ -53,13 +74,25 @@ export class MicroservicesStage extends Stage {
 
 export class MicroservicesStack extends Stack {
     public microservices: Map<string, Microservice>;
+
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
         super(scope, id, properties);
 
-        /** Retrieve Network Exports */
-        const vpcExports = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
+        // Import all required resources
+        const imports = this.importResources();
 
-        /** Retrieve ECS Cluster from Exports */
+        // Create microservices
+        this.createMicroservices(properties, imports);
+
+        // Create canaries and Lambda functions
+        this.createCanariesAndLambdas(properties, imports);
+
+        Utilities.SuppressLogRetentionNagWarnings(this);
+        Utilities.SuppressKubectlProviderNagWarnings(this);
+    }
+
+    private importResources() {
+        const vpcExports = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
         const ecsExports = WorkshopEcs.importFromExports(this, 'WorkshopEcs', vpcExports);
         const eksExports = WorkshopEks.importFromExports(this, 'WorkshopEks');
         const rdsExports = AuroraDatabase.importFromExports(this, 'AuroraDatabase');
@@ -68,35 +101,50 @@ export class MicroservicesStack extends Stack {
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
         const openSearchExports = OpenSearchCollection.importFromExports();
         const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
-
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
+        return {
+            vpcExports,
+            ecsExports,
+            eksExports,
+            rdsExports,
+            dynamodbExports,
+            vpcEndpoints,
+            cloudMap,
+            openSearchExports,
+            assetsBucket,
+            baseURI,
+        };
+    }
+
+    private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
         this.microservices = new Map<string, Microservice>();
 
         for (const name of properties.microservicesPlacement.keys()) {
             const service = properties.microservicesPlacement.get(name);
             let svc;
+
             if (name == MicroservicesNames.PayForAdoption) {
                 if (service?.hostType == HostType.ECS) {
                     svc = new PayForAdoptionService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
-                        securityGroup: ecsExports.securityGroup,
-                        ecsCluster: ecsExports.cluster,
+                        securityGroup: imports.ecsExports.securityGroup,
+                        ecsCluster: imports.ecsExports.cluster,
                         disableService: service.disableService,
                         cpu: 1024,
                         memoryLimitMiB: 2048,
                         desiredTaskCount: 2,
                         name: name,
-                        repositoryURI: `${baseURI}/${name}`,
-                        database: rdsExports.cluster,
-                        secret: rdsExports.adminSecret,
-                        table: dynamodbExports.table,
+                        repositoryURI: `${imports.baseURI}/${name}`,
+                        database: imports.rdsExports.cluster,
+                        secret: imports.rdsExports.adminSecret,
+                        table: imports.dynamodbExports.table,
                         healthCheck: '/health/status',
-                        vpc: vpcExports,
+                        vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
-                        cloudMapNamespace: cloudMap,
+                        cloudMapNamespace: imports.cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -110,21 +158,21 @@ export class MicroservicesStack extends Stack {
                     svc = new ListAdoptionsService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
-                        securityGroup: ecsExports.securityGroup,
-                        ecsCluster: ecsExports.cluster,
+                        securityGroup: imports.ecsExports.securityGroup,
+                        ecsCluster: imports.ecsExports.cluster,
                         disableService: service.disableService,
                         cpu: 1024,
                         memoryLimitMiB: 2048,
                         desiredTaskCount: 2,
                         name: name,
-                        repositoryURI: `${baseURI}/${name}`,
-                        database: rdsExports.cluster,
-                        secret: rdsExports.adminSecret,
+                        repositoryURI: `${imports.baseURI}/${name}`,
+                        database: imports.rdsExports.cluster,
+                        secret: imports.rdsExports.adminSecret,
                         healthCheck: '/health/status',
-                        vpc: vpcExports,
+                        vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
-                        cloudMapNamespace: cloudMap,
+                        cloudMapNamespace: imports.cloudMap,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -138,23 +186,23 @@ export class MicroservicesStack extends Stack {
                     svc = new PetSearchService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
-                        securityGroup: ecsExports.securityGroup,
-                        ecsCluster: ecsExports.cluster,
+                        securityGroup: imports.ecsExports.securityGroup,
+                        ecsCluster: imports.ecsExports.cluster,
                         disableService: service.disableService,
                         cpu: 1024,
                         memoryLimitMiB: 2048,
                         desiredTaskCount: 2,
                         name: name,
-                        repositoryURI: `${baseURI}/${name}`,
-                        database: rdsExports.cluster,
-                        secret: rdsExports.adminSecret,
+                        repositoryURI: `${imports.baseURI}/${name}`,
+                        database: imports.rdsExports.cluster,
+                        secret: imports.rdsExports.adminSecret,
                         healthCheck: '/health/status',
-                        vpc: vpcExports,
+                        vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
-                        cloudMapNamespace: cloudMap,
-                        table: dynamodbExports.table,
-                        bucket: assetsBucket,
+                        cloudMapNamespace: imports.cloudMap,
+                        table: imports.dynamodbExports.table,
+                        bucket: imports.assetsBucket,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -168,32 +216,32 @@ export class MicroservicesStack extends Stack {
                     svc = new PetFoodECSService(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
-                        securityGroup: ecsExports.securityGroup,
-                        ecsCluster: ecsExports.cluster,
+                        securityGroup: imports.ecsExports.securityGroup,
+                        ecsCluster: imports.ecsExports.cluster,
                         disableService: service.disableService,
                         cpu: 1024,
                         memoryLimitMiB: 2048,
                         desiredTaskCount: 2,
                         name: name,
-                        repositoryURI: `${baseURI}/${name}`,
+                        repositoryURI: `${imports.baseURI}/${name}`,
                         healthCheck: '/health/status',
-                        vpc: vpcExports,
+                        vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
-                        cloudMapNamespace: cloudMap,
-                        petFoodTable: dynamodbExports.petFoodsTable,
-                        petFoodCartTable: dynamodbExports.petFoodsCartTable,
+                        cloudMapNamespace: imports.cloudMap,
+                        petFoodTable: imports.dynamodbExports.petFoodsTable,
+                        petFoodCartTable: imports.dynamodbExports.petFoodsCartTable,
                         additionalEnvironment: {
                             ENABLE_JSON_LOGGING: 'true',
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
-                            PETFOOD_FOODS_TABLE_NAME: dynamodbExports.petFoodsTable.tableName,
-                            PETFOOD_CARTS_TABLE_NAME: dynamodbExports.petFoodsCartTable.tableName,
-                            PETFOOD_ASSETS_BUCKET_NAME: assetsBucket.bucketName,
+                            PETFOOD_FOODS_TABLE_NAME: imports.dynamodbExports.petFoodsTable.tableName,
+                            PETFOOD_CARTS_TABLE_NAME: imports.dynamodbExports.petFoodsCartTable.tableName,
+                            PETFOOD_ASSETS_BUCKET_NAME: imports.assetsBucket.bucketName,
                         },
-                        assetsBucket: assetsBucket,
+                        assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
-                        openSearchCollection: openSearchExports,
+                        openSearchCollection: imports.openSearchExports,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -207,13 +255,13 @@ export class MicroservicesStack extends Stack {
                     svc = new PetSite(this, name, {
                         hostType: service.hostType,
                         computeType: service.computeType,
-                        securityGroup: eksExports.securityGroup,
-                        eksCluster: eksExports.cluster,
+                        securityGroup: imports.eksExports.securityGroup,
+                        eksCluster: imports.eksExports.cluster,
                         disableService: service.disableService,
                         name: name,
-                        repositoryURI: `${baseURI}/${name}`,
+                        repositoryURI: `${imports.baseURI}/${name}`,
                         manifestPath: service.manifestPath,
-                        vpc: vpcExports,
+                        vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         listenerPort: 80,
                         healthCheck: '/health/status',
@@ -226,6 +274,38 @@ export class MicroservicesStack extends Stack {
                 }
             }
         }
+    }
+
+    private createCanariesAndLambdas(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
+        const canaryArtifactBucket = new Bucket(this, 'CanaryArtifacts', {
+            autoDeleteObjects: true,
+            removalPolicy: RemovalPolicy.DESTROY,
+            enforceSSL: true,
+        });
+
+        let trafficCanary;
+        for (const name of properties.canaries.keys()) {
+            const canaryProperties = properties.canaries.get(name) as WorkshopCanaryProperties;
+
+            if (name == CanaryNames.Petsite) {
+                trafficCanary = new TrafficGeneratorCanary(this, name, {
+                    ...canaryProperties,
+                    artifactsBucket: canaryArtifactBucket,
+                    urlParameterName: `${PARAMETER_STORE_PREFIX}/petsiteurl`,
+                });
+            }
+            if (name == CanaryNames.HouseKeeping) {
+                new HouseKeepingCanary(this, name, {
+                    ...canaryProperties,
+                    artifactsBucket: canaryArtifactBucket,
+                    urlParameterName: `${PARAMETER_STORE_PREFIX}/petsiteurl`,
+                });
+            }
+        }
+
+        if (!trafficCanary) {
+            throw new Error('Traffic canary not found');
+        }
 
         for (const name of properties.lambdaFunctions.keys()) {
             const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
@@ -234,17 +314,24 @@ export class MicroservicesStack extends Stack {
                 new StatusUpdatedService(this, name, {
                     ...lambdafunction,
                     name: name,
-                    table: dynamodbExports.table,
-                    vpcEndpoint: vpcEndpoints.apiGatewayEndpoint,
+                    table: imports.dynamodbExports.table,
+                    vpcEndpoint: imports.vpcEndpoints.apiGatewayEndpoint,
+                });
+            }
+            if (name == LambdaFunctionNames.TrafficGenerator) {
+                new TrafficGeneratorFunction(this, name, {
+                    ...lambdafunction,
+                    name: name,
+                    trafficCanary: trafficCanary.canary,
                 });
             }
         }
 
-        /** Grant access between Microservices */
-        //const petsite = this.microservices.get(MicroservicesNames.PetSite) as PetSite;
-        // TODO
-
-        Utilities.SuppressLogRetentionNagWarnings(this);
-        Utilities.SuppressKubectlProviderNagWarnings(this);
+        NagSuppressions.addResourceSuppressions(canaryArtifactBucket, [
+            {
+                id: 'AwsSolutions-S1',
+                reason: 'This bucket is used for canary artifacts and does not need access logs',
+            },
+        ]);
     }
 }

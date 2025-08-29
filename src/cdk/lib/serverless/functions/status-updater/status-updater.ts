@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
-import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../lambda';
+import { WokshopLambdaFunction, WorkshopLambdaFunctionProperties } from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
@@ -19,8 +19,8 @@ import {
 import { NagSuppressions } from 'cdk-nag';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
-import { Utilities } from '../../utils/utilities';
-import { PARAMETER_STORE_PREFIX } from '../../../bin/environment';
+import { Utilities } from '../../../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
     table: ITable;
@@ -177,10 +177,8 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
     }
     getBundling(): BundlingOptions {
         return {
-            externalModules: [
-                'aws-sdk', // Use the 'aws-sdk' available in the Lambda runtime
-            ],
-            nodeModules: ['aws-xray-sdk'],
+            externalModules: [],
+            nodeModules: ['aws-xray-sdk-core', '@aws-sdk/client-dynamodb', '@aws-sdk/lib-dynamodb'],
         };
     }
 }

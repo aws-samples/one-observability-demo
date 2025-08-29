@@ -25,6 +25,7 @@ import { CoreStack } from '../lib/stages/core';
 import {
     APPLICATION_LIST,
     AURORA_POSTGRES_VERSION,
+    CANARY_FUNCTIONS,
     CORE_PROPERTIES,
     LAMBDA_FUNCTIONS,
     MICROSERVICES_PLACEMENT,
@@ -37,7 +38,6 @@ import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
 import { Utilities } from '../lib/utils/utilities';
-import { CanaryStack } from '../lib/constructs/canaries/canary-stack';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -96,18 +96,9 @@ const microservices = new MicroservicesStack(app, 'DevMicroservicesStack', {
         account: process.env.AWS_ACCOUNT_ID,
         region: process.env.AWS_REGION,
     },
+    canaries: CANARY_FUNCTIONS,
 });
 microservices.addDependency(compute, 'Need to know where to run');
-
-/** Deploy observability stack with canaries and alarms */
-const observability = new CanaryStack(app, 'DevObservabilityStack', {
-    tags: TAGS,
-    env: {
-        account: process.env.AWS_ACCOUNT_ID,
-        region: process.env.AWS_REGION,
-    },
-});
-observability.addDependency(microservices, 'Need microservices to be running');
 
 /** Tag all resources to indicate local deployment */
 Utilities.TagConstruct(app, {

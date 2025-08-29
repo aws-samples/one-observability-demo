@@ -13,5 +13,4 @@ export * from './opensearch-application';
 export * from './opensearch-collection';
 export * from './queue';
 export * from './vpc-endpoints';
-export * from './canaries';
-
+export * from './canary';

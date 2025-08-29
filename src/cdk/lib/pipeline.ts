@@ -29,7 +29,6 @@ import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
-import { ObservabilityStage } from './stages/observability';
 
 /**
  * Properties for configuring the CDK Pipeline stack.
@@ -257,20 +256,6 @@ export class CDKPipeline extends Stack {
             new MicroservicesStage(this, 'Microservices', {
                 ...properties.microservicesProperties,
                 tags: microservicesStageTags,
-                env: properties.env,
-            }),
-        );
-
-        // Add observability stage after microservices
-        const observabilityStageTags = {
-            ...properties.tags,
-            parent: this.stackName,
-            sequence: (stageSequence++).toString(),
-        };
-
-        pipeline.addStage(
-            new ObservabilityStage(this, 'Observability', {
-                tags: observabilityStageTags,
                 env: properties.env,
             }),
         );
