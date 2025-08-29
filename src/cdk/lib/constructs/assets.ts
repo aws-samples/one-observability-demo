@@ -114,6 +114,16 @@ export class WorkshopAssets extends Construct {
             exportName: ASSETS_BUCKET_ARN_EXPORT_NAME,
             description: 'Workshop Assets S3 Bucket ARN',
         });
+
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map(
+                Object.entries({
+                    s3bucketname: this.bucket.bucketName,
+                }),
+            ),
+        );
     }
 
     /**
@@ -140,27 +150,5 @@ export class WorkshopAssets extends Construct {
             bucketName: bucketName,
             bucketArn: bucketArn,
         });
-    }
-
-    createOutputs(): void {
-        Utilities.createSsmParameters(
-            this,
-            PARAMETER_STORE_PREFIX,
-            new Map(
-                Object.entries({
-                    s3bucketname: this.bucket.bucketName,
-                }),
-            ),
-        );
-
-        Utilities.createSsmParameters(
-            this,
-            PARAMETER_STORE_PREFIX,
-            new Map(
-                Object.entries({
-                    s3bucketname: this.bucket.bucketName,
-                }),
-            ),
-        );
     }
 }

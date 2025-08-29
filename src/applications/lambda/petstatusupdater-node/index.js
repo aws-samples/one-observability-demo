@@ -3,12 +3,12 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-import AWSXRay from 'aws-xray-sdk';
-import AWS from 'aws-sdk';
+const AWSXRay = require('aws-xray-sdk');
+const AWS = require('aws-sdk');
 const capturedAWS = AWSXRay.captureAWS(AWS);
 const documentClient = new capturedAWS.DynamoDB.DocumentClient();
 
-export const handler = async function (event) {
+exports.handler = async function (event) {
     var payload = JSON.parse(event.body);
 
     var availability = 'yes';

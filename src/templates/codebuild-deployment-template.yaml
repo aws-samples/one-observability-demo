@@ -497,11 +497,12 @@ Resources:
                 - git push s3 $BRANCH_NAME
                 # Check if account is bootstrapped
                 - |
-                  if ! aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then
+                  STACK_EXISTS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkit` && StackStatus!=`DELETE_COMPLETE`].StackName' --output text)
+                  if [ -z "$STACK_EXISTS" ]; then
                     echo "Account not bootstrapped, bootstrapping now..."
-                    cdk bootstrap
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
                   else
-                    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name CDKToolkit --query 'Stacks[0].StackStatus' --output text)
+                    STACK_STATUS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkit` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output text)
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
                       echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
                       # Force remove ECR and S3 buckets
@@ -511,7 +512,9 @@ Resources:
                       aws cloudformation delete-stack --stack-name CDKToolkit
                       aws cloudformation wait stack-delete-complete --stack-name CDKToolkit
                       # Bootstrap again
-                      cdk bootstrap
+                      cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
+                    else
+                      echo "CDK bootstrap stack exists with status: $STACK_STATUS"
                     fi
                   fi
             build:
