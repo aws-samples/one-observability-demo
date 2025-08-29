@@ -9,6 +9,8 @@ import { WorkshopNetwork } from '../constructs/network';
 import { QueueResources } from '../constructs/queue';
 import { WorkshopEcs } from '../constructs/ecs';
 import { WorkshopEks } from '../constructs/eks';
+import { OpenSearchCollection } from '../constructs/opensearch-collection';
+import { OpenSearchPipeline } from '../constructs/opensearch-pipeline';
 
 export interface ComputeProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
@@ -40,6 +42,8 @@ export class ComputeStack extends Stack {
     public ecs: WorkshopEcs;
     /** EKS construct */
     public eks: WorkshopEks;
+    /** OpenSearch ingestion pipeline */
+    public openSearchPipeline: OpenSearchPipeline;
 
     /**
      * Creates a new ComputeStack
@@ -53,9 +57,20 @@ export class ComputeStack extends Stack {
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
         const { topic } = QueueResources.importFromExports(this, 'ImportedQueueResources');
 
+        // Import OpenSearch collection
+        const openSearchCollection = OpenSearchCollection.importFromExports();
+
+        // Create OpenSearch ingestion pipeline
+        this.openSearchPipeline = new OpenSearchPipeline(this, 'LogsIngestionPipeline', {
+            pipelineName: 'petsite-logs-pipeline',
+            openSearchCollection: openSearchCollection,
+            indexTemplate: 'pet-collection-logs',
+        });
+
         this.ecs = new WorkshopEcs(this, 'PetsiteECS', {
             vpc,
             topic,
+            openSearchPipeline: this.openSearchPipeline,
             ecsEc2Capacity: properties?.ecsEc2Capacity,
             ecsEc2InstanceType: properties?.ecsEc2InstanceType,
         });

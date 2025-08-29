@@ -74,6 +74,15 @@ export abstract class Microservice extends Construct {
         resources: ['*'],
     });
 
+    public static getDefaultEventBridgePolicy(scope: Construct) {
+        const publishEventPolicy = new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ['events:PutEvents'],
+            resources: [`arn:aws:events:${Stack.of(scope).region}:${Stack.of(scope).account}:event-bus/default`],
+        });
+        return publishEventPolicy;
+    }
+
     public static getDefaultSSMPolicy(scope: Construct, prefix?: string) {
         const cleanPrefix = (prefix || '/petstore/').startsWith('/')
             ? (prefix || '/petstore/').slice(1)

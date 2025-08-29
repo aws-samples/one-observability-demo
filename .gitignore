@@ -435,3 +435,6 @@ PetAdoptions/trafficgenerator/.idea/.idea.trafficgenerator/.idea/modules.xml
 
 # Exclude cdk.context.json since each workshop account will be unique
 cdk.context.json
+
+# AWS SAM cache
+.aws-sam/

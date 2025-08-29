@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
-use crate::models::{CreateFoodRequest, FoodType, PetType, UpdateFoodRequest};
+use crate::models::{CreateFoodRequest, CreationSource, FoodType, PetType, UpdateFoodRequest};
 use crate::repositories::TableManager;
 use crate::services::FoodService;
 
@@ -143,7 +143,11 @@ pub async fn seed_database(
     let mut errors = Vec::new();
 
     for food_request in sample_foods {
-        match state.food_service.create_food(food_request.clone()).await {
+        match state
+            .food_service
+            .create_food(food_request.clone(), CreationSource::Seeding)
+            .await
+        {
             Ok(_) => {
                 created_count += 1;
                 info!("Successfully seeded food: {}", food_request.name);
@@ -210,10 +214,10 @@ pub async fn cleanup_database(
                 match state.food_service.delete_food(&food.id).await {
                     Ok(()) => {
                         deleted_count += 1;
-                        info!("Successfully deleted food: {}", food.name);
+                        info!("Successfully discontinued food: {}", food.name);
                     }
                     Err(err) => {
-                        warn!("Failed to delete food {}: {}", food.name, err);
+                        warn!("Failed to discontinue food {}: {}", food.name, err);
                         errors.push(format!("{}: {}", food.name, err));
                     }
                 }
@@ -221,13 +225,13 @@ pub async fn cleanup_database(
 
             if errors.is_empty() {
                 info!(
-                    "Successfully cleaned up database, deleted {} foods",
+                    "Successfully cleaned up database, discontinued {} foods",
                     deleted_count
                 );
 
                 Ok(Json(CleanupResponse {
                     message: format!(
-                        "Database cleaned up successfully, deleted {} foods",
+                        "Database cleaned up successfully, discontinued {} foods",
                         deleted_count
                     ),
                     foods_deleted: deleted_count,
@@ -238,7 +242,7 @@ pub async fn cleanup_database(
 
                 Ok(Json(CleanupResponse {
                     message: format!(
-                        "Database cleanup completed with {} foods deleted, {} errors occurred",
+                        "Database cleanup completed with {} foods discontinued, {} errors occurred",
                         deleted_count,
                         errors.len()
                     ),
@@ -280,7 +284,11 @@ pub async fn create_food(
 
     info!("Admin creating new food: {}", request.name);
 
-    match state.food_service.create_food(request).await {
+    match state
+        .food_service
+        .create_food(request, CreationSource::AdminApi)
+        .await
+    {
         Ok(food) => {
             info!("Successfully created food with ID: {}", food.id);
             let food_response = food.to_response(&state.assets_cdn_url);

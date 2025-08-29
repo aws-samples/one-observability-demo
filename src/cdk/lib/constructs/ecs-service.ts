@@ -31,6 +31,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 import { OpenSearchCollection } from './opensearch-collection';
+import { OpenSearchPipeline } from './opensearch-pipeline';
 
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
@@ -42,6 +43,18 @@ export interface EcsServiceProperties extends MicroserviceProperties {
         | {
               collectionArn: string;
               collectionEndpoint: string;
+          };
+    /**
+     * OpenSearch ingestion pipeline for log routing
+     * When provided, logs will be sent to the pipeline instead of directly to OpenSearch
+     * Mutually exclusive with openSearchCollection
+     */
+    openSearchPipeline?:
+        | OpenSearchPipeline
+        | {
+              pipelineEndpoint: string;
+              pipelineArn?: string;
+              pipelineRoleArn?: string;
           };
     additionalEnvironment?: { [key: string]: string };
 }
@@ -55,6 +68,13 @@ export abstract class EcsService extends Microservice {
 
     constructor(scope: Construct, id: string, properties: EcsServiceProperties) {
         super(scope, id, properties);
+
+        // Validate mutual exclusivity of openSearchCollection and openSearchPipeline
+        if (properties.openSearchCollection && properties.openSearchPipeline) {
+            throw new Error(
+                'openSearchCollection and openSearchPipeline are mutually exclusive. Please specify only one.',
+            );
+        }
 
         const result = this.configureECSService(properties);
         this.taskDefinition = result.taskDefinition;
@@ -82,15 +102,16 @@ export abstract class EcsService extends Microservice {
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
         });
 
-        // Configure logging based on whether OpenSearch collection is provided
-        const logging = properties.openSearchCollection
-            ? // Use FireLens for dual routing to CloudWatch and OpenSearch
-              this.createFireLensLogDriver(properties)
-            : // Use standard CloudWatch logging
-              new AwsLogDriver({
-                  streamPrefix: 'logs',
-                  logGroup: logGroup,
-              });
+        // Configure logging based on whether OpenSearch collection or pipeline is provided
+        const logging =
+            properties.openSearchCollection || properties.openSearchPipeline
+                ? // Use FireLens for routing to OpenSearch collection or pipeline
+                  this.createFireLensLogDriver(properties)
+                : // Use standard CloudWatch logging
+                  new AwsLogDriver({
+                      streamPrefix: 'logs',
+                      logGroup: logGroup,
+                  });
 
         const taskRole = new Role(this, `taskRole`, {
             assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -118,8 +139,9 @@ export abstract class EcsService extends Microservice {
             'logs:PutLogEvents',
         ];
 
-        // Add OpenSearch permissions if collection is provided
-        if (properties.openSearchCollection) {
+        // Add OpenSearch permissions only if collection is provided AND pipeline is not used
+        // When using pipeline, the pipeline handles OpenSearch access, not the ECS task
+        if (properties.openSearchCollection && !properties.openSearchPipeline) {
             executionRoleActions.push(
                 'aoss:WriteDocument',
                 'aoss:CreateIndex',
@@ -129,6 +151,8 @@ export abstract class EcsService extends Microservice {
                 'es:ESHttpPut',
             );
         }
+
+        // Note: Pipeline permissions are handled in the task role, not execution role
 
         taskDefinition.addToExecutionRolePolicy(
             new PolicyStatement({
@@ -145,7 +169,7 @@ export abstract class EcsService extends Microservice {
             // clear text, not for sensitive data
             AWS_REGION: Stack.of(this).region,
         };
-        
+
         const environment = {
             ...defaultEnvironment,
             ...(properties.additionalEnvironment || {}),
@@ -164,8 +188,8 @@ export abstract class EcsService extends Microservice {
             protocol: Protocol.TCP,
         });
 
-        // Add FireLens log router container if OpenSearch collection is provided
-        if (properties.openSearchCollection) {
+        // Add FireLens log router container if OpenSearch collection or pipeline is provided
+        if (properties.openSearchCollection || properties.openSearchPipeline) {
             this.addFireLensLogRouter(taskDefinition, properties);
         }
 
@@ -316,6 +340,19 @@ export abstract class EcsService extends Microservice {
             );
         }
 
+        if (taskDefinition.taskRole && properties.openSearchPipeline) {
+            NagSuppressions.addResourceSuppressions(
+                taskDefinition.taskRole,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'OpenSearch Ingestion Service requires permissions for pipeline access',
+                    },
+                ],
+                true,
+            );
+        }
+
         if (loadBalancedService) {
             NagSuppressions.addResourceSuppressions(loadBalancedService.loadBalancer, [
                 {
@@ -329,33 +366,84 @@ export abstract class EcsService extends Microservice {
     }
 
     private createFireLensLogDriver(properties: EcsServiceProperties): FireLensLogDriver {
-        const collection = properties.openSearchCollection!;
-        const openSearchEndpoint =
-            'collection' in collection ? collection.collection.attrCollectionEndpoint : collection.collectionEndpoint;
+        if (properties.openSearchPipeline) {
+            // Configure for OpenSearch Ingestion Pipeline using HTTP output
+            const pipeline = properties.openSearchPipeline;
+            const pipelineEndpoint =
+                'pipelineEndpoint' in pipeline
+                    ? pipeline.pipelineEndpoint
+                    : (pipeline as OpenSearchPipeline).pipeline.attrIngestEndpointUrls[0];
 
-        // Use CloudFormation functions to strip https:// prefix at deployment time
-        const openSearchHostWithoutProtocol = Fn.select(1, Fn.split('https://', openSearchEndpoint));
+            // Extract host from pipeline endpoint
+            // Pipeline endpoints from OSI are typically just hostnames without https://
+            const hostAndPath = Fn.split('/', pipelineEndpoint);
+            const host = Fn.select(0, hostAndPath);
 
-        return new FireLensLogDriver({
-            options: {
-                Name: 'opensearch',
-                Host: openSearchHostWithoutProtocol,
+            // Get the pipeline role ARN if available
+            let pipelineRoleArn: string | undefined;
+            if ('pipelineRoleArn' in pipeline) {
+                // This is an imported pipeline object with pipelineRoleArn property
+                pipelineRoleArn = pipeline.pipelineRoleArn;
+            } else if ('pipelineRole' in pipeline) {
+                // This is an OpenSearchPipeline construct with pipelineRole property
+                pipelineRoleArn = (pipeline as OpenSearchPipeline).pipelineRole.roleArn;
+            }
+
+            const httpOptions: { [key: string]: string } = {
+                Name: 'http',
+                Match: '*',
+                Host: host,
                 Port: '443',
-                aws_auth: 'On',
-                AWS_Region: Stack.of(this).region,
-                AWS_Service_Name: 'aoss',
-                Index: `${properties.name}-logs`,
-                tls: 'On',
-                Suppress_Type_Name: 'On',
-                Trace_Error: 'On',
-                Trace_Output: 'On',
-            },
-        });
+                uri: '/log/ingest',
+                format: 'json',
+                aws_auth: 'true',
+                aws_region: Stack.of(this).region,
+                aws_service: 'osis',
+                tls: 'on',
+                'tls.verify': 'off',
+                Retry_Limit: '3',
+                Log_Level: 'trace',
+            };
+
+            // Don't use aws_role_arn - let the ECS task role handle authentication directly
+
+            return new FireLensLogDriver({
+                options: httpOptions,
+            });
+        } else if (properties.openSearchCollection) {
+            // Configure for direct OpenSearch Collection
+            const collection = properties.openSearchCollection;
+            const openSearchEndpoint =
+                'collection' in collection
+                    ? collection.collection.attrCollectionEndpoint
+                    : collection.collectionEndpoint;
+
+            // Use CloudFormation functions to strip https:// prefix at deployment time
+            const openSearchHostWithoutProtocol = Fn.select(1, Fn.split('https://', openSearchEndpoint));
+
+            return new FireLensLogDriver({
+                options: {
+                    Name: 'opensearch',
+                    Host: openSearchHostWithoutProtocol,
+                    Port: '443',
+                    aws_auth: 'On',
+                    AWS_Region: Stack.of(this).region,
+                    AWS_Service_Name: 'aoss',
+                    Index: `${properties.name}-logs`,
+                    tls: 'On',
+                    Suppress_Type_Name: 'On',
+                    Trace_Error: 'On',
+                    Trace_Output: 'On',
+                },
+            });
+        } else {
+            throw new Error('Either openSearchCollection or openSearchPipeline must be provided for FireLens logging');
+        }
     }
 
     private addFireLensLogRouter(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
         // Add FireLens log router using the task definition method
-        const logRouter = taskDefinition.addFirelensLogRouter('log-router', {
+        taskDefinition.addFirelensLogRouter('log-router', {
             image: ContainerImage.fromRegistry('public.ecr.aws/aws-observability/aws-for-fluent-bit:stable'),
             memoryLimitMiB: 512,
             cpu: 256,
@@ -376,16 +464,51 @@ export abstract class EcsService extends Microservice {
             },
         });
 
-        // Add task role permissions for OpenSearch access
-        if (properties.openSearchCollection) {
+        // Add task role permissions based on configuration
+        if (properties.openSearchCollection && !properties.openSearchPipeline) {
+            // Add permissions for direct OpenSearch access only when not using pipeline
             const collection = properties.openSearchCollection;
             const collectionArn = 'collection' in collection ? collection.collection.attrArn : collection.collectionArn;
 
             taskDefinition.taskRole.addToPrincipalPolicy(
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: ['aoss:*', 'es:ESHttpPost', 'es:ESHttpPut'],
+                    actions: [
+                        'aoss:WriteDocument',
+                        'aoss:CreateIndex',
+                        'aoss:DescribeIndex',
+                        'es:ESHttpPost',
+                        'es:ESHttpPut',
+                    ],
                     resources: [collectionArn],
+                }),
+            );
+        } else if (properties.openSearchPipeline) {
+            // For OpenSearch Ingestion Service pipeline, use HTTP calls with AWS SigV4 auth
+            // The ECS task role will authenticate directly with the pipeline endpoint
+            const pipeline = properties.openSearchPipeline;
+            const pipelineArn =
+                'pipelineEndpoint' in pipeline
+                    ? `arn:aws:osis:${Stack.of(this).region}:${Stack.of(this).account}:pipeline/*`
+                    : (pipeline as OpenSearchPipeline).pipeline.attrPipelineArn;
+
+            // Add permissions for pipeline ingestion via HTTP
+            taskDefinition.taskRole.addToPrincipalPolicy(
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['osis:Ingest'],
+                    resources: [pipelineArn],
+                }),
+            );
+
+            // Add permissions for AWS SigV4 signing for HTTP requests to the pipeline
+            taskDefinition.taskRole.addToPrincipalPolicy(
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: [
+                        'sts:GetCallerIdentity', // Required for SigV4 signing
+                    ],
+                    resources: ['*'],
                 }),
             );
         }

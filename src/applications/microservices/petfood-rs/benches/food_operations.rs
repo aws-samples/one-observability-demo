@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 
 use petfood_rs::models::{
-    CreateFoodRequest, Food, FoodFilters, FoodType, PetType, RepositoryError,
+    CreateFoodRequest, CreationSource, Food, FoodFilters, FoodType, PetType, RepositoryError,
 };
 use petfood_rs::repositories::FoodRepository;
 use petfood_rs::services::food_service::FoodService;
@@ -25,6 +25,41 @@ impl MockFoodRepository {
         Self {
             foods: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
+    }
+
+    fn with_test_data(size: usize) -> Self {
+        let repo = Self::new();
+        let pet_types = [PetType::Puppy, PetType::Kitten, PetType::Bunny];
+        let food_types = [
+            FoodType::Dry,
+            FoodType::Wet,
+            FoodType::Treats,
+            FoodType::Supplements,
+        ];
+
+        for i in 0..size {
+            let pet_type = pet_types[i % pet_types.len()].clone();
+            let food_type = food_types[i % food_types.len()].clone();
+
+            let request = CreateFoodRequest {
+                pet_type,
+                name: format!("Benchmark Food {}", i),
+                food_type,
+                description: format!("Description for benchmark food {}", i),
+                price: dec!(10.99)
+                    + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
+                image: format!("food-{}.jpg", i),
+                nutritional_info: None,
+                ingredients: vec!["ingredient1".to_string(), "ingredient2".to_string()],
+                feeding_guidelines: Some("Feed as needed".to_string()),
+                stock_quantity: 100,
+            };
+
+            let food = Food::new(request);
+            repo.foods.lock().unwrap().insert(food.id.clone(), food);
+        }
+
+        repo
     }
 }
 
@@ -124,58 +159,19 @@ impl FoodRepository for MockFoodRepository {
     }
 }
 
-fn create_repository_with_test_data(num_foods: usize) -> Arc<MockFoodRepository> {
-    let repository = Arc::new(MockFoodRepository::new());
-    let pet_types = [PetType::Puppy, PetType::Kitten, PetType::Bunny];
-    let food_types = [
-        FoodType::Dry,
-        FoodType::Wet,
-        FoodType::Treats,
-        FoodType::Supplements,
-    ];
-
-    for i in 0..num_foods {
-        let pet_type = pet_types[i % pet_types.len()].clone();
-        let food_type = food_types[i % food_types.len()].clone();
-
-        let request = CreateFoodRequest {
-            pet_type,
-            name: format!("Benchmark Food {}", i),
-            food_type,
-            description: format!("Description for benchmark food {}", i),
-            price: dec!(10.99)
-                + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
-            image: format!("food-{}.jpg", i),
-            nutritional_info: None,
-            ingredients: vec!["ingredient1".to_string(), "ingredient2".to_string()],
-            feeding_guidelines: Some("Feed as needed".to_string()),
-            stock_quantity: 100,
-        };
-
-        let food = Food::new(request);
-        repository
-            .foods
-            .lock()
-            .unwrap()
-            .insert(food.id.clone(), food);
-    }
-
-    repository
-}
-
 fn bench_food_search_by_pet_type(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("food_search_by_pet_type");
-    group.sample_size(50);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(100);
+    group.measurement_time(Duration::from_secs(5));
 
     for dataset_size in [100, 500, 1000].iter() {
         group.bench_with_input(
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                let repository = create_repository_with_test_data(size);
+                let repository = Arc::new(MockFoodRepository::with_test_data(size));
                 let food_service = FoodService::new(repository);
 
                 b.iter(|| {
@@ -203,15 +199,15 @@ fn bench_food_search_by_food_type(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("food_search_by_food_type");
-    group.sample_size(50);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(100);
+    group.measurement_time(Duration::from_secs(5));
 
     for dataset_size in [100, 500, 1000].iter() {
         group.bench_with_input(
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                let repository = create_repository_with_test_data(size);
+                let repository = Arc::new(MockFoodRepository::with_test_data(size));
                 let food_service = FoodService::new(repository);
 
                 b.iter(|| {
@@ -239,15 +235,15 @@ fn bench_food_search_combined_filters(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("food_search_combined_filters");
-    group.sample_size(50);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(100);
+    group.measurement_time(Duration::from_secs(5));
 
     for dataset_size in [100, 500, 1000].iter() {
         group.bench_with_input(
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                let repository = create_repository_with_test_data(size);
+                let repository = Arc::new(MockFoodRepository::with_test_data(size));
                 let food_service = FoodService::new(repository);
 
                 b.iter(|| {
@@ -275,11 +271,11 @@ fn bench_food_get_by_id(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("food_get_by_id");
-    group.sample_size(100);
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(200);
+    group.measurement_time(Duration::from_secs(5));
 
     group.bench_function("single_lookup", |b| {
-        let repository = create_repository_with_test_data(1);
+        let repository = Arc::new(MockFoodRepository::with_test_data(1000));
         let food_service = FoodService::new(repository.clone());
 
         // Get a food ID from the repository
@@ -294,11 +290,57 @@ fn bench_food_get_by_id(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_food_create(c: &mut Criterion) {
+    let rt = Runtime::new().unwrap();
+
+    let mut group = c.benchmark_group("food_create");
+    group.sample_size(100);
+    group.measurement_time(Duration::from_secs(5));
+
+    group.bench_function("create_single", |b| {
+        b.iter_batched(
+            || {
+                let repository = Arc::new(MockFoodRepository::new());
+                let food_service = FoodService::new(repository);
+
+                let request = CreateFoodRequest {
+                    pet_type: PetType::Puppy,
+                    name: "Benchmark Food".to_string(),
+                    food_type: FoodType::Dry,
+                    description: "Description for benchmark food".to_string(),
+                    price: dec!(10.99),
+                    image: "food.jpg".to_string(),
+                    nutritional_info: None,
+                    ingredients: vec!["ingredient1".to_string()],
+                    feeding_guidelines: Some("Feed as needed".to_string()),
+                    stock_quantity: 100,
+                };
+
+                (food_service, request)
+            },
+            |(food_service, request)| {
+                rt.block_on(async move {
+                    black_box(
+                        food_service
+                            .create_food(request, CreationSource::Seeding)
+                            .await
+                            .unwrap(),
+                    )
+                })
+            },
+            criterion::BatchSize::SmallInput,
+        );
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_food_search_by_pet_type,
     bench_food_search_by_food_type,
     bench_food_search_combined_filters,
-    bench_food_get_by_id
+    bench_food_get_by_id,
+    bench_food_create
 );
 criterion_main!(benches);
