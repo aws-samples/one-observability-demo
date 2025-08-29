@@ -16,4 +16,3 @@ export * from './lib/pipeline';
 export * from './lib/utils/utilities';
 export * from './lib/constructs/network';
 export * from './lib/constructs/cloudtrail';
-export * from './lib/stages/observability';

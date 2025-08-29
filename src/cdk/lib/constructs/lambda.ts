@@ -16,8 +16,10 @@ SPDX-License-Identifier: Apache-2.0
 import { Runtime, Function, ILayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions, NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
-import { STATUS_UPDATER_FUNCTION } from '../../bin/environment';
+import { STATUS_UPDATER_FUNCTION, TRAFFIC_GENERATOR_FUNCTION } from '../../bin/environment';
 
 /**
  * Properties for configuring a workshop Lambda function.
@@ -39,6 +41,16 @@ export interface WorkshopLambdaFunctionProperties {
     logRetentionDays?: RetentionDays;
     /** Description of the function's purpose */
     description?: string;
+    /**
+     * The schedule expression for traffic generation
+     * @default 'rate(5 minute)'
+     */
+    scheduleExpression?: string;
+    /**
+     * Whether to enable the EventBridge schedule
+     * @default false
+     */
+    enableSchedule?: boolean;
 }
 
 /**
@@ -47,6 +59,7 @@ export interface WorkshopLambdaFunctionProperties {
 export const LambdaFunctionNames = {
     /** Pet status updater function name */
     StatusUpdater: STATUS_UPDATER_FUNCTION.name,
+    TrafficGenerator: TRAFFIC_GENERATOR_FUNCTION.name,
 } as const;
 
 /**
@@ -89,7 +102,24 @@ export abstract class WokshopLambdaFunction extends Construct {
             throw new Error(`Runtime ${properties.runtime.name} not supported`);
         }
 
+        if (properties.enableSchedule && properties.scheduleExpression) {
+            this.scheduleFunction(properties.scheduleExpression);
+        }
+
         this.addFunctionPermissions(properties);
+    }
+
+    /**
+     * Use event bridge to schedule the function execution using the specified
+     * schedule expression
+     * @param scheduleExpression
+     */
+    scheduleFunction(scheduleExpression: string) {
+        const rule = new Rule(this, 'ScheduleRule', {
+            schedule: Schedule.expression(scheduleExpression),
+        });
+
+        rule.addTarget(new LambdaFunction(this.function));
     }
 
     /**

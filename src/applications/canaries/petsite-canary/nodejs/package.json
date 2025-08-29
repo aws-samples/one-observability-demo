@@ -1,0 +1,9 @@
+{
+    "name": "petsite-canary",
+    "version": "1.0.0",
+    "description": "CloudWatch Synthetics canary for petsite monitoring",
+    "main": "node_modules/index.js",
+    "dependencies": {
+        "@aws-sdk/client-ssm": "^3.0.0"
+    }
+}

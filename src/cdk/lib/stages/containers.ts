@@ -252,7 +252,7 @@ export class ContainersStack extends Stack {
             handler: 'index.handler',
             role: retryLambdaRole,
             timeout: Duration.minutes(1),
-            code: Code.fromAsset('lib/constructs/serverless/functions/pipeline-retry'),
+            code: Code.fromAsset('../applications/lambda/pipeline-retry-python'),
         });
 
         new Rule(this, 'PipelineFailureRule', {

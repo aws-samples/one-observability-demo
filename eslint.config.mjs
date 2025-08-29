@@ -39,4 +39,10 @@ export default [
             '@typescript-eslint/no-var-requires': 0,
         },
     },
+    {
+        files: ['**/*.js'],
+        rules: {
+            '@typescript-eslint/no-require-imports': 'off',
+        },
+    },
 ];
