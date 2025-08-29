@@ -45,9 +45,15 @@ jobs:
             fail-fast: false
             matrix:
                 service:
-                    - name: pethistory
-                      path: src/applications/lambda/pethistory-node/
-                      node-version: '18'
+                    - name: petfood-cleanup-processor
+                      path: src/applications/lambda/petfood-cleanup-processor-node/
+                      node-version: '22'
+                    - name: petstatusupdater
+                      path: src/applications/lambda/petstatusupdater-node/
+                      node-version: '22'
+                    - name: traffic-generator
+                      path: src/applications/lambda/traffic-generator-node/
+                      node-version: '22'
 
         steps:
             - uses: actions/checkout@v3
@@ -69,6 +75,34 @@ jobs:
 
             - name: Verify build
               run: npm run build --if-present
+              working-directory: ${{ matrix.service.path }}
+
+    python-builds:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service:
+                    - name: petfood-image-generator
+                      path: src/applications/lambda/petfood-image-generator-python/
+                      python-version: '3.13'
+
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Setup Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: ${{ matrix.service.python-version }}
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install pytest boto3
+              working-directory: ${{ matrix.service.path }}
+
+            - name: Run tests
+              run: pytest
               working-directory: ${{ matrix.service.path }}
 
     dotnet-builds:
