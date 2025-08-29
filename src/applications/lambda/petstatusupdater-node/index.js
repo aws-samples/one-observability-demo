@@ -3,10 +3,12 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-const AWSXRay = require('aws-xray-sdk');
-const AWS = require('aws-sdk');
-const capturedAWS = AWSXRay.captureAWS(AWS);
-const documentClient = new capturedAWS.DynamoDB.DocumentClient();
+const AWSXRay = require('aws-xray-sdk-core');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+
+const client = AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
+const documentClient = DynamoDBDocumentClient.from(client);
 
 exports.handler = async function (event) {
     var payload = JSON.parse(event.body);
@@ -37,14 +39,12 @@ exports.handler = async function (event) {
 };
 
 async function updatePetadoptionsTable(parameters) {
-    await documentClient
-        .update(parameters, function (error, data) {
-            if (error) {
-                console.log(JSON.stringify(error, undefined, 2));
-            } else {
-                console.log(JSON.stringify(data, undefined, 2));
-                //  console.log("Updated petid: "+payload.petid +", pettype: "+payload.pettype+ " to availability: "+availability);
-            }
-        })
-        .promise();
+    try {
+        const command = new UpdateCommand(parameters);
+        const data = await documentClient.send(command);
+        console.log(JSON.stringify(data, undefined, 2));
+    } catch (error) {
+        console.log(JSON.stringify(error, undefined, 2));
+        throw error;
+    }
 }

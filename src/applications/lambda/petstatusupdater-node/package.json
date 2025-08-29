@@ -1,14 +1,16 @@
 {
-  "name": "petstatusupdater",
-  "version": "1.0.0",
-  "description": "Updates pet availability",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "aws-xray-sdk": "^3.3.3"
-  }
+    "name": "petstatusupdater",
+    "version": "1.0.0",
+    "description": "Updates pet availability",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "aws-xray-sdk-core": "^3.10.3",
+        "@aws-sdk/client-dynamodb": "^3.0.0",
+        "@aws-sdk/lib-dynamodb": "^3.0.0"
+    }
 }

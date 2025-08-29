@@ -42,6 +42,7 @@ import {
     PET_IMAGES,
     MICROSERVICES_PLACEMENT,
     LAMBDA_FUNCTIONS,
+    CANARY_FUNCTIONS,
 } from './environment';
 
 /** Main CDK application instance */
@@ -69,6 +70,7 @@ new CDKPipeline(app, 'OneObservability', {
     microservicesProperties: {
         microservicesPlacement: MICROSERVICES_PLACEMENT,
         lambdaFunctions: LAMBDA_FUNCTIONS,
+        canaries: CANARY_FUNCTIONS,
     },
 });
 

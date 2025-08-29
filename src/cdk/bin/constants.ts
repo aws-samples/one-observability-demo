@@ -81,3 +81,7 @@ export const CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME = 'WorkshopCloudMapNamespaceArn'
 // Assets Export Names
 export const ASSETS_BUCKET_NAME_EXPORT_NAME = 'WorkshopAssetsBucketName';
 export const ASSETS_BUCKET_ARN_EXPORT_NAME = 'WorkshopAssetsBucketArn';
+
+// EventBridge Export Names
+export const EVENTBUS_ARN_EXPORT_NAME = 'WorkshopEventBusArn';
+export const EVENTBUS_NAME_EXPORT_NAME = 'WorkshopEventBusName';

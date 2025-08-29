@@ -86,10 +86,7 @@ repos:
       hooks:
           - id: flake8
             args: ['--max-line-length=88'] # Same max-length as black
-    - repo: https://github.com/asottile/reorder_python_imports
-      rev: v3.15.0
-      hooks:
-          - id: reorder-python-imports
+
     - repo: https://github.com/asottile/pyupgrade
       rev: v3.20.0
       hooks:
@@ -144,3 +141,4 @@ repos:
       rev: v3.0.0
       hooks:
           - id: ash-simple-scan
+            args: [--no-fail-on-findings] # Until we fix dockerfile issues

@@ -1,5 +1,6 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use aws_sdk_eventbridge::Client as EventBridgeClient;
 use aws_sdk_ssm::Client as SsmClient;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -35,6 +36,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub aws: AwsConfig,
     pub observability: ObservabilityConfig,
+    pub events: EventsConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -65,6 +67,7 @@ pub struct DatabaseConfig {
 pub struct AwsConfig {
     pub region: String,
     pub dynamodb_client: DynamoDbClient,
+    pub eventbridge_client: EventBridgeClient,
     pub ssm_client: SsmClient,
     pub parameter_store: Arc<ParameterStoreConfig>,
 }
@@ -83,6 +86,22 @@ pub struct ObservabilityConfig {
     pub log_level: String,
     #[serde(default = "default_enable_json_logging")]
     pub enable_json_logging: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EventsConfig {
+    #[serde(default = "default_events_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_event_bus_name")]
+    pub event_bus_name: String,
+    #[serde(default = "default_source_name")]
+    pub source_name: String,
+    #[serde(default = "default_retry_attempts")]
+    pub retry_attempts: u32,
+    #[serde(default = "default_timeout_seconds")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_enable_dead_letter_queue")]
+    pub enable_dead_letter_queue: bool,
 }
 
 pub struct ParameterStoreConfig {
@@ -108,6 +127,7 @@ impl Config {
         let server = ServerConfig::from_env()?;
         let database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
+        let events = EventsConfig::from_env()?;
 
         // Initialize AWS configuration with timeout and retry settings
         info!(
@@ -130,6 +150,7 @@ impl Config {
         info!("AWS configuration loaded successfully");
 
         let dynamodb_client = DynamoDbClient::new(&aws_config);
+        let eventbridge_client = EventBridgeClient::new(&aws_config);
         let ssm_client = SsmClient::new(&aws_config);
 
         info!("AWS clients created successfully");
@@ -145,6 +166,7 @@ impl Config {
         let aws = AwsConfig {
             region: database.region.clone(),
             dynamodb_client,
+            eventbridge_client,
             ssm_client,
             parameter_store,
         };
@@ -154,6 +176,7 @@ impl Config {
             database,
             aws,
             observability,
+            events,
         };
 
         // Validate configuration
@@ -272,6 +295,23 @@ impl ObservabilityConfig {
             .try_deserialize()
             .map_err(|e| ConfigError::LoadError {
                 message: format!("Failed to deserialize observability config: {}", e),
+            })
+    }
+}
+
+impl EventsConfig {
+    fn from_env() -> Result<Self, ConfigError> {
+        let settings = config::Config::builder()
+            .add_source(config::Environment::with_prefix("PETFOOD"))
+            .build()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to load events config: {}", e),
+            })?;
+
+        settings
+            .try_deserialize()
+            .map_err(|e| ConfigError::LoadError {
+                message: format!("Failed to deserialize events config: {}", e),
             })
     }
 }
@@ -411,6 +451,32 @@ pub(crate) fn default_metrics_port() -> u16 {
 
 pub(crate) fn default_log_level() -> String {
     "info".to_string()
+}
+
+pub(crate) fn default_events_enabled() -> bool {
+    std::env::var("PETFOOD_EVENTS_ENABLED")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(true)
+}
+
+pub(crate) fn default_event_bus_name() -> String {
+    "default".to_string()
+}
+
+pub(crate) fn default_source_name() -> String {
+    "petfood.service".to_string()
+}
+
+pub(crate) fn default_retry_attempts() -> u32 {
+    3
+}
+
+pub(crate) fn default_timeout_seconds() -> u64 {
+    30
+}
+
+pub(crate) fn default_enable_dead_letter_queue() -> bool {
+    true
 }
 
 #[cfg(test)]

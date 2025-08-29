@@ -4,20 +4,128 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
-// Config imports removed as they're no longer needed
-use petfood_rs::models::{CreateFoodRequest, FoodFilters, FoodType, PetType};
-use petfood_rs::repositories::food_repository::DynamoDbFoodRepository;
+use petfood_rs::models::{
+    CreateFoodRequest, Food, FoodFilters, FoodType, PetType, RepositoryError,
+};
+use petfood_rs::repositories::FoodRepository;
 use petfood_rs::services::food_service::FoodService;
 use rust_decimal_macros::dec;
 
-async fn create_test_clients() -> (Arc<aws_sdk_dynamodb::Client>, Arc<aws_sdk_ssm::Client>) {
-    let aws_config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let dynamodb_client = Arc::new(aws_sdk_dynamodb::Client::new(&aws_config));
-    let ssm_client = Arc::new(aws_sdk_ssm::Client::new(&aws_config));
-    (dynamodb_client, ssm_client)
+use async_trait::async_trait;
+use std::collections::HashMap;
+
+/// Mock repository for benchmarking that doesn't require AWS connectivity
+#[derive(Clone)]
+struct MockFoodRepository {
+    foods: Arc<std::sync::Mutex<HashMap<String, Food>>>,
 }
 
-async fn setup_test_data(food_service: &FoodService, num_foods: usize) {
+impl MockFoodRepository {
+    fn new() -> Self {
+        Self {
+            foods: Arc::new(std::sync::Mutex::new(HashMap::new())),
+        }
+    }
+}
+
+#[async_trait]
+impl FoodRepository for MockFoodRepository {
+    async fn find_all(&self, filters: FoodFilters) -> Result<Vec<Food>, RepositoryError> {
+        let foods = self.foods.lock().unwrap();
+        let mut result: Vec<Food> = foods.values().cloned().collect();
+
+        // Apply filters
+        if let Some(pet_type) = &filters.pet_type {
+            result.retain(|f| &f.pet_type == pet_type);
+        }
+        if let Some(food_type) = &filters.food_type {
+            result.retain(|f| &f.food_type == food_type);
+        }
+        if let Some(min_price) = filters.min_price {
+            result.retain(|f| f.price >= min_price);
+        }
+        if let Some(max_price) = filters.max_price {
+            result.retain(|f| f.price <= max_price);
+        }
+        if let Some(in_stock_only) = filters.in_stock_only {
+            if in_stock_only {
+                result.retain(|f| f.stock_quantity > 0);
+            }
+        }
+
+        Ok(result)
+    }
+
+    async fn find_by_id(&self, id: &str) -> Result<Option<Food>, RepositoryError> {
+        let foods = self.foods.lock().unwrap();
+        Ok(foods.get(id).cloned())
+    }
+
+    async fn find_by_pet_type(&self, pet_type: PetType) -> Result<Vec<Food>, RepositoryError> {
+        let foods = self.foods.lock().unwrap();
+        let result: Vec<Food> = foods
+            .values()
+            .filter(|f| f.pet_type == pet_type)
+            .cloned()
+            .collect();
+        Ok(result)
+    }
+
+    async fn find_by_food_type(&self, food_type: FoodType) -> Result<Vec<Food>, RepositoryError> {
+        let foods = self.foods.lock().unwrap();
+        let result: Vec<Food> = foods
+            .values()
+            .filter(|f| f.food_type == food_type)
+            .cloned()
+            .collect();
+        Ok(result)
+    }
+
+    async fn create(&self, food: Food) -> Result<Food, RepositoryError> {
+        let mut foods = self.foods.lock().unwrap();
+        foods.insert(food.id.clone(), food.clone());
+        Ok(food)
+    }
+
+    async fn update(&self, food: Food) -> Result<Food, RepositoryError> {
+        let mut foods = self.foods.lock().unwrap();
+        foods.insert(food.id.clone(), food.clone());
+        Ok(food)
+    }
+
+    async fn soft_delete(&self, id: &str) -> Result<(), RepositoryError> {
+        let mut foods = self.foods.lock().unwrap();
+        if let Some(mut food) = foods.get(id).cloned() {
+            food.availability_status = petfood_rs::models::AvailabilityStatus::Discontinued;
+            foods.insert(id.to_string(), food);
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, id: &str) -> Result<(), RepositoryError> {
+        let mut foods = self.foods.lock().unwrap();
+        foods.remove(id);
+        Ok(())
+    }
+
+    async fn exists(&self, id: &str) -> Result<bool, RepositoryError> {
+        let foods = self.foods.lock().unwrap();
+        Ok(foods.contains_key(id))
+    }
+
+    async fn count(&self, filters: Option<FoodFilters>) -> Result<usize, RepositoryError> {
+        if let Some(filters) = filters {
+            let foods = self.find_all(filters).await?;
+            Ok(foods.len())
+        } else {
+            let foods = self.foods.lock().unwrap();
+            Ok(foods.len())
+        }
+    }
+}
+
+fn create_repository_with_test_data(num_foods: usize) -> Arc<MockFoodRepository> {
+    let repository = Arc::new(MockFoodRepository::new());
     let pet_types = [PetType::Puppy, PetType::Kitten, PetType::Bunny];
     let food_types = [
         FoodType::Dry,
@@ -44,8 +152,15 @@ async fn setup_test_data(food_service: &FoodService, num_foods: usize) {
             stock_quantity: 100,
         };
 
-        let _ = food_service.create_food(request).await;
+        let food = Food::new(request);
+        repository
+            .foods
+            .lock()
+            .unwrap()
+            .insert(food.id.clone(), food);
     }
+
+    repository
 }
 
 fn bench_food_search_by_pet_type(c: &mut Criterion) {
@@ -60,40 +175,24 @@ fn bench_food_search_by_pet_type(c: &mut Criterion) {
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                b.iter_batched(
-                    || {
-                        rt.block_on(async {
-                            let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(
-                                client,
-                                "benchmark-foods".to_string(),
-                                "us-east-1".to_string(),
-                            ));
-                            let food_service = FoodService::new(repository.clone());
+                let repository = create_repository_with_test_data(size);
+                let food_service = FoodService::new(repository);
 
-                            // Setup test data
-                            setup_test_data(&food_service, size).await;
+                b.iter(|| {
+                    rt.block_on(async {
+                        let filters = FoodFilters {
+                            pet_type: Some(PetType::Puppy),
+                            food_type: None,
+                            availability_status: None,
+                            min_price: None,
+                            max_price: None,
+                            search_term: None,
+                            in_stock_only: Some(false),
+                        };
 
-                            food_service
-                        })
-                    },
-                    |food_service| {
-                        rt.block_on(async move {
-                            let filters = FoodFilters {
-                                pet_type: Some(PetType::Puppy),
-                                food_type: None,
-                                availability_status: None,
-                                min_price: None,
-                                max_price: None,
-                                search_term: None,
-                                in_stock_only: Some(false),
-                            };
-
-                            black_box(food_service.list_foods(filters).await.unwrap())
-                        })
-                    },
-                    criterion::BatchSize::SmallInput,
-                );
+                        black_box(food_service.list_foods(filters).await.unwrap())
+                    })
+                });
             },
         );
     }
@@ -112,40 +211,24 @@ fn bench_food_search_by_food_type(c: &mut Criterion) {
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                b.iter_batched(
-                    || {
-                        rt.block_on(async {
-                            let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(
-                                client,
-                                "benchmark-foods".to_string(),
-                                "us-east-1".to_string(),
-                            ));
-                            let food_service = FoodService::new(repository.clone());
+                let repository = create_repository_with_test_data(size);
+                let food_service = FoodService::new(repository);
 
-                            // Setup test data
-                            setup_test_data(&food_service, size).await;
+                b.iter(|| {
+                    rt.block_on(async {
+                        let filters = FoodFilters {
+                            pet_type: None,
+                            food_type: Some(FoodType::Dry),
+                            availability_status: None,
+                            min_price: None,
+                            max_price: None,
+                            search_term: None,
+                            in_stock_only: Some(false),
+                        };
 
-                            food_service
-                        })
-                    },
-                    |food_service| {
-                        rt.block_on(async move {
-                            let filters = FoodFilters {
-                                pet_type: None,
-                                food_type: Some(FoodType::Dry),
-                                availability_status: None,
-                                min_price: None,
-                                max_price: None,
-                                search_term: None,
-                                in_stock_only: Some(false),
-                            };
-
-                            black_box(food_service.list_foods(filters).await.unwrap())
-                        })
-                    },
-                    criterion::BatchSize::SmallInput,
-                );
+                        black_box(food_service.list_foods(filters).await.unwrap())
+                    })
+                });
             },
         );
     }
@@ -164,40 +247,24 @@ fn bench_food_search_combined_filters(c: &mut Criterion) {
             BenchmarkId::new("dataset_size", dataset_size),
             dataset_size,
             |b, &size| {
-                b.iter_batched(
-                    || {
-                        rt.block_on(async {
-                            let (client, _) = create_test_clients().await;
-                            let repository = Arc::new(DynamoDbFoodRepository::new(
-                                client,
-                                "benchmark-foods".to_string(),
-                                "us-east-1".to_string(),
-                            ));
-                            let food_service = FoodService::new(repository.clone());
+                let repository = create_repository_with_test_data(size);
+                let food_service = FoodService::new(repository);
 
-                            // Setup test data
-                            setup_test_data(&food_service, size).await;
+                b.iter(|| {
+                    rt.block_on(async {
+                        let filters = FoodFilters {
+                            pet_type: Some(PetType::Puppy),
+                            food_type: Some(FoodType::Dry),
+                            availability_status: None,
+                            min_price: Some(dec!(5.0)),
+                            max_price: Some(dec!(20.0)),
+                            search_term: None,
+                            in_stock_only: Some(true),
+                        };
 
-                            food_service
-                        })
-                    },
-                    |food_service| {
-                        rt.block_on(async move {
-                            let filters = FoodFilters {
-                                pet_type: Some(PetType::Puppy),
-                                food_type: Some(FoodType::Dry),
-                                availability_status: None,
-                                min_price: Some(dec!(5.0)),
-                                max_price: Some(dec!(20.0)),
-                                search_term: None,
-                                in_stock_only: Some(true),
-                            };
-
-                            black_box(food_service.list_foods(filters).await.unwrap())
-                        })
-                    },
-                    criterion::BatchSize::SmallInput,
-                );
+                        black_box(food_service.list_foods(filters).await.unwrap())
+                    })
+                });
             },
         );
     }
@@ -212,42 +279,16 @@ fn bench_food_get_by_id(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(10));
 
     group.bench_function("single_lookup", |b| {
-        b.iter_batched(
-            || {
-                rt.block_on(async {
-                    let (client, _) = create_test_clients().await;
-                    let repository = Arc::new(DynamoDbFoodRepository::new(
-                        client,
-                        "benchmark-foods".to_string(),
-                        "us-east-1".to_string(),
-                    ));
-                    let food_service = FoodService::new(repository.clone());
+        let repository = create_repository_with_test_data(1);
+        let food_service = FoodService::new(repository.clone());
 
-                    // Create a single food item
-                    let request = CreateFoodRequest {
-                        pet_type: PetType::Puppy,
-                        name: "Benchmark Food".to_string(),
-                        food_type: FoodType::Dry,
-                        description: "Description for benchmark food".to_string(),
-                        price: dec!(10.99),
-                        image: "food.jpg".to_string(),
-                        nutritional_info: None,
-                        ingredients: vec!["ingredient1".to_string()],
-                        feeding_guidelines: Some("Feed as needed".to_string()),
-                        stock_quantity: 100,
-                    };
+        // Get a food ID from the repository
+        let food_id = rt.block_on(async {
+            let foods = repository.find_all(FoodFilters::default()).await.unwrap();
+            foods[0].id.clone()
+        });
 
-                    let created_food = food_service.create_food(request).await.unwrap();
-                    (food_service, created_food.id)
-                })
-            },
-            |(food_service, food_id)| {
-                rt.block_on(
-                    async move { black_box(food_service.get_food(&food_id).await.unwrap()) },
-                )
-            },
-            criterion::BatchSize::SmallInput,
-        );
+        b.iter(|| rt.block_on(async { black_box(food_service.get_food(&food_id).await.unwrap()) }));
     });
 
     group.finish();

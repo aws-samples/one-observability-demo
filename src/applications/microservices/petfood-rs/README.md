@@ -233,6 +233,32 @@ export PETFOOD_ASSETS_CDN_URL="https://d1234567890.cloudfront.net/images/"
 
 The service automatically handles trailing slashes and combines the CDN URL with the stored path.
 
+### Full config example
+
+```
+# Server Configuration
+PETFOOD_HOST=0.0.0.0
+PETFOOD_PORT=8080
+PETFOOD_REQUEST_TIMEOUT_SECONDS=30
+
+# Database Configuration
+PETFOOD_FOODS_TABLE_NAME=PetFoods
+PETFOOD_CARTS_TABLE_NAME=PetFoodCarts
+PETFOOD_REGION=us-west-2
+PETFOOD_ASSETS_CDN_URL=https://d1234567890.cloudfront.net/images
+
+# AWS Configuration
+AWS_REGION=us-west-2
+
+# Observability Configuration
+PETFOOD_SERVICE_NAME=petfood-rs
+PETFOOD_SERVICE_VERSION=1.0.0
+PETFOOD_OTLP_ENDPOINT=http://localhost:4317
+PETFOOD_METRICS_PORT=9090
+PETFOOD_LOG_LEVEL=info
+PETFOOD_ENABLE_JSON_LOGGING=false
+```
+
 ### Health Check
 
 The service provides a health check endpoint at `/health/status`.
