@@ -23,6 +23,7 @@ import { WorkshopEks } from '../constructs/eks';
 import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
+import { EventBusResources } from '../constructs/eventbus';
 import { PetFoodECSService } from '../microservices/petfood';
 import { CanaryNames, WorkshopCanaryProperties } from '../constructs/canary';
 import { TrafficGeneratorFunction } from '../serverless/functions/traffic-generator/traffic-generator';
@@ -30,6 +31,8 @@ import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { HouseKeepingCanary } from '../serverless/canaries/housekeeping/housekeeping';
 import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator/traffic-generator';
 import { NagSuppressions } from 'cdk-nag';
+import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood/cleanup-processor';
+import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -48,6 +51,7 @@ interface ImportedResources {
     cloudMap: any;
     openSearchExports: any;
     assetsBucket: any;
+    eventBusExports: any;
     baseURI: string;
 }
 
@@ -101,6 +105,7 @@ export class MicroservicesStack extends Stack {
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
         const openSearchExports = OpenSearchCollection.importFromExports();
         const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
+        const eventBusExports = EventBusResources.importFromExports(this, 'EventBusResources');
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
         return {
@@ -113,6 +118,7 @@ export class MicroservicesStack extends Stack {
             cloudMap,
             openSearchExports,
             assetsBucket,
+            eventBusExports,
             baseURI,
         };
     }
@@ -242,9 +248,9 @@ export class MicroservicesStack extends Stack {
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
                         // Use pipeline if available, otherwise fall back to direct collection access
-                        ...(ecsExports.openSearchPipeline
-                            ? { openSearchPipeline: ecsExports.openSearchPipeline }
-                            : { openSearchCollection: openSearchExports }),
+                        ...(imports.ecsExports.openSearchPipeline
+                            ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }
+                            : { openSearchCollection: imports.openSearchExports }),
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -326,6 +332,24 @@ export class MicroservicesStack extends Stack {
                     ...lambdafunction,
                     name: name,
                     trafficCanary: trafficCanary.canary,
+                });
+            }
+            if (name == LambdaFunctionNames.PetfoodCleanupProcessor) {
+                new PetfoodCleanupProcessorFunction(this, name, {
+                    ...lambdafunction,
+                    name: name,
+                    imageBucket: imports.assetsBucket,
+                    eventBridgeBus: imports.eventBusExports.eventBus,
+                    petfoodTable: imports.dynamodbExports.petfoodTable,
+                });
+            }
+            if (name == LambdaFunctionNames.PetfoodImageGenerator) {
+                new PetfoodImageGeneratorFunction(this, name, {
+                    ...lambdafunction,
+                    name: name,
+                    imageBucket: imports.assetsBucket,
+                    eventBridgeBus: imports.eventBusExports.eventBus,
+                    petfoodTable: imports.dynamodbExports.petfoodTable,
                 });
             }
         }

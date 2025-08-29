@@ -193,10 +193,32 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     enableSchedule: true,
 };
 
+export const PETFOOD_IMAGE_GENERATOR_FUNCTION = {
+    name: 'petfood-image-generator-node',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../applications/lambda/petfood-image-generator-node/package-lock.json',
+    entry: '../applications/lambda/petfood-image-generator-node/index.js',
+    memorySize: 128,
+    handle: 'handler',
+    enableSchedule: false,
+};
+
+export const PETFOOD_CLEANUP_PROCESSOR_FUNCTION = {
+    name: 'petfood-cleanup-processor-node',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../applications/lambda/petfood-cleanup-processor-node/package-lock.json',
+    entry: '../applications/lambda/petfood-cleanup-processor-node/index.js',
+    memorySize: 128,
+    handle: 'handler',
+    enableSchedule: false,
+};
+
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
     [TRAFFIC_GENERATOR_FUNCTION.name, TRAFFIC_GENERATOR_FUNCTION],
+    [PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name, PETFOOD_CLEANUP_PROCESSOR_FUNCTION],
+    [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],
 ]);
 
 export const PETSITE_CANARY = {

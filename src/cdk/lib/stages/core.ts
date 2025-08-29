@@ -20,6 +20,7 @@ import { WorkshopNetwork } from '../constructs/network';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { WorkshopCloudTrail } from '../constructs/cloudtrail';
 import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
+import { EventBusResources, EventBusResourcesProperties } from '../constructs/eventbus';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
 
@@ -41,6 +42,8 @@ export interface CoreStageProperties extends StackProps {
     defaultRetentionDays?: RetentionDays;
     /** Queue Resources */
     queueProperties?: QueueResourcesProperties;
+    /** EventBus Resources */
+    eventBusProperties?: EventBusResourcesProperties;
     /** CloudWatch Resources */
     cloudWatchProperties?: CloudWatchTransactionSearchProperties;
 }
@@ -97,6 +100,9 @@ export class CoreStack extends Stack {
 
         /** Add Queue resources */
         new QueueResources(this, 'QueueResources', properties.queueProperties);
+
+        /** Add EventBus resources */
+        new EventBusResources(this, 'EventBusResources', properties.eventBusProperties);
 
         /** Enable CloudWatch Application Signals Discovery */
         new CfnDiscovery(this, 'ApplicationSignals', {});

@@ -19,7 +19,13 @@ import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
-import { STATUS_UPDATER_FUNCTION, TRAFFIC_GENERATOR_FUNCTION } from '../../bin/environment';
+import {
+    PETFOOD_CLEANUP_PROCESSOR_FUNCTION,
+    PETFOOD_IMAGE_GENERATOR_FUNCTION,
+    STATUS_UPDATER_FUNCTION,
+    TRAFFIC_GENERATOR_FUNCTION,
+} from '../../bin/environment';
+import { Queue } from 'aws-cdk-lib/aws-sqs';
 
 /**
  * Properties for configuring a workshop Lambda function.
@@ -60,6 +66,8 @@ export const LambdaFunctionNames = {
     /** Pet status updater function name */
     StatusUpdater: STATUS_UPDATER_FUNCTION.name,
     TrafficGenerator: TRAFFIC_GENERATOR_FUNCTION.name,
+    PetfoodImageGenerator: PETFOOD_IMAGE_GENERATOR_FUNCTION.name,
+    PetfoodCleanupProcessor: PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name,
 } as const;
 
 /**
@@ -97,6 +105,11 @@ export abstract class WokshopLambdaFunction extends Construct {
                 layers: this.getLayers(properties),
                 environment: this.getEnvironmentVariables(properties),
                 bundling: this.getBundling(properties),
+                deadLetterQueueEnabled: true,
+                deadLetterQueue: new Queue(this, 'DeadLetterQueue', {
+                    queueName: `${properties.name}-dlq`,
+                    enforceSSL: true,
+                }),
             });
         } else {
             throw new Error(`Runtime ${properties.runtime.name} not supported`);

@@ -24,9 +24,46 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 }));
 
 const { handler } = require('../index');
-const { S3Client, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+const { DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+
+const createTestEvent = (overrides = {}) => ({
+    version: '0',
+    id: 'test-event-id',
+    'detail-type': 'ItemDiscontinued',
+    source: 'petfood.service',
+    account: '123456789012',
+    time: '2024-01-01T00:00:00Z',
+    region: 'us-east-1',
+    detail: {
+        event_type: 'ItemDiscontinued',
+        food_id: 'test-food-123',
+        food_name: undefined,
+        pet_type: undefined,
+        food_type: undefined,
+        description: undefined,
+        ingredients: undefined,
+        status: 'discontinued',
+        metadata: {
+            cleanup_type: 'soft_delete',
+            image_path: 'premium-puppy-chow.jpg',
+            reason: 'cleanup_operation'
+        },
+        span_context: {
+            trace_id: 'c5fb47bbf77e841964c5d52abfcd2c27',
+            span_id: 'fa08a19935988e28',
+            trace_flags: '01'
+        },
+        ...overrides
+    }
+});
+
+const createLambdaContext = () => ({
+    requestId: 'test-request-id',
+    functionName: 'test-function',
+    functionVersion: '1',
+    getRemainingTimeInMillis: () => 30_000
+});
 
 describe('Petfood Cleanup Processor Lambda', () => {
     beforeEach(() => {
@@ -34,49 +71,11 @@ describe('Petfood Cleanup Processor Lambda', () => {
         jest.clearAllMocks();
         mockS3Send.mockReset();
         mockDynamoSend.mockReset();
-        
+
         // Set environment variables
         process.env.S3_BUCKET_NAME = 'test-bucket';
         process.env.DYNAMODB_TABLE_NAME = 'test-table';
         process.env.AWS_REGION = 'us-east-1';
-    });
-
-    const createTestEvent = (overrides = {}) => ({
-        version: '0',
-        id: 'test-event-id',
-        'detail-type': 'ItemDiscontinued',
-        source: 'petfood.service',
-        account: '123456789012',
-        time: '2024-01-01T00:00:00Z',
-        region: 'us-east-1',
-        detail: {
-            event_type: 'ItemDiscontinued',
-            food_id: 'test-food-123',
-            food_name: null,
-            pet_type: null,
-            food_type: null,
-            description: null,
-            ingredients: null,
-            status: 'discontinued',
-            metadata: {
-                cleanup_type: 'soft_delete',
-                image_path: 'premium-puppy-chow.jpg',
-                reason: 'cleanup_operation'
-            },
-            span_context: {
-                trace_id: 'c5fb47bbf77e841964c5d52abfcd2c27',
-                span_id: 'fa08a19935988e28',
-                trace_flags: '01'
-            },
-            ...overrides
-        }
-    });
-
-    const createLambdaContext = () => ({
-        requestId: 'test-request-id',
-        functionName: 'test-function',
-        functionVersion: '1',
-        getRemainingTimeInMillis: () => 30000
     });
 
     describe('Successful cleanup processing', () => {
@@ -85,7 +84,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             mockS3Send
                 .mockResolvedValueOnce({}) // HeadObject - image exists
                 .mockResolvedValueOnce({}); // DeleteObject - successful deletion
-            
+
             mockDynamoSend.mockResolvedValueOnce({
                 Attributes: { id: 'test-food-123', status: 'discontinued' }
             });
@@ -96,7 +95,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const result = await handler(event, context);
 
             expect(result.statusCode).toBe(200);
-            
+
             const responseBody = JSON.parse(result.body);
             expect(responseBody.message).toBe('Cleanup processing completed successfully');
             expect(responseBody.foodId).toBe('test-food-123');
@@ -118,9 +117,9 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const notFoundError = new Error('Not Found');
             notFoundError.name = 'NotFound';
             notFoundError.$metadata = { httpStatusCode: 404 };
-            
+
             mockS3Send.mockRejectedValueOnce(notFoundError); // HeadObject - image doesn't exist
-            
+
             mockDynamoSend.mockResolvedValueOnce({
                 Attributes: { id: 'test-food-123', status: 'discontinued' }
             });
@@ -131,7 +130,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const result = await handler(event, context);
 
             expect(result.statusCode).toBe(200);
-            
+
             const responseBody = JSON.parse(result.body);
             expect(responseBody.cleanupSummary.s3ImageDeleted).toBe(false);
             expect(responseBody.cleanupSummary.databaseRecordDeleted).toBe(true);
@@ -145,7 +144,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             // Setup event without image path
             const eventWithoutImage = createTestEvent();
             delete eventWithoutImage.detail.metadata.image_path;
-            
+
             mockDynamoSend.mockResolvedValueOnce({
                 Attributes: { id: 'test-food-123', status: 'discontinued' }
             });
@@ -155,7 +154,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const result = await handler(eventWithoutImage, context);
 
             expect(result.statusCode).toBe(200);
-            
+
             const responseBody = JSON.parse(result.body);
             expect(responseBody.cleanupSummary.s3ImageDeleted).toBe(false);
             expect(responseBody.cleanupSummary.databaseRecordDeleted).toBe(true);
@@ -172,11 +171,11 @@ describe('Petfood Cleanup Processor Lambda', () => {
                 eventDetail: {
                     event_type: 'ItemDiscontinued',
                     food_id: 'F689d8cdb',
-                    food_name: null,
-                    pet_type: null,
-                    food_type: null,
-                    description: null,
-                    ingredients: null,
+                    food_name: undefined,
+                    pet_type: undefined,
+                    food_type: undefined,
+                    description: undefined,
+                    ingredients: undefined,
                     status: 'discontinued',
                     metadata: {
                         cleanup_type: 'soft_delete',
@@ -194,7 +193,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             mockS3Send
                 .mockResolvedValueOnce({}) // HeadObject - image exists
                 .mockResolvedValueOnce({}); // DeleteObject - successful deletion
-            
+
             mockDynamoSend.mockResolvedValueOnce({
                 Attributes: { id: 'F689d8cdb', status: 'discontinued' }
             });
@@ -204,7 +203,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const result = await handler(alternativeEvent, context);
 
             expect(result.statusCode).toBe(200);
-            
+
             const responseBody = JSON.parse(result.body);
             expect(responseBody.message).toBe('Cleanup processing completed successfully');
             expect(responseBody.foodId).toBe('F689d8cdb');
@@ -245,7 +244,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             mockS3Send
                 .mockResolvedValueOnce({}) // HeadObject - image exists
                 .mockResolvedValueOnce({}); // DeleteObject - successful
-            
+
             mockDynamoSend.mockRejectedValue(new Error('DynamoDB delete failed'));
 
             const event = createTestEvent();
@@ -263,7 +262,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
                 .mockRejectedValueOnce(new Error('Temporary failure'))
                 .mockRejectedValueOnce(new Error('Temporary failure'))
                 .mockResolvedValueOnce({}); // DeleteObject - finally succeeds
-            
+
             mockDynamoSend.mockResolvedValueOnce({
                 Attributes: { id: 'test-food-123', status: 'discontinued' }
             });
@@ -274,7 +273,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             const result = await handler(event, context);
 
             expect(result.statusCode).toBe(200);
-            
+
             // Should have called S3 4 times (1 HeadObject + 3 DeleteObject attempts)
             expect(mockS3Send).toHaveBeenCalledTimes(4);
         });
@@ -317,7 +316,7 @@ describe('Petfood Cleanup Processor Lambda', () => {
             // Verify calls were made (the actual command construction is handled by AWS SDK)
             expect(mockS3Send).toHaveBeenCalledTimes(2);
             expect(mockDynamoSend).toHaveBeenCalledTimes(1);
-            
+
             // Verify the commands were constructed with the right constructors
             expect(HeadObjectCommand).toHaveBeenCalled();
             expect(DeleteObjectCommand).toHaveBeenCalled();

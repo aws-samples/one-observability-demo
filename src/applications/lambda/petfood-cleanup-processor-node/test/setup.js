@@ -10,13 +10,13 @@ process.env.MAX_RETRIES = '3';
 process.env.RETRY_DELAY_MS = '100'; // Faster retries for tests
 
 // Mock console methods to reduce test output noise
-global.console = {
-  ...console,
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  info: jest.fn()
+globalThis.console = {
+    ...console,
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn()
 };
 
 // Global test timeout
-jest.setTimeout(10000);
+jest.setTimeout(10_000);

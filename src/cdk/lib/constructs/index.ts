@@ -6,6 +6,7 @@ export * from './ecs';
 export * from './ecs-service';
 export * from './eks';
 export * from './eks-deployment';
+export * from './eventbus';
 export * from './lambda';
 export * from './microservice';
 export * from './network';

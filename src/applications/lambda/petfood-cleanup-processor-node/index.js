@@ -3,34 +3,36 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 
 // Initialize AWS clients
-let s3Client, dynamoClient, docClient;
+let s3Client, dynamoClient, documentClient;
 
 function initializeClients() {
     if (!s3Client) {
         s3Client = new S3Client({ region: process.env.AWS_REGION });
         dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-        docClient = DynamoDBDocumentClient.from(dynamoClient);
+        documentClient = DynamoDBDocumentClient.from(dynamoClient);
     }
-    return { s3Client, docClient };
+    return { s3Client, docClient: documentClient };
 }
 
 // Configuration from environment variables
 const CONFIG = {
     S3_BUCKET: process.env.S3_BUCKET_NAME || 'petfood-images',
     DYNAMODB_TABLE: process.env.DYNAMODB_TABLE_NAME || 'petfood-table',
-    MAX_RETRIES: parseInt(process.env.MAX_RETRIES || '3'),
-    RETRY_DELAY_MS: parseInt(process.env.RETRY_DELAY_MS || '1000')
+    MAX_RETRIES: Number.parseInt(process.env.MAX_RETRIES || '3'),
+    RETRY_DELAY_MS: Number.parseInt(process.env.RETRY_DELAY_MS || '1000')
 };
 
 /**
  * Check if an S3 object exists
  */
-async function checkS3ObjectExists(bucket, key, s3ClientParam = s3Client) {
+async function checkS3ObjectExists(bucket, key, s3ClientParameter = s3Client) {
     try {
-        await s3ClientParam.send(new HeadObjectCommand({
-            Bucket: bucket,
-            Key: key
-        }));
+        await s3ClientParameter.send(
+            new HeadObjectCommand({
+                Bucket: bucket,
+                Key: key
+            })
+        );
 
         return true;
     } catch (error) {
@@ -44,12 +46,14 @@ async function checkS3ObjectExists(bucket, key, s3ClientParam = s3Client) {
 /**
  * Delete an S3 object
  */
-async function deleteS3Object(bucket, key, s3ClientParam = s3Client) {
+async function deleteS3Object(bucket, key, s3ClientParameter = s3Client) {
     try {
-        await s3ClientParam.send(new DeleteObjectCommand({
-            Bucket: bucket,
-            Key: key
-        }));
+        await s3ClientParameter.send(
+            new DeleteObjectCommand({
+                Bucket: bucket,
+                Key: key
+            })
+        );
 
         console.log(`Successfully deleted S3 object: s3://${bucket}/${key}`);
         return true;
@@ -62,15 +66,15 @@ async function deleteS3Object(bucket, key, s3ClientParam = s3Client) {
 /**
  * Delete DynamoDB record for discontinued food item
  */
-async function deleteDynamoDBRecord(foodId, docClientParam = docClient) {
+async function deleteDynamoDBRecord(foodId, documentClientParameter = documentClient) {
     try {
-        const deleteParams = {
+        const deleteParameters = {
             TableName: CONFIG.DYNAMODB_TABLE,
             Key: { id: foodId },
             ReturnValues: 'ALL_OLD'
         };
 
-        const result = await docClientParam.send(new DeleteCommand(deleteParams));
+        const result = await documentClientParameter.send(new DeleteCommand(deleteParameters));
 
         console.log(`Successfully deleted DynamoDB record for food ${foodId}`);
         return result;
@@ -83,7 +87,11 @@ async function deleteDynamoDBRecord(foodId, docClientParam = docClient) {
 /**
  * Retry logic with exponential backoff
  */
-async function retryWithBackoff(operation, maxRetries = CONFIG.MAX_RETRIES, baseDelay = CONFIG.RETRY_DELAY_MS) {
+async function retryWithBackoff(
+    operation,
+    maxRetries = CONFIG.MAX_RETRIES,
+    baseDelay = CONFIG.RETRY_DELAY_MS
+) {
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -170,16 +178,22 @@ async function processCleanupEvent(event) {
         });
         cleanupSummary.databaseRecordDeleted = true;
 
-        console.log(`Cleanup processing completed successfully for food ${eventData.foodId}`, cleanupSummary);
+        console.log(
+            `Cleanup processing completed successfully for food ${eventData.foodId}`,
+            cleanupSummary
+        );
         return cleanupSummary;
-
     } catch (error) {
         cleanupSummary.errors.push({
             message: error.message,
             timestamp: new Date().toISOString()
         });
 
-        console.error(`Cleanup processing failed for food ${eventData.foodId}:`, error.message, cleanupSummary);
+        console.error(
+            `Cleanup processing failed for food ${eventData.foodId}:`,
+            error.message,
+            cleanupSummary
+        );
         throw error;
     }
 }
@@ -206,7 +220,9 @@ exports.handler = async (event, lambdaContext) => {
         const foodId = eventDetail?.food_id || eventDetail?.foodId;
 
         if (!eventDetail || !eventType || !foodId) {
-            throw new Error(`Invalid event structure: missing required fields. Found eventType: ${eventType}, foodId: ${foodId}`);
+            throw new Error(
+                `Invalid event structure: missing required fields. Found eventType: ${eventType}, foodId: ${foodId}`
+            );
         }
 
         // Process the cleanup event
@@ -224,7 +240,6 @@ exports.handler = async (event, lambdaContext) => {
 
         console.log('Cleanup processor completed successfully', response.body);
         return response;
-
     } catch (error) {
         console.error('Cleanup processor failed:', error.message, {
             requestId: lambdaContext.requestId,
