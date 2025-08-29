@@ -971,7 +971,7 @@ mod tests {
             DynamoDbFoodRepository::new(client, "test-table".to_string(), "us-east-1".to_string());
 
         let mut item = repo.food_to_item(&food);
-        
+
         // Remove the updated_at field to simulate legacy data
         item.remove("updated_at");
 
