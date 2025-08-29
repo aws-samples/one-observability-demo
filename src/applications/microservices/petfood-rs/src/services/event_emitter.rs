@@ -360,8 +360,10 @@ mod tests {
             .build();
         let client = EventBridgeClient::from_conf(config);
 
-        let mut event_config = EventConfig::default();
-        event_config.event_bus_name = "".to_string();
+        let event_config = EventConfig {
+            event_bus_name: "".to_string(),
+            ..Default::default()
+        };
 
         let emitter = EventEmitter::new(client, event_config);
 
@@ -386,8 +388,10 @@ mod tests {
             .build();
         let client = EventBridgeClient::from_conf(config);
 
-        let mut event_config = EventConfig::default();
-        event_config.enabled = false;
+        let event_config = EventConfig {
+            enabled: false,
+            ..Default::default()
+        };
 
         let emitter = EventEmitter::new(client, event_config).unwrap();
 
@@ -416,8 +420,10 @@ mod tests {
         let event_config = EventConfig::default();
         let mut emitter = EventEmitter::new(client, event_config).unwrap();
 
-        let mut new_config = EventConfig::default();
-        new_config.retry_attempts = 5;
+        let new_config = EventConfig {
+            retry_attempts: 5,
+            ..Default::default()
+        };
 
         let result = emitter.update_config(new_config);
         assert!(result.is_ok());
@@ -434,8 +440,10 @@ mod tests {
         let event_config = EventConfig::default();
         let mut emitter = EventEmitter::new(client, event_config).unwrap();
 
-        let mut invalid_config = EventConfig::default();
-        invalid_config.event_bus_name = "".to_string();
+        let invalid_config = EventConfig {
+            event_bus_name: "".to_string(),
+            ..Default::default()
+        };
 
         let result = emitter.update_config(invalid_config);
         assert!(matches!(result, Err(EventEmitterError::InvalidConfig(_))));

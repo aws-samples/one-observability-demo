@@ -841,7 +841,7 @@ mod tests {
         mock_repo
             .expect_create()
             .times(1)
-            .returning(move |food| Ok(food));
+            .returning(Ok);
 
         // Create a real EventEmitter for testing
         let config = aws_sdk_eventbridge::Config::builder()
@@ -891,7 +891,7 @@ mod tests {
         mock_repo
             .expect_update()
             .times(1)
-            .returning(move |food| Ok(food));
+            .returning(Ok);
 
         let service = FoodService::new(Arc::new(mock_repo));
 
