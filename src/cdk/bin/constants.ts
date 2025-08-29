@@ -61,6 +61,11 @@ export const OPENSEARCH_COLLECTION_ENDPOINT_EXPORT_NAME = 'WorkshopOpenSearchCol
 export const OPENSEARCH_APPLICATION_ARN_EXPORT_NAME = 'WorkshopOpenSearchApplicationArn';
 export const OPENSEARCH_APPLICATION_ID_EXPORT_NAME = 'WorkshopOpenSearchApplicationId';
 
+// OpenSearch Ingestion Pipeline Export Names
+export const OPENSEARCH_PIPELINE_ARN_EXPORT_NAME = 'WorkshopOpenSearchPipelineArn';
+export const OPENSEARCH_PIPELINE_ENDPOINT_EXPORT_NAME = 'WorkshopOpenSearchPipelineEndpoint';
+export const OPENSEARCH_PIPELINE_ROLE_ARN_EXPORT_NAME = 'WorkshopOpenSearchPipelineRoleArn';
+
 // VPC Endpoint Export Names
 export const VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME = 'WorkshopVPCEndpointApiGatewayId';
 export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDbId';
