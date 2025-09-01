@@ -3,8 +3,13 @@ Unit tests for the Strands Agent Lambda function.
 """
 
 import json
+import sys
+import os
 from unittest.mock import Mock, patch
 import pytest
+
+# Add the parent directory to the Python path so we can import lambda_function
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TestLambdaHandler:
@@ -88,7 +93,7 @@ class TestLambdaHandler:
     def test_generate_prompt(self):
         """Test generate_prompt function."""
         from lambda_function import generate_prompt
-        
+
         food_data = {
             "food_name": "Premium Dog Food",
             "pet_type": "dog",
@@ -97,10 +102,11 @@ class TestLambdaHandler:
             "ingredients": ["chicken", "rice", "vegetables"],
             "price": 25.99
         }
-        
+
         result = generate_prompt(food_data)
         assert isinstance(result, str)
         assert len(result) > 0
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
