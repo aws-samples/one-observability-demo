@@ -313,10 +313,7 @@ impl DynamoDbFoodRepository {
             })?;
 
         // Image is optional - may be None if not yet generated
-        let image = item
-            .get("image")
-            .and_then(|v| v.as_s().ok())
-            .map(|s| s.clone());
+        let image = item.get("image").and_then(|v| v.as_s().ok()).cloned();
 
         // Parse optional nutritional info
         let nutritional_info = item

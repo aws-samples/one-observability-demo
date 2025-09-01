@@ -107,7 +107,7 @@ impl FoodService {
         match self.repository.find_by_id(id).await? {
             Some(food) => {
                 crate::info_with_trace!("Food found successfully");
-                
+
                 // Check if food needs image generation and emit event if needed
                 if food.needs_image_generation() {
                     if let Some(ref event_emitter) = self.event_emitter {
@@ -138,7 +138,7 @@ impl FoodService {
                         }
                     }
                 }
-                
+
                 Ok(food)
             }
             None => {
@@ -891,10 +891,7 @@ mod tests {
         let mut mock_repo = MockTestFoodRepository::new();
 
         mock_repo.expect_exists().times(1).returning(|_| Ok(false));
-        mock_repo
-            .expect_create()
-            .times(1)
-            .returning(Ok);
+        mock_repo.expect_create().times(1).returning(Ok);
 
         // Create a real EventEmitter for testing
         let config = aws_sdk_eventbridge::Config::builder()
@@ -941,10 +938,7 @@ mod tests {
             .times(1)
             .returning(move |_| Ok(Some(test_food.clone())));
 
-        mock_repo
-            .expect_update()
-            .times(1)
-            .returning(Ok);
+        mock_repo.expect_update().times(1).returning(Ok);
 
         let service = FoodService::new(Arc::new(mock_repo));
 

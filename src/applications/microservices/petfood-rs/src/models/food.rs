@@ -282,7 +282,7 @@ impl Food {
             }
             None => {
                 // Return an empty image URL when no image is available
-               "".to_string()
+                "".to_string()
             }
         };
 
@@ -431,7 +431,7 @@ mod tests {
         // Create a food without image (new behavior)
         let request = create_test_food_request();
         let mut food = Food::new(request);
-        
+
         // Initially, food should have no image and need generation
         assert_eq!(food.image, None);
         assert!(food.needs_image_generation());
@@ -469,7 +469,10 @@ mod tests {
             cloudfront_response_with_image.image,
             "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
         );
-        assert_eq!(empty_cdn_response_with_image.image, "petfood/test-kibble.jpg");
+        assert_eq!(
+            empty_cdn_response_with_image.image,
+            "petfood/test-kibble.jpg"
+        );
 
         // Verify other fields are preserved
         assert_eq!(s3_response_with_image.name, food.name);
