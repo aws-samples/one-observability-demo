@@ -151,7 +151,10 @@ impl DynamoDbFoodRepository {
             "price".to_string(),
             AttributeValue::N(food.price.to_string()),
         );
-        item.insert("image".to_string(), AttributeValue::S(food.image.clone()));
+        // Handle optional image
+        if let Some(ref image_path) = food.image {
+            item.insert("image".to_string(), AttributeValue::S(image_path.clone()));
+        }
 
         // Handle optional nutritional info
         if let Some(ref nutritional_info) = food.nutritional_info {
@@ -309,13 +312,11 @@ impl DynamoDbFoodRepository {
                 message: "Invalid price".to_string(),
             })?;
 
+        // Image is optional - may be None if not yet generated
         let image = item
             .get("image")
             .and_then(|v| v.as_s().ok())
-            .ok_or_else(|| RepositoryError::InvalidQuery {
-                message: "Missing image".to_string(),
-            })?
-            .clone();
+            .map(|s| s.clone());
 
         // Parse optional nutritional info
         let nutritional_info = item
@@ -874,7 +875,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "Nutritious test food".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: Some(NutritionalInfo {
                 calories_per_serving: Some(350),
                 protein_percentage: Some(dec!(25.0)),

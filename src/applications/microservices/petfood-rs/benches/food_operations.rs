@@ -48,7 +48,7 @@ impl MockFoodRepository {
                 description: format!("Description for benchmark food {}", i),
                 price: dec!(10.99)
                     + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
-                image: format!("food-{}.jpg", i),
+                // No image field - will be generated via events
                 nutritional_info: None,
                 ingredients: vec!["ingredient1".to_string(), "ingredient2".to_string()],
                 feeding_guidelines: Some("Feed as needed".to_string()),
@@ -309,7 +309,7 @@ fn bench_food_create(c: &mut Criterion) {
                     food_type: FoodType::Dry,
                     description: "Description for benchmark food".to_string(),
                     price: dec!(10.99),
-                    image: "food.jpg".to_string(),
+                    // No image field - will be generated via events
                     nutritional_info: None,
                     ingredients: vec!["ingredient1".to_string()],
                     feeding_guidelines: Some("Feed as needed".to_string()),
@@ -322,7 +322,7 @@ fn bench_food_create(c: &mut Criterion) {
                 rt.block_on(async move {
                     black_box(
                         food_service
-                            .create_food(request, CreationSource::Seeding)
+                            .create_food(request, CreationSource::AdminApi)
                             .await
                             .unwrap(),
                     )

@@ -372,22 +372,11 @@ impl CartService {
                 }
                 None => {
                     warn!("Food not found for cart item: {}", cart_item.food_id);
-                    // Create a placeholder response for missing food with optional CDN URL
-                    let placeholder_image = if self.assets_cdn_url.is_empty() {
-                        "placeholder.jpg".to_string()
-                    } else {
-                        let cdn_url = if self.assets_cdn_url.ends_with('/') {
-                            self.assets_cdn_url.trim_end_matches('/')
-                        } else {
-                            &self.assets_cdn_url
-                        };
-                        format!("{}/placeholder.jpg", cdn_url)
-                    };
-
+                    // Create a response for missing food with empty image
                     let item_response = CartItemResponse {
                         food_id: cart_item.food_id.clone(),
                         food_name: "Product not found".to_string(),
-                        food_image: placeholder_image,
+                        food_image: "".to_string(), // Empty string when no image available
                         quantity: cart_item.quantity,
                         unit_price: cart_item.unit_price,
                         total_price: cart_item.total_price(),
@@ -421,17 +410,22 @@ impl CartService {
         cart_item: &CartItem,
         food: &crate::models::Food,
     ) -> ServiceResult<CartItemResponse> {
-        // If CDN URL is empty, use the original image path
-        let food_image = if self.assets_cdn_url.is_empty() {
-            food.image.clone()
-        } else {
-            // Handle trailing slash in CDN URL to avoid double slashes
-            let cdn_url = if self.assets_cdn_url.ends_with('/') {
-                self.assets_cdn_url.trim_end_matches('/')
-            } else {
-                &self.assets_cdn_url
-            };
-            format!("{}/{}", cdn_url, food.image)
+        // Handle optional image with CDN URL generation
+        let food_image = match &food.image {
+            Some(image_path) => {
+                if self.assets_cdn_url.is_empty() {
+                    image_path.clone()
+                } else {
+                    // Handle trailing slash in CDN URL to avoid double slashes
+                    let cdn_url = if self.assets_cdn_url.ends_with('/') {
+                        self.assets_cdn_url.trim_end_matches('/')
+                    } else {
+                        &self.assets_cdn_url
+                    };
+                    format!("{}/{}", cdn_url, image_path)
+                }
+            }
+            None => "".to_string(),
         };
 
         Ok(CartItemResponse {
@@ -661,7 +655,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "Nutritious test food".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -669,6 +663,8 @@ mod tests {
         };
         let mut food = Food::new(request);
         food.id = "F001".to_string();
+        // Set image for tests that expect specific image URLs
+        food.set_image("test.jpg".to_string());
         food
     }
 

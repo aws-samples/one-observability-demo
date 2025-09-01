@@ -14,7 +14,7 @@ pub struct Food {
     pub food_type: FoodType,
     pub description: String,
     pub price: Decimal,
-    pub image: String,
+    pub image: Option<String>,
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Vec<String>,
     pub feeding_guidelines: Option<String>,
@@ -46,7 +46,7 @@ pub struct CreateFoodRequest {
     pub food_type: FoodType,
     pub description: String,
     pub price: Decimal,
-    pub image: String,
+    // Removed image field - will be generated via events using description as prompt
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Vec<String>,
     pub feeding_guidelines: Option<String>,
@@ -119,6 +119,7 @@ pub struct FoodResponse {
 
 impl Food {
     /// Create a new Food instance with generated ID and timestamps
+    /// Image will be None initially and generated via events using description as prompt
     pub fn new(request: CreateFoodRequest) -> Self {
         let now = Utc::now();
         Self {
@@ -135,7 +136,7 @@ impl Food {
             food_type: request.food_type,
             description: request.description,
             price: request.price,
-            image: request.image,
+            image: None, // Will be set later via image generation events
             nutritional_info: request.nutritional_info,
             ingredients: request.ingredients,
             feeding_guidelines: request.feeding_guidelines,
@@ -151,6 +152,11 @@ impl Food {
         }
     }
 
+    /// Check if the food needs image generation
+    pub fn needs_image_generation(&self) -> bool {
+        self.image.is_none()
+    }
+
     /// Update the food with new values from UpdateFoodRequest
     pub fn update(&mut self, request: UpdateFoodRequest) {
         if let Some(name) = request.name {
@@ -163,7 +169,7 @@ impl Food {
             self.price = price;
         }
         if let Some(image) = request.image {
-            self.image = image;
+            self.image = Some(image);
         }
         if let Some(nutritional_info) = request.nutritional_info {
             self.nutritional_info = Some(nutritional_info);
@@ -258,18 +264,26 @@ impl Food {
     }
 
     /// Convert Food to FoodResponse with full image URL
+    /// Returns a placeholder or generates CDN URL if image exists
     pub fn to_response(&self, assets_cdn_url: &str) -> FoodResponse {
-        // If CDN URL is empty, use the original image path
-        let image_url = if assets_cdn_url.is_empty() {
-            self.image.clone()
-        } else {
-            // Handle trailing slash in CDN URL to avoid double slashes
-            let cdn_url = if assets_cdn_url.ends_with('/') {
-                assets_cdn_url.trim_end_matches('/')
-            } else {
-                assets_cdn_url
-            };
-            format!("{}/{}", cdn_url, self.image)
+        let image_url = match &self.image {
+            Some(image_path) => {
+                if assets_cdn_url.is_empty() {
+                    image_path.clone()
+                } else {
+                    // Handle trailing slash in CDN URL to avoid double slashes
+                    let cdn_url = if assets_cdn_url.ends_with('/') {
+                        assets_cdn_url.trim_end_matches('/')
+                    } else {
+                        assets_cdn_url
+                    };
+                    format!("{}/{}", cdn_url, image_path)
+                }
+            }
+            None => {
+                // Return an empty image URL when no image is available
+               "".to_string()
+            }
         };
 
         FoodResponse {
@@ -289,6 +303,13 @@ impl Food {
             updated_at: self.updated_at,
             is_active: self.is_active,
         }
+    }
+
+    /// Set the image path after it has been generated
+    /// This should be called when the image generation process completes
+    pub fn set_image(&mut self, image_path: String) {
+        self.image = Some(image_path);
+        self.updated_at = Utc::now();
     }
 }
 
@@ -313,7 +334,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "Nutritious test food".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -407,53 +428,69 @@ mod tests {
 
     #[test]
     fn test_image_url_generation() {
-        // Create a food with petfood path
-        let request = CreateFoodRequest {
-            pet_type: PetType::Puppy,
-            name: "Test Kibble".to_string(),
-            food_type: FoodType::Dry,
-            description: "Test food".to_string(),
-            price: dec!(12.99),
-            image: "petfood/test-kibble.jpg".to_string(), // Full path with petfood prefix
-            nutritional_info: None,
-            ingredients: vec!["chicken".to_string()],
-            feeding_guidelines: Some("Feed twice daily".to_string()),
-            stock_quantity: 10,
-        };
+        // Create a food without image (new behavior)
+        let request = create_test_food_request();
+        let mut food = Food::new(request);
+        
+        // Initially, food should have no image and need generation
+        assert_eq!(food.image, None);
+        assert!(food.needs_image_generation());
 
-        let food = Food::new(request);
-        assert_eq!(food.image, "petfood/test-kibble.jpg");
-
-        // Test conversion to response with different CDN URLs
+        // Test empty image URLs when no image is set
         let s3_cdn_url = "https://petfood-assets.s3.amazonaws.com";
         let cloudfront_cdn_url = "https://d1234567890.cloudfront.net/images";
-        let cloudfront_cdn_url_with_slash = "https://d1234567890.cloudfront.net/images/";
         let empty_cdn_url = "";
 
         let s3_response = food.to_response(s3_cdn_url);
         let cloudfront_response = food.to_response(cloudfront_cdn_url);
-        let cloudfront_response_with_slash = food.to_response(cloudfront_cdn_url_with_slash);
         let empty_cdn_response = food.to_response(empty_cdn_url);
 
-        // Verify the URLs are correctly generated
+        // Verify empty strings are returned when no image exists
+        assert_eq!(s3_response.image, "");
+        assert_eq!(cloudfront_response.image, "");
+        assert_eq!(empty_cdn_response.image, "");
+
+        // Now set an image and test URL generation
+        food.set_image("petfood/test-kibble.jpg".to_string());
+        assert_eq!(food.image, Some("petfood/test-kibble.jpg".to_string()));
+        assert!(!food.needs_image_generation());
+
+        // Test conversion to response with actual image
+        let s3_response_with_image = food.to_response(s3_cdn_url);
+        let cloudfront_response_with_image = food.to_response(cloudfront_cdn_url);
+        let empty_cdn_response_with_image = food.to_response(empty_cdn_url);
+
+        // Verify the URLs are correctly generated with actual image
         assert_eq!(
-            s3_response.image,
+            s3_response_with_image.image,
             "https://petfood-assets.s3.amazonaws.com/petfood/test-kibble.jpg"
         );
         assert_eq!(
-            cloudfront_response.image,
+            cloudfront_response_with_image.image,
             "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
         );
-        assert_eq!(
-            cloudfront_response_with_slash.image,
-            "https://d1234567890.cloudfront.net/images/petfood/test-kibble.jpg"
-        );
-        // Test empty CDN URL - should return original image path
-        assert_eq!(empty_cdn_response.image, "petfood/test-kibble.jpg");
+        assert_eq!(empty_cdn_response_with_image.image, "petfood/test-kibble.jpg");
 
         // Verify other fields are preserved
-        assert_eq!(s3_response.name, food.name);
-        assert_eq!(s3_response.price, food.price);
-        assert_eq!(s3_response.pet_type, food.pet_type);
+        assert_eq!(s3_response_with_image.name, food.name);
+        assert_eq!(s3_response_with_image.price, food.price);
+        assert_eq!(s3_response_with_image.pet_type, food.pet_type);
+    }
+
+    #[test]
+    fn test_image_generation_workflow() {
+        let request = create_test_food_request();
+        let mut food = Food::new(request);
+
+        // Initially needs image generation
+        assert!(food.needs_image_generation());
+        assert_eq!(food.image, None);
+
+        // Simulate image generation completion
+        food.set_image("petfood/generated-image.jpg".to_string());
+
+        // Should no longer need image generation
+        assert!(!food.needs_image_generation());
+        assert_eq!(food.image, Some("petfood/generated-image.jpg".to_string()));
     }
 }

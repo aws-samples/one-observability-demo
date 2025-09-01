@@ -145,7 +145,7 @@ fn create_repository_with_test_data(num_foods: usize) -> Arc<MockFoodRepository>
             description: format!("Description for benchmark food {}", i),
             price: dec!(10.99)
                 + rust_decimal::Decimal::from_f64(i as f64 * 0.1).unwrap_or(dec!(0.0)),
-            image: format!("food-{}.jpg", i),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["ingredient1".to_string(), "ingredient2".to_string()],
             feeding_guidelines: Some("Feed as needed".to_string()),

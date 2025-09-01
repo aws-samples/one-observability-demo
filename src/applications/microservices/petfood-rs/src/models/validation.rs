@@ -31,7 +31,7 @@ impl Validate for CreateFoodRequest {
         validate_food_name(&self.name)?;
         validate_food_description(&self.description)?;
         validate_food_price(&self.price)?;
-        validate_food_image(&self.image)?;
+        // Image validation removed - images are generated via events
         validate_ingredients(&self.ingredients)?;
         validate_feeding_guidelines(&self.feeding_guidelines)?;
         validate_stock_quantity(self.stock_quantity)?;
@@ -492,7 +492,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "A nutritious test food for puppies".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),

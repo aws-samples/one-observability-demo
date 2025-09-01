@@ -47,6 +47,39 @@ impl FoodService {
             .filter(|food| food.matches_filters(&filters))
             .collect();
 
+        // Check for foods that need image generation and emit events
+        if let Some(ref event_emitter) = self.event_emitter {
+            for food in &filtered_foods {
+                if food.needs_image_generation() {
+                    let span_context = EventEmitter::extract_span_context();
+                    let event = FoodEvent::food_item_created(
+                        food.id.clone(),
+                        food.name.clone(),
+                        food.pet_type.clone(),
+                        food.food_type.clone(),
+                        Some(food.description.clone()),
+                        Some(food.ingredients.clone()),
+                        CreationSource::FoodApi, // Treat missing images as migration scenario
+                        span_context,
+                    );
+
+                    if let Err(e) = event_emitter.emit_event(event).await {
+                        warn!(
+                            food_id = %food.id,
+                            error = %e,
+                            "Failed to emit image generation event for food in list"
+                        );
+                        // Don't fail the request, just log the warning
+                    } else {
+                        crate::info_with_trace!(
+                            food_id = %food.id,
+                            "Successfully emitted image generation event for food in list"
+                        );
+                    }
+                }
+            }
+        }
+
         let total_count = filtered_foods.len();
 
         crate::info_with_trace!("Found {} foods matching criteria", total_count);
@@ -74,6 +107,38 @@ impl FoodService {
         match self.repository.find_by_id(id).await? {
             Some(food) => {
                 crate::info_with_trace!("Food found successfully");
+                
+                // Check if food needs image generation and emit event if needed
+                if food.needs_image_generation() {
+                    if let Some(ref event_emitter) = self.event_emitter {
+                        let span_context = EventEmitter::extract_span_context();
+                        let event = FoodEvent::food_item_created(
+                            food.id.clone(),
+                            food.name.clone(),
+                            food.pet_type.clone(),
+                            food.food_type.clone(),
+                            Some(food.description.clone()),
+                            Some(food.ingredients.clone()),
+                            CreationSource::FoodApi,
+                            span_context,
+                        );
+
+                        if let Err(e) = event_emitter.emit_event(event).await {
+                            warn!(
+                                food_id = %food.id,
+                                error = %e,
+                                "Failed to emit image generation event for existing food"
+                            );
+                            // Don't fail the request, just log the warning
+                        } else {
+                            crate::info_with_trace!(
+                                food_id = %food.id,
+                                "Successfully emitted image generation event for existing food"
+                            );
+                        }
+                    }
+                }
+                
                 Ok(food)
             }
             None => {
@@ -171,7 +236,7 @@ impl FoodService {
             || request.ingredients.is_some();
 
         let previous_image_path = if image_changed && request.image.is_some() {
-            Some(existing_food.image.clone())
+            existing_food.image.clone()
         } else {
             None
         };
@@ -250,7 +315,7 @@ impl FoodService {
             let event = FoodEvent::item_discontinued(
                 food.id.clone(),
                 crate::models::AvailabilityStatus::Discontinued,
-                Some(food.image.clone()),
+                food.image.clone(),
                 "soft_delete".to_string(),
                 span_context,
             );
@@ -382,12 +447,7 @@ impl FoodService {
             });
         }
 
-        // Validate image URL
-        if request.image.trim().is_empty() {
-            return Err(ServiceError::ValidationError {
-                message: "Food image URL cannot be empty".to_string(),
-            });
-        }
+        // Image validation removed - images are now generated via events
 
         // Validate ingredients
         if request.ingredients.is_empty() {
@@ -448,14 +508,7 @@ impl FoodService {
             }
         }
 
-        // Validate image URL if provided
-        if let Some(ref image) = request.image {
-            if image.trim().is_empty() {
-                return Err(ServiceError::ValidationError {
-                    message: "Food image URL cannot be empty".to_string(),
-                });
-            }
-        }
+        // Image validation removed - images are optional and generated via events
 
         // Validate ingredients if provided
         if let Some(ref ingredients) = request.ingredients {
@@ -513,7 +566,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "Nutritious test food".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -529,7 +582,7 @@ mod tests {
             food_type: FoodType::Dry,
             description: "Nutritious test food".to_string(),
             price: dec!(12.99),
-            image: "test.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients: vec!["chicken".to_string(), "rice".to_string()],
             feeding_guidelines: Some("Feed twice daily".to_string()),
@@ -864,7 +917,7 @@ mod tests {
         let request = create_test_create_request();
 
         let result = service
-            .create_food(request.clone(), CreationSource::Seeding)
+            .create_food(request.clone(), CreationSource::AdminApi)
             .await;
 
         assert!(result.is_ok());
