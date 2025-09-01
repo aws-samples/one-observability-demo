@@ -9,21 +9,15 @@ use std::collections::HashMap;
 pub enum CreationSource {
     /// Created via admin API endpoint
     AdminApi,
-    /// Created via seeding operation
-    Seeding,
-    /// Created via bulk import
-    BulkImport,
-    /// Created via migration
-    Migration,
+    /// missing images when using food APIs
+    FoodApi,
 }
 
 impl std::fmt::Display for CreationSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CreationSource::AdminApi => write!(f, "admin_api"),
-            CreationSource::Seeding => write!(f, "seeding"),
-            CreationSource::BulkImport => write!(f, "bulk_import"),
-            CreationSource::Migration => write!(f, "migration"),
+            CreationSource::FoodApi => write!(f, "food_api"),
         }
     }
 }
@@ -102,21 +96,12 @@ impl FoodEvent {
         match creation_source {
             CreationSource::AdminApi => {
                 metadata.insert("is_manual_creation".to_string(), "true".to_string());
+                metadata.insert("is_seed_data".to_string(), "false".to_string());
                 metadata.insert("requires_validation".to_string(), "true".to_string());
             }
-            CreationSource::Seeding => {
+            CreationSource::FoodApi => {
                 metadata.insert("is_manual_creation".to_string(), "false".to_string());
                 metadata.insert("is_seed_data".to_string(), "true".to_string());
-                metadata.insert("requires_validation".to_string(), "false".to_string());
-            }
-            CreationSource::BulkImport => {
-                metadata.insert("is_manual_creation".to_string(), "false".to_string());
-                metadata.insert("is_bulk_operation".to_string(), "true".to_string());
-                metadata.insert("requires_validation".to_string(), "true".to_string());
-            }
-            CreationSource::Migration => {
-                metadata.insert("is_manual_creation".to_string(), "false".to_string());
-                metadata.insert("is_migration".to_string(), "true".to_string());
                 metadata.insert("requires_validation".to_string(), "false".to_string());
             }
         }
@@ -353,7 +338,7 @@ mod tests {
             FoodType::Dry,
             None,
             None,
-            CreationSource::Seeding,
+            CreationSource::AdminApi,
             span_context,
         );
 
@@ -376,7 +361,7 @@ mod tests {
             FoodType::Dry,
             None,
             None,
-            CreationSource::BulkImport,
+            CreationSource::AdminApi,
             span_context,
         );
 
@@ -433,13 +418,13 @@ mod tests {
             FoodType::Dry,
             None,
             None,
-            CreationSource::Seeding,
+            CreationSource::FoodApi,
             span_context.clone(),
         );
 
         assert_eq!(
             seed_event.metadata.get("creation_source"),
-            Some(&"seeding".to_string())
+            Some(&"food_api".to_string())
         );
         assert_eq!(
             seed_event.metadata.get("is_manual_creation"),
@@ -453,71 +438,11 @@ mod tests {
             seed_event.metadata.get("requires_validation"),
             Some(&"false".to_string())
         );
-
-        // Test BulkImport creation source
-        let bulk_event = FoodEvent::food_item_created(
-            "bulk-id".to_string(),
-            "Bulk Food".to_string(),
-            PetType::Puppy,
-            FoodType::Dry,
-            None,
-            None,
-            CreationSource::BulkImport,
-            span_context.clone(),
-        );
-
-        assert_eq!(
-            bulk_event.metadata.get("creation_source"),
-            Some(&"bulk_import".to_string())
-        );
-        assert_eq!(
-            bulk_event.metadata.get("is_manual_creation"),
-            Some(&"false".to_string())
-        );
-        assert_eq!(
-            bulk_event.metadata.get("is_bulk_operation"),
-            Some(&"true".to_string())
-        );
-        assert_eq!(
-            bulk_event.metadata.get("requires_validation"),
-            Some(&"true".to_string())
-        );
-
-        // Test Migration creation source
-        let migration_event = FoodEvent::food_item_created(
-            "migration-id".to_string(),
-            "Migration Food".to_string(),
-            PetType::Puppy,
-            FoodType::Dry,
-            None,
-            None,
-            CreationSource::Migration,
-            span_context,
-        );
-
-        assert_eq!(
-            migration_event.metadata.get("creation_source"),
-            Some(&"migration".to_string())
-        );
-        assert_eq!(
-            migration_event.metadata.get("is_manual_creation"),
-            Some(&"false".to_string())
-        );
-        assert_eq!(
-            migration_event.metadata.get("is_migration"),
-            Some(&"true".to_string())
-        );
-        assert_eq!(
-            migration_event.metadata.get("requires_validation"),
-            Some(&"false".to_string())
-        );
     }
 
     #[test]
     fn test_creation_source_display() {
         assert_eq!(CreationSource::AdminApi.to_string(), "admin_api");
-        assert_eq!(CreationSource::Seeding.to_string(), "seeding");
-        assert_eq!(CreationSource::BulkImport.to_string(), "bulk_import");
-        assert_eq!(CreationSource::Migration.to_string(), "migration");
+        assert_eq!(CreationSource::FoodApi.to_string(), "food_api");
     }
 }

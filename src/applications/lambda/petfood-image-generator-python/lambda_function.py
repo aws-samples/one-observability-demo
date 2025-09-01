@@ -39,111 +39,6 @@ MAX_DELAY = 60.0  # Maximum delay in seconds
 JITTER_RANGE = 0.1  # Random jitter to avoid thundering herd
 
 
-def get_existing_prompt(food_name: str) -> str:
-    """Get existing prompt for seed data based on food name."""
-    # Image configurations from the seed data script
-    IMAGES = {
-        "beef-turkey-kibbles.jpg": {
-            "pet_type": "Puppy",
-            "product_name": "Beef and Turkey Kibbles",
-            "prompt": (
-                "Premium dry dog kibble for puppies in white ceramic bowl. "
-                "Small brown bone-shaped pieces with visible meat. "
-                "Clean wooden surface background."
-            ),
-            "style": "product photography, professional lighting",
-        },
-        "raw-chicken-bites.jpg": {
-            "pet_type": "Puppy",
-            "product_name": "Raw Chicken Bites",
-            "prompt": (
-                "Tender chicken pieces in ceramic bowl with natural broth. "
-                "Fresh wet dog food with visible meat chunks."
-            ),
-            "style": "food photography, warm lighting",
-        },
-        "puppy-training-treats.jpg": {
-            "pet_type": "Puppy",
-            "product_name": "Puppy Training Treats",
-            "prompt": (
-                "Small golden-brown training treats scattered on clean white "
-                "surface. Soft, bite-sized treats for puppies."
-            ),
-            "style": "product photography, bright lighting",
-        },
-        "salmon-tuna-delight.jpg": {
-            "pet_type": "Kitten",
-            "product_name": "Salmon and Tuna Delight",
-            "prompt": (
-                "Gourmet wet cat food with salmon and tuna chunks in elegant "
-                "white bowl. Pink fish flakes in light sauce."
-            ),
-            "style": "gourmet food photography, elegant presentation",
-        },
-        "kitten-growth-formula.jpg": {
-            "pet_type": "Kitten",
-            "product_name": "Kitten Growth Formula",
-            "prompt": (
-                "Premium dry kitten food in modern ceramic bowl. Small "
-                "triangular golden-brown kibble pieces."
-            ),
-            "style": "product photography, clean lighting",
-        },
-        "catnip-kitten-treats.jpg": {
-            "pet_type": "Kitten",
-            "product_name": "Catnip Kitten Treats",
-            "prompt": (
-                "Fish-shaped kitten treats with light green catnip tint "
-                "arranged on white surface. Crunchy treats."
-            ),
-            "style": "product photography, playful presentation",
-        },
-        "carrot-herb-crunchies.jpg": {
-            "pet_type": "Bunny",
-            "product_name": "Carrot and Herb Crunchies",
-            "prompt": (
-                "Orange rabbit treats with carrot pieces and green herb "
-                "flecks in wooden bowl. Natural wholesome pellets."
-            ),
-            "style": "natural product photography, rustic presentation",
-        },
-        "timothy-hay-pellets.jpg": {
-            "pet_type": "Bunny",
-            "product_name": "Timothy Hay Pellets",
-            "prompt": (
-                "Green-brown cylindrical hay pellets in wooden bowl. "
-                "Compressed timothy hay for rabbits."
-            ),
-            "style": "natural product photography, organic presentation",
-        },
-        "fresh-veggie-mix.jpg": {
-            "pet_type": "Bunny",
-            "product_name": "Fresh Veggie Mix",
-            "prompt": (
-                "Colorful fresh vegetables in ceramic bowl. Diced carrots, "
-                "leafy greens, and bell pepper pieces."
-            ),
-            "style": "fresh food photography, vibrant colors",
-        },
-    }
-
-    # Look for matching food name in the seed data
-    for image_config in IMAGES.values():
-        if image_config["product_name"].lower() == food_name.lower():
-            full_prompt = (
-                f"{image_config['prompt']} {image_config['style']}, "
-                "professional quality."
-            )
-            logger.info(f"Found existing prompt for seed data: {food_name}")
-            return full_prompt
-
-    # If no match found, return empty string to trigger dynamic generation
-    logger.info(
-        f"No existing prompt found for: {food_name}, " "will generate dynamically",
-    )
-    return ""
-
-
 def generate_prompt(food_data: Dict[str, Any]) -> str:
     """Generate a sophisticated, contextually rich prompt for image generation."""
     try:
@@ -230,18 +125,6 @@ class EnhancedPromptBuilder:
                 "food_characteristics": "natural, wholesome pellets and pieces",
                 "presentation": "organic, rustic presentation",
                 "colors": "earthy, natural tones",
-            },
-            "dog": {
-                "bowl_style": "sturdy ceramic dog bowl",
-                "food_characteristics": "hearty, substantial pieces",
-                "presentation": "robust, appetizing presentation",
-                "colors": "rich, vibrant colors",
-            },
-            "cat": {
-                "bowl_style": "sleek ceramic cat bowl",
-                "food_characteristics": "refined, gourmet pieces",
-                "presentation": "elegant, sophisticated presentation",
-                "colors": "luxurious, appealing colors",
             },
         }
 
@@ -868,6 +751,7 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
     food_id = event_detail.get("food_id", "")
     food_name = event_detail.get("food_name") or "Unknown Food"
     event_type = event_detail.get("event_type", "")
+    description = event_detail.get("description", "")
     metadata = event_detail.get("metadata", {})
 
     logger.info(f"Processing {event_type} event for {food_name} (ID: {food_id})")
@@ -875,33 +759,26 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
     # Validate required fields
     if not food_id:
         raise ValueError("Missing required field: food_id")
+    if not description:
+        raise ValueError(
+            "Missing required field: description. Used to help generate prompt",
+        )
 
     # Check if image generation is required
-    image_required = metadata.get("image_required", "false").lower() == "true"
+    creation_source = metadata.get("creation_source", "unknown")
+    requires_validation = metadata.get("requires_validation", "false").lower() == "true"
     is_manual_creation = metadata.get("is_manual_creation", "false").lower() == "true"
-    logger.info(f"Image required for {food_id}: {image_required}")
+    is_seed_data = metadata.get("is_seed_data", "false").lower() == "true"
 
-    if not image_required:
-        logger.info(f"Image generation not required for {food_id}")
-        return {
-            "food_id": food_id,
-            "success": True,
-            "message": f"Image generation not required for {food_name}",
-            "skipped": True,
-        }
+    logger.info(
+        f"Image for: {food_id}, seed: {is_seed_data}, requires validation: {requires_validation}",
+    )
 
     try:
-        # Step 1: Generate prompt
-        if is_manual_creation:
-            prompt = generate_prompt(event_detail)
-        else:
-            # For seed data, try to get existing prompt first
-            prompt = get_existing_prompt(food_name)
-            if not prompt:
-                # Fallback to dynamic generation if no existing prompt found
-                prompt = generate_prompt(event_detail)
+        # step 1 generate prompt
+        prompt = generate_prompt(event_detail)
 
-        # Step 2: Generate image with Bedrock
+        # step 2 generate image
         image_result = generate_image_with_bedrock(prompt, food_id)
 
         if not image_result["success"]:
@@ -912,6 +789,7 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
                 "message": f"Failed to generate image for {food_name}",
                 "bedrock_attempts": image_result.get("attempts", 1),
                 "retryable": image_result.get("retryable", True),
+                "creation_source": creation_source,
             }
 
         # Step 3: Store image in S3
@@ -929,6 +807,7 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
                 "message": f"Failed to store image for {food_name}",
                 "bedrock_attempts": image_result.get("attempts", 1),
                 "s3_attempts": storage_result.get("attempts", 1),
+                "creation_source": creation_source,
             }
 
         # Step 4: Update DynamoDB record with S3 key
@@ -940,9 +819,12 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
                 "success": False,
                 "error": update_result.get("error", "Database update failed"),
                 "message": f"Failed to update database for {food_name}",
+                "creation_source": creation_source,
             }
 
-        logger.info(f"Successfully processed food event for {food_id}")
+        logger.info(
+            f"Successfully processed food event for {food_id} (source: {creation_source})",
+        )
 
         return {
             "food_id": food_id,
@@ -952,6 +834,8 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
             "bedrock_attempts": image_result.get("attempts", 1),
             "s3_attempts": storage_result.get("attempts", 1),
             "image_size_bytes": storage_result.get("size_bytes", 0),
+            "creation_source": creation_source,
+            "prompt_type": "existing" if get_existing_prompt(food_name) else "dynamic",
         }
 
     except Exception as e:
@@ -961,11 +845,15 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
             "success": False,
             "error": str(e),
             "message": f"Failed to process food event for {food_name}",
+            "creation_source": creation_source,
         }
 
 
 def lambda_handler(event, context):
-    """Main Lambda handler for processing EventBridge events."""
+    """
+    Main Lambda handler for processing EventBridge events.
+    This Lambda specifically handles image generation for FoodItemCreated and FoodItemUpdated events.
+    """
 
     try:
         # Log event details
@@ -977,15 +865,20 @@ def lambda_handler(event, context):
 
         logger.info(f"Processing event type: {event_type}")
 
-        # Process the event based on type
+        # Process only image-related events
         if event_type in ["FoodItemCreated", "FoodItemUpdated"]:
             result = process_food_event(event_detail)
         else:
-            logger.warning(f"Unknown event type: {event_type}")
+            logger.info(
+                f"Event type {event_type} not handled by image generator Lambda",
+            )
             return {
-                "statusCode": 400,
+                "statusCode": 200,
                 "body": json.dumps(
-                    {"message": f"Unknown event type: {event_type}", "success": False},
+                    {
+                        "message": f"Event type {event_type} not handled by this Lambda",
+                        "success": True,
+                    },
                 ),
             }
 

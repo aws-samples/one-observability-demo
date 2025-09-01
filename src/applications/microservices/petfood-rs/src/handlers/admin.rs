@@ -145,7 +145,7 @@ pub async fn seed_database(
     for food_request in sample_foods {
         match state
             .food_service
-            .create_food(food_request.clone(), CreationSource::Seeding)
+            .create_food(food_request.clone(), CreationSource::FoodApi)
             .await
         {
             Ok(_) => {
@@ -390,10 +390,7 @@ pub async fn delete_food(
 // HELPER FUNCTIONS
 // =============================================================================
 
-/// Helper function to create image path with petfood prefix
-fn create_image_path(image_name: &str) -> String {
-    format!("petfood/{}", image_name)
-}
+// Helper function removed - images are now generated via events
 
 /// Create sample food data for all pet types
 fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
@@ -407,7 +404,7 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
                 "A nutritious blend of beef and turkey, specially formulated for growing puppies."
                     .to_string(),
             price: rust_decimal_macros::dec!(12.99),
-            image: create_image_path("beef-turkey-kibbles.jpg"),
+            // No image - will be generated via events using description as prompt
             nutritional_info: None,
             ingredients: vec![
                 "beef".to_string(),
@@ -425,7 +422,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             description: "Tender raw chicken bites, ideal for puppies who love a meaty treat."
                 .to_string(),
             price: rust_decimal_macros::dec!(10.99),
-            image: create_image_path("raw-chicken-bites.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken".to_string(),
@@ -442,7 +438,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             description: "Small, soft treats perfect for training sessions with puppies."
                 .to_string(),
             price: rust_decimal_macros::dec!(8.99),
-            image: create_image_path("puppy-training-treats.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken meal".to_string(),
@@ -459,7 +454,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Wet,
             description: "A delectable mix of salmon and tuna, perfect for kittens.".to_string(),
             price: rust_decimal_macros::dec!(14.99),
-            image: create_image_path("salmon-tuna-delight.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "salmon".to_string(),
@@ -478,7 +472,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
                 "High-protein dry food specially formulated for kitten growth and development."
                     .to_string(),
             price: rust_decimal_macros::dec!(16.99),
-            image: create_image_path("kitten-growth-formula.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken meal".to_string(),
@@ -497,7 +490,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Treats,
             description: "Irresistible catnip-infused treats that kittens love.".to_string(),
             price: rust_decimal_macros::dec!(6.99),
-            image: create_image_path("catnip-kitten-treats.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "chicken".to_string(),
@@ -515,7 +507,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             description: "Crunchy carrot and herb treats, specially designed for bunnies."
                 .to_string(),
             price: rust_decimal_macros::dec!(8.99),
-            image: create_image_path("carrot-herb-crunchies.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "carrots".to_string(),
@@ -533,7 +524,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             description: "High-fiber timothy hay pellets essential for bunny digestive health."
                 .to_string(),
             price: rust_decimal_macros::dec!(12.99),
-            image: create_image_path("timothy-hay-pellets.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "timothy hay".to_string(),
@@ -550,7 +540,6 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
             food_type: FoodType::Wet,
             description: "A fresh mix of vegetables perfect for bunny nutrition.".to_string(),
             price: rust_decimal_macros::dec!(9.99),
-            image: create_image_path("fresh-veggie-mix.jpg"),
             nutritional_info: None,
             ingredients: vec![
                 "carrots".to_string(),
@@ -568,11 +557,8 @@ fn create_sample_foods(_assets_cdn_url: &str) -> Vec<CreateFoodRequest> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_create_image_path() {
-        let path = create_image_path("test-image.jpg");
-        assert_eq!(path, "petfood/test-image.jpg");
-    }
+    // Test removed - create_image_path function no longer exists
+    // Images are now generated via events
 
     #[test]
     fn test_create_sample_foods() {
@@ -595,10 +581,7 @@ mod tests {
             assert!(food.price > rust_decimal::Decimal::ZERO);
             assert!(!food.ingredients.is_empty());
             assert!(food.stock_quantity > 0);
-            // All images should be paths with petfood prefix
-            assert!(food.image.starts_with("petfood/"));
-            assert!(food.image.ends_with(".jpg"));
-            assert!(!food.image.contains("http"));
+            // Images will be generated via events - no image field in CreateFoodRequest
         }
     }
 

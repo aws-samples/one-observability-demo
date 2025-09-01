@@ -27,7 +27,7 @@ mod repository_tests {
             food_type: FoodType::Dry,
             description: "High-quality dry food for growing puppies".to_string(),
             price: dec!(24.99),
-            image: "puppy-kibble.jpg".to_string(),
+            // No image field - will be generated via events
             nutritional_info: Some(NutritionalInfo {
                 calories_per_serving: Some(380),
                 protein_percentage: Some(dec!(28.0)),
@@ -79,7 +79,8 @@ mod repository_tests {
             assert!(item.contains_key("food_type"));
             assert!(item.contains_key("description"));
             assert!(item.contains_key("price"));
-            assert!(item.contains_key("image"));
+            // Image field is now optional - only present if set
+            // assert!(item.contains_key("image"));
             assert!(item.contains_key("nutritional_info"));
             assert!(item.contains_key("ingredients"));
             assert!(item.contains_key("feeding_guidelines"));
@@ -218,7 +219,7 @@ mod repository_tests {
                 food_type: FoodType::Wet,
                 description: "Simple wet food for kittens".to_string(),
                 price: dec!(5.99),
-                image: "basic-cat.jpg".to_string(),
+                // No image field - will be generated via events
                 nutritional_info: None,
                 ingredients: vec!["fish".to_string()],
                 feeding_guidelines: None,
@@ -530,7 +531,7 @@ mod repository_tests {
                 food_type: FoodType::Dry,
                 description: "Complete nutrition for growing puppies".to_string(),
                 price: dec!(29.99),
-                image: "puppy-growth.jpg".to_string(),
+                // No image field - will be generated via events
                 nutritional_info: Some(NutritionalInfo {
                     calories_per_serving: Some(420),
                     protein_percentage: Some(dec!(30.0)),
@@ -561,7 +562,7 @@ mod repository_tests {
                 food_type: FoodType::Wet,
                 description: "Rich salmon pate for growing kittens".to_string(),
                 price: dec!(1.99),
-                image: "kitten-salmon.jpg".to_string(),
+                // No image field - will be generated via events
                 nutritional_info: None,
                 ingredients: vec![
                     "salmon".to_string(),
@@ -582,7 +583,7 @@ mod repository_tests {
                 food_type: FoodType::Dry,
                 description: "High-fiber pellets made from timothy hay".to_string(),
                 price: dec!(12.50),
-                image: "bunny-pellets.jpg".to_string(),
+                // No image field - will be generated via events
                 nutritional_info: Some(NutritionalInfo {
                     calories_per_serving: Some(250),
                     protein_percentage: Some(dec!(14.0)),

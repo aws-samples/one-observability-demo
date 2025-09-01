@@ -65,7 +65,6 @@ prop_compose! {
         food_type in arb_food_type(),
         description in "[a-zA-Z0-9 .,!]{10,500}",
         price in arb_valid_price(),
-        image in "[a-zA-Z0-9._-]{5,50}\\.jpg",
         ingredients in prop::collection::vec("[a-zA-Z ]{3,20}", 1..10),
         feeding_guidelines in prop::option::of("[a-zA-Z0-9 .,]{10,200}"),
         stock_quantity in arb_valid_quantity(),
@@ -76,7 +75,7 @@ prop_compose! {
             food_type,
             description,
             price,
-            image,
+            // No image field - will be generated via events
             nutritional_info: None,
             ingredients,
             feeding_guidelines,
