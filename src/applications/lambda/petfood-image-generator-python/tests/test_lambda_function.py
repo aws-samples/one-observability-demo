@@ -11,21 +11,30 @@ import pytest
 # Add the parent directory to the Python path so we can import lambda_function
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Mock environment variables to avoid AWS region issues
+os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
+os.environ.setdefault('FOOD_TABLE_NAME', 'test-food-table')
+os.environ.setdefault('S3_BUCKET_NAME', 'test-bucket')
+os.environ.setdefault('BEDROCK_MODEL_ID', 'amazon.titan-image-generator-v2:0')
+
 
 class TestLambdaHandler:
     """Test cases for the main lambda handler."""
 
+    @patch('boto3.resource')
+    @patch('boto3.client')
     @patch("lambda_function.process_food_event")
-    def test_lambda_handler_food_created(self, mock_process):
+    def test_lambda_handler_food_created(self, mock_process, mock_boto_client, mock_boto_resource):
         """Test lambda handler with FoodItemCreated event."""
-        # Import here to avoid path issues
-        from lambda_function import lambda_handler
-
+        # Set up mocks
         mock_process.return_value = {
             "success": True,
             "message": "Image generated",
             "food_id": "test-id",
         }
+
+        # Import after mocking
+        from lambda_function import lambda_handler
 
         event = {
             "source": "petfood.service",
@@ -50,7 +59,9 @@ class TestLambdaHandler:
         assert body["success"] is True
         assert body["food_id"] == "test-id"
 
-    def test_lambda_handler_unknown_event_type(self):
+    @patch('boto3.resource')
+    @patch('boto3.client')
+    def test_lambda_handler_unknown_event_type(self, mock_boto_client, mock_boto_resource):
         """Test lambda handler with unknown event type."""
         from lambda_function import lambda_handler
 
@@ -72,7 +83,9 @@ class TestLambdaHandler:
         assert body["success"] is True
         assert "not handled by this Lambda" in body["message"]
 
-    def test_lambda_handler_error(self):
+    @patch('boto3.resource')
+    @patch('boto3.client')
+    def test_lambda_handler_error(self, mock_boto_client, mock_boto_resource):
         """Test lambda handler error handling."""
         from lambda_function import lambda_handler
 
