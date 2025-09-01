@@ -243,7 +243,6 @@ export class MicroservicesStack extends Stack {
                             AWS_REGION: Stack.of(this).region,
                             PETFOOD_FOODS_TABLE_NAME: imports.dynamodbExports.petFoodsTable.tableName,
                             PETFOOD_CARTS_TABLE_NAME: imports.dynamodbExports.petFoodsCartTable.tableName,
-                            PETFOOD_ASSETS_BUCKET_NAME: imports.assetsBucket.bucketName,
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
