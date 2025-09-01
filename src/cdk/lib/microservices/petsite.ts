@@ -263,6 +263,7 @@ export class PetSite extends EKSDeployment {
                 new Map(
                     Object.entries({
                         petsiteurl: `https://${this.distribution.distributionDomainName}`,
+                        imagescdnurl: `https://${this.distribution.distributionDomainName}/images`,
                     }),
                 ),
             );

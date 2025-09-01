@@ -125,7 +125,7 @@ impl Config {
 
         // Load basic configuration from environment variables
         let server = ServerConfig::from_env()?;
-        let database = DatabaseConfig::from_env()?;
+        let mut database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
         let events = EventsConfig::from_env()?;
 
@@ -162,6 +162,20 @@ impl Config {
             ssm_client.clone(),
             Duration::from_secs(5 * 60),
         ));
+
+        // Retrieve CDN URL from SSM if not set via environment
+        if database.assets_cdn_url.is_empty() {
+            info!("CDN URL not set via environment, attempting to retrieve from SSM");
+            database.assets_cdn_url = parameter_store
+                .get_parameter_with_default("/petstore/imagescdnurl", "")
+                .await;
+
+            if !database.assets_cdn_url.is_empty() {
+                info!("CDN URL retrieved from SSM: {}", database.assets_cdn_url);
+            } else {
+                info!("CDN URL not found in SSM, images will be served without CDN prefix");
+            }
+        }
 
         let aws = AwsConfig {
             region: database.region.clone(),
