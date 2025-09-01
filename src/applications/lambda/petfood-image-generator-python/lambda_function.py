@@ -38,6 +38,7 @@ BASE_DELAY = 1.0  # Base delay in seconds
 MAX_DELAY = 60.0  # Maximum delay in seconds
 JITTER_RANGE = 0.1  # Random jitter to avoid thundering herd
 
+
 def generate_prompt(food_data: Dict[str, Any]) -> str:
     """Generate a sophisticated, contextually rich prompt for image generation."""
     try:
@@ -759,7 +760,9 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
     if not food_id:
         raise ValueError("Missing required field: food_id")
     if not description:
-        raise ValueError("Missing required field: description. Used to help generate prompt")
+        raise ValueError(
+            "Missing required field: description. Used to help generate prompt",
+        )
 
     # Check if image generation is required
     creation_source = metadata.get("creation_source", "unknown")
@@ -767,7 +770,9 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
     is_manual_creation = metadata.get("is_manual_creation", "false").lower() == "true"
     is_seed_data = metadata.get("is_seed_data", "false").lower() == "true"
 
-    logger.info(f"Image for: {food_id}, seed: {is_seed_data}, requires validation: {requires_validation}")
+    logger.info(
+        f"Image for: {food_id}, seed: {is_seed_data}, requires validation: {requires_validation}",
+    )
 
     try:
         # step 1 generate prompt
@@ -817,7 +822,9 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
                 "creation_source": creation_source,
             }
 
-        logger.info(f"Successfully processed food event for {food_id} (source: {creation_source})")
+        logger.info(
+            f"Successfully processed food event for {food_id} (source: {creation_source})",
+        )
 
         return {
             "food_id": food_id,
@@ -841,6 +848,7 @@ def process_food_event(event_detail: Dict[str, Any]) -> Dict[str, Any]:
             "creation_source": creation_source,
         }
 
+
 def lambda_handler(event, context):
     """
     Main Lambda handler for processing EventBridge events.
@@ -861,11 +869,16 @@ def lambda_handler(event, context):
         if event_type in ["FoodItemCreated", "FoodItemUpdated"]:
             result = process_food_event(event_detail)
         else:
-            logger.info(f"Event type {event_type} not handled by image generator Lambda")
+            logger.info(
+                f"Event type {event_type} not handled by image generator Lambda",
+            )
             return {
                 "statusCode": 200,
                 "body": json.dumps(
-                    {"message": f"Event type {event_type} not handled by this Lambda", "success": True},
+                    {
+                        "message": f"Event type {event_type} not handled by this Lambda",
+                        "success": True,
+                    },
                 ),
             }
 
