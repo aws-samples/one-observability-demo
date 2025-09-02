@@ -67,7 +67,7 @@ Here's the full flow of what you will do with tools you can use:
 2. Generate the prompt, prompt MUST be 512 characters or less
 3. Generate the Image with Bedrock (tool: generate_image_with_bedrock)
 4. Store the image on S3 (tool: store_image_in_s3)
-5. Update the food item on dynamodb with the image path returned by store_image_in_s3
+5. Update the food item on dynamodb with the image_key returned by store_image_in_s3
 (tool: update_food_record)
 """
 def exponential_backoff_delay(attempt: int) -> float:
@@ -213,7 +213,7 @@ def store_image_in_s3(image_data: str, food_id: str, food_name: str) -> Dict[str
     try:
         # Generate image path with petfood/ prefix
         safe_name = food_name.lower().replace(" ", "-").replace("&", "and")
-        image_key = f"petfood/{safe_name}.jpg"
+        image_key = f"images/petfood/{safe_name}.jpg"
 
         # Decode base64 image data
         image_bytes = base64.b64decode(image_data)
