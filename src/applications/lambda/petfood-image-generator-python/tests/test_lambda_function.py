@@ -25,7 +25,10 @@ class TestLambdaHandler:
     @patch("boto3.client")
     @patch("lambda_function.process_food_event")
     def test_lambda_handler_food_created(
-        self, mock_process, mock_boto_client, mock_boto_resource,
+        self,
+        mock_process,
+        mock_boto_client,
+        mock_boto_resource,
     ):
         """Test lambda handler with FoodItemCreated event."""
         # Set up mocks
@@ -64,7 +67,9 @@ class TestLambdaHandler:
     @patch("boto3.resource")
     @patch("boto3.client")
     def test_lambda_handler_unknown_event_type(
-        self, mock_boto_client, mock_boto_resource,
+        self,
+        mock_boto_client,
+        mock_boto_resource,
     ):
         """Test lambda handler with unknown event type."""
         from lambda_function import lambda_handler
