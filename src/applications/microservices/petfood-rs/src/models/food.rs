@@ -59,7 +59,6 @@ pub struct UpdateFoodRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub price: Option<Decimal>,
-    pub image: Option<String>,
     pub nutritional_info: Option<NutritionalInfo>,
     pub ingredients: Option<Vec<String>>,
     pub feeding_guidelines: Option<String>,
@@ -167,9 +166,6 @@ impl Food {
         }
         if let Some(price) = request.price {
             self.price = price;
-        }
-        if let Some(image) = request.image {
-            self.image = Some(image);
         }
         if let Some(nutritional_info) = request.nutritional_info {
             self.nutritional_info = Some(nutritional_info);

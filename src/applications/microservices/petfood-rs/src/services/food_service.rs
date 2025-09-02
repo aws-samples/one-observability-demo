@@ -229,59 +229,12 @@ impl FoodService {
             }
         };
 
-        // Check if image-related fields are changing
-        let image_changed = request.image.is_some()
-            || request.name.is_some()
-            || request.description.is_some()
-            || request.ingredients.is_some();
-
-        let previous_image_path = if image_changed && request.image.is_some() {
-            existing_food.image.clone()
-        } else {
-            None
-        };
-
         // Apply the updates
         let mut food = existing_food.clone();
         food.update(request.clone());
 
         // Save the updated food
         let updated_food = self.repository.update(food).await?;
-
-        // Emit FoodItemUpdated event if image-related fields changed
-        if image_changed {
-            if let Some(ref event_emitter) = self.event_emitter {
-                let span_context = EventEmitter::extract_span_context();
-                let event = FoodEvent::food_item_updated(
-                    updated_food.id.clone(),
-                    request.name.or_else(|| Some(updated_food.name.clone())),
-                    Some(updated_food.pet_type.clone()),
-                    Some(updated_food.food_type.clone()),
-                    request
-                        .description
-                        .or_else(|| Some(updated_food.description.clone())),
-                    request
-                        .ingredients
-                        .or_else(|| Some(updated_food.ingredients.clone())),
-                    previous_image_path,
-                    span_context,
-                );
-
-                if let Err(e) = event_emitter.emit_event(event).await {
-                    warn!(
-                        food_id = %updated_food.id,
-                        error = %e,
-                        "Failed to emit FoodItemUpdated event"
-                    );
-                    // Don't fail the request, just log the warning
-                } else {
-                    crate::info_with_trace!(
-                        food_id = %updated_food.id,
-                        "Successfully emitted FoodItemUpdated event"
-                    );
-                }
-            }
-        }
 
         crate::info_with_trace!("Food updated successfully");
         Ok(updated_food)

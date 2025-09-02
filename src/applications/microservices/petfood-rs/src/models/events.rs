@@ -27,7 +27,6 @@ impl std::fmt::Display for CreationSource {
 #[serde(rename_all = "PascalCase")]
 pub enum FoodEventType {
     FoodItemCreated,
-    FoodItemUpdated,
     ItemDiscontinued,
 }
 
@@ -35,7 +34,6 @@ impl std::fmt::Display for FoodEventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FoodEventType::FoodItemCreated => write!(f, "FoodItemCreated"),
-            FoodEventType::FoodItemUpdated => write!(f, "FoodItemUpdated"),
             FoodEventType::ItemDiscontinued => write!(f, "ItemDiscontinued"),
         }
     }
@@ -112,40 +110,6 @@ impl FoodEvent {
             food_name: Some(food_name),
             pet_type: Some(pet_type),
             food_type: Some(food_type),
-            description,
-            ingredients,
-            status: None,
-            metadata,
-            span_context,
-            timestamp: Utc::now(),
-        }
-    }
-
-    /// Create a new FoodItemUpdated event
-    #[allow(clippy::too_many_arguments)]
-    pub fn food_item_updated(
-        food_id: String,
-        food_name: Option<String>,
-        pet_type: Option<PetType>,
-        food_type: Option<FoodType>,
-        description: Option<String>,
-        ingredients: Option<Vec<String>>,
-        previous_image_path: Option<String>,
-        span_context: SpanContextData,
-    ) -> Self {
-        let mut metadata = HashMap::new();
-        metadata.insert("image_required".to_string(), "true".to_string());
-
-        if let Some(prev_path) = previous_image_path {
-            metadata.insert("previous_image_path".to_string(), prev_path);
-        }
-
-        Self {
-            event_type: FoodEventType::FoodItemUpdated,
-            food_id,
-            food_name,
-            pet_type,
-            food_type,
             description,
             ingredients,
             status: None,

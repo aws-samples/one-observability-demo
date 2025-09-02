@@ -50,9 +50,6 @@ impl Validate for UpdateFoodRequest {
         if let Some(price) = &self.price {
             validate_food_price(price)?;
         }
-        if let Some(image) = &self.image {
-            validate_food_image(image)?;
-        }
         if let Some(ingredients) = &self.ingredients {
             validate_ingredients(ingredients)?;
         }
