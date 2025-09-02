@@ -85,7 +85,7 @@ mod config_tests {
     }
 
     #[tokio::test]
-    async fn test_parameter_store_config_cache() {
+    async fn test_parameter_store_config() {
         // Create a mock AWS config for testing
         let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(aws_config::Region::new("us-west-2"))
@@ -93,20 +93,13 @@ mod config_tests {
             .await;
 
         let ssm_client = SsmClient::new(&aws_config);
-        let parameter_store = ParameterStoreConfig::new(ssm_client, Duration::from_secs(60));
-
-        // Test cache functionality
-        assert_eq!(parameter_store.cache_size().await, 0);
+        let parameter_store = ParameterStoreConfig::new(ssm_client);
 
         // Test get_parameter_with_default
         let default_value = parameter_store
             .get_parameter_with_default("/nonexistent/parameter", "default_value")
             .await;
         assert_eq!(default_value, "default_value");
-
-        // Test cache clearing
-        parameter_store.clear_cache().await;
-        assert_eq!(parameter_store.cache_size().await, 0);
     }
 
     #[test]

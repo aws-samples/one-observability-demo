@@ -3,11 +3,9 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_eventbridge::Client as EventBridgeClient;
 use aws_sdk_ssm::Client as SsmClient;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use thiserror::Error;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Error)]
@@ -106,16 +104,11 @@ pub struct EventsConfig {
 
 pub struct ParameterStoreConfig {
     ssm_client: SsmClient,
-    cache: Arc<RwLock<HashMap<String, (String, Instant)>>>,
-    cache_ttl: Duration,
 }
 
 impl std::fmt::Debug for ParameterStoreConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ParameterStoreConfig")
-            .field("cache_ttl", &self.cache_ttl)
-            .field("cache_size", &"<runtime>")
-            .finish()
+        f.debug_struct("ParameterStoreConfig").finish()
     }
 }
 
@@ -158,10 +151,7 @@ impl Config {
         info!("DynamoDB endpoint: {:?}", aws_config.endpoint_url());
 
         // Create parameter store configuration
-        let parameter_store = Arc::new(ParameterStoreConfig::new(
-            ssm_client.clone(),
-            Duration::from_secs(5 * 60),
-        ));
+        let parameter_store = Arc::new(ParameterStoreConfig::new(ssm_client.clone()));
 
         // Retrieve CDN URL from SSM if not set via environment
         if database.assets_cdn_url.is_empty() {
@@ -331,29 +321,12 @@ impl EventsConfig {
 }
 
 impl ParameterStoreConfig {
-    pub fn new(ssm_client: SsmClient, cache_ttl: Duration) -> Self {
-        Self {
-            ssm_client,
-            cache: Arc::new(RwLock::new(HashMap::new())),
-            cache_ttl,
-        }
+    pub fn new(ssm_client: SsmClient) -> Self {
+        Self { ssm_client }
     }
 
     pub async fn get_parameter(&self, name: &str) -> Result<String, ConfigError> {
         debug!("Getting parameter: {}", name);
-
-        // Check cache first
-        {
-            let cache = self.cache.read().await;
-            if let Some((value, timestamp)) = cache.get(name) {
-                if timestamp.elapsed() < self.cache_ttl {
-                    debug!("Parameter found in cache: {}", name);
-                    return Ok(value.clone());
-                } else {
-                    debug!("Parameter cache expired: {}", name);
-                }
-            }
-        }
 
         // Fetch from Parameter Store
         debug!("Fetching parameter from AWS SSM: {}", name);
@@ -376,12 +349,6 @@ impl ParameterStoreConfig {
             })?
             .to_string();
 
-        // Update cache
-        {
-            let mut cache = self.cache.write().await;
-            cache.insert(name.to_string(), (value.clone(), Instant::now()));
-        }
-
         debug!("Parameter retrieved and cached: {}", name);
         Ok(value)
     }
@@ -394,17 +361,6 @@ impl ParameterStoreConfig {
                 default.to_string()
             }
         }
-    }
-
-    pub async fn clear_cache(&self) {
-        let mut cache = self.cache.write().await;
-        cache.clear();
-        info!("Parameter store cache cleared");
-    }
-
-    pub async fn cache_size(&self) -> usize {
-        let cache = self.cache.read().await;
-        cache.len()
     }
 }
 
