@@ -40,7 +40,7 @@ MAX_DELAY = 60.0  # Maximum delay in seconds
 JITTER_RANGE = 0.1  # Random jitter to avoid thundering herd
 
 
-IMAGE_GEN_PROMPT = """You are an autonomous AI agent reponsible for generating images
+IMAGE_GEN_PROMPT = """You are an autonomous AI agent responsible for generating images
 for a pet food service. Your primary goal is to ensure that pet food item has a
 corresponding image file stored in our S3 bucket. You must handle two distinct
 scenarios: create new image if existing, ignore the event (image generation) if
