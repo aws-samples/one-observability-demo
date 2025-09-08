@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { CfnOutput, Fn, Stack } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { CfnPipeline } from 'aws-cdk-lib/aws-osis';
 import { Role, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
@@ -168,6 +168,7 @@ export class OpenSearchPipeline extends Construct {
         const logGroup = new LogGroup(this, 'PipelineLogGroup', {
             logGroupName: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
             retention: RetentionDays.ONE_WEEK,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         // Generate pipeline configuration YAML
