@@ -58,7 +58,7 @@ export class WorkshopNagPack extends NagPack {
                 info: 'Lambda functions should have associated Log Groups',
                 explanation:
                     'Lambda functions without pre-created log groups will create them with unlimited retention on first invocation.',
-                level: NagMessageLevel.WARN, // Change to Error once we fix the issues with suppression for custom resources
+                level: NagMessageLevel.ERROR,
                 rule: this.checkLambdaLogGroupAssociation,
                 node: node,
             });
@@ -114,6 +114,19 @@ export class WorkshopNagPack extends NagPack {
 
     private checkLambdaLogGroupAssociation = (node: CfnResource): NagRuleResult => {
         if (node.cfnResourceType === 'AWS::Lambda::Function') {
+            // Skip CDK-managed Lambda functions using regex patterns
+            const cdkManagedPatterns = [
+                /Custom::/,
+                /LogRetention/,
+                /KubectlProvider/,
+                /ClusterResourceProvider/,
+                /AWSCDKCfnUtilsProviderCustomResourceProvider/,
+            ];
+
+            if (cdkManagedPatterns.some((pattern) => pattern.test(node.logicalId))) {
+                return NagRuleCompliance.NOT_APPLICABLE;
+            }
+
             const loggingConfig = (node as CfnResource & { loggingConfig?: unknown }).loggingConfig;
 
             // Skip validation if loggingConfig contains non-primitive values
