@@ -38,6 +38,7 @@ import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
 import { Utilities, WorkshopNagPack } from '../lib/utils/utilities';
+import { NagSuppressions } from 'cdk-nag';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -60,7 +61,7 @@ if (!branch_name) {
 }
 
 /** Deploy container applications stack with ECS and EKS services */
-new ContainersStack(app, 'DevApplicationsStack', {
+const containers = new ContainersStack(app, 'DevApplicationsStack', {
     source: {
         bucketName: s3BucketName,
         bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
@@ -70,7 +71,7 @@ new ContainersStack(app, 'DevApplicationsStack', {
 });
 
 /** Deploy storage stack with S3, Aurora, and DynamoDB */
-new StorageStack(app, 'DevStorageStack', {
+const storage = new StorageStack(app, 'DevStorageStack', {
     tags: TAGS,
     assetsProperties: {
         seedPaths: PET_IMAGES,
@@ -78,7 +79,8 @@ new StorageStack(app, 'DevStorageStack', {
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,
     },
-}).addDependency(core, 'Network is needed');
+});
+storage.addDependency(core, 'Network is needed');
 
 /** Deploy compute stack with Lambda functions and EC2 resources */
 const compute = new ComputeStack(app, 'DevComputeStack', {
@@ -126,3 +128,27 @@ Aspects.of(app).add(
 /** Suppress CdkNagValidationFailure globally */
 Utilities.SuppressLogRetentionNagWarnings(app);
 Utilities.SuppressKubectlProviderNagWarnings(app);
+
+/** Suppress Workshop Lambda rule for CDK custom resource providers */
+const stacks = [core, containers, storage, compute, microservices];
+for (const stack of stacks) {
+    NagSuppressions.addStackSuppressions(stack, [
+        {
+            id: 'CdkNagValidationFailure',
+            reason: 'Intrinsic functions cannot be resolved at synthesis time',
+            appliesTo: ['AwsSolutions-EC23'],
+        },
+    ]);
+
+    NagSuppressions.addStackSuppressions(stack, [
+        {
+            id: 'Workshop-Lambda1',
+            reason: 'Custom Resources do not have a way to configure logs',
+            appliesTo: [
+                {
+                    regex: '/Custom::.*/g',
+                },
+            ],
+        },
+    ]);
+}

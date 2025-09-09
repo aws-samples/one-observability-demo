@@ -15,7 +15,6 @@ import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { Policy, Role } from 'aws-cdk-lib/aws-iam';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { WorkshopNagPack } from './workshop-nag-pack';
 
 /**
  * Utility class providing helper functions for common CDK operations.
@@ -154,16 +153,6 @@ export const Utilities = {
         for (const [key, value] of parameters.entries()) {
             new CfnOutput(scope, key, { value: value });
         }
-    },
-
-    /**
-     * Applies the Workshop NAG pack to validate resource deletion configuration.
-     *
-     * @param construct - The construct to apply workshop validation rules to
-     */
-    ApplyWorkshopNagPack(construct: Construct) {
-        const workshopPack = new WorkshopNagPack();
-        workshopPack.visit(construct);
     },
 };
 

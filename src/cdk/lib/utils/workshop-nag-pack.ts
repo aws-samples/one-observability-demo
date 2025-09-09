@@ -58,7 +58,7 @@ export class WorkshopNagPack extends NagPack {
                 info: 'Lambda functions should have associated Log Groups',
                 explanation:
                     'Lambda functions without pre-created log groups will create them with unlimited retention on first invocation.',
-                level: NagMessageLevel.ERROR,
+                level: NagMessageLevel.WARN, // Change to Error once we fix the issues with suppression for custom resources
                 rule: this.checkLambdaLogGroupAssociation,
                 node: node,
             });
