@@ -500,14 +500,14 @@ Resources:
                   STACK_EXISTS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackName' --output text)
                   if [ -z "$STACK_EXISTS" ]; then
                     echo "Account not bootstrapped, bootstrapping now..."
-                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                   else
                     STACK_STATUS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output text)
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
                       echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
                       # Force remove ECR and S3 buckets
-                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
-                      aws s3 ls | grep cdk- | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-petsite`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
+                      aws s3 ls | grep cdk-petsite | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
                       # Delete the stack
                       aws cloudformation delete-stack --stack-name CDKToolkitPetsite
                       aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite
