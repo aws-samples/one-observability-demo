@@ -498,8 +498,16 @@ Resources:
                 # Check if account is bootstrapped
                 - |
                   STACK_EXISTS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackName' --output text)
-                  if [ -z "$STACK_EXISTS" ]; then
+                  STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus==`DELETE_COMPLETE`].StackName' --output text)
+                  if [ -z "$STACK_EXISTS" ] && [ -z "$STACK_DELETE_COMPLETE" ]; then
                     echo "Account not bootstrapped, bootstrapping now..."
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+                  elif [ -n "$STACK_DELETE_COMPLETE" ]; then
+                    echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
+                    # Force remove ECR and S3 buckets
+                    aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-petsite`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
+                    aws s3 ls | grep cdk-petsite | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                    # Bootstrap again
                     cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                   else
                     STACK_STATUS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output text)
