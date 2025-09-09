@@ -33,6 +33,7 @@ import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator
 import { NagSuppressions } from 'cdk-nag';
 import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood/cleanup-processor';
 import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
+import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -125,6 +126,14 @@ export class MicroservicesStack extends Stack {
 
     private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
         this.microservices = new Map<string, Microservice>();
+
+        const albEKSCheck = new KubernetesObjectValue(this, 'ALBEKS', {
+            cluster: imports.eksExports.cluster,
+            objectType: 'validatingwebhookconfigurations',
+            objectName: 'aws-load-balancer-webhook',
+            objectNamespace: 'kube-system',
+            jsonPath: '.webhooks[*].clientConfig.service.path',
+        });
 
         for (const name of properties.microservicesPlacement.keys()) {
             const service = properties.microservicesPlacement.get(name);
@@ -274,6 +283,7 @@ export class MicroservicesStack extends Stack {
                         listenerPort: 80,
                         healthCheck: '/health/status',
                     });
+                    svc.node.addDependency(albEKSCheck);
                 } else {
                     throw new Error(`ECS is not supported for ${name}`);
                 }

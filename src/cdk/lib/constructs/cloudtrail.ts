@@ -18,6 +18,7 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { Names, RemovalPolicy } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
+import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 
 /**
  * Configuration properties for the WorkshopCloudTrail construct.
@@ -76,6 +77,13 @@ export class WorkshopCloudTrail extends Construct {
             },
         });
 
+        const trailBucket = new Bucket(this, 'TrailBucket', {
+            enforceSSL: true,
+            autoDeleteObjects: true,
+            removalPolicy: RemovalPolicy.DESTROY,
+            blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        });
+
         // Create CloudTrail trail
         this.trail = new Trail(this, 'Trail', {
             trailName: properties.name,
@@ -85,6 +93,7 @@ export class WorkshopCloudTrail extends Construct {
             enableFileValidation: true,
             sendToCloudWatchLogs: true,
             insightTypes: [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE],
+            bucket: trailBucket,
         });
 
         if (properties.includeS3DataEvents) {
@@ -101,6 +110,17 @@ export class WorkshopCloudTrail extends Construct {
                 {
                     id: 'AwsSolutions-S1',
                     reason: 'CloudTrail Bucket, access logs are not required for the workshop',
+                },
+            ],
+            true,
+        );
+
+        NagSuppressions.addResourceSuppressions(
+            trailBucket,
+            [
+                {
+                    id: 'AwsSolutions-S1',
+                    reason: 'Trail Bucket, access logs are not required for the workshop',
                 },
             ],
             true,

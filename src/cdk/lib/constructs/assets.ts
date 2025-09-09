@@ -92,6 +92,10 @@ export class WorkshopAssets extends Construct {
                     id: 'AwsSolutions-L1',
                     reason: 'The construct manages the lambda runtime version',
                 },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Custom resource for bucket deployment is managed by the construct',
+                },
             ]);
         }
 

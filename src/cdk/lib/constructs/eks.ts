@@ -200,6 +200,10 @@ export class WorkshopEks extends Construct {
                     id: 'AwsSolutions-L1',
                     reason: 'Lambda functions are implemented by CDK EKS Construct and out of scope',
                 },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cluste resource provider do not implement log retention',
+                },
             ],
             true,
         );

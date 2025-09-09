@@ -37,7 +37,7 @@ import { AwsSolutionsChecks } from 'cdk-nag';
 import { StorageStack } from '../lib/stages/storage';
 import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
-import { Utilities } from '../lib/utils/utilities';
+import { Utilities, WorkshopNagPack } from '../lib/utils/utilities';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -106,4 +106,23 @@ Utilities.TagConstruct(app, {
 });
 
 /** Add CDK-nag compliance checks for AWS Solutions best practices */
-Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+Aspects.of(app).add(
+    new AwsSolutionsChecks({
+        verbose: true,
+        reports: true,
+        logIgnores: false,
+    }),
+);
+
+/** Add Workshop-specific NAG pack for resource deletion validation */
+Aspects.of(app).add(
+    new WorkshopNagPack({
+        verbose: true,
+        reports: true,
+        logIgnores: false,
+    }),
+);
+
+/** Suppress CdkNagValidationFailure globally */
+Utilities.SuppressLogRetentionNagWarnings(app);
+Utilities.SuppressKubectlProviderNagWarnings(app);

@@ -78,7 +78,7 @@ export class PetSite extends EKSDeployment {
 
         // TODO: Autodelete is not working for this bucket
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
-            removalPolicy: RemovalPolicy.RETAIN,
+            removalPolicy: RemovalPolicy.DESTROY,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
         });
