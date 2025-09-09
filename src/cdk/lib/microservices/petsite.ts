@@ -81,6 +81,7 @@ export class PetSite extends EKSDeployment {
             removalPolicy: RemovalPolicy.DESTROY,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
+            autoDeleteObjects: true,
         });
 
         this.distribution = new Distribution(this, 'Distribution', {
@@ -121,6 +122,9 @@ export class PetSite extends EKSDeployment {
         this.prepareManifest(properties);
         this.manifest = this.configureEKSService(properties);
         this.addPermissions(properties);
+
+        this.manifest.node.addDependency(this.distribution);
+        this.manifest.node.addDependency(this.loadBalancer);
 
         this.createOutputs();
 
