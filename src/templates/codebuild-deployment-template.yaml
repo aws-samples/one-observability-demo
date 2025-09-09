@@ -497,8 +497,8 @@ Resources:
                 - git push s3 $BRANCH_NAME
                 # Check if account is bootstrapped
                 - |
-                  STACK_EXISTS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackName' --output text)
-                  STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus==`DELETE_COMPLETE`].StackName' --output text)
+                  STACK_EXISTS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackName" --output text)
+                  STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus=='DELETE_COMPLETE'].StackName" --output text)
                   if [ -z "$STACK_EXISTS" ] && [ -z "$STACK_DELETE_COMPLETE" ]; then
                     echo "Account not bootstrapped, bootstrapping now..."
                     cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
@@ -510,7 +510,7 @@ Resources:
                     # Bootstrap again
                     cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                   else
-                    STACK_STATUS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkitPetsite` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output text)
+                    STACK_STATUS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
                       echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
                       # Force remove ECR and S3 buckets
