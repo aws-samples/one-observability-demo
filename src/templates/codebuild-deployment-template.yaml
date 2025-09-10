@@ -505,8 +505,13 @@ Resources:
                   elif [ -n "$STACK_DELETE_COMPLETE" ]; then
                     echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
                     # Force remove ECR and S3 buckets
-                    aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-petsite`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
-                    aws s3 ls | grep cdk-petsite | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                    aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
+                    bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+                    if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                      aws s3api delete-bucket --bucket "$bucket" || true
+                    fi
                     # Bootstrap again
                     cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                   else
@@ -514,8 +519,13 @@ Resources:
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
                       echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
                       # Force remove ECR and S3 buckets
-                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-petsite`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
-                      aws s3 ls | grep cdk-petsite | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                      aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
+                      bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+                      if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                        aws s3api delete-bucket --bucket "$bucket" || true
+                      fi
                       # Delete the stack
                       aws cloudformation delete-stack --stack-name CDKToolkitPetsite
                       aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite
