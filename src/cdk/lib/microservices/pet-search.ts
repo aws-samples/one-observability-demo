@@ -46,12 +46,24 @@ export class PetSearchService extends EcsService {
             },
         });
 
-        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
-            {
-                id: 'AwsSolutions-ECS7',
-                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
-            },
-        ]);
+        NagSuppressions.addResourceSuppressions(
+            this.taskDefinition,
+            [
+                {
+                    id: 'AwsSolutions-ECS7',
+                    reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+                },
+                {
+                    id: 'Workshop-CWL1',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+            ],
+            true,
+        );
     }
 
     addPermissions(properties: PetSearchServiceProperties): void {

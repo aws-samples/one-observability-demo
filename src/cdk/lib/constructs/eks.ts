@@ -58,7 +58,7 @@ export class WorkshopEks extends Construct {
             defaultCapacity: properties.eksEc2Capacity || 2,
             defaultCapacityInstance: properties.eksEc2InstanceType
                 ? new InstanceType(properties.eksEc2InstanceType)
-                : InstanceType.of(InstanceClass.T3, InstanceSize.MEDIUM),
+                : InstanceType.of(InstanceClass.T3, InstanceSize.LARGE),
             clusterLogging: [
                 ClusterLoggingTypes.API,
                 ClusterLoggingTypes.AUDIT,
@@ -85,6 +85,7 @@ export class WorkshopEks extends Construct {
     private setupAddons(): void {
         const cfnNodeGroup = this.cluster.defaultNodegroup?.node.defaultChild as CfnNodegroup;
         cfnNodeGroup.addPropertyOverride('AmiType', NodegroupAmiType.AL2023_X86_64_STANDARD);
+        cfnNodeGroup.addPropertyOverride('NodeRepairConfig', { Enabled: true });
 
         new Addon(this, 'coreDNSAddon', {
             cluster: this.cluster,
@@ -199,6 +200,10 @@ export class WorkshopEks extends Construct {
                 {
                     id: 'AwsSolutions-L1',
                     reason: 'Lambda functions are implemented by CDK EKS Construct and out of scope',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cluste resource provider do not implement log retention',
                 },
             ],
             true,

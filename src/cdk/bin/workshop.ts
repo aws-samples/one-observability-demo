@@ -26,7 +26,7 @@ SPDX-License-Identifier: Apache-2.0
 import { App, Aspects } from 'aws-cdk-lib';
 import { CDKPipeline } from '../lib/pipeline';
 import { AwsSolutionsChecks } from 'cdk-nag';
-import { Utilities } from '../lib/utils/utilities';
+import { Utilities, WorkshopNagPack } from '../lib/utils/utilities';
 import {
     CONFIG_BUCKET,
     REGION,
@@ -78,4 +78,19 @@ new CDKPipeline(app, 'OneObservability', {
 Utilities.TagConstruct(app, TAGS);
 
 /** Add CDK-nag compliance checks for AWS Solutions best practices */
-Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+Aspects.of(app).add(
+    new AwsSolutionsChecks({
+        verbose: true,
+        reports: true,
+        logIgnores: false,
+    }),
+);
+
+/** Add Workshop-specific NAG pack for resource deletion validation */
+Aspects.of(app).add(
+    new WorkshopNagPack({
+        verbose: true,
+        reports: true,
+        logIgnores: false,
+    }),
+);
