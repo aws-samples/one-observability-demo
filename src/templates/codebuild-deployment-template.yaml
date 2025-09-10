@@ -558,8 +558,8 @@ Resources:
                 - cd $WORKING_FOLDER
                 # Install dependencies and synthesize CDK
                 - npm install
-                - cdk synth
-                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                - cdk synth --quiet
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json --quiet
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |

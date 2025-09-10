@@ -12,9 +12,10 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { Stack } from 'aws-cdk-lib';
+import { Annotations, Stack } from 'aws-cdk-lib';
 import { CfnResourcePolicy } from 'aws-cdk-lib/aws-logs';
 import { CfnTransactionSearchConfig } from 'aws-cdk-lib/aws-xray';
+import { AUTO_TRANSACTION_SEARCH_CONFIGURED } from '../../bin/environment';
 
 /**
  * Configuration properties for the CloudWatchTransactionSearch construct.
@@ -46,40 +47,44 @@ export class CloudWatchTransactionSearch extends Construct {
 
         const stack = Stack.of(this);
 
-        // CloudWatch Transaction Search setup
-        this.resourcePolicy = new CfnResourcePolicy(this, 'TransactionSearchLogResourcePolicy', {
-            policyName: 'TransactionSearchAccess',
-            policyDocument: JSON.stringify({
-                Version: '2012-10-17',
-                Statement: [
-                    {
-                        Sid: 'TransactionSearchXRayAccess',
-                        Effect: 'Allow',
-                        Principal: {
-                            Service: 'xray.amazonaws.com',
-                        },
-                        Action: 'logs:PutLogEvents',
-                        Resource: [
-                            `arn:${stack.partition}:logs:${stack.region}:${stack.account}:log-group:aws/spans:*`,
-                            `arn:${stack.partition}:logs:${stack.region}:${stack.account}:log-group:/aws/application-signals/data:*`,
-                        ],
-                        Condition: {
-                            ArnLike: {
-                                'aws:SourceArn': `arn:${stack.partition}:xray:${stack.region}:${stack.account}:*`,
+        if (AUTO_TRANSACTION_SEARCH_CONFIGURED) {
+            Annotations.of(this).addInfo('Transaction search is already configured in the account. Skipping setup.');
+        } else {
+            // CloudWatch Transaction Search setup
+            this.resourcePolicy = new CfnResourcePolicy(this, 'TransactionSearchLogResourcePolicy', {
+                policyName: 'TransactionSearchAccess',
+                policyDocument: JSON.stringify({
+                    Version: '2012-10-17',
+                    Statement: [
+                        {
+                            Sid: 'TransactionSearchXRayAccess',
+                            Effect: 'Allow',
+                            Principal: {
+                                Service: 'xray.amazonaws.com',
                             },
-                            StringEquals: {
-                                'aws:SourceAccount': stack.account,
+                            Action: 'logs:PutLogEvents',
+                            Resource: [
+                                `arn:${stack.partition}:logs:${stack.region}:${stack.account}:log-group:aws/spans:*`,
+                                `arn:${stack.partition}:logs:${stack.region}:${stack.account}:log-group:/aws/application-signals/data:*`,
+                            ],
+                            Condition: {
+                                ArnLike: {
+                                    'aws:SourceArn': `arn:${stack.partition}:xray:${stack.region}:${stack.account}:*`,
+                                },
+                                StringEquals: {
+                                    'aws:SourceAccount': stack.account,
+                                },
                             },
                         },
-                    },
-                ],
-            }),
-        });
+                    ],
+                }),
+            });
 
-        this.transactionSearchConfig = new CfnTransactionSearchConfig(this, 'TransactionSearchConfig', {
-            indexingPercentage: properties?.indexingPercentage || 1,
-        });
+            this.transactionSearchConfig = new CfnTransactionSearchConfig(this, 'TransactionSearchConfig', {
+                indexingPercentage: properties?.indexingPercentage || 1,
+            });
 
-        this.transactionSearchConfig.addDependency(this.resourcePolicy);
+            this.transactionSearchConfig.addDependency(this.resourcePolicy);
+        }
     }
 }

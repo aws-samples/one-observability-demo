@@ -37,6 +37,7 @@ import {
     EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
     EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
+import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON } from '../../bin/environment';
 
 export interface EksProperties {
     vpc: IVpc;
@@ -105,11 +106,13 @@ export class WorkshopEks extends Construct {
             preserveOnDelete: false,
         });
 
-        new Addon(this, 'guardDutyAddon', {
-            cluster: this.cluster,
-            addonName: 'aws-guardduty-agent',
-            preserveOnDelete: false,
-        });
+        if (CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON) {
+            new Addon(this, 'guardDutyAddon', {
+                cluster: this.cluster,
+                addonName: 'aws-guardduty-agent',
+                preserveOnDelete: false,
+            });
+        }
 
         const iamRoleCloudwatchAddon = new Role(this, 'CloudwatchAddonRole', {
             description: 'Allows pods running in Amazon EKS cluster to access AWS resources.',
