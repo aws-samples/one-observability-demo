@@ -995,22 +995,11 @@ Resources:
                   }
                 }
               },
-              "Next": "CleanupComplete"
+              "Next": "DeleteCDKToolkitStack"
             },
             "NoStacksToClean": {
               "Type": "Pass",
               "Result": "No tagged stacks found to clean up",
-              "End": true
-            },
-            "CleanupComplete": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "${rCleanupCompletionFunction}",
-                "Payload": {
-                  "StackName": "${AWS::StackName}"
-                }
-              },
               "Next": "DeleteCDKToolkitStack"
             },
             "DeleteCDKToolkitStack": {
@@ -1069,6 +1058,17 @@ Resources:
               "Parameters": {
                 "FunctionName": "${rCDKStagingBucketCleanupFunction}",
                 "Payload": {}
+              },
+              "Next": "CleanupComplete"
+            },
+            "CleanupComplete": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCleanupCompletionFunction}",
+                "Payload": {
+                  "StackName": "${AWS::StackName}"
+                }
               },
               "End": true
             }
