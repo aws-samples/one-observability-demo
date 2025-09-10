@@ -21,6 +21,8 @@ Metadata:
           - pRepositoryName
           - pBranchName
           - pWorkingFolder
+          - pApplicationName
+          - pDisableCleanup
       - Label:
           default: User Defined Tags
         Parameters:
@@ -36,6 +38,16 @@ Metadata:
           - pUserDefinedTagValue5
 
 Parameters:
+
+  pDisableCleanup:
+    Type: String
+    Description: Disable cleanup in post_build stage if deployment fails
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either 'true' or 'false'
+
   pConfigFileUrl:
     Type: String
     Description: URL to the initial configuration file
@@ -163,14 +175,7 @@ Parameters:
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
 
-  pDisableCleanup:
-    Type: String
-    Description: Disable cleanup in post_build stage if deployment fails
-    Default: 'false'
-    AllowedValues:
-      - 'true'
-      - 'false'
-    ConstraintDescription: Must be either 'true' or 'false'
+
 
 Conditions:
   # Conditions to control creation of user-defined tags
@@ -1457,24 +1462,6 @@ Resources:
           Id: "CDKCleanupTarget"
           RoleArn: !GetAtt rEventBridgeRole.Arn
 
-  # EventBridge Rule for CodeBuild Failure
-  rCodeBuildFailureRule:
-    Type: AWS::Events::Rule
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      Description: Trigger cleanup when CodeBuild fails
-      EventPattern:
-        source: ["aws.codebuild"]
-        detail-type: ["CodeBuild Build State Change"]
-        detail:
-          project-name: [!Ref rCDKDeploymentProject]
-          build-status: ["FAILED", "FAULT", "STOPPED", "TIMED_OUT"]
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt rCDKCleanupStateMachine.Arn
-          Id: "CDKCleanupTarget"
-          RoleArn: !GetAtt rEventBridgeRole.Arn
 
   # IAM Role for EventBridge to invoke Step Function
   rEventBridgeRole:
