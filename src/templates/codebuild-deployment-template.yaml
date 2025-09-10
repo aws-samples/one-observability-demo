@@ -163,6 +163,15 @@ Parameters:
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
 
+  pDisableCleanup:
+    Type: String
+    Description: Disable cleanup in post_build stage if deployment fails
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either 'true' or 'false'
+
 Conditions:
   # Conditions to control creation of user-defined tags
   cCreateTag1: !And
@@ -453,6 +462,9 @@ Resources:
           - Name: AWS_ACCOUNT_ID
             Value: !Ref AWS::AccountId
             Type: PLAINTEXT
+          - Name: DISABLE_CLEANUP
+            Value: !Ref pDisableCleanup
+            Type: PLAINTEXT
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
@@ -488,6 +500,7 @@ Resources:
                   STACK_NAME=$STACK_NAME
                   AWS_REGION=$AWS_REGION
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+                  DISABLE_CLEANUP=$DISABLE_CLEANUP
                   EOF
                 # Add config file and .env file to repository
                 - git add config.json .env -f
@@ -682,12 +695,16 @@ Resources:
               commands:
                 - |
                   if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
-                    echo "Build failed, cleaning up S3 bucket for rollback"
-                    aws s3 rm s3://$CONFIG_BUCKET --recursive
-                    echo "Triggering CDK stack cleanup via Step Function"
-                    aws stepfunctions start-execution \
-                      --state-machine-arn "arn:aws:states:$AWS_REGION:$AWS_ACCOUNT_ID:stateMachine:$STACK_NAME-cdk-cleanup" \
-                      --input '{}' || echo "Failed to trigger cleanup, continuing..."
+                    if [ "$DISABLE_CLEANUP" = "true" ]; then
+                      echo "Build failed, but cleanup is disabled. Skipping resource cleanup."
+                    else
+                      echo "Build failed, cleaning up S3 bucket for rollback"
+                      aws s3 rm s3://$CONFIG_BUCKET --recursive
+                      echo "Triggering CDK stack cleanup via Step Function"
+                      aws stepfunctions start-execution \
+                        --state-machine-arn "arn:aws:states:$AWS_REGION:$AWS_ACCOUNT_ID:stateMachine:$STACK_NAME-cdk-cleanup" \
+                        --input '{}' || echo "Failed to trigger cleanup, continuing..."
+                    fi
                     WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
                     curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
                   else

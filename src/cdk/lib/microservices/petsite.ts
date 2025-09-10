@@ -122,8 +122,6 @@ export class PetSite extends EKSDeployment {
         this.prepareManifest(properties);
         this.manifest = this.configureEKSService(properties);
         this.addPermissions(properties);
-
-        this.manifest.node.addDependency(this.distribution);
         this.manifest.node.addDependency(this.loadBalancer);
 
         this.createOutputs();
