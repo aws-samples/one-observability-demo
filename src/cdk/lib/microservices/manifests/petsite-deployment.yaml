@@ -56,20 +56,20 @@ spec:
                       - containerPort: 80
                         protocol: TCP
                   env:
-                      - name: PET_HISTORY_URL
-                        value: {{ PET_HISTORY_URL }}
-                      - name: PET_LIST_ADOPTIONS_URL
-                        value: {{ PET_LIST_ADOPTIONS_URL }}
-                      - name: CLEANUP_ADOPTIONS_URL
-                        value: {{ CLEANUP_ADOPTIONS_URL }}
-                      - name: PAYMENT_API_URL
-                        value: {{ PAYMENT_API_URL }}
-                      - name: FOOD_API_URL
-                        value: {{ FOOD_API_URL }}
-                      - name: SEARCH_API_URL
-                        value: {{ SEARCH_API_URL }}
-                      - name: RUM_SCRIPT_PARAMETER
-                        value: {{ RUM_SCRIPT_PARAMETER }}
+                      - name: PET_HISTORY_URL_PARAM_NAME
+                        value: {{ PET_HISTORY_URL_PARAM_NAME }}
+                      - name: PET_LIST_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ PET_LIST_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: CLEANUP_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ CLEANUP_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: PAYMENT_API_URL_PARAM_NAME
+                        value: {{ PAYMENT_API_URL_PARAM_NAME }}
+                      - name: FOOD_API_URL_PARAM_NAME
+                        value: {{ FOOD_API_URL_PARAM_NAME }}
+                      - name: SEARCH_API_URL_PARAM_NAME
+                        value: {{ SEARCH_API_URL_PARAM_NAME }}
+                      - name: RUM_SCRIPT_PARAMETER_NAME
+                        value: {{ RUM_SCRIPT_PARAMETER_NAME }}
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding

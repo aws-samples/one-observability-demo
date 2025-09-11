@@ -199,14 +199,14 @@ export class PetSite extends EKSDeployment {
             NAMESPACE: this.namespace,
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
-            // Parameter configuration - all names without prefix since Program.cs adds /petstore prefix
-            PET_HISTORY_URL: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
-            PET_LIST_ADOPTIONS_URL: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
-            CLEANUP_ADOPTIONS_URL: SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL,
-            PAYMENT_API_URL: SSM_PARAMETER_NAMES.PAYMENT_API_URL,
-            FOOD_API_URL: SSM_PARAMETER_NAMES.FOOD_API_URL,
-            SEARCH_API_URL: SSM_PARAMETER_NAMES.SEARCH_API_URL,
-            RUM_SCRIPT_PARAMETER: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
+            // Parameter names (not values) - these environment variables tell the app which parameter names to look up
+            PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
+            PET_LIST_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
+            CLEANUP_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL,
+            PAYMENT_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PAYMENT_API_URL,
+            FOOD_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.FOOD_API_URL,
+            SEARCH_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+            RUM_SCRIPT_PARAMETER_NAME: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
         });
         return yaml.parseAllDocuments(deploymentYaml).map((document) => document.toJS());
     }
