@@ -16,7 +16,7 @@ import { Construct } from 'constructs';
 import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
-import { Names, RemovalPolicy } from 'aws-cdk-lib';
+import { Names, RemovalPolicy, Duration } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 
@@ -82,6 +82,11 @@ export class WorkshopCloudTrail extends Construct {
             autoDeleteObjects: true,
             removalPolicy: RemovalPolicy.DESTROY,
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+            lifecycleRules: [
+                {
+                    expiration: Duration.days(7),
+                },
+            ],
         });
 
         // Create CloudTrail trail

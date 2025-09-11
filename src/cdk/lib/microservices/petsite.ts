@@ -29,6 +29,7 @@ import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { Duration, RemovalPolicy } from 'aws-cdk-lib';
@@ -198,6 +199,14 @@ export class PetSite extends EKSDeployment {
             NAMESPACE: this.namespace,
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
+            // Parameter names (not values) - these environment variables tell the app which parameter names to look up
+            PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
+            PET_LIST_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
+            CLEANUP_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL,
+            PAYMENT_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PAYMENT_API_URL,
+            FOOD_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.FOOD_API_URL,
+            SEARCH_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+            RUM_SCRIPT_PARAMETER_NAME: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
         });
         return yaml.parseAllDocuments(deploymentYaml).map((document) => document.toJS());
     }
@@ -264,8 +273,8 @@ export class PetSite extends EKSDeployment {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        petsiteurl: `https://${this.distribution.distributionDomainName}`,
-                        imagescdnurl: `https://${this.distribution.distributionDomainName}/images`,
+                        [SSM_PARAMETER_NAMES.PETSITE_URL]: `https://${this.distribution.distributionDomainName}`,
+                        [SSM_PARAMETER_NAMES.IMAGES_CDN_URL]: `https://${this.distribution.distributionDomainName}/images`,
                     }),
                 ),
             );

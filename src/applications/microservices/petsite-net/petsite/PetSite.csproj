@@ -15,14 +15,14 @@
     <None Include="compilerconfig.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="7.0.0" />
-    <PackageReference Include="AWSSDK.Core" Version="4.0.0.21" />
-    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.2.1" />
-    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.0.18" />
-    <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="4.0.2.7" />
-    <PackageReference Include="AWSSDK.SQS" Version="4.0.0.19" />
-    <PackageReference Include="AWSSDK.StepFunctions" Version="4.0.0.19" />
-    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.1.9" />
+    <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="6.1.0" />
+    <PackageReference Include="AWSSDK.Core" Version="3.7.500" />
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.301" />
+    <PackageReference Include="AWSSDK.SimpleNotificationService" Version="3.7.500" />
+    <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="3.7.500" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.7.500" />
+    <PackageReference Include="AWSSDK.StepFunctions" Version="3.7.500" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.500" />
 
     <PackageReference Include="BuildBundlerMinifier" Version="3.2.449" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.8">

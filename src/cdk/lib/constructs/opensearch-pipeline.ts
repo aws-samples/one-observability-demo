@@ -286,7 +286,6 @@ log-pipeline:
 
     /**
      * Imports pipeline information from CloudFormation exports
-     * @static
      */
     public static importFromExports(): {
         pipelineArn: string;

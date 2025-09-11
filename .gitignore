@@ -443,3 +443,5 @@ cdk.context.json
 # Canaries
 !src/applications/canaries/housekeeping/nodejs/node_modules/index.js
 
+# Threat model files
+.threatmodel

@@ -81,6 +81,7 @@ export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 export const TAGS = {
     environment: 'non-prod',
     application: 'One Observability Workshop',
+    stackName: process.env.STACK_NAME || 'MissingStackName',
 };
 
 /** Default retention period for logs */
@@ -247,3 +248,17 @@ export const MAX_AVAILABILITY_ZONES = 2;
 
 /** Aurora PostgreSQL engine version for the workshop database */
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;
+
+/** This section contains all values that can be customized for the workshop deployment
+ * Values can be overridden via CDK context or environment variables
+ */
+
+export const CUSTOM_ENABLE_WAF = process.env.CUSTOM_ENABLE_WAF == 'true' || false;
+export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON == 'true' || false;
+
+/**
+ * This section contains values that will affect the workshop deployment
+ * based on the current status of the account where the workshop is being deployed
+ */
+
+export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;

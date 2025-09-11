@@ -53,7 +53,7 @@ Parameters:
     Description: URL to the initial configuration file
     AllowedPattern: ^https?://.*$
     ConstraintDescription: Must be a valid HTTP or HTTPS URL
-    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/typedoc.json
+    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/src/presets/default.env
 
   pOrganizationName:
     Type: String
@@ -491,11 +491,14 @@ Resources:
                 # Clone repository with shallow clone
                 - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
                 - cd ./repo
-                # Download configuration file to repository root
-                - curl -o ./config.json "$CONFIG_FILE_URL"
-                # Create .env file with all environment variables
+                # Download configuration file and append to .env
+                - curl -o ./config.env "$CONFIG_FILE_URL"
+                - cat ./config.env >> .env
+                # Run account validation script
+                - ./scripts/validate-account.sh
+                # Append additional environment variables to .env file
                 - |
-                  cat > .env << EOF
+                  cat >> .env << EOF
                   CONFIG_FILE_URL=$CONFIG_FILE_URL
                   CONFIG_BUCKET=$CONFIG_BUCKET
                   ORGANIZATION_NAME=$ORGANIZATION_NAME
@@ -507,9 +510,9 @@ Resources:
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
                   EOF
-                # Add config file and .env file to repository
-                - git add config.json .env -f
-                - git commit -m "Add configuration file from $CONFIG_FILE_URL and environment variables"
+                # Add only .env file to repository
+                - git add .env -f
+                - git commit -m "Add merged configuration and environment variables to .env"
                 # Configure S3 remote with s3+zip protocol for CodePipeline
                 - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
                 - git push s3 $BRANCH_NAME
@@ -558,8 +561,8 @@ Resources:
                 - cd $WORKING_FOLDER
                 # Install dependencies and synthesize CDK
                 - npm install
-                - cdk synth
-                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                - cdk synth --quiet
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json --quiet
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
@@ -995,22 +998,11 @@ Resources:
                   }
                 }
               },
-              "Next": "CleanupComplete"
+              "Next": "DeleteCDKToolkitStack"
             },
             "NoStacksToClean": {
               "Type": "Pass",
               "Result": "No tagged stacks found to clean up",
-              "End": true
-            },
-            "CleanupComplete": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "${rCleanupCompletionFunction}",
-                "Payload": {
-                  "StackName": "${AWS::StackName}"
-                }
-              },
               "Next": "DeleteCDKToolkitStack"
             },
             "DeleteCDKToolkitStack": {
@@ -1069,6 +1061,17 @@ Resources:
               "Parameters": {
                 "FunctionName": "${rCDKStagingBucketCleanupFunction}",
                 "Payload": {}
+              },
+              "Next": "CleanupComplete"
+            },
+            "CleanupComplete": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCleanupCompletionFunction}",
+                "Payload": {
+                  "StackName": "${AWS::StackName}"
+                }
               },
               "End": true
             }
