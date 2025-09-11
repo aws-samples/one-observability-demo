@@ -10,7 +10,8 @@
         "test": "jest",
         "cdk": "cdk",
         "docs": "typedoc",
-        "docs:wiki": "typedoc --out ./wiki-docs"
+        "docs:wiki": "typedoc --out ./wiki-docs",
+        "cleanup": "ts-node scripts/cleanup-resources.ts"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",
@@ -36,6 +37,12 @@
         "@aws-cdk/aws-applicationsignals-alpha": "^2.214.0-alpha.0",
         "@aws-cdk/aws-lambda-python-alpha": "2.214.0-alpha.0",
         "@aws-cdk/lambda-layer-kubectl-v33": "^2.0.0",
+        "@aws-sdk/client-cloudwatch-logs": "^3.0.0",
+        "@aws-sdk/client-ec2": "^3.0.0",
+        "@aws-sdk/client-ecs": "^3.0.0",
+        "@aws-sdk/client-rds": "^3.0.0",
+        "@aws-sdk/client-resource-groups-tagging-api": "^3.0.0",
+        "@aws-sdk/client-s3": "^3.0.0",
         "@types/yaml": "^1.9.7",
         "aws-cdk": "^2.1029.0",
         "aws-cdk-lib": "2.214.0",
