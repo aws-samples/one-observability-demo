@@ -81,6 +81,7 @@ export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 export const TAGS = {
     environment: 'non-prod',
     application: 'One Observability Workshop',
+    stackName: process.env.STACK_NAME || 'MissingStackName',
 };
 
 /** Default retention period for logs */

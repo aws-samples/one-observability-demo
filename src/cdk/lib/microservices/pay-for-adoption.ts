@@ -8,6 +8,7 @@ import { Construct } from 'constructs';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
@@ -90,9 +91,9 @@ export class PayForAdoptionService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        paymentapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
-                        payforadoptionmetricsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        cleanupadoptionsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+                        [SSM_PARAMETER_NAMES.PAYMENT_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
+                        [SSM_PARAMETER_NAMES.PAY_FOR_ADOPTION_METRICS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
+                        [SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
                     }),
                 ),
             );

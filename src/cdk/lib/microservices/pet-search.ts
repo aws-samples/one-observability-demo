@@ -8,6 +8,7 @@ import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
@@ -124,7 +125,7 @@ export class PetSearchService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        searchapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/search?`,
+                        [SSM_PARAMETER_NAMES.SEARCH_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/search?`,
                     }),
                 ),
             );

@@ -7,11 +7,14 @@ using Prometheus.DotNetRuntime;
 using System.Diagnostics;
 using Amazon.Extensions.Configuration.SystemsManager;
 using Microsoft.Extensions.DependencyInjection;
+using Amazon;
 
 namespace PetSite
 {
     public class Program
     {
+
+
         public static void Main(string[] args)
         {
             // Sets default settings to collect dotnet runtime specific metrics
@@ -38,19 +41,16 @@ namespace PetSite
                     if (env.EnvironmentName.ToLower() != "development")
                     {
                         Console.WriteLine("[DEBUG] Loading Systems Manager configuration...");
-                        // Build intermediate configuration to get AWS options
-                        var tempConfig = config.Build();
-                        var awsOptions = tempConfig.GetAWSOptions();
-                        Console.WriteLine($"[DEBUG] AWS Region: {awsOptions.Region}");
 
-                        config.AddSystemsManager(configureSource =>
+                        try
                         {
-                            configureSource.Path = "/petstore";
-                            configureSource.Optional = true;
-                            configureSource.ReloadAfter = TimeSpan.FromMinutes(5);
-                            configureSource.AwsOptions = awsOptions;
-                        });
-                        Console.WriteLine("[DEBUG] Systems Manager configuration added.");
+                            config.AddSystemsManager("/petstore");
+                            Console.WriteLine("[DEBUG] Systems Manager configuration added.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[WARN] Failed to configure Parameter Store: {ex.Message}");
+                        }
                     }
                     else
                     {
@@ -61,7 +61,10 @@ namespace PetSite
                 {
                     if (context.HostingEnvironment.EnvironmentName.ToLower() != "development")
                     {
-                        services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
+                        // Enable AWS SDK logging
+                        AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
+                        AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.Always;
+                        AWSConfigs.LoggingConfig.LogMetrics = true;
                     }
                 })
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });

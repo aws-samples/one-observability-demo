@@ -55,6 +55,21 @@ spec:
                   ports:
                       - containerPort: 80
                         protocol: TCP
+                  env:
+                      - name: PET_HISTORY_URL_PARAM_NAME
+                        value: {{ PET_HISTORY_URL_PARAM_NAME }}
+                      - name: PET_LIST_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ PET_LIST_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: CLEANUP_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ CLEANUP_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: PAYMENT_API_URL_PARAM_NAME
+                        value: {{ PAYMENT_API_URL_PARAM_NAME }}
+                      - name: FOOD_API_URL_PARAM_NAME
+                        value: {{ FOOD_API_URL_PARAM_NAME }}
+                      - name: SEARCH_API_URL_PARAM_NAME
+                        value: {{ SEARCH_API_URL_PARAM_NAME }}
+                      - name: RUM_SCRIPT_PARAMETER_NAME
+                        value: {{ RUM_SCRIPT_PARAMETER_NAME }}
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
@@ -67,4 +82,3 @@ spec:
     port: 80
   targetGroupARN: {{ TARGET_GROUP_ARN }}
   targetType: ip
-
