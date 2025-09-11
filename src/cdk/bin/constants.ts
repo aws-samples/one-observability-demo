@@ -98,7 +98,7 @@ export const SSM_PARAMETER_NAMES = {
     CLEANUP_ADOPTIONS_URL: 'cleanupadoptionsurl',
 
     // PetFood parameters
-    FOOD_API_URL: 'foodapiurl', // Note: Changed from petfoodapiurl to match .NET app usage
+    FOOD_API_URL: 'petfoodapiurl',
     PET_FOOD_METRICS_URL: 'petfoodmetricsurl',
     PET_FOOD_CART_URL: 'petfoodcarturl',
 

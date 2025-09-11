@@ -22,7 +22,7 @@ namespace PetSite.Configuration
             public const string PET_LIST_ADOPTIONS_URL = "petlistadoptionsurl";
             public const string CLEANUP_ADOPTIONS_URL = "cleanupadoptionsurl";
             public const string PAYMENT_API_URL = "paymentapiurl";
-            public const string FOOD_API_URL = "foodapiurl";
+            public const string FOOD_API_URL = "petfoodapiurl";
             public const string SEARCH_API_URL = "searchapiurl";
             public const string RUM_SCRIPT_PARAMETER = "rumscriptparameter";
         }
