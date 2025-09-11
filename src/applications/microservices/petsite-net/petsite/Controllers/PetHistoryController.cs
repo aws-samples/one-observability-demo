@@ -7,6 +7,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using PetSite.Helpers;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers;
 
@@ -21,7 +22,7 @@ public class PetHistoryController : BaseController
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
 
-        _pethistoryurl = _configuration["pethistoryurl"];
+        _pethistoryurl = Environment.GetEnvironmentVariable(ParameterNames.PET_HISTORY_URL) ?? _configuration[ParameterNames.SSMParameters.PET_HISTORY_URL];
         //string _pethistoryurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"pethistoryurl");
     }
 
@@ -82,7 +83,7 @@ public class PetHistoryController : BaseController
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = ViewBag.UserId?.ToString() ?? "unknown";
-                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions",null, ("userId", userId));
+                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", null, ("userId", userId));
                 ViewData["pethistory"] = await httpClient.DeleteAsync(url);
             }
         }
@@ -95,4 +96,3 @@ public class PetHistoryController : BaseController
         return View("Index");
     }
 }
-

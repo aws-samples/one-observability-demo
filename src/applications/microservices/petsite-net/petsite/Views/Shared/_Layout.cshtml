@@ -1,99 +1,131 @@
 @using Microsoft.AspNetCore.Html
 @using Amazon.SimpleSystemsManagement
 @using Amazon.SimpleSystemsManagement.Model
+@using PetSite.Configuration
 @inject IAmazonSimpleSystemsManagement SSMClient
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    @try {
-        @(new HtmlString(SSMClient.GetParameterAsync(new GetParameterRequest() { Name = "/petstore/rumscript" }).Result.Parameter.Value))
-    } catch {
+    @{
+        var rumScriptParameterName = Environment.GetEnvironmentVariable(ParameterNames.RUM_SCRIPT_PARAMETER);
+        if (string.IsNullOrEmpty(rumScriptParameterName))
+        {
+            // For RUM parameter, we need the full path since it's accessed differently
+            var prefix = Environment.GetEnvironmentVariable(ParameterNames.PARAMETER_PREFIX) ??
+            ParameterNames.DEFAULT_PARAMETER_PREFIX;
+            rumScriptParameterName = $"{prefix}/{ParameterNames.SSMParameters.RUM_SCRIPT_PARAMETER}";
+        }
+    }
+    @try
+    {
+        var rumScript = Configuration[rumScriptParameterName];
+        if (!string.IsNullOrEmpty(rumScript))
+        {
+            @Html.Raw(rumScript)
+        }
+    }
+    catch
+    {
         <!-- RUM script not available -->
     }
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Observability PetAdoptions</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="~/css/site.css"/>
-    <link rel="stylesheet" href="~/css/petstyles.css"/>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/petstyles.css" />
 
 </head>
+
 <body style="padding-bottom: 60px;">
-<div class="pet-wrapper">
-    <header class="pet-header">
+    <div class="pet-wrapper">
+        <header class="pet-header">
 
-        <div class="container">
-            <article class="row" style="display: flex; align-items: center;">
+            <div class="container">
+                <article class="row" style="display: flex; align-items: center;">
 
-                <section class="col-lg-4 col-md-4 col-12 align-self-center">
-                    <a asp-controller="home" asp-action="index" asp-route-userId="@ViewBag.UserId">
-                        <img src="~/images/brand.png" alt="Petadoption"/>
-                    </a>
-                </section>
-                
-                <section class="col-lg-8 col-md-8 col-12 align-self-center" style="display: flex; justify-content: flex-end; gap: 2rem; align-items: center;">
-                    <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="puppy" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
-                        Buy Food
-                    </a>
-                    
-                    <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId" id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
-                        See Adoption List
-                    </a>
-                    
-                    <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId" id="performhousekeeping" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
-                        Perform Housekeeping
-                    </a>
-                    
-                    <a asp-controller="Checkout" asp-action="Index" asp-route-userId="@ViewBag.UserId" style="color: #00ff00; font-size: 1.5rem; text-decoration: none; position: relative; filter: brightness(1.5) saturate(2);">
-                        🛒
-                        <span id="cart-count" style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; display: none;"></span>
-                    </a>
-                </section>
-            </article>
+                    <section class="col-lg-4 col-md-4 col-12 align-self-center">
+                        <a asp-controller="home" asp-action="index" asp-route-userId="@ViewBag.UserId">
+                            <img src="~/images/brand.png" alt="Petadoption" />
+                        </a>
+                    </section>
 
-        </div>
-    </header>
-    @RenderBody()
+                    <section class="col-lg-8 col-md-8 col-12 align-self-center"
+                        style="display: flex; justify-content: flex-end; gap: 2rem; align-items: center;">
+                        <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId"
+                            asp-route-petType="puppy"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            Buy Food
+                        </a>
 
-    <footer style="position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f8f9fa; border-top: 1px solid #dee2e6; text-align: center; padding: 10px 0; z-index: 1000;">
-        <div class="container">
-            <p class="mb-0" style="color: #6c757d; font-size: 0.9rem;">
-                Built with ❤️ in association with <a href="https://aws.amazon.com/q/developer/" target="_blank" style="color: #007bff; text-decoration: none;">Amazon Q Developer</a>
-            </p>
-        </div>
-    </footer>
+                        <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId"
+                            id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            See Adoption List
+                        </a>
 
-</div>
-<script src="~/lib/jquery/dist/jquery.min.js"></script>
-<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-<script src="~/js/site.js" asp-append-version="true"></script>
-<script>
-$(document).ready(function() {
-    // Update cart count on every page load
-    var userId = '@ViewBag.UserId';
-    if (userId) {
-        $.ajax({
-            url: '/FoodService/GetCartCount',
-            type: 'GET',
-            data: { userId: userId },
-            success: function(response) {
-                if (response.totalItems > 0) {
-                    $('#cart-count').text(response.totalItems).show();
-                } else {
-                    $('#cart-count').hide();
-                }
-            },
-            error: function(xhr) {
-                $('#cart-count').hide();
+                        <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId"
+                            id="performhousekeeping"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            Perform Housekeeping
+                        </a>
+
+                        <a asp-controller="Checkout" asp-action="Index" asp-route-userId="@ViewBag.UserId"
+                            style="color: #00ff00; font-size: 1.5rem; text-decoration: none; position: relative; filter: brightness(1.5) saturate(2);">
+                            🛒
+                            <span id="cart-count"
+                                style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; display: none;"></span>
+                        </a>
+                    </section>
+                </article>
+
+            </div>
+        </header>
+        @RenderBody()
+
+        <footer
+            style="position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f8f9fa; border-top: 1px solid #dee2e6; text-align: center; padding: 10px 0; z-index: 1000;">
+            <div class="container">
+                <p class="mb-0" style="color: #6c757d; font-size: 0.9rem;">
+                    Built with ❤️ in association with <a href="https://aws.amazon.com/q/developer/" target="_blank"
+                        style="color: #007bff; text-decoration: none;">Amazon Q Developer</a>
+                </p>
+            </div>
+        </footer>
+
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        $(document).ready(function () {
+            // Update cart count on every page load
+            var userId = '@ViewBag.UserId';
+            if (userId) {
+                $.ajax({
+                    url: '/FoodService/GetCartCount',
+                    type: 'GET',
+                    data: { userId: userId },
+                    success: function (response) {
+                        if (response.totalItems > 0) {
+                            $('#cart-count').text(response.totalItems).show();
+                        } else {
+                            $('#cart-count').hide();
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#cart-count').hide();
+                    }
+                });
             }
         });
-    }
-});
-</script>
-@RenderSection("Scripts", required: false)
+    </script>
+    @RenderSection("Scripts", required: false)
 </body>
+
 </html>

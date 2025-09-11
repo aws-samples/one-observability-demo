@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using PetSite.Helpers;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers
 {
@@ -47,7 +48,7 @@ namespace PetSite.Controllers
                 // Begin activity span to track PetListAdoptions API call
                 using (var activity = Activity.Current?.Source?.StartActivity("Calling PetListAdoptions API"))
                 {
-                    string petlistadoptionsurl = _configuration["petlistadoptionsurl"];
+                    string petlistadoptionsurl = Environment.GetEnvironmentVariable(ParameterNames.PET_LIST_ADOPTIONS_URL) ?? _configuration[ParameterNames.SSMParameters.PET_LIST_ADOPTIONS_URL];
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
                     //var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, ("userId",userId));
@@ -71,4 +72,3 @@ namespace PetSite.Controllers
         }
     }
 }
-

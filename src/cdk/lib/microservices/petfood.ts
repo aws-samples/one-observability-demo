@@ -6,6 +6,7 @@ import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
@@ -113,9 +114,9 @@ export class PetFoodECSService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        petfoodapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/foods`,
-                        petfoodmetricsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        petfoodcarturl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/cart`,
+                        [SSM_PARAMETER_NAMES.FOOD_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/foods`,
+                        [SSM_PARAMETER_NAMES.PET_FOOD_METRICS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
+                        [SSM_PARAMETER_NAMES.PET_FOOD_CART_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/cart`,
                     }),
                 ),
             );

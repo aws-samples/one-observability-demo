@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using PetSite.Models;
 using PetSite.Helpers;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers
 {
@@ -37,8 +38,8 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = _configuration["foodapiurl"];
-                var url = UrlHelper.BuildUrl(foodApiUrl, new[]{"api","foods"}, ("pettype", petType));
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var url = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "foods" }, ("pettype", petType));
                 var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -73,11 +74,12 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
 
                 // First API call - Add to cart
-                var addToCartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[] { "api", "cart", userId, "items" }, null);
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var addToCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "items" }, null);
                 var cartData = new { food_id = foodId, quantity = 1 };
                 var cartJson = JsonSerializer.Serialize(cartData);
                 var cartContent = new StringContent(cartJson, Encoding.UTF8, "application/json");
-                
+
                 var cartResponse = await httpClient.PostAsync(addToCartUrl, cartContent);
 
                 if (cartResponse.StatusCode == System.Net.HttpStatusCode.Created)
@@ -132,7 +134,8 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var getCartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[]{"api","cart",userId}, null);
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var getCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var getCartResponse = await httpClient.GetAsync(getCartUrl);
 
                 if (getCartResponse.StatusCode == System.Net.HttpStatusCode.OK)

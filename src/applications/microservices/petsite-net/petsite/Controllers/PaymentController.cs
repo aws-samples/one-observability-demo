@@ -13,6 +13,7 @@ using PetSite.Services;
 using System.Text.Json;
 using System.Linq;
 using Prometheus;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers
 {
@@ -101,7 +102,8 @@ namespace PetSite.Controllers
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    var url = UrlHelper.BuildUrl(_configuration["paymentapiurl"], null,
+                    var paymentapiurl = Environment.GetEnvironmentVariable(ParameterNames.PAYMENT_API_URL) ?? _configuration[ParameterNames.SSMParameters.PAYMENT_API_URL];
+                    var url = UrlHelper.BuildUrl(paymentapiurl, null,
                         ("petId", petId), ("petType", petType), ("userId", userId));
                     await httpClient.PostAsync(url, null);
                 }

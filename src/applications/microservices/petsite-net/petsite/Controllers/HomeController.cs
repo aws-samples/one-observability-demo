@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using PetSite.Helpers;
 using Prometheus;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers
 {
@@ -76,7 +77,7 @@ namespace PetSite.Controllers
             if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
-            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
+            string cleanupadoptionsurl = Environment.GetEnvironmentVariable(ParameterNames.CLEANUP_ADOPTIONS_URL) ?? _configuration[ParameterNames.SSMParameters.CLEANUP_ADOPTIONS_URL];
 
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString();
@@ -89,15 +90,13 @@ namespace PetSite.Controllers
         [HttpGet("debug-config")]
         public IActionResult DebugConfig()
         {
-            var config = new
+            var result = new Dictionary<string, object>
             {
-                searchapiurl = _configuration["searchapiurl"],
-                cleanupadoptionsurl = _configuration["cleanupadoptionsurl"],
-                paymentapiurl = _configuration["paymentapiurl"],
-                environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                awsRegion = Environment.GetEnvironmentVariable("AWS_REGION")
+                ["configuration"] = _configuration.AsEnumerable().ToDictionary(item => item.Key, item => item.Value),
+                ["environment"] = Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => entry.Key.ToString(), entry => entry.Value?.ToString())
             };
-            return Json(config);
+
+            return Json(result);
         }
 
         [HttpGet]
@@ -183,7 +182,7 @@ namespace PetSite.Controllers
 
             ViewBag.ErrorMessage = message;
 
-            return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
     }
 }

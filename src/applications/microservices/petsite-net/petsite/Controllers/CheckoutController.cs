@@ -8,6 +8,7 @@ using System.Text.Json;
 using PetSite.Helpers;
 using PetSite.ViewModels;
 using System;
+using PetSite.Configuration;
 
 namespace PetSite.Controllers
 {
@@ -32,7 +33,8 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var cartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[]{"api","cart", userId}, null);
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var cartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var response = await httpClient.GetAsync(cartUrl);
                 response.EnsureSuccessStatusCode();
 
@@ -51,7 +53,7 @@ namespace PetSite.Controllers
                 return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
         }
-        
+
         [HttpPost]
         public async Task<IActionResult> PayAndCheckOut([FromBody] JsonElement requestData)
         {
@@ -59,30 +61,32 @@ namespace PetSite.Controllers
             try
             {
                 userId = requestData.GetProperty("userId").GetString();
-                
+
                 using var httpClient = _httpClientFactory.CreateClient();
-                var paymentUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[] { "api", "cart", userId, "checkout" }, null);
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var paymentUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "checkout" }, null);
                 var jsonContent = new StringContent(requestData.GetRawText(), Encoding.UTF8, "application/json");
-                
+
                 var response = await httpClient.PostAsync(paymentUrl, jsonContent);
-                
+
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     var orderData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
+
                     // Clear cart after successful payment
                     try
                     {
-                        var clearCartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[] { "api", "cart", userId }, null);
+                        var clearCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                         await httpClient.DeleteAsync(clearCartUrl);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Failed to clear cart after successful payment");
                     }
-                    
-                    return Ok(new { 
+
+                    return Ok(new
+                    {
                         success = true,
                         orderId = orderData.GetProperty("order_id").GetString(),
                         status = orderData.GetProperty("status").GetString(),
@@ -99,17 +103,18 @@ namespace PetSite.Controllers
                 return BadRequest($"Payment processing failed. Please try again.\nError: {ex.Message}");
             }
         }
-        
+
         [HttpPost]
         public async Task<IActionResult> ClearCart(string userId)
         {
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var clearCartUrl = UrlHelper.BuildUrl(_configuration["foodapiurl"], new[] { "api", "cart", userId }, null);
+                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var clearCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var response = await httpClient.DeleteAsync(clearCartUrl);
                 response.EnsureSuccessStatusCode();
-                
+
                 return RedirectToAction("Index", new { userId });
             }
             catch (Exception ex)

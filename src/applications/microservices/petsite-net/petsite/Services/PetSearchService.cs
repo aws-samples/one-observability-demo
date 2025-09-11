@@ -10,6 +10,7 @@ using PetSite.Models;
 using PetSite.ViewModels;
 using PetSite.Helpers;
 using Prometheus;
+using PetSite.Configuration;
 
 namespace PetSite.Services
 {
@@ -61,11 +62,11 @@ namespace PetSite.Services
                     PetSearchCount.Inc();
                     break;
             }
-            
-            string searchapiurl = _configuration["searchapiurl"];
+
+            string searchapiurl = Environment.GetEnvironmentVariable(ParameterNames.SEARCH_API_URL) ?? _configuration[ParameterNames.SSMParameters.SEARCH_API_URL];
             using var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
-            
+
             try
             {
                 var url = UrlHelper.BuildUrl(searchapiurl, null,
@@ -73,9 +74,9 @@ namespace PetSite.Services
                     ("petcolor", petcolor != "all" ? petcolor : null),
                     ("petid", petid != "all" ? petid : null),
                     ("userId", userId));
-                
+
                 _logger.LogInformation($"Calling the PetSearch API with: {url}");
-                
+
                 var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
@@ -84,9 +85,9 @@ namespace PetSite.Services
                 }
 
                 var jsonContent = await response.Content.ReadAsStringAsync();
-                
+
                 _logger.LogInformation($"PetSearch API responded with: {jsonContent}");
-                
+
                 if (string.IsNullOrEmpty(jsonContent))
                     return new List<Pet>();
 
