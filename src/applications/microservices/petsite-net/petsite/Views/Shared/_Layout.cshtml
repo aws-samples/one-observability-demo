@@ -9,19 +9,9 @@
 <html lang="en">
 
 <head>
-    @{
-        var rumScriptParameterName = Environment.GetEnvironmentVariable(ParameterNames.RUM_SCRIPT_PARAMETER);
-        if (string.IsNullOrEmpty(rumScriptParameterName))
-        {
-            // For RUM parameter, we need the full path since it's accessed differently
-            var prefix = Environment.GetEnvironmentVariable(ParameterNames.PARAMETER_PREFIX) ??
-            ParameterNames.DEFAULT_PARAMETER_PREFIX;
-            rumScriptParameterName = $"{prefix}/{ParameterNames.SSMParameters.RUM_SCRIPT_PARAMETER}";
-        }
-    }
     @try
     {
-        var rumScript = Configuration[rumScriptParameterName];
+        var rumScript = ParameterNames.GetParameterValue(ParameterNames.RUM_SCRIPT_PARAMETER, Configuration);
         if (!string.IsNullOrEmpty(rumScript))
         {
             @Html.Raw(rumScript)

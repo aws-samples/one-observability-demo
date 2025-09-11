@@ -200,14 +200,13 @@ export class PetSite extends EKSDeployment {
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
             // Parameter configuration - all names without prefix since Program.cs adds /petstore prefix
-            parameterPrefix: PARAMETER_STORE_PREFIX,
-            petHistoryUrl: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
-            petListAdoptionsUrl: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
-            cleanupAdoptionsUrl: SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL,
-            paymentApiUrl: SSM_PARAMETER_NAMES.PAYMENT_API_URL,
-            foodApiUrl: SSM_PARAMETER_NAMES.FOOD_API_URL,
-            searchApiUrl: SSM_PARAMETER_NAMES.SEARCH_API_URL,
-            rumScriptParameter: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
+            PET_HISTORY_URL: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
+            PET_LIST_ADOPTIONS_URL: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
+            CLEANUP_ADOPTIONS_URL: SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL,
+            PAYMENT_API_URL: SSM_PARAMETER_NAMES.PAYMENT_API_URL,
+            FOOD_API_URL: SSM_PARAMETER_NAMES.FOOD_API_URL,
+            SEARCH_API_URL: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+            RUM_SCRIPT_PARAMETER: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
         });
         return yaml.parseAllDocuments(deploymentYaml).map((document) => document.toJS());
     }

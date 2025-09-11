@@ -33,7 +33,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var cartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var response = await httpClient.GetAsync(cartUrl);
                 response.EnsureSuccessStatusCode();
@@ -63,7 +63,7 @@ namespace PetSite.Controllers
                 userId = requestData.GetProperty("userId").GetString();
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var paymentUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "checkout" }, null);
                 var jsonContent = new StringContent(requestData.GetRawText(), Encoding.UTF8, "application/json");
 
@@ -110,7 +110,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var clearCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var response = await httpClient.DeleteAsync(clearCartUrl);
                 response.EnsureSuccessStatusCode();

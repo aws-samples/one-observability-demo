@@ -102,7 +102,7 @@ namespace PetSite.Controllers
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    var paymentapiurl = Environment.GetEnvironmentVariable(ParameterNames.PAYMENT_API_URL) ?? _configuration[ParameterNames.SSMParameters.PAYMENT_API_URL];
+                    var paymentapiurl = ParameterNames.GetParameterValue(ParameterNames.PAYMENT_API_URL, _configuration);
                     var url = UrlHelper.BuildUrl(paymentapiurl, null,
                         ("petId", petId), ("petType", petType), ("userId", userId));
                     await httpClient.PostAsync(url, null);

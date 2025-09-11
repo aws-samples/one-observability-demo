@@ -22,7 +22,7 @@ public class PetHistoryController : BaseController
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
 
-        _pethistoryurl = Environment.GetEnvironmentVariable(ParameterNames.PET_HISTORY_URL) ?? _configuration[ParameterNames.SSMParameters.PET_HISTORY_URL];
+        _pethistoryurl = ParameterNames.GetParameterValue(ParameterNames.PET_HISTORY_URL, _configuration);
         //string _pethistoryurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"pethistoryurl");
     }
 

@@ -77,7 +77,7 @@ namespace PetSite.Controllers
             if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
-            string cleanupadoptionsurl = Environment.GetEnvironmentVariable(ParameterNames.CLEANUP_ADOPTIONS_URL) ?? _configuration[ParameterNames.SSMParameters.CLEANUP_ADOPTIONS_URL];
+            string cleanupadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.CLEANUP_ADOPTIONS_URL, _configuration);
 
             using var httpClient = _httpClientFactory.CreateClient();
             var userId = ViewBag.UserId?.ToString();

@@ -38,7 +38,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var url = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "foods" }, ("pettype", petType));
                 var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -74,7 +74,7 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
 
                 // First API call - Add to cart
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var addToCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "items" }, null);
                 var cartData = new { food_id = foodId, quantity = 1 };
                 var cartJson = JsonSerializer.Serialize(cartData);
@@ -134,7 +134,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = Environment.GetEnvironmentVariable(ParameterNames.FOOD_API_URL) ?? _configuration[ParameterNames.SSMParameters.FOOD_API_URL];
+                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
                 var getCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
                 var getCartResponse = await httpClient.GetAsync(getCartUrl);
 
