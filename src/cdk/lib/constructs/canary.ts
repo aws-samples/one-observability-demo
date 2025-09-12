@@ -52,6 +52,7 @@ export abstract class WorkshopCanary extends Construct {
                 },
             ],
             timeToLive: Duration.minutes(5),
+            startAfterCreation: true,
         });
 
         const parameterStorePolicy = new Policy(this, `${id}-paramterstore-policy`, {

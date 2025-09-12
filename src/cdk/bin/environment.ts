@@ -24,7 +24,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { Runtime as CanaryRuntime } from 'aws-cdk-lib/aws-synthetics';
+import { Runtime as CanaryRuntime, RuntimeFamily } from 'aws-cdk-lib/aws-synthetics';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import * as dotenv from 'dotenv';
@@ -225,7 +225,7 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
 
 export const PETSITE_CANARY = {
     name: 'petsite-canary',
-    runtime: CanaryRuntime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+    runtime: new CanaryRuntime('syn-nodejs-puppeteer-11.0', RuntimeFamily.NODEJS),
     scheduleExpression: 'rate(1 minute)',
     handler: 'index.handler',
     path: '../applications/canaries/petsite-canary',
@@ -233,7 +233,7 @@ export const PETSITE_CANARY = {
 
 export const HOUSEKEEPING_CANARY = {
     name: 'housekeeping-canary',
-    runtime: CanaryRuntime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+    runtime: new CanaryRuntime('syn-nodejs-puppeteer-11.0', RuntimeFamily.NODEJS),
     scheduleExpression: 'rate(30 minutes)',
     handler: 'index.handler',
     path: '../applications/canaries/housekeeping',
