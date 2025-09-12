@@ -500,7 +500,9 @@ pub(crate) fn default_carts_table() -> String {
 }
 
 pub(crate) fn default_region() -> String {
-    "us-west-2".to_string()
+    // Use the standard AWS_REGION environment variable provided by ECS
+    std::env::var("AWS_REGION")
+        .unwrap_or_else(|_| "us-west-2".to_string())
 }
 
 pub(crate) fn default_assets_cdn_url() -> String {
