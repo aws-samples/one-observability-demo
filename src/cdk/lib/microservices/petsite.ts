@@ -274,7 +274,6 @@ export class PetSite extends EKSDeployment {
                 new Map(
                     Object.entries({
                         [SSM_PARAMETER_NAMES.PETSITE_URL]: `https://${this.distribution.distributionDomainName}`,
-                        [SSM_PARAMETER_NAMES.IMAGES_CDN_URL]: `https://${this.distribution.distributionDomainName}/images`,
                     }),
                 ),
             );

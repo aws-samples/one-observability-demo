@@ -6,6 +6,14 @@ import { RemovalPolicy, Stack, CfnOutput, Fn } from 'aws-cdk-lib';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
+import {
+    Distribution,
+    OriginAccessIdentity,
+    ViewerProtocolPolicy,
+    CachePolicy,
+    PriceClass,
+} from 'aws-cdk-lib/aws-cloudfront';
+import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
@@ -35,6 +43,12 @@ export class WorkshopAssets extends Construct {
      * @public
      */
     public bucket: Bucket;
+
+    /**
+     * The CloudFront distribution for serving pet adoption assets
+     * @public
+     */
+    public distribution: Distribution;
 
     /**
      * Creates a new Assets construct with S3 bucket and optional seed data deployment
@@ -99,8 +113,63 @@ export class WorkshopAssets extends Construct {
             ]);
         }
 
+        // Create CloudFront distribution for optimized image delivery
+        this.createCloudFrontDistribution();
+
         // Create CloudFormation outputs for Assets resources
         this.createAssetsOutputs();
+    }
+
+    /**
+     * Creates CloudFront distribution for optimized asset delivery
+     */
+    private createCloudFrontDistribution(): void {
+        // Create Origin Access Identity for secure S3 access
+        const originAccessIdentity = new OriginAccessIdentity(this, 'AssetsOAI', {
+            comment: 'OAI for Pet Store Assets',
+        });
+
+        // Grant read permissions to CloudFront
+        this.bucket.grantRead(originAccessIdentity);
+
+        // Create CloudFront distribution
+        this.distribution = new Distribution(this, 'AssetsDistribution', {
+            defaultBehavior: {
+                origin: new S3Origin(this.bucket, {
+                    originAccessIdentity: originAccessIdentity,
+                }),
+                viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cachePolicy: CachePolicy.CACHING_OPTIMIZED,
+                compress: true,
+            },
+            comment: 'Pet Store Assets CDN',
+            enableIpv6: true,
+            priceClass: PriceClass.PRICE_CLASS_ALL,
+        });
+
+        // Add CDK-nag suppressions for CloudFront
+        NagSuppressions.addResourceSuppressions(this.distribution, [
+            {
+                id: 'AwsSolutions-CFR1',
+                reason: 'CloudFront distribution for static assets does not require geo restrictions',
+            },
+            {
+                id: 'AwsSolutions-CFR2',
+                reason: 'CloudFront distribution for static assets does not require WAF',
+            },
+            {
+                id: 'AwsSolutions-CFR3',
+                reason: 'CloudFront distribution for static assets does not require access logs',
+            },
+            {
+                id: 'AwsSolutions-CFR4',
+                reason: 'Using default CloudFront certificate in the workshop is acceptable',
+            },
+            {
+                id: 'AwsSolutions-CFR7',
+                reason: 'Using OAC instead of OAI is acceptable for this workshop',
+            },
+        ]);
     }
 
     /**
@@ -117,6 +186,19 @@ export class WorkshopAssets extends Construct {
             value: this.bucket.bucketArn,
             exportName: ASSETS_BUCKET_ARN_EXPORT_NAME,
             description: 'Workshop Assets S3 Bucket ARN',
+        });
+
+        // CloudFront distribution outputs
+        new CfnOutput(this, 'CloudFrontDomainOutput', {
+            value: this.distribution.distributionDomainName,
+            exportName: 'WorkshopCloudFrontDomain',
+            description: 'Workshop CloudFront Distribution Domain Name',
+        });
+
+        new CfnOutput(this, 'CloudFrontDistributionIdOutput', {
+            value: this.distribution.distributionId,
+            exportName: 'WorkshopCloudFrontDistributionId',
+            description: 'Workshop CloudFront Distribution ID',
         });
 
         Utilities.createSsmParameters(

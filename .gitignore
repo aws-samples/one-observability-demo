@@ -445,3 +445,6 @@ cdk.context.json
 
 # Threat model files
 .threatmodel
+
+# Generated images temporary folder
+generated_images/
