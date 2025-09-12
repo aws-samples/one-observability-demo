@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use aws_sdk_dynamodb::error::ProvideErrorMetadata;
 use aws_sdk_dynamodb::operation::RequestId;
 use aws_sdk_dynamodb::types::{AttributeValue, Select};
 use aws_sdk_dynamodb::{Client as DynamoDbClient, Error as DynamoDbError};
@@ -426,21 +427,75 @@ impl DynamoDbFoodRepository {
         })
     }
 
-    /// Convert DynamoDB error to RepositoryError
+    /// Convert DynamoDB error to RepositoryError with enhanced logging
     fn map_dynamodb_error(&self, error: DynamoDbError) -> RepositoryError {
-        error!("DynamoDB error: {:?}", error);
+        // Extract detailed error information for troubleshooting
+        let error_code = error.code().unwrap_or("UnknownError");
+        let error_message = error.message().unwrap_or("No message");
+        let request_id = error.request_id().unwrap_or("no-request-id");
 
-        // Check for ResourceNotFoundException specifically
-        if let Some(service_error) = error.as_service_error() {
-            if service_error.is_resource_not_found_exception() {
+        // Log structured error information
+        error!(
+            error.code = %error_code,
+            error.message = %error_message,
+            error.request_id = %request_id,
+            table_name = %self.table_name,
+            region = %self.region,
+            "DynamoDB operation failed with detailed error information"
+        );
+
+        // Log specific error types that commonly cause issues
+        match error_code {
+            "ResourceNotFoundException" => {
+                error!(
+                    table_name = %self.table_name,
+                    region = %self.region,
+                    "DynamoDB table not found - check if table exists and is in the correct region"
+                );
                 return RepositoryError::TableNotFound {
                     table_name: self.table_name.clone(),
                 };
             }
+            "AccessDeniedException" => {
+                error!(
+                    table_name = %self.table_name,
+                    region = %self.region,
+                    "DynamoDB access denied - check IAM permissions for the service role"
+                );
+            }
+            "UnrecognizedClientException" => {
+                error!(
+                    region = %self.region,
+                    "Invalid AWS credentials or region configuration"
+                );
+            }
+            "ThrottlingException" | "ProvisionedThroughputExceededException" => {
+                warn!(
+                    table_name = %self.table_name,
+                    "DynamoDB throttling detected - consider increasing table capacity"
+                );
+            }
+            "ServiceUnavailable" | "InternalServerError" => {
+                error!(
+                    "DynamoDB service unavailable - this may be a temporary AWS service issue"
+                );
+            }
+            _ => {
+                error!(
+                    error.code = %error_code,
+                    "Unhandled DynamoDB error type"
+                );
+            }
         }
 
+        // Enhanced error message with troubleshooting hints
+        let enhanced_message = format!(
+            "DynamoDB operation failed: {} (Code: {}, RequestId: {}, Table: {}, Region: {})",
+            error_message, error_code, request_id, self.table_name, self.region
+        );
+
         RepositoryError::AwsSdk {
-            message: error.to_string(),
+            message: enhanced_message,
         }
     }
 }

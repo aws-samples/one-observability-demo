@@ -75,9 +75,6 @@ pub enum RepositoryError {
 
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
-
-    #[error("DynamoDB table not found: {table_name}. Ensure the table exists and IAM permissions are correct.")]
-    TableNotFound { table_name: String },
 }
 
 /// Validation errors for input data
