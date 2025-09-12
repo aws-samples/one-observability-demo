@@ -17,7 +17,7 @@ import {
     TargetType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import {
-    CachedMethods,
+    AllowedMethods,
     CachePolicy,
     Distribution,
     OriginProtocolPolicy,
@@ -93,8 +93,9 @@ export class PetSite extends EKSDeployment {
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
                 cachePolicy: CachePolicy.CACHING_DISABLED,
-                allowedMethods: CachedMethods.CACHE_GET_HEAD_OPTIONS,
+                allowedMethods: AllowedMethods.ALLOW_ALL,
             },
+            comment: 'Petstore page',
             enableLogging: true,
             logBucket: cloudfrontAccessBucket,
             minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,

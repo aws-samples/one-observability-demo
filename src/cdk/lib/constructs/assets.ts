@@ -13,7 +13,7 @@ import {
     CachePolicy,
     PriceClass,
 } from 'aws-cdk-lib/aws-cloudfront';
-import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
@@ -139,7 +139,7 @@ export class WorkshopAssets extends Construct {
         // Create CloudFront distribution
         this.distribution = new Distribution(this, 'AssetsDistribution', {
             defaultBehavior: {
-                origin: new S3Origin(this.bucket, {
+                origin: S3BucketOrigin.withOriginAccessIdentity(this.bucket, {
                     originAccessIdentity: originAccessIdentity,
                 }),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
