@@ -429,6 +429,16 @@ impl DynamoDbFoodRepository {
     /// Convert DynamoDB error to RepositoryError
     fn map_dynamodb_error(&self, error: DynamoDbError) -> RepositoryError {
         error!("DynamoDB error: {:?}", error);
+
+        // Check for ResourceNotFoundException specifically
+        if let Some(service_error) = error.as_service_error() {
+            if service_error.is_resource_not_found_exception() {
+                return RepositoryError::TableNotFound {
+                    table_name: self.table_name.clone(),
+                };
+            }
+        }
+
         RepositoryError::AwsSdk {
             message: error.to_string(),
         }

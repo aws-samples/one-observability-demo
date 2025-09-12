@@ -488,11 +488,15 @@ pub(crate) fn default_max_request_size() -> usize {
 }
 
 pub(crate) fn default_foods_table() -> String {
-    "PetFoods".to_string()
+    std::env::var("PETFOOD_FOODS_TABLE_NAME")
+        .or_else(|_| std::env::var("PETFOOD_TABLE_NAME"))
+        .unwrap_or_else(|_| "PetFoods".to_string())
 }
 
 pub(crate) fn default_carts_table() -> String {
-    "PetFoodCarts".to_string()
+    std::env::var("PETFOOD_CARTS_TABLE_NAME")
+        .or_else(|_| std::env::var("PETFOOD_CART_TABLE_NAME"))
+        .unwrap_or_else(|_| "PetFoodCarts".to_string())
 }
 
 pub(crate) fn default_region() -> String {

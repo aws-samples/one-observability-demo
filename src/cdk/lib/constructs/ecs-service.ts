@@ -205,6 +205,7 @@ export abstract class EcsService extends Microservice {
                               serviceName: properties.name,
                               securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
                               assignPublicIp: false,
+                              enableExecuteCommand: true,
                               cloudMapOptions: properties.cloudMapNamespace
                                   ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                                   : undefined,
@@ -214,6 +215,7 @@ export abstract class EcsService extends Microservice {
                               taskDefinition: taskDefinition as Ec2TaskDefinition,
                               desiredCount: properties.desiredTaskCount,
                               serviceName: properties.name,
+                              enableExecuteCommand: true,
                               cloudMapOptions: properties.cloudMapNamespace
                                   ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                                   : undefined,
@@ -231,6 +233,7 @@ export abstract class EcsService extends Microservice {
                         assignPublicIp: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
+                        enableExecuteCommand: true,
                         cloudMapOptions: properties.cloudMapNamespace
                             ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                             : undefined,
@@ -275,6 +278,7 @@ export abstract class EcsService extends Microservice {
                         openListener: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
+                        enableExecuteCommand: true,
                         cloudMapOptions: properties.cloudMapNamespace
                             ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                             : undefined,
