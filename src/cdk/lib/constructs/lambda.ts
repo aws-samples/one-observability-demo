@@ -27,7 +27,7 @@ import {
 } from '../../bin/environment';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy } from 'aws-cdk-lib';
 
 /**
  * Gets the OpenTelemetry Python layer ARN for the specified region.
@@ -164,6 +164,10 @@ export interface WorkshopLambdaFunctionProperties {
      * @default false
      */
     enableSchedule?: boolean;
+    /**
+     * Lambda Timeout
+     */
+    timeout?: Duration;
 }
 
 /**
@@ -228,6 +232,7 @@ export abstract class WokshopLambdaFunction extends Construct {
                     queueName: `${properties.name}-dlq`,
                     enforceSSL: true,
                 }),
+                timeout: properties.timeout || Duration.seconds(30),
             });
         } else if (properties.runtime.name.startsWith('python')) {
             /** Python Lambda function */

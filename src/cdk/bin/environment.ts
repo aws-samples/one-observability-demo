@@ -30,6 +30,7 @@ import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import * as dotenv from 'dotenv';
 import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
 import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
+import { Duration } from 'aws-cdk-lib';
 
 /**
  * Host type enumeration for microservice deployment.
@@ -191,8 +192,9 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     entry: '../applications/lambda/traffic-generator-node/index.js',
     memorySize: 128,
     handler: 'handler',
-    scheduleExpression: 'rate(1 minute)',
+    scheduleExpression: 'rate(2 minutes)',
     enableSchedule: true,
+    timeout: Duration.seconds(90),
 };
 
 export const PETFOOD_IMAGE_GENERATOR_FUNCTION = {
