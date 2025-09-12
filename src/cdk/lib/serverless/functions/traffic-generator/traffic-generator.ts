@@ -70,7 +70,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     getEnvironmentVariables(properties: TrafficGeneratorFunctionProperties): { [key: string]: string } | undefined {
         // No environment variables to create
         return {
-            FUNCTION_ARN: this.getCanaryFunctionArn(properties.trafficCanary),
+            CANARY_FUNCTION_ARN: this.getCanaryFunctionArn(properties.trafficCanary),
         };
     }
 
@@ -80,7 +80,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
                 service: 'lambda',
                 resource: 'function',
                 arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-                resourceName: canary.canaryName,
+                resourceName: `cwsyn-${canary.canaryName}-${canary.canaryId}`,
             },
             Stack.of(this),
         );

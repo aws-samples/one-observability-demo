@@ -109,7 +109,16 @@ export const SSM_PARAMETER_NAMES = {
     // PetSearch parameters
     SEARCH_API_URL: 'searchapiurl',
 
+    // Infrastructure parameters
+    S3_BUCKET_NAME: 's3bucketname',
+    DYNAMODB_TABLE_NAME: 'dynamodbtablename',
+
     // Additional parameters used by .NET application
     PET_HISTORY_URL: 'pethistoryurl',
     RUM_SCRIPT_PARAMETER: 'rumscriptparameter',
+
+    // DynamoDB Tables
+    PET_ADOPTION_TABLE_NAME: 'dynamodbtablename',
+    PET_FOODS_TABLE_NAME: 'foods_table_name',
+    PET_FOODS_CART_TABLE_NAME: 'carts_table_name',
 } as const;

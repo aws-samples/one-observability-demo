@@ -200,7 +200,7 @@ The service can be configured using environment variables with the `PETFOOD_` pr
 **Database Configuration:**
 - `PETFOOD_FOODS_TABLE_NAME`: DynamoDB table name for foods
 - `PETFOOD_CARTS_TABLE_NAME`: DynamoDB table name for carts
-- `AWS_REGION`: AWS region for DynamoDB and other services
+- `AWS_REGION`: AWS region for DynamoDB and other services (automatically provided by ECS)
 
 **Observability Configuration:**
 - `PETFOOD_SERVICE_NAME`: Service name for tracing (default: petfood-service)

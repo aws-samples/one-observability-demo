@@ -131,11 +131,31 @@ aws ecr get-login-password --region "$AWS_REGION" | $OCI_RUNNER login --username
 cd "$REPO_ROOT/$DOCKER_PATH"
 if [ "$OCI_RUNNER" = "docker" ]; then
     # Use buildx for cross-platform build (ARM to x86/amd64)
+    echo -e "${BLUE}Executing: docker buildx build --platform linux/amd64 -t $ECR_REPO:latest --push .${NC}"
     docker buildx build --platform linux/amd64 -t "$ECR_REPO:latest" --push .
 else
-    # For finch/podman, use regular build with platform flag
-    $OCI_RUNNER build --platform linux/amd64 -t "$APP_NAME:latest" .
+    # For finch/podman, setup QEMU emulation for cross-platform builds
+    if [ "$OCI_RUNNER" = "podman" ]; then
+        echo -e "${YELLOW}Setting up QEMU emulation for cross-platform build...${NC}"
+
+        # Register QEMU emulators
+        if ! podman run --rm --privileged multiarch/qemu-user-static --reset -p yes &>/dev/null; then
+            echo -e "${YELLOW}QEMU setup failed, falling back to native build${NC}"
+            echo -e "${BLUE}Executing: $OCI_RUNNER build -t $APP_NAME:latest .${NC}"
+            $OCI_RUNNER build -t "$APP_NAME:latest" .
+        else
+            echo -e "${BLUE}Executing: $OCI_RUNNER build --platform linux/amd64 -t $APP_NAME:latest .${NC}"
+            $OCI_RUNNER build --platform linux/amd64 -t "$APP_NAME:latest" .
+        fi
+    else
+        # For finch, use regular build with platform flag
+        echo -e "${BLUE}Executing: $OCI_RUNNER build --platform linux/amd64 -t $APP_NAME:latest .${NC}"
+        $OCI_RUNNER build --platform linux/amd64 -t "$APP_NAME:latest" .
+    fi
+
+    echo -e "${BLUE}Executing: $OCI_RUNNER tag $APP_NAME:latest $ECR_REPO:latest${NC}"
     $OCI_RUNNER tag "$APP_NAME:latest" "$ECR_REPO:latest"
+    echo -e "${BLUE}Executing: $OCI_RUNNER push $ECR_REPO:latest${NC}"
     $OCI_RUNNER push "$ECR_REPO:latest"
 fi
 

@@ -172,7 +172,7 @@ export abstract class EcsService extends Microservice {
 
         const environment = {
             ...defaultEnvironment,
-            ...(properties.additionalEnvironment || {}),
+            ...properties.additionalEnvironment,
         };
 
         const container = taskDefinition.addContainer('container', {
@@ -205,6 +205,7 @@ export abstract class EcsService extends Microservice {
                               serviceName: properties.name,
                               securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
                               assignPublicIp: false,
+                              enableExecuteCommand: true,
                               cloudMapOptions: properties.cloudMapNamespace
                                   ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                                   : undefined,
@@ -214,6 +215,7 @@ export abstract class EcsService extends Microservice {
                               taskDefinition: taskDefinition as Ec2TaskDefinition,
                               desiredCount: properties.desiredTaskCount,
                               serviceName: properties.name,
+                              enableExecuteCommand: true,
                               cloudMapOptions: properties.cloudMapNamespace
                                   ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                                   : undefined,
@@ -231,6 +233,10 @@ export abstract class EcsService extends Microservice {
                         assignPublicIp: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
+                        enableExecuteCommand: true,
+                        cloudMapOptions: properties.cloudMapNamespace
+                            ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
+                            : undefined,
                     });
 
                     if (properties.healthCheck) {
@@ -272,6 +278,10 @@ export abstract class EcsService extends Microservice {
                         openListener: false,
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
+                        enableExecuteCommand: true,
+                        cloudMapOptions: properties.cloudMapNamespace
+                            ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
+                            : undefined,
                     });
 
                     if (properties.healthCheck) {
@@ -378,17 +388,6 @@ export abstract class EcsService extends Microservice {
             // Pipeline endpoints from OSI are typically just hostnames without https://
             const hostAndPath = Fn.split('/', pipelineEndpoint);
             const host = Fn.select(0, hostAndPath);
-
-            // Get the pipeline role ARN if available
-            let pipelineRoleArn: string | undefined;
-            if ('pipelineRoleArn' in pipeline) {
-                // This is an imported pipeline object with pipelineRoleArn property
-                pipelineRoleArn = pipeline.pipelineRoleArn;
-            } else if ('pipelineRole' in pipeline) {
-                // This is an OpenSearchPipeline construct with pipelineRole property
-                pipelineRoleArn = (pipeline as OpenSearchPipeline).pipelineRole.roleArn;
-            }
-
             const httpOptions: { [key: string]: string } = {
                 Name: 'http',
                 Match: '*',
