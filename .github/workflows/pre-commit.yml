@@ -16,8 +16,7 @@ jobs:
         with:
           node-version: '18'
       - name: Install Node.js dependencies
-        run: |
-          find . -name "package.json" -not -path "./node_modules/*" -execdir npm install \;
+        run: npm install
       - uses: pre-commit/action@v3.0.1
         env:
           SKIP: ash-simple-scan
