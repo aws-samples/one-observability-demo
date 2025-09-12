@@ -20,7 +20,18 @@ export interface PetFoodProperties extends EcsServiceProperties {
 
 export class PetFoodECSService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetFoodProperties) {
-        super(scope, id, properties);
+        const environmentVariables = {
+            ...properties.additionalEnvironment,
+            PETFOOD_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
+            PETFOOD_IMAGES_CDN_URL: SSM_PARAMETER_NAMES.IMAGES_CDN_URL,
+            PETFOOD_PET_ADOPTION_TABLE_NAME: SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME,
+            PETFOOD_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME,
+            PETFOOD_CART_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_CART_TABLE_NAME,
+        };
+        super(scope, id, {
+            ...properties,
+            additionalEnvironment: environmentVariables,
+        });
 
         // new ApplicationSignalsIntegration(this, 'petlist-integration', {
         //     taskDefinition: this.taskDefinition,

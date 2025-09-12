@@ -164,9 +164,9 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
 
 /** Paths to pet image assets for seeding the application */
 export const PET_IMAGES = [
-    '../../static/images/bunnys.zip',
+    '../../static/images/bunnies.zip',
     '../../static/images/kittens.zip',
-    '../../static/images/puppys.zip',
+    '../../static/images/puppies.zip',
     '../../static/images/petfood.zip',
 ];
 

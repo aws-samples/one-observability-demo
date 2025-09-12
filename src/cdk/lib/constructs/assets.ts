@@ -17,7 +17,11 @@ import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { ASSETS_BUCKET_NAME_EXPORT_NAME, ASSETS_BUCKET_ARN_EXPORT_NAME } from '../../bin/constants';
+import {
+    ASSETS_BUCKET_NAME_EXPORT_NAME,
+    ASSETS_BUCKET_ARN_EXPORT_NAME,
+    SSM_PARAMETER_NAMES,
+} from '../../bin/constants';
 
 /**
  * Properties for configuring Assets construct
@@ -206,7 +210,8 @@ export class WorkshopAssets extends Construct {
             PARAMETER_STORE_PREFIX,
             new Map(
                 Object.entries({
-                    s3bucketname: this.bucket.bucketName,
+                    [SSM_PARAMETER_NAMES.S3_BUCKET_NAME]: this.bucket.bucketName,
+                    [SSM_PARAMETER_NAMES.IMAGES_CDN_URL]: `https://${this.distribution.distributionDomainName}`,
                 }),
             ),
         );

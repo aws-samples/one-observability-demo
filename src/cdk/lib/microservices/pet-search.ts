@@ -24,7 +24,19 @@ export interface PetSearchServiceProperties extends EcsServiceProperties {
 
 export class PetSearchService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetSearchServiceProperties) {
-        super(scope, id, properties);
+        // Add environment variables for configurable SSM parameter names
+        const environmentVariables = {
+            ...properties.additionalEnvironment,
+            PETSEARCH_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
+            PETSEARCH_IMAGES_CDN_URL: SSM_PARAMETER_NAMES.IMAGES_CDN_URL,
+            PETSEARCH_S3_BUCKET_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
+            PETSEARCH_DYNAMODB_TABLE_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
+        };
+
+        super(scope, id, {
+            ...properties,
+            additionalEnvironment: environmentVariables,
+        });
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
             'app:project': 'workshop',

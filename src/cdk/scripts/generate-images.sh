@@ -607,19 +607,51 @@ create_zip_file() {
     fi
 
     local zip_name
+    local folder_name
     if [[ "$category" == "petfood" ]]; then
         zip_name="petfood.zip"
+        folder_name="petfood"
     else
-        zip_name="${category}s.zip"  # bunny -> bunnies, kitten -> kittens, puppy -> puppies
+        case "$category" in
+            "bunny")
+                zip_name="bunnies.zip"
+                folder_name="bunnies"
+                ;;
+            "puppy")
+                zip_name="puppies.zip"
+                folder_name="puppies"
+                ;;
+            "kitten")
+                zip_name="kittens.zip"
+                folder_name="kittens"
+                ;;
+            *)
+                zip_name="${category}s.zip"
+                folder_name="${category}s"
+                ;;
+        esac
     fi
 
     local zip_path="$abs_static_dir/$zip_name"
-    log_info "Creating zip at: $zip_path"
+    log_info "Creating zip at: $zip_path with folder structure: $folder_name/"
 
-    # Change to output directory for clean zip structure
-    (cd "$OUTPUT_DIR" && zip -j "$zip_path" "${expected_files[@]}")
+    # Create temporary directory structure with proper folder name
+    local temp_zip_dir="/tmp/zip_structure_$$"
+    local target_folder="$temp_zip_dir/$folder_name"
+    mkdir -p "$target_folder"
 
-    log_success "Created $zip_path with ${#expected_files[@]} images"
+    # Copy files into the target folder
+    for file in "${expected_files[@]}"; do
+        cp "$OUTPUT_DIR/$file" "$target_folder/"
+    done
+
+    # Create zip with folder structure
+    (cd "$temp_zip_dir" && zip -r "$zip_path" "$folder_name/")
+
+    # Clean up temporary directory
+    rm -rf "$temp_zip_dir"
+
+    log_success "Created $zip_path with ${#expected_files[@]} images in folder: $folder_name/"
     return 0
 }
 
@@ -680,7 +712,20 @@ validate_counts() {
         if [[ "$category" == "petfood" ]]; then
             zip_name="petfood.zip"
         else
-            zip_name="${category}s.zip"  # bunny -> bunnies, kitten -> kittens, puppy -> puppies
+            case "$category" in
+                "bunny")
+                    zip_name="bunnies.zip"
+                    ;;
+                "puppy")
+                    zip_name="puppies.zip"
+                    ;;
+                "kitten")
+                    zip_name="kittens.zip"
+                    ;;
+                *)
+                    zip_name="${category}s.zip"
+                    ;;
+            esac
         fi
 
         local zip_path="$STATIC_DIR/$zip_name"
