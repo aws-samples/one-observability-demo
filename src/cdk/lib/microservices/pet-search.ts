@@ -8,6 +8,7 @@ import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
@@ -23,7 +24,19 @@ export interface PetSearchServiceProperties extends EcsServiceProperties {
 
 export class PetSearchService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetSearchServiceProperties) {
-        super(scope, id, properties);
+        // Add environment variables for configurable SSM parameter names
+        const environmentVariables = {
+            ...properties.additionalEnvironment,
+            PETSEARCH_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
+            PETSEARCH_IMAGES_CDN_URL: SSM_PARAMETER_NAMES.IMAGES_CDN_URL,
+            PETSEARCH_S3_BUCKET_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
+            PETSEARCH_DYNAMODB_TABLE_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
+        };
+
+        super(scope, id, {
+            ...properties,
+            additionalEnvironment: environmentVariables,
+        });
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
             'app:project': 'workshop',
@@ -46,12 +59,24 @@ export class PetSearchService extends EcsService {
             },
         });
 
-        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
-            {
-                id: 'AwsSolutions-ECS7',
-                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
-            },
-        ]);
+        NagSuppressions.addResourceSuppressions(
+            this.taskDefinition,
+            [
+                {
+                    id: 'AwsSolutions-ECS7',
+                    reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+                },
+                {
+                    id: 'Workshop-CWL1',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+            ],
+            true,
+        );
     }
 
     addPermissions(properties: PetSearchServiceProperties): void {
@@ -112,7 +137,7 @@ export class PetSearchService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        searchapiurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/search?`,
+                        [SSM_PARAMETER_NAMES.SEARCH_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/search?`,
                     }),
                 ),
             );

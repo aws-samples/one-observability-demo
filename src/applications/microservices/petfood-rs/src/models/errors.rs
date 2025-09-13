@@ -61,6 +61,9 @@ pub enum RepositoryError {
     #[error("AWS SDK error: {message}")]
     AwsSdk { message: String },
 
+    #[error("DynamoDB table not found: {table_name}. Ensure the table exists and IAM permissions are correct.")]
+    TableNotFound { table_name: String },
+
     #[error("Invalid query parameters: {message}")]
     InvalidQuery { message: String },
 

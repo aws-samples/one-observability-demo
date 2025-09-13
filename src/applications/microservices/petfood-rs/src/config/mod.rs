@@ -124,8 +124,8 @@ impl Config {
 
         // Initialize AWS configuration with timeout and retry settings
         info!(
-            "Initializing AWS configuration for region: {}",
-            database.region
+            region = %database.region,
+            "Initializing AWS configuration"
         );
 
         let aws_config = aws_config::defaults(BehaviorVersion::latest())
@@ -145,10 +145,6 @@ impl Config {
         let dynamodb_client = DynamoDbClient::new(&aws_config);
         let eventbridge_client = EventBridgeClient::new(&aws_config);
         let ssm_client = SsmClient::new(&aws_config);
-
-        info!("AWS clients created successfully");
-        info!("Region: {}", database.region);
-        info!("DynamoDB endpoint: {:?}", aws_config.endpoint_url());
 
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(ssm_client.clone()));
@@ -231,14 +227,80 @@ impl Config {
             info!("Assets CDN URL not configured - images will be served without CDN prefix");
         }
 
-        // Test AWS connectivity
+        // Test AWS connectivity for troubleshooting
+        info!("Testing AWS connectivity for troubleshooting");
+
+        // Test SSM connectivity
         match self.aws.ssm_client.describe_parameters().send().await {
             Ok(_) => {
-                info!("AWS SSM connectivity validated");
+                info!("AWS SSM connectivity validated successfully");
             }
             Err(e) => {
-                warn!("AWS SSM connectivity test failed: {}", e);
+                warn!(
+                    error = %e,
+                    region = %self.aws.region,
+                    "AWS SSM connectivity test failed - this may indicate credential or network issues"
+                );
                 // Don't fail validation for connectivity issues in development
+            }
+        }
+
+        // Test DynamoDB connectivity by checking if tables exist
+        info!(
+            foods_table = %self.database.foods_table_name,
+            carts_table = %self.database.carts_table_name,
+            "Testing DynamoDB connectivity"
+        );
+
+        // Test foods table
+        match self.aws.dynamodb_client.describe_table()
+            .table_name(&self.database.foods_table_name)
+            .send()
+            .await {
+            Ok(response) => {
+                let table_status = response.table()
+                    .and_then(|t| t.table_status())
+                    .map(|s| s.as_str())
+                    .unwrap_or("unknown");
+                info!(
+                    table = %self.database.foods_table_name,
+                    status = %table_status,
+                    "DynamoDB foods table connectivity validated"
+                );
+            }
+            Err(e) => {
+                error!(
+                    table = %self.database.foods_table_name,
+                    error = %e,
+                    region = %self.aws.region,
+                    "DynamoDB foods table connectivity test failed - check table exists and IAM permissions"
+                );
+            }
+        }
+
+        // Test carts table
+        match self.aws.dynamodb_client.describe_table()
+            .table_name(&self.database.carts_table_name)
+            .send()
+            .await {
+            Ok(response) => {
+                let table_status = response.table()
+                    .and_then(|t| t.table_status())
+                    .map(|s| s.as_str())
+                    .unwrap_or("unknown");
+                info!(
+                    table = %self.database.carts_table_name,
+                    status = %table_status,
+                    "DynamoDB carts table connectivity validated"
+                );
+            }
+            Err(e) => {
+                error!(
+                    table = %self.database.carts_table_name,
+                    error = %e,
+                    region = %self.aws.region,
+                    "DynamoDB carts table connectivity test failed - check table exists and IAM permissions"
+                );
             }
         }
 
@@ -382,15 +444,21 @@ pub(crate) fn default_max_request_size() -> usize {
 }
 
 pub(crate) fn default_foods_table() -> String {
-    "PetFoods".to_string()
+    std::env::var("PETFOOD_FOODS_TABLE_NAME")
+        .or_else(|_| std::env::var("PETFOOD_TABLE_NAME"))
+        .unwrap_or_else(|_| "PetFoods".to_string())
 }
 
 pub(crate) fn default_carts_table() -> String {
-    "PetFoodCarts".to_string()
+    std::env::var("PETFOOD_CARTS_TABLE_NAME")
+        .or_else(|_| std::env::var("PETFOOD_CART_TABLE_NAME"))
+        .unwrap_or_else(|_| "PetFoodCarts".to_string())
 }
 
 pub(crate) fn default_region() -> String {
-    "us-west-2".to_string()
+    // Use the standard AWS_REGION environment variable provided by ECS
+    std::env::var("AWS_REGION")
+        .unwrap_or_else(|_| "us-west-2".to_string())
 }
 
 pub(crate) fn default_assets_cdn_url() -> String {

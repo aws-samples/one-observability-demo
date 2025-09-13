@@ -58,14 +58,18 @@ if ! aws s3api head-bucket --bucket "$CONFIG_BUCKET" 2>/dev/null; then
     fi
 fi
 
+# Get current branch name
+CURRENT_BRANCH=$(git branch --show-current)
+echo "Current branch: $CURRENT_BRANCH"
+
 # Check if repo.zip exists or push flag is set
-OBJECT_KEY="repo/refs/heads/${BRANCH_NAME}/repo.zip"
+OBJECT_KEY="repo/refs/heads/${CURRENT_BRANCH}/repo.zip"
 if [[ "$PUSH_FLAG" == true ]] || ! aws s3api head-object --bucket "$CONFIG_BUCKET" --key "$OBJECT_KEY" &>/dev/null; then
     if [[ "$PUSH_FLAG" == true ]]; then
         echo "Push flag detected. Overriding repository content..."
         TEMP_REMOTE="temp-s3-remote"
         git remote add "$TEMP_REMOTE" "s3+zip://${CONFIG_BUCKET}/repo"
-        git push "$TEMP_REMOTE" "$BRANCH_NAME"
+        git push "$TEMP_REMOTE" "$CURRENT_BRANCH"
         git remote remove "$TEMP_REMOTE"
         echo "Repository pushed to S3 successfully."
     else
@@ -74,7 +78,7 @@ if [[ "$PUSH_FLAG" == true ]] || ! aws s3api head-object --bucket "$CONFIG_BUCKE
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             TEMP_REMOTE="temp-s3-remote"
             git remote add "$TEMP_REMOTE" "s3+zip://${CONFIG_BUCKET}/repo"
-            git push "$TEMP_REMOTE" "$BRANCH_NAME"
+            git push "$TEMP_REMOTE" "$CURRENT_BRANCH"
             git remote remove "$TEMP_REMOTE"
             echo "Repository pushed to S3 successfully."
         else

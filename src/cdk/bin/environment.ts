@@ -24,12 +24,13 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { Runtime as CanaryRuntime } from 'aws-cdk-lib/aws-synthetics';
+import { Runtime as CanaryRuntime, RuntimeFamily } from 'aws-cdk-lib/aws-synthetics';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import * as dotenv from 'dotenv';
 import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
 import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
+import { Duration } from 'aws-cdk-lib';
 
 /**
  * Host type enumeration for microservice deployment.
@@ -81,6 +82,7 @@ export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 export const TAGS = {
     environment: 'non-prod',
     application: 'One Observability Workshop',
+    stackName: process.env.STACK_NAME || 'MissingStackName',
 };
 
 /** Default retention period for logs */
@@ -164,8 +166,9 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
 /** Paths to pet image assets for seeding the application */
 export const PET_IMAGES = [
     '../../static/images/bunnies.zip',
-    '../../static/images/kitten.zip',
+    '../../static/images/kittens.zip',
     '../../static/images/puppies.zip',
+    '../../static/images/petfood.zip',
 ];
 
 /** Prefix for AWS Systems Manager Parameter Store parameters */
@@ -189,8 +192,9 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     entry: '../applications/lambda/traffic-generator-node/index.js',
     memorySize: 128,
     handler: 'handler',
-    scheduleExpression: 'rate(1 minute)',
+    scheduleExpression: 'rate(2 minutes)',
     enableSchedule: true,
+    timeout: Duration.seconds(90),
 };
 
 export const PETFOOD_IMAGE_GENERATOR_FUNCTION = {
@@ -223,7 +227,7 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
 
 export const PETSITE_CANARY = {
     name: 'petsite-canary',
-    runtime: CanaryRuntime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+    runtime: new CanaryRuntime('syn-nodejs-puppeteer-11.0', RuntimeFamily.NODEJS),
     scheduleExpression: 'rate(1 minute)',
     handler: 'index.handler',
     path: '../applications/canaries/petsite-canary',
@@ -231,7 +235,7 @@ export const PETSITE_CANARY = {
 
 export const HOUSEKEEPING_CANARY = {
     name: 'housekeeping-canary',
-    runtime: CanaryRuntime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+    runtime: new CanaryRuntime('syn-nodejs-puppeteer-11.0', RuntimeFamily.NODEJS),
     scheduleExpression: 'rate(30 minutes)',
     handler: 'index.handler',
     path: '../applications/canaries/housekeeping',
@@ -247,3 +251,17 @@ export const MAX_AVAILABILITY_ZONES = 2;
 
 /** Aurora PostgreSQL engine version for the workshop database */
 export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;
+
+/** This section contains all values that can be customized for the workshop deployment
+ * Values can be overridden via CDK context or environment variables
+ */
+
+export const CUSTOM_ENABLE_WAF = process.env.CUSTOM_ENABLE_WAF == 'true' || false;
+export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON == 'true' || false;
+
+/**
+ * This section contains values that will affect the workshop deployment
+ * based on the current status of the account where the workshop is being deployed
+ */
+
+export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;

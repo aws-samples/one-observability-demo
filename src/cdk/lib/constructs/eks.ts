@@ -37,6 +37,7 @@ import {
     EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
     EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
+import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON } from '../../bin/environment';
 
 export interface EksProperties {
     vpc: IVpc;
@@ -58,7 +59,7 @@ export class WorkshopEks extends Construct {
             defaultCapacity: properties.eksEc2Capacity || 2,
             defaultCapacityInstance: properties.eksEc2InstanceType
                 ? new InstanceType(properties.eksEc2InstanceType)
-                : InstanceType.of(InstanceClass.T3, InstanceSize.MEDIUM),
+                : InstanceType.of(InstanceClass.T3, InstanceSize.LARGE),
             clusterLogging: [
                 ClusterLoggingTypes.API,
                 ClusterLoggingTypes.AUDIT,
@@ -85,6 +86,7 @@ export class WorkshopEks extends Construct {
     private setupAddons(): void {
         const cfnNodeGroup = this.cluster.defaultNodegroup?.node.defaultChild as CfnNodegroup;
         cfnNodeGroup.addPropertyOverride('AmiType', NodegroupAmiType.AL2023_X86_64_STANDARD);
+        cfnNodeGroup.addPropertyOverride('NodeRepairConfig', { Enabled: true });
 
         new Addon(this, 'coreDNSAddon', {
             cluster: this.cluster,
@@ -104,11 +106,13 @@ export class WorkshopEks extends Construct {
             preserveOnDelete: false,
         });
 
-        new Addon(this, 'guardDutyAddon', {
-            cluster: this.cluster,
-            addonName: 'aws-guardduty-agent',
-            preserveOnDelete: false,
-        });
+        if (CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON) {
+            new Addon(this, 'guardDutyAddon', {
+                cluster: this.cluster,
+                addonName: 'aws-guardduty-agent',
+                preserveOnDelete: false,
+            });
+        }
 
         const iamRoleCloudwatchAddon = new Role(this, 'CloudwatchAddonRole', {
             description: 'Allows pods running in Amazon EKS cluster to access AWS resources.',
@@ -199,6 +203,10 @@ export class WorkshopEks extends Construct {
                 {
                     id: 'AwsSolutions-L1',
                     reason: 'Lambda functions are implemented by CDK EKS Construct and out of scope',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cluste resource provider do not implement log retention',
                 },
             ],
             true,

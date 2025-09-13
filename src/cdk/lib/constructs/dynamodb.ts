@@ -7,7 +7,11 @@ import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch
 import { AttributeType, ITable, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
-import { DYNAMODB_TABLE_ARN_EXPORT_NAME, DYNAMODB_TABLE_NAME_EXPORT_NAME } from '../../bin/constants';
+import {
+    DYNAMODB_TABLE_ARN_EXPORT_NAME,
+    DYNAMODB_TABLE_NAME_EXPORT_NAME,
+    SSM_PARAMETER_NAMES,
+} from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
@@ -202,9 +206,9 @@ export class DynamoDatabase extends Construct {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        dynamodbtablename: this.petAdoptionTable.tableName,
-                        foods_table_name: this.petFoodsTable.tableName,
-                        carts_table_name: this.petFoodsCartTable.tableName,
+                        [SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME]: this.petAdoptionTable.tableName,
+                        [SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME]: this.petFoodsTable.tableName,
+                        [SSM_PARAMETER_NAMES.PET_FOODS_CART_TABLE_NAME]: this.petFoodsCartTable.tableName,
                     }),
                 ),
             );

@@ -8,6 +8,7 @@ import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ApplicationSignalsIntegration, PythonInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
@@ -35,12 +36,24 @@ export class ListAdoptionsService extends EcsService {
             },
         });
 
-        NagSuppressions.addResourceSuppressions(this.taskDefinition, [
-            {
-                id: 'AwsSolutions-ECS7',
-                reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
-            },
-        ]);
+        NagSuppressions.addResourceSuppressions(
+            this.taskDefinition,
+            [
+                {
+                    id: 'AwsSolutions-ECS7',
+                    reason: 'False positive, the Application Signal container has logging enabled as a sidecar',
+                },
+                {
+                    id: 'Workshop-CWL1',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'Cloudwatch Logs is not an exposed property for the Alpha',
+                },
+            ],
+            true,
+        );
 
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
@@ -108,8 +121,8 @@ export class ListAdoptionsService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        petlistadoptionsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
-                        petlistadoptionsmetricsurl: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
+                        [SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
+                        [SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_METRICS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
                     }),
                 ),
             );

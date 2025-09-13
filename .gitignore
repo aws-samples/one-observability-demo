@@ -443,3 +443,8 @@ cdk.context.json
 # Canaries
 !src/applications/canaries/housekeeping/nodejs/node_modules/index.js
 
+# Threat model files
+.threatmodel
+
+# Generated images temporary folder
+generated_images/

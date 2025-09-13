@@ -147,6 +147,7 @@ export class WorkshopNetwork extends Construct {
         const resolverLogGroup = new LogGroup(this, 'ResolverLogGroup', {
             logGroupName: '/aws/vpc/dns-query-resolver-logs/' + this.vpc.vpcId,
             retention: retention,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         const cfnResovlerQueryConfig = new CfnResolverQueryLoggingConfig(this, 'ResolverQueryLogConfig', {

@@ -13,11 +13,12 @@ import {
     S3SourceAction,
     S3Trigger,
 } from 'aws-cdk-lib/aws-codepipeline-actions';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { CompositePrincipal, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+import { LogGroup } from 'aws-cdk-lib/aws-logs';
 
 /**
  * Definition for an application to be built and deployed
@@ -117,6 +118,13 @@ export class ContainersStack extends Stack {
             this.applicationRepositories.set(app.name, repository);
         }
 
+        const artifactBucket = new Bucket(this, 'ContainersPipelineArtifact', {
+            enforceSSL: true,
+            removalPolicy: RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
+            blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        });
+
         // Create CodePipeline
         this.pipeline = new Pipeline(this, 'ContainersPipeline', {
             restartExecutionOnUpdate: true,
@@ -124,6 +132,7 @@ export class ContainersStack extends Stack {
             usePipelineRoleForActions: true,
             role: pipelineRole,
             pipelineName: `${this.stackName}-pipeline`,
+            artifactBucket: artifactBucket,
         });
 
         const sourceOutput = new Artifact();
@@ -247,12 +256,19 @@ export class ContainersStack extends Stack {
             }),
         );
 
+        const lambdaLogs = new LogGroup(this, 'RetryLambdaLogs', {
+            removalPolicy: RemovalPolicy.DESTROY,
+            retention: 7,
+            logGroupName: `/aws/lambda/PipelineRetryFunction`,
+        });
+
         const retryFunction = new Function(this, 'PipelineRetryFunction', {
             runtime: Runtime.PYTHON_3_13,
             handler: 'index.handler',
             role: retryLambdaRole,
             timeout: Duration.minutes(1),
             code: Code.fromAsset('../applications/lambda/pipeline-retry-python'),
+            logGroup: lambdaLogs,
         });
 
         new Rule(this, 'PipelineFailureRule', {

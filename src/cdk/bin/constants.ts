@@ -85,3 +85,40 @@ export const ASSETS_BUCKET_ARN_EXPORT_NAME = 'WorkshopAssetsBucketArn';
 // EventBridge Export Names
 export const EVENTBUS_ARN_EXPORT_NAME = 'WorkshopEventBusArn';
 export const EVENTBUS_NAME_EXPORT_NAME = 'WorkshopEventBusName';
+
+// SSM Parameter Names - Used across microservices
+export const SSM_PARAMETER_NAMES = {
+    // PetSite parameters
+    PETSITE_URL: 'petsiteurl',
+    IMAGES_CDN_URL: 'imagescdnurl',
+
+    // Pay-for-Adoption parameters
+    PAYMENT_API_URL: 'paymentapiurl',
+    PAY_FOR_ADOPTION_METRICS_URL: 'payforadoptionmetricsurl',
+    CLEANUP_ADOPTIONS_URL: 'cleanupadoptionsurl',
+
+    // PetFood parameters
+    FOOD_API_URL: 'petfoodapiurl',
+    PET_FOOD_METRICS_URL: 'petfoodmetricsurl',
+    PET_FOOD_CART_URL: 'petfoodcarturl',
+
+    // PetList-Adoptions parameters
+    PET_LIST_ADOPTIONS_URL: 'petlistadoptionsurl',
+    PET_LIST_ADOPTIONS_METRICS_URL: 'petlistadoptionsmetricsurl',
+
+    // PetSearch parameters
+    SEARCH_API_URL: 'searchapiurl',
+
+    // Infrastructure parameters
+    S3_BUCKET_NAME: 's3bucketname',
+    DYNAMODB_TABLE_NAME: 'dynamodbtablename',
+
+    // Additional parameters used by .NET application
+    PET_HISTORY_URL: 'pethistoryurl',
+    RUM_SCRIPT_PARAMETER: 'rumscriptparameter',
+
+    // DynamoDB Tables
+    PET_ADOPTION_TABLE_NAME: 'dynamodbtablename',
+    PET_FOODS_TABLE_NAME: 'foods_table_name',
+    PET_FOODS_CART_TABLE_NAME: 'carts_table_name',
+} as const;

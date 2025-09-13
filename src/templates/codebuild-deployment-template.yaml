@@ -21,6 +21,8 @@ Metadata:
           - pRepositoryName
           - pBranchName
           - pWorkingFolder
+          - pApplicationName
+          - pDisableCleanup
       - Label:
           default: User Defined Tags
         Parameters:
@@ -36,12 +38,22 @@ Metadata:
           - pUserDefinedTagValue5
 
 Parameters:
+
+  pDisableCleanup:
+    Type: String
+    Description: Disable cleanup in post_build stage if deployment fails
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either 'true' or 'false'
+
   pConfigFileUrl:
     Type: String
     Description: URL to the initial configuration file
     AllowedPattern: ^https?://.*$
     ConstraintDescription: Must be a valid HTTP or HTTPS URL
-    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/typedoc.json
+    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/src/presets/default.env
 
   pOrganizationName:
     Type: String
@@ -162,6 +174,8 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Value. This
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
+
+
 
 Conditions:
   # Conditions to control creation of user-defined tags
@@ -453,6 +467,9 @@ Resources:
           - Name: AWS_ACCOUNT_ID
             Value: !Ref AWS::AccountId
             Type: PLAINTEXT
+          - Name: DISABLE_CLEANUP
+            Value: !Ref pDisableCleanup
+            Type: PLAINTEXT
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
@@ -474,11 +491,14 @@ Resources:
                 # Clone repository with shallow clone
                 - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
                 - cd ./repo
-                # Download configuration file to repository root
-                - curl -o ./config.json "$CONFIG_FILE_URL"
-                # Create .env file with all environment variables
+                # Download configuration file and append to .env
+                - curl -o ./config.env "$CONFIG_FILE_URL"
+                - cat ./config.env >> .env
+                # Run account validation script
+                - ./scripts/validate-account.sh
+                # Append additional environment variables to .env file
                 - |
-                  cat > .env << EOF
+                  cat >> .env << EOF
                   CONFIG_FILE_URL=$CONFIG_FILE_URL
                   CONFIG_BUCKET=$CONFIG_BUCKET
                   ORGANIZATION_NAME=$ORGANIZATION_NAME
@@ -488,31 +508,50 @@ Resources:
                   STACK_NAME=$STACK_NAME
                   AWS_REGION=$AWS_REGION
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+                  DISABLE_CLEANUP=$DISABLE_CLEANUP
                   EOF
-                # Add config file and .env file to repository
-                - git add config.json .env -f
-                - git commit -m "Add configuration file from $CONFIG_FILE_URL and environment variables"
+                # Add only .env file to repository
+                - git add .env -f
+                - git commit -m "Add merged configuration and environment variables to .env"
                 # Configure S3 remote with s3+zip protocol for CodePipeline
                 - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
                 - git push s3 $BRANCH_NAME
                 # Check if account is bootstrapped
                 - |
-                  STACK_EXISTS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkit` && StackStatus!=`DELETE_COMPLETE`].StackName' --output text)
-                  if [ -z "$STACK_EXISTS" ]; then
+                  STACK_EXISTS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackName" --output text)
+                  STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus=='DELETE_COMPLETE'].StackName" --output text)
+                  if [ -z "$STACK_EXISTS" ] && [ -z "$STACK_DELETE_COMPLETE" ]; then
                     echo "Account not bootstrapped, bootstrapping now..."
-                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+                  elif [ -n "$STACK_DELETE_COMPLETE" ]; then
+                    echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
+                    # Force remove ECR and S3 buckets
+                    aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
+                    bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+                    if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                      aws s3api delete-bucket --bucket "$bucket" || true
+                    fi
+                    # Bootstrap again
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                   else
-                    STACK_STATUS=$(aws cloudformation list-stacks --query 'StackSummaries[?StackName==`CDKToolkit` && StackStatus!=`DELETE_COMPLETE`].StackStatus' --output text)
+                    STACK_STATUS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
                       echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
                       # Force remove ECR and S3 buckets
-                      aws ecr describe-repositories --query 'repositories[?repositoryName.starts_with(@, `cdk-`)].[repositoryName]' --output text | xargs -I {} aws ecr delete-repository --repository-name {} --force || true
-                      aws s3 ls | grep cdk- | awk '{print $3}' | xargs -I {} aws s3 rb s3://{} --force || true
+                      aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
+                      bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+                      if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
+                        aws s3api delete-bucket --bucket "$bucket" || true
+                      fi
                       # Delete the stack
-                      aws cloudformation delete-stack --stack-name CDKToolkit
-                      aws cloudformation wait stack-delete-complete --stack-name CDKToolkit
+                      aws cloudformation delete-stack --stack-name CDKToolkitPetsite
+                      aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite
                       # Bootstrap again
-                      cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
+                      cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
                     else
                       echo "CDK bootstrap stack exists with status: $STACK_STATUS"
                     fi
@@ -522,8 +561,8 @@ Resources:
                 - cd $WORKING_FOLDER
                 # Install dependencies and synthesize CDK
                 - npm install
-                - cdk synth
-                - cdk deploy --require-approval never --outputs-file cdk-outputs.json
+                - cdk synth --quiet
+                - cdk deploy --require-approval never --outputs-file cdk-outputs.json --quiet
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
@@ -664,12 +703,16 @@ Resources:
               commands:
                 - |
                   if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
-                    echo "Build failed, cleaning up S3 bucket for rollback"
-                    aws s3 rm s3://$CONFIG_BUCKET --recursive
-                    echo "Triggering CDK stack cleanup via Step Function"
-                    aws stepfunctions start-execution \
-                      --state-machine-arn "arn:aws:states:$AWS_REGION:$AWS_ACCOUNT_ID:stateMachine:$STACK_NAME-cdk-cleanup" \
-                      --input '{}' || echo "Failed to trigger cleanup, continuing..."
+                    if [ "$DISABLE_CLEANUP" = "true" ]; then
+                      echo "Build failed, but cleanup is disabled. Skipping resource cleanup."
+                    else
+                      echo "Build failed, cleaning up S3 bucket for rollback"
+                      aws s3 rm s3://$CONFIG_BUCKET --recursive
+                      echo "Triggering CDK stack cleanup via Step Function"
+                      aws stepfunctions start-execution \
+                        --state-machine-arn "arn:aws:states:$AWS_REGION:$AWS_ACCOUNT_ID:stateMachine:$STACK_NAME-cdk-cleanup" \
+                        --input '{}' || echo "Failed to trigger cleanup, continuing..."
+                    fi
                     WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
                     curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
                   else
@@ -955,12 +998,71 @@ Resources:
                   }
                 }
               },
-              "Next": "CleanupComplete"
+              "Next": "DeleteCDKToolkitStack"
             },
             "NoStacksToClean": {
               "Type": "Pass",
               "Result": "No tagged stacks found to clean up",
-              "End": true
+              "Next": "DeleteCDKToolkitStack"
+            },
+            "DeleteCDKToolkitStack": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+              "Parameters": {
+                "StackName": "CDKToolkitPetsite"
+              },
+              "Next": "WaitForCDKToolkitDeletion",
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "Next": "CleanupCDKStagingBucket"
+                }
+              ]
+            },
+            "WaitForCDKToolkitDeletion": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckCDKToolkitDeletionStatus"
+            },
+            "CheckCDKToolkitDeletionStatus": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+              "Parameters": {
+                "StackName": "CDKToolkitPetsite"
+              },
+              "ResultPath": "$.cdkStackStatus",
+              "Next": "EvaluateCDKToolkitDeletionStatus",
+              "Catch": [
+                {
+                  "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
+                  "Next": "CleanupCDKStagingBucket"
+                }
+              ]
+            },
+            "EvaluateCDKToolkitDeletionStatus": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.cdkStackStatus.Stacks[0].StackStatus",
+                  "StringEquals": "DELETE_IN_PROGRESS",
+                  "Next": "WaitForCDKToolkitDeletion"
+                },
+                {
+                  "Variable": "$.cdkStackStatus.Stacks[0].StackStatus",
+                  "StringEquals": "DELETE_COMPLETE",
+                  "Next": "CleanupCDKStagingBucket"
+                }
+              ],
+              "Default": "CleanupCDKStagingBucket"
+            },
+            "CleanupCDKStagingBucket": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCDKStagingBucketCleanupFunction}",
+                "Payload": {}
+              },
+              "Next": "CleanupComplete"
             },
             "CleanupComplete": {
               "Type": "Task",
@@ -1012,7 +1114,9 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: !GetAtt rCleanupCompletionFunction.Arn
+                Resource:
+                  - !GetAtt rCleanupCompletionFunction.Arn
+                  - !GetAtt rCDKStagingBucketCleanupFunction.Arn
 
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
@@ -1244,6 +1348,103 @@ Resources:
                   - iam:DeleteRolePolicy
                 Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
 
+  # Lambda function to clean up CDK staging bucket
+  rCDKStagingBucketCleanupFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cdk-staging-cleanup
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCDKStagingBucketCleanupRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          import json
+
+          def handler(event, context):
+              s3_client = boto3.client('s3')
+              account_id = '${AWS::AccountId}'
+              region = '${AWS::Region}'
+              bucket_name = f'cdk-petsite-assets-{account_id}-{region}'
+
+              try:
+                  # Check if bucket exists
+                  try:
+                      s3_client.head_bucket(Bucket=bucket_name)
+                      print(f"Found CDK staging bucket: {bucket_name}")
+                  except s3_client.exceptions.NoSuchBucket:
+                      print(f"CDK staging bucket {bucket_name} does not exist")
+                      return {'statusCode': 200, 'body': 'Bucket does not exist'}
+
+                  # List and delete all objects
+                  paginator = s3_client.get_paginator('list_object_versions')
+                  delete_keys = []
+
+                  for page in paginator.paginate(Bucket=bucket_name):
+                      # Delete object versions
+                      if 'Versions' in page:
+                          for obj in page['Versions']:
+                              delete_keys.append({'Key': obj['Key'], 'VersionId': obj['VersionId']})
+
+                      # Delete delete markers
+                      if 'DeleteMarkers' in page:
+                          for obj in page['DeleteMarkers']:
+                              delete_keys.append({'Key': obj['Key'], 'VersionId': obj['VersionId']})
+
+                  # Delete objects in batches
+                  if delete_keys:
+                      for i in range(0, len(delete_keys), 1000):
+                          batch = delete_keys[i:i+1000]
+                          s3_client.delete_objects(
+                              Bucket=bucket_name,
+                              Delete={'Objects': batch}
+                          )
+                      print(f"Deleted {len(delete_keys)} objects from {bucket_name}")
+
+                  # Delete the bucket
+                  s3_client.delete_bucket(Bucket=bucket_name)
+                  print(f"Deleted CDK staging bucket: {bucket_name}")
+
+                  return {'statusCode': 200, 'body': f'Successfully cleaned up {bucket_name}'}
+
+              except Exception as e:
+                  print(f"Error cleaning up CDK staging bucket: {str(e)}")
+                  return {'statusCode': 500, 'body': f'Error: {str(e)}'}
+
+  # IAM Role for CDK Staging Bucket Cleanup Lambda
+  rCDKStagingBucketCleanupRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CDKStagingBucketCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}/*'
+
   # EventBridge Rule for Stack Deletion
   rStackDeletionRule:
     Type: AWS::Events::Rule
@@ -1264,24 +1465,6 @@ Resources:
           Id: "CDKCleanupTarget"
           RoleArn: !GetAtt rEventBridgeRole.Arn
 
-  # EventBridge Rule for CodeBuild Failure
-  rCodeBuildFailureRule:
-    Type: AWS::Events::Rule
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      Description: Trigger cleanup when CodeBuild fails
-      EventPattern:
-        source: ["aws.codebuild"]
-        detail-type: ["CodeBuild Build State Change"]
-        detail:
-          project-name: [!Ref rCDKDeploymentProject]
-          build-status: ["FAILED", "FAULT", "STOPPED", "TIMED_OUT"]
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt rCDKCleanupStateMachine.Arn
-          Id: "CDKCleanupTarget"
-          RoleArn: !GetAtt rEventBridgeRole.Arn
 
   # IAM Role for EventBridge to invoke Step Function
   rEventBridgeRole:

@@ -9,8 +9,9 @@ import { WorkshopNetwork } from '../constructs/network';
 import { QueueResources } from '../constructs/queue';
 import { WorkshopEcs } from '../constructs/ecs';
 import { WorkshopEks } from '../constructs/eks';
-import { OpenSearchCollection } from '../constructs/opensearch-collection';
+import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
 import { OpenSearchPipeline } from '../constructs/opensearch-pipeline';
+import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
 
 export interface ComputeProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
@@ -19,6 +20,8 @@ export interface ComputeProperties extends StackProps {
     ecsEc2InstanceType?: string;
     eksEc2Capacity?: number;
     eksEc2InstanceType?: string;
+    opensearchCollectionProperties?: OpenSearchCollectionProperties;
+    opensearchApplicationProperties?: Omit<OpenSearchApplicationProperties, 'collection'>;
 }
 
 export class ComputeStage extends Stage {
@@ -51,14 +54,24 @@ export class ComputeStack extends Stack {
      * @param id - The construct id
      * @param properties - Stack properties including EC2 configuration
      */
-    constructor(scope: Construct, id: string, properties?: ComputeProperties) {
+    constructor(scope: Construct, id: string, properties: ComputeProperties) {
         super(scope, id, properties);
 
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
         const { topic } = QueueResources.importFromExports(this, 'ImportedQueueResources');
 
-        // Import OpenSearch collection
-        const openSearchCollection = OpenSearchCollection.importFromExports();
+        /** Add OpenSearch Collection resource */
+        const openSearchCollection = new OpenSearchCollection(
+            this,
+            'OpenSearchCollection',
+            properties.opensearchCollectionProperties,
+        );
+
+        /** Add OpenSearch Application resource */
+        new OpenSearchApplication(this, 'OpenSearchUiApplication', {
+            collection: openSearchCollection,
+            ...properties.opensearchApplicationProperties,
+        });
 
         // Create OpenSearch ingestion pipeline
         this.openSearchPipeline = new OpenSearchPipeline(this, 'LogsIngestionPipeline', {
