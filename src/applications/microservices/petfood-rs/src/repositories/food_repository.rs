@@ -476,9 +476,7 @@ impl DynamoDbFoodRepository {
                 );
             }
             "ServiceUnavailable" | "InternalServerError" => {
-                error!(
-                    "DynamoDB service unavailable - this may be a temporary AWS service issue"
-                );
+                error!("DynamoDB service unavailable - this may be a temporary AWS service issue");
             }
             _ => {
                 error!(

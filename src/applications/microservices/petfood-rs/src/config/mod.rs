@@ -253,12 +253,17 @@ impl Config {
         );
 
         // Test foods table
-        match self.aws.dynamodb_client.describe_table()
+        match self
+            .aws
+            .dynamodb_client
+            .describe_table()
             .table_name(&self.database.foods_table_name)
             .send()
-            .await {
+            .await
+        {
             Ok(response) => {
-                let table_status = response.table()
+                let table_status = response
+                    .table()
                     .and_then(|t| t.table_status())
                     .map(|s| s.as_str())
                     .unwrap_or("unknown");
@@ -279,12 +284,17 @@ impl Config {
         }
 
         // Test carts table
-        match self.aws.dynamodb_client.describe_table()
+        match self
+            .aws
+            .dynamodb_client
+            .describe_table()
             .table_name(&self.database.carts_table_name)
             .send()
-            .await {
+            .await
+        {
             Ok(response) => {
-                let table_status = response.table()
+                let table_status = response
+                    .table()
                     .and_then(|t| t.table_status())
                     .map(|s| s.as_str())
                     .unwrap_or("unknown");
@@ -457,8 +467,7 @@ pub(crate) fn default_carts_table() -> String {
 
 pub(crate) fn default_region() -> String {
     // Use the standard AWS_REGION environment variable provided by ECS
-    std::env::var("AWS_REGION")
-        .unwrap_or_else(|_| "us-west-2".to_string())
+    std::env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string())
 }
 
 pub(crate) fn default_assets_cdn_url() -> String {

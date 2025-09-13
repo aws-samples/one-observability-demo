@@ -11,41 +11,35 @@ mod config_tests {
     use std::env;
     use std::time::Duration;
 
-    #[test]
-    fn test_server_config_defaults() {
-        // Ensure no environment variables are set
+    fn cleanup_server() {
         env::remove_var("PETFOOD_HOST");
         env::remove_var("PETFOOD_PORT");
         env::remove_var("PETFOOD_REQUEST_TIMEOUT_SECONDS");
         env::remove_var("PETFOOD_MAX_REQUEST_SIZE");
-
         // Wait a bit to ensure environment changes take effect
         std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 
+    fn cleanup_database() {
+        env::remove_var("PETFOOD_FOODS_TABLE_NAME");
+        env::remove_var("PETFOOD_CARTS_TABLE_NAME");
+        env::remove_var("PETFOOD_REGION");
+        env::remove_var("AWS_REGION");
+        env::remove_var("PETFOOD_ASSETS_CDN_URL");
+        // Wait a bit to ensure environment changes take effect
+        // std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+
+    #[test]
+    fn test_server_config_defaults() {
+        // Ensure no environment variables are set
+        cleanup_server();
         let config = ServerConfig::from_env().unwrap();
 
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
         assert_eq!(config.request_timeout_seconds, 30);
         assert_eq!(config.max_request_size, 1024 * 1024);
-    }
-
-    #[test]
-    fn test_database_config_from_env() {
-        env::set_var("PETFOOD_FOODS_TABLE_NAME", "TestFoods");
-        env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
-        env::set_var("AWS_REGION", "us-east-1");
-
-        let config = DatabaseConfig::from_env().unwrap();
-
-        assert_eq!(config.foods_table_name, "TestFoods");
-        assert_eq!(config.carts_table_name, "TestCarts");
-        assert_eq!(config.region, "us-east-1");
-
-        // Clean up
-        env::remove_var("PETFOOD_FOODS_TABLE_NAME");
-        env::remove_var("PETFOOD_CARTS_TABLE_NAME");
-        env::remove_var("AWS_REGION");
     }
 
     #[test]
@@ -121,11 +115,9 @@ mod config_tests {
     }
 
     #[test]
-    fn test_default_values() {
-        // Clean up any environment variables that might affect defaults
-        env::remove_var("PETFOOD_OTLP_ENDPOINT");
-        env::remove_var("PETFOOD_ENABLE_JSON_LOGGING");
-        env::remove_var("AWS_REGION"); // Clean up AWS_REGION to test default fallback
+    fn test_database_config_from_env() {
+        // test default values
+        // moving this to a function to avoid env pollution
 
         assert_eq!(default_host(), "0.0.0.0");
         assert_eq!(default_port(), 8080);
@@ -139,15 +131,14 @@ mod config_tests {
         assert_eq!(default_otlp_endpoint_option(), "http://localhost:4317",);
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");
-    }
 
-    #[test]
-    fn test_database_config_with_empty_cdn_url() {
         // Test that database config works with empty CDN URL
         env::remove_var("PETFOOD_ASSETS_CDN_URL");
-        env::set_var("PETFOOD_FOODS_TABLE_NAME", "TestFoods");
-        env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
         env::set_var("AWS_REGION", "us-west-2");
+        env::set_var("PETFOOD_SERVICE_NAME", "test-service");
+
+        env::set_var("PETFOOD_TABLE_NAME", "TestFoods");
+        env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
 
         let config = DatabaseConfig::from_env().unwrap();
 
@@ -156,14 +147,6 @@ mod config_tests {
         assert_eq!(config.region, "us-west-2");
         assert_eq!(config.assets_cdn_url, ""); // Should default to empty string
 
-        // Clean up
-        env::remove_var("PETFOOD_FOODS_TABLE_NAME");
-        env::remove_var("PETFOOD_CARTS_TABLE_NAME");
-        env::remove_var("AWS_REGION");
-    }
-
-    #[test]
-    fn test_aws_region_behavior() {
         // Test that AWS_REGION is properly used when set
         env::set_var("AWS_REGION", "eu-west-1");
         assert_eq!(default_region(), "eu-west-1");
@@ -172,5 +155,8 @@ mod config_tests {
         // Test fallback to default when AWS_REGION is not set
         env::remove_var("AWS_REGION");
         assert_eq!(default_region(), "us-west-2");
+
+        cleanup_database();
+        cleanup_server();
     }
 }
