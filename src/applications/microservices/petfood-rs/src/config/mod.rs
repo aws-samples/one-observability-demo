@@ -49,6 +49,8 @@ pub struct ServerConfig {
     pub max_request_size: usize,
 }
 
+// Database config object may receive SSM Parameter names
+// as env values injected by CDK
 #[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseConfig {
     #[serde(default)]
@@ -58,7 +60,10 @@ pub struct DatabaseConfig {
     #[serde(default = "default_region")]
     pub region: String,
     #[serde(default)]
-    pub assets_cdn_url: String,
+    pub images_cdn_url: String,
+    // SSM parameter prefix for this deployment
+    #[serde(default = "default_ssm_param_prefix")]
+    pub ssm_param_prefix: String,
 }
 
 #[derive(Debug, Clone)]
@@ -149,43 +154,40 @@ impl Config {
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(ssm_client.clone()));
 
-        // Resolve database configuration using 3-tier system: Env → SSM → Default
-        // Only resolve if the environment variable wasn't set (field is empty)
-        if database.foods_table_name.is_empty() {
-            database.foods_table_name = parameter_store
-                .resolve_parameter(
-                    "PETFOOD_FOODS_TABLE_NAME",
-                    "/petstore/foods-table-name",
-                    "PetFoods",
-                )
-                .await;
-        }
+        // Resolve database configuration
+        // Priority: SSM (using prefix + param name) → Env Vars → Defaults
+        println!(
+            "Using SSM parameter prefix: PETFOOD_SSM_PARAM_PREFIX={}",
+            database.ssm_param_prefix
+        );
 
-        if database.carts_table_name.is_empty() {
-            database.carts_table_name = parameter_store
-                .resolve_parameter(
-                    "PETFOOD_CARTS_TABLE_NAME",
-                    "/petstore/carts-table-name",
-                    "PetFoodCarts",
-                )
-                .await;
-        }
+        // Resolve foods table name using dynamic SSM parameter resolution
+        database.foods_table_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_FOODS_TABLE_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
 
-        if database.assets_cdn_url.is_empty() {
-            database.assets_cdn_url = parameter_store
-                .resolve_parameter("PETFOOD_ASSETS_CDN_URL", "/petstore/imagescdnurl", "")
-                .await;
-        }
+        // Resolve carts table name using dynamic SSM parameter resolution
+        database.carts_table_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_CARTS_TABLE_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        // Resolve CDN URL using dynamic SSM parameter resolution
+        database.images_cdn_url = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_IMAGES_CDN_URL", // Env var (value becomes SSM param name)
+            )
+            .await;
 
         println!(
             "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
-            database.foods_table_name,
-            database.carts_table_name,
-            if database.assets_cdn_url.is_empty() {
-                "not configured"
-            } else {
-                &database.assets_cdn_url
-            }
+            database.foods_table_name, database.carts_table_name, database.images_cdn_url
         );
 
         let aws = AwsConfig {
@@ -243,10 +245,10 @@ impl Config {
         }
 
         // Assets CDN URL is optional - if empty, images will be served without CDN prefix
-        if !self.database.assets_cdn_url.is_empty() {
+        if !self.database.images_cdn_url.is_empty() {
             info!(
                 "Assets CDN URL configured: {}",
-                self.database.assets_cdn_url
+                self.database.images_cdn_url
             );
         } else {
             info!("Assets CDN URL not configured - images will be served without CDN prefix");
@@ -460,47 +462,61 @@ impl ParameterStoreConfig {
         }
     }
 
-    /// Unified 3-tier parameter resolution: Env Var → SSM → Default
-    pub async fn resolve_parameter(
+    /// Dynamic SSM parameter resolution
+    /// If SSM prefix is set: Try SSM using prefix + env_var_value → No Default (empty string)
+    /// If SSM prefix is empty: Use env_var_value directly → No Default (empty string)
+    pub async fn resolve_parameter_with_prefix(
         &self,
+        ssm_prefix: &str,
         env_var_name: &str,
-        ssm_parameter_name: &str,
-        default_value: &str,
     ) -> String {
-        // Tier 1: Check environment variable
-        if let Ok(env_value) = std::env::var(env_var_name) {
-            if !env_value.is_empty() {
-                println!(
-                    "Parameter {} resolved from environment: {}",
-                    env_var_name, env_value
-                );
-                return env_value;
-            }
-        }
+        // Check if SSM prefix is configured
+        if !ssm_prefix.is_empty() {
+            // Get the parameter name from the environment variable
+            if let Ok(env_param_name) = std::env::var(env_var_name) {
+                if !env_param_name.is_empty() {
+                    // Construct SSM path: prefix + env_var_value
+                    let full_ssm_path =
+                        format!("{}/{}", ssm_prefix.trim_end_matches('/'), env_param_name);
 
-        // Tier 2: Check SSM Parameter Store
-        match self.get_parameter(ssm_parameter_name).await {
-            Ok(ssm_value) if !ssm_value.is_empty() => {
-                println!(
-                    "Parameter {} resolved from SSM: {}",
-                    ssm_parameter_name, ssm_value
-                );
-                ssm_value
+                    // Try SSM first
+                    match self.get_parameter(&full_ssm_path).await {
+                        Ok(ssm_value) => {
+                            println!(
+                                "Parameter {} resolved from SSM path {}: {}",
+                                env_var_name, full_ssm_path, ssm_value
+                            );
+                            return ssm_value;
+                        }
+                        Err(e) => {
+                            println!(
+                                "Parameter {} not found in SSM path {} ({})",
+                                env_var_name, full_ssm_path, e
+                            );
+                        }
+                    }
+                }
             }
-            Ok(_) => {
-                println!(
-                    "Parameter {} found in SSM but empty, using default: {}",
-                    ssm_parameter_name, default_value
-                );
-                default_value.to_string()
+
+            // SSM failed, use default
+            println!(
+                "Parameter {} using default (SSM prefix configured but failed)",
+                env_var_name
+            );
+            // forcing an empty string as return, should fail API requests if not provided
+            "".to_string()
+        } else {
+            // No SSM prefix configured, use environment variable directly
+            if let Ok(env_value) = std::env::var(env_var_name) {
+                if !env_value.is_empty() {
+                    println!(
+                        "Parameter resolved from environment (no SSM prefix): {}={}",
+                        env_var_name, env_value
+                    );
+                    return env_value;
+                }
             }
-            Err(e) => {
-                println!(
-                    "Parameter {} not found in SSM ({}), using default: {}",
-                    ssm_parameter_name, e, default_value
-                );
-                default_value.to_string()
-            }
+            "".to_string()
         }
     }
 }
@@ -577,6 +593,10 @@ pub(crate) fn default_timeout_seconds() -> u64 {
 
 pub(crate) fn default_enable_dead_letter_queue() -> bool {
     true
+}
+
+pub(crate) fn default_ssm_param_prefix() -> String {
+    "".to_string()
 }
 
 #[cfg(test)]

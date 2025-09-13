@@ -96,7 +96,7 @@ mod config_tests {
     }
 
     #[tokio::test]
-    async fn test_3_tier_parameter_resolution() {
+    async fn test_infra_team_parameter_resolution() {
         // Create a mock AWS config for testing
         let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(aws_config::Region::new("us-west-2"))
@@ -106,27 +106,25 @@ mod config_tests {
         let ssm_client = SsmClient::new(&aws_config);
         let parameter_store = ParameterStoreConfig::new(ssm_client);
 
-        // Test Tier 1: Environment variable takes precedence
+        // prefix defined, SSM will fail on tests, should be empty string
         env::set_var("TEST_ENV_VAR", "env_value");
         let result = parameter_store
-            .resolve_parameter("TEST_ENV_VAR", "/nonexistent/ssm", "default_value")
+            .resolve_parameter_with_prefix("/test/prefix", "TEST_ENV_VAR")
+            .await;
+        assert_eq!(result, "");
+
+        // Test Tier 3: Default value when SSM and env var both missing
+        let result = parameter_store
+            .resolve_parameter_with_prefix("", "NONEXISTENT_ENV_VAR")
+            .await;
+        assert_eq!(result, "");
+
+        // Test fall back to env var setup
+        let result = parameter_store
+            .resolve_parameter_with_prefix("", "TEST_ENV_VAR")
             .await;
         assert_eq!(result, "env_value");
         env::remove_var("TEST_ENV_VAR");
-
-        // Test Tier 3: Default value when env var and SSM both missing
-        let result = parameter_store
-            .resolve_parameter("NONEXISTENT_ENV_VAR", "/nonexistent/ssm", "default_value")
-            .await;
-        assert_eq!(result, "default_value");
-
-        // Test empty environment variable falls through to SSM/default
-        env::set_var("EMPTY_ENV_VAR", "");
-        let result = parameter_store
-            .resolve_parameter("EMPTY_ENV_VAR", "/nonexistent/ssm", "default_value")
-            .await;
-        assert_eq!(result, "default_value");
-        env::remove_var("EMPTY_ENV_VAR");
     }
 
     #[test]
@@ -179,7 +177,7 @@ mod config_tests {
         env::set_var("AWS_REGION", "us-west-2");
         env::set_var("PETFOOD_FOODS_TABLE_NAME", "TestFoods");
         env::set_var("PETFOOD_CARTS_TABLE_NAME", "TestCarts");
-        env::set_var("PETFOOD_ASSETS_CDN_URL", "https://cdn.example.com");
+        env::set_var("PETFOOD_IMAGES_CDN_URL", "https://cdn.example.com");
 
         let config = DatabaseConfig::from_env().unwrap();
 

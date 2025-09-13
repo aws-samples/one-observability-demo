@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cart_service = Arc::new(CartService::new(
         cart_repository,
         food_repository,
-        config.database.assets_cdn_url.clone(),
+        config.database.images_cdn_url.clone(),
     ));
     info!("Services initialized successfully");
 
@@ -121,7 +121,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         table_manager,
         config.database.foods_table_name.clone(),
         config.database.carts_table_name.clone(),
-        config.database.assets_cdn_url.clone(),
+        config.database.images_cdn_url.clone(),
     );
 
     // Create socket address
