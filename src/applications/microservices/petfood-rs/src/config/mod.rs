@@ -51,13 +51,13 @@ pub struct ServerConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseConfig {
-    #[serde(default = "default_foods_table")]
+    #[serde(default)]
     pub foods_table_name: String,
-    #[serde(default = "default_carts_table")]
+    #[serde(default)]
     pub carts_table_name: String,
     #[serde(default = "default_region")]
     pub region: String,
-    #[serde(default = "default_assets_cdn_url")]
+    #[serde(default)]
     pub assets_cdn_url: String,
 }
 
@@ -114,7 +114,7 @@ impl std::fmt::Debug for ParameterStoreConfig {
 
 impl Config {
     pub async fn from_environment() -> Result<Self, ConfigError> {
-        info!("Loading configuration from environment and AWS Parameter Store");
+        println!("Loading configuration from environment and AWS Parameter Store");
 
         // Load basic configuration from environment variables
         let server = ServerConfig::from_env()?;
@@ -123,9 +123,9 @@ impl Config {
         let events = EventsConfig::from_env()?;
 
         // Initialize AWS configuration with timeout and retry settings
-        info!(
-            region = %database.region,
-            "Initializing AWS configuration"
+        println!(
+            "Initializing AWS configuration for region: {}",
+            database.region
         );
 
         let aws_config = aws_config::defaults(BehaviorVersion::latest())
@@ -140,7 +140,7 @@ impl Config {
             .load()
             .await;
 
-        info!("AWS configuration loaded successfully");
+        println!("AWS configuration loaded successfully");
 
         let dynamodb_client = DynamoDbClient::new(&aws_config);
         let eventbridge_client = EventBridgeClient::new(&aws_config);
@@ -149,19 +149,44 @@ impl Config {
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(ssm_client.clone()));
 
-        // Retrieve CDN URL from SSM if not set via environment
-        if database.assets_cdn_url.is_empty() {
-            info!("CDN URL not set via environment, attempting to retrieve from SSM");
-            database.assets_cdn_url = parameter_store
-                .get_parameter_with_default("/petstore/imagescdnurl", "")
+        // Resolve database configuration using 3-tier system: Env → SSM → Default
+        // Only resolve if the environment variable wasn't set (field is empty)
+        if database.foods_table_name.is_empty() {
+            database.foods_table_name = parameter_store
+                .resolve_parameter(
+                    "PETFOOD_FOODS_TABLE_NAME",
+                    "/petstore/foods-table-name",
+                    "PetFoods",
+                )
                 .await;
-
-            if !database.assets_cdn_url.is_empty() {
-                info!("CDN URL retrieved from SSM: {}", database.assets_cdn_url);
-            } else {
-                info!("CDN URL not found in SSM, images will be served without CDN prefix");
-            }
         }
+
+        if database.carts_table_name.is_empty() {
+            database.carts_table_name = parameter_store
+                .resolve_parameter(
+                    "PETFOOD_CARTS_TABLE_NAME",
+                    "/petstore/carts-table-name",
+                    "PetFoodCarts",
+                )
+                .await;
+        }
+
+        if database.assets_cdn_url.is_empty() {
+            database.assets_cdn_url = parameter_store
+                .resolve_parameter("PETFOOD_ASSETS_CDN_URL", "/petstore/imagescdnurl", "")
+                .await;
+        }
+
+        println!(
+            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
+            database.foods_table_name,
+            database.carts_table_name,
+            if database.assets_cdn_url.is_empty() {
+                "not configured"
+            } else {
+                &database.assets_cdn_url
+            }
+        );
 
         let aws = AwsConfig {
             region: database.region.clone(),
@@ -182,7 +207,7 @@ impl Config {
         // Validate configuration
         config.validate().await?;
 
-        info!("Configuration loaded successfully");
+        println!("Configuration loaded successfully");
         debug!("Configuration: {:?}", config);
 
         Ok(config)
@@ -434,6 +459,50 @@ impl ParameterStoreConfig {
             }
         }
     }
+
+    /// Unified 3-tier parameter resolution: Env Var → SSM → Default
+    pub async fn resolve_parameter(
+        &self,
+        env_var_name: &str,
+        ssm_parameter_name: &str,
+        default_value: &str,
+    ) -> String {
+        // Tier 1: Check environment variable
+        if let Ok(env_value) = std::env::var(env_var_name) {
+            if !env_value.is_empty() {
+                println!(
+                    "Parameter {} resolved from environment: {}",
+                    env_var_name, env_value
+                );
+                return env_value;
+            }
+        }
+
+        // Tier 2: Check SSM Parameter Store
+        match self.get_parameter(ssm_parameter_name).await {
+            Ok(ssm_value) if !ssm_value.is_empty() => {
+                println!(
+                    "Parameter {} resolved from SSM: {}",
+                    ssm_parameter_name, ssm_value
+                );
+                ssm_value
+            }
+            Ok(_) => {
+                println!(
+                    "Parameter {} found in SSM but empty, using default: {}",
+                    ssm_parameter_name, default_value
+                );
+                default_value.to_string()
+            }
+            Err(e) => {
+                println!(
+                    "Parameter {} not found in SSM ({}), using default: {}",
+                    ssm_parameter_name, e, default_value
+                );
+                default_value.to_string()
+            }
+        }
+    }
 }
 
 // Default value functions
@@ -453,25 +522,9 @@ pub(crate) fn default_max_request_size() -> usize {
     1024 * 1024 // 1MB
 }
 
-pub(crate) fn default_foods_table() -> String {
-    std::env::var("PETFOOD_FOODS_TABLE_NAME")
-        .or_else(|_| std::env::var("PETFOOD_TABLE_NAME"))
-        .unwrap_or_else(|_| "PetFoods".to_string())
-}
-
-pub(crate) fn default_carts_table() -> String {
-    std::env::var("PETFOOD_CARTS_TABLE_NAME")
-        .or_else(|_| std::env::var("PETFOOD_CART_TABLE_NAME"))
-        .unwrap_or_else(|_| "PetFoodCarts".to_string())
-}
-
 pub(crate) fn default_region() -> String {
     // Use the standard AWS_REGION environment variable provided by ECS
     std::env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string())
-}
-
-pub(crate) fn default_assets_cdn_url() -> String {
-    "".to_string()
 }
 
 pub(crate) fn default_service_name() -> String {
