@@ -49,16 +49,21 @@ pub struct ServerConfig {
     pub max_request_size: usize,
 }
 
+// Database config object may receive SSM Parameter names
+// as env values injected by CDK
 #[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseConfig {
-    #[serde(default = "default_foods_table")]
+    #[serde(default)]
     pub foods_table_name: String,
-    #[serde(default = "default_carts_table")]
+    #[serde(default)]
     pub carts_table_name: String,
     #[serde(default = "default_region")]
     pub region: String,
-    #[serde(default = "default_assets_cdn_url")]
-    pub assets_cdn_url: String,
+    #[serde(default)]
+    pub images_cdn_url: String,
+    // SSM parameter prefix for this deployment
+    #[serde(default = "default_ssm_param_prefix")]
+    pub ssm_param_prefix: String,
 }
 
 #[derive(Debug, Clone)]
@@ -114,7 +119,7 @@ impl std::fmt::Debug for ParameterStoreConfig {
 
 impl Config {
     pub async fn from_environment() -> Result<Self, ConfigError> {
-        info!("Loading configuration from environment and AWS Parameter Store");
+        println!("Loading configuration from environment and AWS Parameter Store");
 
         // Load basic configuration from environment variables
         let server = ServerConfig::from_env()?;
@@ -123,9 +128,9 @@ impl Config {
         let events = EventsConfig::from_env()?;
 
         // Initialize AWS configuration with timeout and retry settings
-        info!(
-            region = %database.region,
-            "Initializing AWS configuration"
+        println!(
+            "Initializing AWS configuration for region: {}",
+            database.region
         );
 
         let aws_config = aws_config::defaults(BehaviorVersion::latest())
@@ -140,7 +145,7 @@ impl Config {
             .load()
             .await;
 
-        info!("AWS configuration loaded successfully");
+        println!("AWS configuration loaded successfully");
 
         let dynamodb_client = DynamoDbClient::new(&aws_config);
         let eventbridge_client = EventBridgeClient::new(&aws_config);
@@ -149,19 +154,41 @@ impl Config {
         // Create parameter store configuration
         let parameter_store = Arc::new(ParameterStoreConfig::new(ssm_client.clone()));
 
-        // Retrieve CDN URL from SSM if not set via environment
-        if database.assets_cdn_url.is_empty() {
-            info!("CDN URL not set via environment, attempting to retrieve from SSM");
-            database.assets_cdn_url = parameter_store
-                .get_parameter_with_default("/petstore/imagescdnurl", "")
-                .await;
+        // Resolve database configuration
+        // Priority: SSM (using prefix + param name) → Env Vars → Defaults
+        println!(
+            "Using SSM parameter prefix: PETFOOD_SSM_PARAM_PREFIX={}",
+            database.ssm_param_prefix
+        );
 
-            if !database.assets_cdn_url.is_empty() {
-                info!("CDN URL retrieved from SSM: {}", database.assets_cdn_url);
-            } else {
-                info!("CDN URL not found in SSM, images will be served without CDN prefix");
-            }
-        }
+        // Resolve foods table name using dynamic SSM parameter resolution
+        database.foods_table_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_FOODS_TABLE_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        // Resolve carts table name using dynamic SSM parameter resolution
+        database.carts_table_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_CARTS_TABLE_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        // Resolve CDN URL using dynamic SSM parameter resolution
+        database.images_cdn_url = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.ssm_param_prefix,
+                "PETFOOD_IMAGES_CDN_URL", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        println!(
+            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
+            database.foods_table_name, database.carts_table_name, database.images_cdn_url
+        );
 
         let aws = AwsConfig {
             region: database.region.clone(),
@@ -182,7 +209,7 @@ impl Config {
         // Validate configuration
         config.validate().await?;
 
-        info!("Configuration loaded successfully");
+        println!("Configuration loaded successfully");
         debug!("Configuration: {:?}", config);
 
         Ok(config)
@@ -218,10 +245,10 @@ impl Config {
         }
 
         // Assets CDN URL is optional - if empty, images will be served without CDN prefix
-        if !self.database.assets_cdn_url.is_empty() {
+        if !self.database.images_cdn_url.is_empty() {
             info!(
                 "Assets CDN URL configured: {}",
-                self.database.assets_cdn_url
+                self.database.images_cdn_url
             );
         } else {
             info!("Assets CDN URL not configured - images will be served without CDN prefix");
@@ -253,12 +280,17 @@ impl Config {
         );
 
         // Test foods table
-        match self.aws.dynamodb_client.describe_table()
+        match self
+            .aws
+            .dynamodb_client
+            .describe_table()
             .table_name(&self.database.foods_table_name)
             .send()
-            .await {
+            .await
+        {
             Ok(response) => {
-                let table_status = response.table()
+                let table_status = response
+                    .table()
                     .and_then(|t| t.table_status())
                     .map(|s| s.as_str())
                     .unwrap_or("unknown");
@@ -279,12 +311,17 @@ impl Config {
         }
 
         // Test carts table
-        match self.aws.dynamodb_client.describe_table()
+        match self
+            .aws
+            .dynamodb_client
+            .describe_table()
             .table_name(&self.database.carts_table_name)
             .send()
-            .await {
+            .await
+        {
             Ok(response) => {
-                let table_status = response.table()
+                let table_status = response
+                    .table()
                     .and_then(|t| t.table_status())
                     .map(|s| s.as_str())
                     .unwrap_or("unknown");
@@ -424,6 +461,64 @@ impl ParameterStoreConfig {
             }
         }
     }
+
+    /// Dynamic SSM parameter resolution
+    /// If SSM prefix is set: Try SSM using prefix + env_var_value → No Default (empty string)
+    /// If SSM prefix is empty: Use env_var_value directly → No Default (empty string)
+    pub async fn resolve_parameter_with_prefix(
+        &self,
+        ssm_prefix: &str,
+        env_var_name: &str,
+    ) -> String {
+        // Check if SSM prefix is configured
+        if !ssm_prefix.is_empty() {
+            // Get the parameter name from the environment variable
+            if let Ok(env_param_name) = std::env::var(env_var_name) {
+                if !env_param_name.is_empty() {
+                    // Construct SSM path: prefix + env_var_value
+                    let full_ssm_path =
+                        format!("{}/{}", ssm_prefix.trim_end_matches('/'), env_param_name);
+
+                    // Try SSM first
+                    match self.get_parameter(&full_ssm_path).await {
+                        Ok(ssm_value) => {
+                            println!(
+                                "Parameter {} resolved from SSM path {}: {}",
+                                env_var_name, full_ssm_path, ssm_value
+                            );
+                            return ssm_value;
+                        }
+                        Err(e) => {
+                            println!(
+                                "Parameter {} not found in SSM path {} ({})",
+                                env_var_name, full_ssm_path, e
+                            );
+                        }
+                    }
+                }
+            }
+
+            // SSM failed, use default
+            println!(
+                "Parameter {} using default (SSM prefix configured but failed)",
+                env_var_name
+            );
+            // forcing an empty string as return, should fail API requests if not provided
+            "".to_string()
+        } else {
+            // No SSM prefix configured, use environment variable directly
+            if let Ok(env_value) = std::env::var(env_var_name) {
+                if !env_value.is_empty() {
+                    println!(
+                        "Parameter resolved from environment (no SSM prefix): {}={}",
+                        env_var_name, env_value
+                    );
+                    return env_value;
+                }
+            }
+            "".to_string()
+        }
+    }
 }
 
 // Default value functions
@@ -443,26 +538,9 @@ pub(crate) fn default_max_request_size() -> usize {
     1024 * 1024 // 1MB
 }
 
-pub(crate) fn default_foods_table() -> String {
-    std::env::var("PETFOOD_FOODS_TABLE_NAME")
-        .or_else(|_| std::env::var("PETFOOD_TABLE_NAME"))
-        .unwrap_or_else(|_| "PetFoods".to_string())
-}
-
-pub(crate) fn default_carts_table() -> String {
-    std::env::var("PETFOOD_CARTS_TABLE_NAME")
-        .or_else(|_| std::env::var("PETFOOD_CART_TABLE_NAME"))
-        .unwrap_or_else(|_| "PetFoodCarts".to_string())
-}
-
 pub(crate) fn default_region() -> String {
     // Use the standard AWS_REGION environment variable provided by ECS
-    std::env::var("AWS_REGION")
-        .unwrap_or_else(|_| "us-west-2".to_string())
-}
-
-pub(crate) fn default_assets_cdn_url() -> String {
-    "".to_string()
+    std::env::var("AWS_REGION").unwrap_or_else(|_| "us-west-2".to_string())
 }
 
 pub(crate) fn default_service_name() -> String {
@@ -515,6 +593,10 @@ pub(crate) fn default_timeout_seconds() -> u64 {
 
 pub(crate) fn default_enable_dead_letter_queue() -> bool {
     true
+}
+
+pub(crate) fn default_ssm_param_prefix() -> String {
+    "".to_string()
 }
 
 #[cfg(test)]
