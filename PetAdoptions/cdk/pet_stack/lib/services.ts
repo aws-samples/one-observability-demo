@@ -480,30 +480,48 @@ export class Services extends Stack {
             jsonPath: "@"
         });
 
+
         const loadBalancerCRDYaml = yaml.loadAll(readFileSync("./resources/load_balancer/crds.yaml", "utf8")) as Record<string, any>[];
         const loadBalancerCRDManifest = new eks.KubernetesManifest(this, "loadBalancerCRD", {
             cluster: cluster,
             manifest: loadBalancerCRDYaml
         });
+        // Serialize kubectl resources to reduce parallelism and avoid throttling
+        if (cluster.awsAuth) {
+            loadBalancerCRDManifest.node.addDependency(cluster.awsAuth);
+            loadBalancerServiceAccount.node.addDependency(cluster.awsAuth);
+            xrayManifest.node.addDependency(cluster.awsAuth);
+            ssmAgentSetupManifest.node.addDependency(cluster.awsAuth);
+        }
+        // Chain CRDs -> SA -> Helm -> XRay -> SSM
+        loadBalancerServiceAccount.node.addDependency(loadBalancerCRDManifest);
+
 
 
         const awsLoadBalancerManifest = new eks.HelmChart(this, "AWSLoadBalancerController", {
             cluster: cluster,
             chart: "aws-load-balancer-controller",
+            release: "aws-load-balancer-controller",
             repository: "https://aws.github.io/eks-charts",
             namespace: "kube-system",
-            values: {
-                clusterName: "PetSite",
+            wait: true,
+            timeout: Duration.minutes(15),
+values: {
+                clusterName: cluster.clusterName,
                 serviceAccount: {
                     create: false,
                     name: "alb-ingress-controller"
-                },
-                wait: true
+                }
             }
         });
         awsLoadBalancerManifest.node.addDependency(loadBalancerCRDManifest);
         awsLoadBalancerManifest.node.addDependency(loadBalancerServiceAccount);
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
+
+        // Ensure ALB controller is fully ready before applying X-Ray/SSM manifests
+        xrayManifest.node.addDependency(awsLoadBalancerManifest);
+        ssmAgentSetupManifest.node.addDependency(xrayManifest);
+
 
 
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
