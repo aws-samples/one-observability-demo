@@ -5,6 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 5m0s
-  url: https://github.com/aws-samples/one-observability-demo
+  # url: https://github.com/aws-samples/one-observability-demo
+  url: https://github.com/hibira/one-observability-demo/tree/issue/383
   ref:
     branch: main
