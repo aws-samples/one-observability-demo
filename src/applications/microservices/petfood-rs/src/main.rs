@@ -196,7 +196,6 @@ fn create_app(
         )
         .route("/api/cart/:user_id/clear", post(api::clear_cart))
         .route("/api/cart/:user_id/checkout", post(api::checkout_cart))
-        .route("/api/cart/:user_id/summary", get(api::get_cart_summary))
         .with_state(api_state)
         // Admin endpoints (with admin state)
         .route("/api/admin/setup-tables", post(admin::setup_tables))
