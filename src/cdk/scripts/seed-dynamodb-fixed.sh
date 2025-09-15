@@ -70,12 +70,11 @@ find_tables_by_pattern() {
     echo "${found_tables[@]}"
 }
 
-# Function to seed pet adoption table
+# Function to seed pet adoption table - FIXED: Use process substitution to avoid subshell
 seed_pet_table() {
     local table_name="$1"
     echo "Seeding pet adoption table: $table_name"
 
-    # Read and process pet seed data
     local count=0
     while read -r item; do
         petid=$(echo "$item" | jq -r '.petid')
@@ -94,12 +93,11 @@ seed_pet_table() {
     echo "Successfully seeded $table_name with pet adoption data ($count items)"
 }
 
-# Function to seed petfood table
+# Function to seed petfood table - FIXED: Use process substitution to avoid subshell
 seed_petfood_table() {
     local table_name="$1"
     echo "Seeding petfood table: $table_name"
 
-    # Read and process petfood seed data
     local count=0
     while read -r item; do
         food_id=$(echo "$item" | jq -r '.id')
@@ -132,103 +130,7 @@ seed_petfood_table() {
     echo "Successfully seeded $table_name with petfood data ($count items)"
 }
 
-# Function for interactive mode
-interactive_mode() {
-    get_available_tables
-
-    # Find pet adoption and petfood tables
-    local pet_tables=($(find_tables_by_pattern "Petadoption"))
-    local petfood_tables=($(find_tables_by_pattern "petfood"))
-
-    echo ""
-    echo "Available seeding options:"
-    echo "1) Seed both pet adoption and petfood tables"
-    echo "2) Seed pet adoption table only"
-    echo "3) Seed petfood table only"
-    echo "4) Select specific table manually"
-    echo ""
-
-    read -p "Select an option (1-4): " -n 1 -r choice
-    echo ""
-
-    case $choice in
-        1)
-            echo "Seeding both pet adoption and petfood tables..."
-
-            # Seed pet adoption tables
-            if [[ ${#pet_tables[@]} -gt 0 ]]; then
-                for table in "${pet_tables[@]}"; do
-                    seed_pet_table "$table"
-                done
-            else
-                echo "Warning: No pet adoption tables found (pattern: *Petadoption*)"
-            fi
-
-            # Seed petfood tables
-            if [[ ${#petfood_tables[@]} -gt 0 ]]; then
-                for table in "${petfood_tables[@]}"; do
-                    seed_petfood_table "$table"
-                done
-            else
-                echo "Warning: No petfood tables found (pattern: *PetFoods*)"
-            fi
-            ;;
-        2)
-            if [[ ${#pet_tables[@]} -eq 0 ]]; then
-                echo "No pet adoption tables found (pattern: *Petadoption*)"
-                exit 1
-            elif [[ ${#pet_tables[@]} -eq 1 ]]; then
-                seed_pet_table "${pet_tables[0]}"
-            else
-                echo "Multiple pet adoption tables found:"
-                select table in "${pet_tables[@]}"; do
-                    if [[ -n "$table" ]]; then
-                        seed_pet_table "$table"
-                        break
-                    fi
-                done
-            fi
-            ;;
-        3)
-            if [[ ${#petfood_tables[@]} -eq 0 ]]; then
-                echo "No petfood tables found (pattern: *petfood*)"
-                exit 1
-            elif [[ ${#petfood_tables[@]} -eq 1 ]]; then
-                seed_petfood_table "${petfood_tables[0]}"
-            else
-                echo "Multiple petfood tables found:"
-                select table in "${petfood_tables[@]}"; do
-                    if [[ -n "$table" ]]; then
-                        seed_petfood_table "$table"
-                        break
-                    fi
-                done
-            fi
-            ;;
-        4)
-            echo "Available DynamoDB tables:"
-            select table in "${TABLE_ARRAY[@]}"; do
-                if [[ -n "$table" ]]; then
-                    # Determine table type by name pattern
-                    if [[ "$table" == *"petfood"* ]]; then
-                        seed_petfood_table "$table"
-                    else
-                        seed_pet_table "$table"
-                    fi
-                    break
-                else
-                    echo "Invalid selection. Please try again."
-                fi
-            done
-            ;;
-        *)
-            echo "Invalid selection. Exiting."
-            exit 1
-            ;;
-    esac
-}
-
-# Main script logic
+# Main script logic - REMOVED interactive mode for CI/CD compatibility
 main() {
     check_seed_files
     check_aws_credentials
@@ -238,16 +140,13 @@ main() {
         echo "Usage: $0 [pets|petfood|all|<table_name>] [specific_table_name]"
         echo ""
         echo "Examples:"
-        echo "  $0                           # Interactive mode"
         echo "  $0 all                       # Seed both pets and petfood tables"
         echo "  $0 pets                      # Seed all pet adoption tables"
         echo "  $0 petfood                   # Seed all petfood tables"
         echo "  $0 pets MyPetTable           # Seed specific pet table"
         echo "  $0 petfood MyPetfoodTable    # Seed specific petfood table"
         echo "  $0 MySpecificTable           # Seed specific table (auto-detect type)"
-        echo ""
-        interactive_mode
-        return
+        exit 1
     fi
 
     get_available_tables

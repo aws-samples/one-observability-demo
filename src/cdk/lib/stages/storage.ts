@@ -13,6 +13,7 @@ import { CodeBuildStep } from 'aws-cdk-lib/pipelines';
 import { ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
@@ -56,8 +57,10 @@ export class StorageStage extends Stage {
         const seedStep = new CodeBuildStep('DDBSeeding', {
             commands: [
                 'cd src/cdk',
-                'TABLE_NAME=$(./scripts/get-parameter.sh dynamodbtablename)',
-                './scripts/seed-dynamodb.sh $TABLE_NAME',
+                `PET_ADOPTION_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME})`,
+                './scripts/seed-dynamodb.sh pets $PET_ADOPTION_TABLE_NAME',
+                `PET_FOOD_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME})`,
+                './scripts/seed-dynamodb.sh peetfood $PET_FOOD_TABLE_NAME',
             ],
             buildEnvironment: {
                 privileged: false,
