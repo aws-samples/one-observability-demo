@@ -74,7 +74,7 @@ export class WorkshopAssets extends Construct {
         NagSuppressions.addResourceSuppressions(this.bucket, [
             {
                 id: 'AwsSolutions-S1',
-                reason: 'Bucket doesn not need server access logs',
+                reason: 'Bucket does not need server access logs',
             },
         ]);
 

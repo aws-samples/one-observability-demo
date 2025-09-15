@@ -6,9 +6,11 @@
         "price": 24.99,
         "pet_type": "dog",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 80,
         "description": "High-quality dry food for adult dogs with real chicken and rice",
-        "image_url": "f1.jpg",
+        "image": "petfood/f1.jpg",
         "ingredients": ["Chicken", "Rice", "Vegetables", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "28%",
@@ -16,8 +18,8 @@
             "Fiber": "4%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F002",
@@ -26,9 +28,11 @@
         "price": 19.99,
         "pet_type": "cat",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 100,
         "description": "Specially formulated dry food for growing kittens",
-        "image_url": "f2.jpg",
+        "image": "petfood/f2.jpg",
         "ingredients": ["Fish", "Rice", "Chicken", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "32%",
@@ -36,8 +40,8 @@
             "Fiber": "3%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F003",
@@ -46,9 +50,11 @@
         "price": 2.99,
         "pet_type": "dog",
         "food_type": "wet",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 200,
         "description": "Delicious wet food with real beef chunks in gravy",
-        "image_url": "f3.jpg",
+        "image": "petfood/f3.jpg",
         "ingredients": ["Beef", "Carrots", "Peas", "Gravy", "Vitamins"],
         "nutritional_info": {
             "Protein": "12%",
@@ -56,8 +62,8 @@
             "Fiber": "2%",
             "Moisture": "78%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F004",
@@ -66,9 +72,11 @@
         "price": 3.49,
         "pet_type": "cat",
         "food_type": "wet",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 50,
         "description": "Premium wet food with wild-caught salmon",
-        "image_url": "f4.jpg",
+        "image": "petfood/f4.jpg",
         "ingredients": ["Salmon", "Fish Broth", "Rice", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "14%",
@@ -76,8 +84,8 @@
             "Fiber": "1%",
             "Moisture": "75%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F005",
@@ -86,9 +94,11 @@
         "price": 29.99,
         "pet_type": "dog",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 2,
         "description": "Nutrient-rich food designed for small breed puppies",
-        "image_url": "f5.jpg",
+        "image": "petfood/f5.jpg",
         "ingredients": ["Chicken", "Sweet Potato", "Fish Oil", "Probiotics", "Vitamins"],
         "nutritional_info": {
             "Protein": "30%",
@@ -96,8 +106,8 @@
             "Fiber": "3%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F006",
@@ -106,9 +116,11 @@
         "price": 22.99,
         "pet_type": "cat",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 70,
         "description": "Low-fat formula for senior cats with joint support",
-        "image_url": "f6.jpg",
+        "image": "petfood/f6.jpg",
         "ingredients": ["Turkey", "Rice", "Glucosamine", "Chondroitin", "Vitamins"],
         "nutritional_info": {
             "Protein": "26%",
@@ -116,8 +128,8 @@
             "Fiber": "5%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F007",
@@ -126,9 +138,11 @@
         "price": 8.99,
         "pet_type": "dog",
         "food_type": "treat",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 17,
         "description": "Small training treats perfect for positive reinforcement",
-        "image_url": "f7.jpg",
+        "image": "petfood/f7.jpg",
         "ingredients": ["Chicken", "Rice Flour", "Natural Flavors", "Preservatives"],
         "nutritional_info": {
             "Protein": "20%",
@@ -136,8 +150,8 @@
             "Fiber": "2%",
             "Moisture": "12%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F008",
@@ -146,9 +160,11 @@
         "price": 6.99,
         "pet_type": "cat",
         "food_type": "treat",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 500,
         "description": "Crunchy treats with real tuna flavor cats love",
-        "image_url": "f8.jpg",
+        "image": "petfood/f8.jpg",
         "ingredients": ["Tuna", "Rice", "Corn", "Natural Flavors", "Vitamins"],
         "nutritional_info": {
             "Protein": "18%",
@@ -156,8 +172,8 @@
             "Fiber": "3%",
             "Moisture": "12%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F009",
@@ -166,9 +182,11 @@
         "price": 39.99,
         "pet_type": "dog",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 170,
         "description": "Grain-free formula with lamb and sweet potato",
-        "image_url": "f9.jpg",
+        "image": "petfood/f9.jpg",
         "ingredients": ["Lamb", "Sweet Potato", "Peas", "Fish Oil", "Vitamins"],
         "nutritional_info": {
             "Protein": "26%",
@@ -176,8 +194,8 @@
             "Fiber": "4%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     },
     {
         "id": "F010",
@@ -186,9 +204,11 @@
         "price": 25.99,
         "pet_type": "cat",
         "food_type": "dry",
-        "availability": "available",
+        "availability_status": "in_stock",
+        "is_active": true,
+        "stock_quantity": 80,
         "description": "Perfect formula for indoor cats with hairball control",
-        "image_url": "f10.jpg",
+        "image": "petfood/f10.jpg",
         "ingredients": ["Chicken", "Rice", "Fiber", "Prebiotics", "Vitamins"],
         "nutritional_info": {
             "Protein": "24%",
@@ -196,7 +216,7 @@
             "Fiber": "6%",
             "Moisture": "10%"
         },
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "created_at": "2025-09-01T00:00:00Z",
+        "updated_at": "2025-09-01T00:00:00Z"
     }
 ]
