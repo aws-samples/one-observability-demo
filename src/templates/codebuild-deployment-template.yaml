@@ -493,12 +493,12 @@ Resources:
                 - cd ./repo
                 # Download configuration file and append to .env
                 - curl -o ./config.env "$CONFIG_FILE_URL"
-                - cat ./config.env >> .env
+                - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
-                - ./scripts/validate-account.sh
+                - ./${WORKING_FOLDER}/scripts/validate-account.sh
                 # Append additional environment variables to .env file
                 - |
-                  cat >> .env << EOF
+                  cat >> ${WORKING_FOLDER}/.env << EOF
                   CONFIG_FILE_URL=$CONFIG_FILE_URL
                   CONFIG_BUCKET=$CONFIG_BUCKET
                   ORGANIZATION_NAME=$ORGANIZATION_NAME
@@ -511,7 +511,7 @@ Resources:
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
                   EOF
                 # Add only .env file to repository
-                - git add .env -f
+                - git add ${WORKING_FOLDER}/.env -f
                 - git commit -m "Add merged configuration and environment variables to .env"
                 # Configure S3 remote with s3+zip protocol for CodePipeline
                 - git remote add s3 s3+zip://$CONFIG_BUCKET/repo

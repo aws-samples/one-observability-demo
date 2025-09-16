@@ -77,7 +77,7 @@ seed_pet_table() {
 
     # Read and process pet seed data
     local count=0
-    jq -c '.[]' "$PET_SEED_FILE" | while read -r item; do
+    while read -r item; do
         petid=$(echo "$item" | jq -r '.petid')
         echo "Inserting pet item with petid: $petid"
 
@@ -88,8 +88,8 @@ seed_pet_table() {
             --table-name "$table_name" \
             --item "$dynamo_item"
 
-        ((count++))
-    done
+        count=$((count + 1))
+    done < <(jq -c '.[]' "$PET_SEED_FILE")
 
     echo "Successfully seeded $table_name with pet adoption data ($count items)"
 }
@@ -101,7 +101,7 @@ seed_petfood_table() {
 
     # Read and process petfood seed data
     local count=0
-    jq -c '.[]' "$PETFOOD_SEED_FILE" | while read -r item; do
+    while read -r item; do
         food_id=$(echo "$item" | jq -r '.id')
         food_name=$(echo "$item" | jq -r '.name')
         echo "Inserting food item: $food_id - $food_name"
@@ -126,8 +126,8 @@ seed_petfood_table() {
             --table-name "$table_name" \
             --item "$dynamo_item"
 
-        ((count++))
-    done
+        count=$((count + 1))
+    done < <(jq -c '.[]' "$PETFOOD_SEED_FILE")
 
     echo "Successfully seeded $table_name with petfood data ($count items)"
 }
