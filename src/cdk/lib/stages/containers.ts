@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage, Duration } from 'aws-cdk-lib';
-import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
+import { Artifact, Pipeline, PipelineType, RetryMode } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
@@ -158,10 +158,12 @@ export class ContainersStack extends Stack {
                     resources: [pipelineLogArn],
                 }),
             ],
-            roles: [pipelineRole],
+            roles: [pipelineRole, codeBuildRole],
         });
 
         sourceBucket.grantRead(pipelineRole);
+        this.pipeline.node.addDependency(pipelineRole);
+        this.pipeline.node.addDependency(codeBuildRole);
         this.pipeline.node.addDependency(cloudWatchPolicy);
 
         const sourceAction = new S3SourceAction({
@@ -196,6 +198,9 @@ export class ContainersStack extends Stack {
         this.pipeline.addStage({
             stageName: 'build',
             actions: buildSteps,
+            onFailure: {
+                retryMode: RetryMode.FAILED_ACTIONS,
+            },
         });
 
         NagSuppressions.addResourceSuppressions(

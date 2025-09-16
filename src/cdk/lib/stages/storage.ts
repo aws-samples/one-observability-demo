@@ -60,7 +60,7 @@ export class StorageStage extends Stage {
                 `PET_ADOPTION_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME})`,
                 './scripts/seed-dynamodb.sh pets $PET_ADOPTION_TABLE_NAME',
                 `PET_FOOD_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME})`,
-                './scripts/seed-dynamodb.sh peetfood $PET_FOOD_TABLE_NAME',
+                './scripts/seed-dynamodb.sh petfood $PET_FOOD_TABLE_NAME',
             ],
             buildEnvironment: {
                 privileged: false,
