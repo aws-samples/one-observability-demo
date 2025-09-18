@@ -63,7 +63,10 @@ find_tables_by_pattern() {
         local table_lower=$(echo "$table" | tr '[:upper:]' '[:lower:]')
         local pattern_lower=$(echo "$pattern" | tr '[:upper:]' '[:lower:]')
         if [[ "$table_lower" == *"$pattern_lower"* ]]; then
-            found_tables+=("$table")
+            #petfoods have two different tables, so filtering out foods cart
+            if [[ "$table_lower" != *"petfoodscart"* ]]; then
+                found_tables+=("$table")
+            fi
         fi
     done
 
