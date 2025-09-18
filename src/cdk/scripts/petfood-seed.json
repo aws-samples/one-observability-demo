@@ -10,7 +10,7 @@
         "is_active": true,
         "stock_quantity": 80,
         "description": "High-quality dry food for adult dogs with real chicken and rice",
-        "image": "petfood/f1.jpg",
+        "image": "petfood/f01.jpg",
         "ingredients": ["Chicken", "Rice", "Vegetables", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "28%",
@@ -32,7 +32,7 @@
         "is_active": true,
         "stock_quantity": 100,
         "description": "Specially formulated dry food for growing kittens",
-        "image": "petfood/f2.jpg",
+        "image": "petfood/f02.jpg",
         "ingredients": ["Fish", "Rice", "Chicken", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "32%",
@@ -54,7 +54,7 @@
         "is_active": true,
         "stock_quantity": 200,
         "description": "Delicious wet food with real beef chunks in gravy",
-        "image": "petfood/f3.jpg",
+        "image": "petfood/f03.jpg",
         "ingredients": ["Beef", "Carrots", "Peas", "Gravy", "Vitamins"],
         "nutritional_info": {
             "Protein": "12%",
@@ -76,7 +76,7 @@
         "is_active": true,
         "stock_quantity": 50,
         "description": "Premium wet food with wild-caught salmon",
-        "image": "petfood/f4.jpg",
+        "image": "petfood/f04.jpg",
         "ingredients": ["Salmon", "Fish Broth", "Rice", "Vitamins", "Minerals"],
         "nutritional_info": {
             "Protein": "14%",
@@ -98,7 +98,7 @@
         "is_active": true,
         "stock_quantity": 2,
         "description": "Nutrient-rich food designed for small breed puppies",
-        "image": "petfood/f5.jpg",
+        "image": "petfood/f05.jpg",
         "ingredients": ["Chicken", "Sweet Potato", "Fish Oil", "Probiotics", "Vitamins"],
         "nutritional_info": {
             "Protein": "30%",
@@ -120,7 +120,7 @@
         "is_active": true,
         "stock_quantity": 70,
         "description": "Low-fat formula for senior cats with joint support",
-        "image": "petfood/f6.jpg",
+        "image": "petfood/f06.jpg",
         "ingredients": ["Turkey", "Rice", "Glucosamine", "Chondroitin", "Vitamins"],
         "nutritional_info": {
             "Protein": "26%",
@@ -142,7 +142,7 @@
         "is_active": true,
         "stock_quantity": 17,
         "description": "Small training treats perfect for positive reinforcement",
-        "image": "petfood/f7.jpg",
+        "image": "petfood/f07.jpg",
         "ingredients": ["Chicken", "Rice Flour", "Natural Flavors", "Preservatives"],
         "nutritional_info": {
             "Protein": "20%",
@@ -164,7 +164,7 @@
         "is_active": true,
         "stock_quantity": 500,
         "description": "Crunchy treats with real tuna flavor cats love",
-        "image": "petfood/f8.jpg",
+        "image": "petfood/f08.jpg",
         "ingredients": ["Tuna", "Rice", "Corn", "Natural Flavors", "Vitamins"],
         "nutritional_info": {
             "Protein": "18%",
@@ -186,7 +186,7 @@
         "is_active": true,
         "stock_quantity": 170,
         "description": "Grain-free formula with lamb and sweet potato",
-        "image": "petfood/f9.jpg",
+        "image": "petfood/f09.jpg",
         "ingredients": ["Lamb", "Sweet Potato", "Peas", "Fish Oil", "Vitamins"],
         "nutritional_info": {
             "Protein": "26%",
