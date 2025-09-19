@@ -534,7 +534,7 @@ Resources:
                       aws s3api delete-bucket --bucket "$bucket" || true
                     fi
                     # Bootstrap again
-                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} a
                   else
                     STACK_STATUS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
                     if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
@@ -1207,7 +1207,7 @@ Resources:
                   - cloudformation:DescribeStacks
                 Resource: "*"
 
-  # Lambda function to clean up retained resources after Step Function completes
+  # Lambda function to create cleanup log and schedule delayed resource cleanup
   rCleanupCompletionFunction:
     Type: AWS::Lambda::Function
     DeletionPolicy: Retain
@@ -1221,7 +1221,9 @@ Resources:
       Code:
         ZipFile: !Sub |
           import boto3
+          import json
           import time
+          from datetime import datetime, timedelta
 
           def handler(event, context):
               stack_name = event.get('StackName')
@@ -1229,70 +1231,113 @@ Resources:
                   print("No stack name provided")
                   return
 
-              # Wait a bit to ensure all cleanup operations are complete
-              time.sleep(30)
-
               try:
-                  cf_client = boto3.client('cloudformation')
+                  logs_client = boto3.client('logs')
+                  events_client = boto3.client('events')
 
-                  # List of resources to delete (in order)
-                  resources_to_delete = [
-                      f"{stack_name}-cdk-cleanup",  # Step Function
-                      f"{stack_name}-cdk-stack-lister",  # Lambda function
-                  ]
+                  # Create cleanup log group with 1-week retention (the only resource we keep)
+                  log_group_name = f"/aws/lambda/{stack_name}-cleanup-log"
 
-                  # Delete Step Function
                   try:
-                      sf_client = boto3.client('stepfunctions')
-                      sf_arn = f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup"
-                      sf_client.delete_state_machine(stateMachineArn=sf_arn)
-                      print(f"Deleted Step Function: {sf_arn}")
-                  except Exception as e:
-                      print(f"Error deleting Step Function: {str(e)}")
+                      logs_client.create_log_group(logGroupName=log_group_name)
+                      logs_client.put_retention_policy(
+                          logGroupName=log_group_name,
+                          retentionInDays=7
+                      )
+                      print(f"Created cleanup log group: {log_group_name}")
+                  except logs_client.exceptions.ResourceAlreadyExistsException:
+                      print(f"Log group already exists: {log_group_name}")
 
-                  # Delete Lambda function
+                  # Log cleanup completion with timestamp and summary
+                  cleanup_summary = {
+                      "timestamp": datetime.utcnow().isoformat(),
+                      "stack_name": stack_name,
+                      "cleanup_status": "completed",
+                      "step_function_arn": f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup",
+                      "cleanup_functions": [
+                          f"{stack_name}-cdk-stack-lister",
+                          f"{stack_name}-cleanup-completion",
+                          f"{stack_name}-cdk-staging-cleanup"
+                      ],
+                      "grace_period_hours": 48,
+                      "scheduled_deletion_time": (datetime.utcnow() + timedelta(hours=48)).isoformat(),
+                      "troubleshooting_note": "Cleanup resources will remain available for 48 hours for troubleshooting before automatic deletion"
+                  }
+
                   try:
-                      lambda_client = boto3.client('lambda')
-                      lambda_client.delete_function(FunctionName=f"{stack_name}-cdk-stack-lister")
-                      print(f"Deleted Lambda function: {stack_name}-cdk-stack-lister")
-                  except Exception as e:
-                      print(f"Error deleting Lambda function: {str(e)}")
+                      log_stream_name = f"cleanup-{int(time.time())}"
+                      logs_client.create_log_stream(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name
+                      )
 
-                  # Delete EventBridge rules
+                      logs_client.put_log_events(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name,
+                          logEvents=[
+                              {
+                                  'timestamp': int(time.time() * 1000),
+                                  'message': json.dumps(cleanup_summary, indent=2)
+                              }
+                          ]
+                      )
+                      print(f"Logged cleanup summary to {log_group_name}/{log_stream_name}")
+                  except Exception as e:
+                      print(f"Error creating cleanup log: {str(e)}")
+
+                  # Schedule delayed cleanup of resources after 48-hour grace period
+                  cleanup_time = datetime.utcnow() + timedelta(hours=48)
+                  schedule_expression = f"at({cleanup_time.strftime('%Y-%m-%dT%H:%M:%S')})"
+
+                  rule_name = f"{stack_name}-delayed-cleanup"
+
                   try:
-                      events_client = boto3.client('events')
+                      # Create EventBridge rule for delayed cleanup
+                      events_client.put_rule(
+                          Name=rule_name,
+                          ScheduleExpression=schedule_expression,
+                          Description=f"Delayed cleanup for {stack_name} cleanup resources after 48-hour grace period",
+                          State='ENABLED'
+                      )
 
-                      # Get rules that match our stack
-                      rules = events_client.list_rules()['Rules']
-                      for rule in rules:
-                          if stack_name in rule.get('Description', '') or stack_name in rule['Name']:
-                              try:
-                                  # Remove targets first
-                                  targets = events_client.list_targets_by_rule(Rule=rule['Name'])
-                                  if targets['Targets']:
-                                      target_ids = [target['Id'] for target in targets['Targets']]
-                                      events_client.remove_targets(Rule=rule['Name'], Ids=target_ids)
+                      # Add target to invoke delayed cleanup function
+                      events_client.put_targets(
+                          Rule=rule_name,
+                          Targets=[
+                              {
+                                  'Id': '1',
+                                  'Arn': f"arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:{stack_name}-delayed-cleanup",
+                                  'Input': json.dumps({
+                                      'StackName': stack_name,
+                                      'LogGroupName': log_group_name
+                                  })
+                              }
+                          ]
+                      )
 
-                                  # Delete rule
-                                  events_client.delete_rule(Name=rule['Name'])
-                                  print(f"Deleted EventBridge rule: {rule['Name']}")
-                              except Exception as e:
-                                  print(f"Error deleting rule {rule['Name']}: {str(e)}")
+                      print(f"Scheduled delayed cleanup for {cleanup_time.isoformat()} UTC")
+                      print(f"Cleanup resources will remain available for troubleshooting until then")
+
                   except Exception as e:
-                      print(f"Error deleting EventBridge rules: {str(e)}")
+                      print(f"Error scheduling delayed cleanup: {str(e)}")
+                      # Fallback: still complete normally but without delayed deletion
 
-                  # Delete IAM roles (these will be deleted automatically when no longer referenced)
-                  print("Cleanup completion function executed successfully")
-
-                  # Finally, delete this function itself
-                  try:
-                      lambda_client.delete_function(FunctionName=f"{stack_name}-cleanup-completion")
-                      print("Deleted cleanup completion function")
-                  except Exception as e:
-                      print(f"Error deleting cleanup completion function: {str(e)}")
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'Cleanup completed successfully',
+                          'log_group': log_group_name,
+                          'grace_period_hours': 48,
+                          'scheduled_deletion': cleanup_time.isoformat()
+                      })
+                  }
 
               except Exception as e:
                   print(f"Error in cleanup completion: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
 
   # IAM Role for Cleanup Completion Lambda
   rCleanupCompletionRole:
@@ -1314,6 +1359,167 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # CloudWatch Logs permissions for creating cleanup log
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-cleanup-log*"
+              # EventBridge permissions for scheduling delayed cleanup
+              - Effect: Allow
+                Action:
+                  - events:PutRule
+                  - events:PutTargets
+                Resource:
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-delayed-cleanup"
+              # Lambda permissions for scheduled cleanup function
+              - Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-delayed-cleanup"
+
+  # Lambda function for delayed cleanup of cleanup resources
+  rDelayedCleanupFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-delayed-cleanup
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rDelayedCleanupRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          import json
+          import time
+
+          def handler(event, context):
+              stack_name = event.get('StackName')
+              log_group_name = event.get('LogGroupName')
+
+              if not stack_name:
+                  print("No stack name provided")
+                  return
+
+              try:
+                  # Log final cleanup action
+                  if log_group_name:
+                      logs_client = boto3.client('logs')
+                      try:
+                          log_stream_name = f"delayed-cleanup-{int(time.time())}"
+                          logs_client.create_log_stream(
+                              logGroupName=log_group_name,
+                              logStreamName=log_stream_name
+                          )
+
+                          cleanup_message = {
+                              "timestamp": time.time(),
+                              "message": f"Performing delayed cleanup of cleanup resources for {stack_name}",
+                              "grace_period_expired": True,
+                              "resources_being_deleted": [
+                                  f"{stack_name}-cdk-cleanup",
+                                  f"{stack_name}-cdk-stack-lister",
+                                  f"{stack_name}-cleanup-completion",
+                                  f"{stack_name}-delayed-cleanup",
+                                  f"{stack_name}-delayed-cleanup-rule"
+                              ]
+                          }
+
+                          logs_client.put_log_events(
+                              logGroupName=log_group_name,
+                              logStreamName=log_stream_name,
+                              logEvents=[
+                                  {
+                                      'timestamp': int(time.time() * 1000),
+                                      'message': json.dumps(cleanup_message, indent=2)
+                                  }
+                              ]
+                          )
+                      except Exception as e:
+                          print(f"Error logging final cleanup: {str(e)}")
+
+                  # Delete Step Function
+                  try:
+                      sf_client = boto3.client('stepfunctions')
+                      sf_arn = f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup"
+                      sf_client.delete_state_machine(stateMachineArn=sf_arn)
+                      print(f"Deleted Step Function: {sf_arn}")
+                  except Exception as e:
+                      print(f"Error deleting Step Function: {str(e)}")
+
+                  # Delete Lambda functions
+                  lambda_client = boto3.client('lambda')
+                  functions_to_delete = [
+                      f"{stack_name}-cdk-stack-lister",
+                      f"{stack_name}-cleanup-completion"
+                  ]
+
+                  for function_name in functions_to_delete:
+                      try:
+                          lambda_client.delete_function(FunctionName=function_name)
+                          print(f"Deleted Lambda function: {function_name}")
+                      except Exception as e:
+                          print(f"Error deleting Lambda function {function_name}: {str(e)}")
+
+                  # Delete EventBridge rule that triggered this function
+                  try:
+                      events_client = boto3.client('events')
+                      rule_name = f"{stack_name}-delayed-cleanup"
+
+                      # Remove targets first
+                      events_client.remove_targets(
+                          Rule=rule_name,
+                          Ids=['1']
+                      )
+
+                      # Delete rule
+                      events_client.delete_rule(Name=rule_name)
+                      print(f"Deleted EventBridge rule: {rule_name}")
+                  except Exception as e:
+                      print(f"Error deleting EventBridge rule: {str(e)}")
+
+                  print("Delayed cleanup completed successfully")
+
+                  # Finally, delete this function itself
+                  try:
+                      lambda_client.delete_function(FunctionName=f"{stack_name}-delayed-cleanup")
+                      print("Deleted delayed cleanup function")
+                  except Exception as e:
+                      print(f"Error deleting delayed cleanup function: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error in delayed cleanup: {str(e)}")
+
+  # IAM Role for Delayed Cleanup Lambda
+  rDelayedCleanupRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DelayedCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Logs permissions for final logging
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-cleanup-log*"
               # Step Function deletion - specific to this stack's state machine
               - Effect: Allow
                 Action:
@@ -1326,27 +1532,13 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cdk-stack-lister"
                   - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-cleanup-completion"
-              # EventBridge rules - list and manage rules for this stack
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-delayed-cleanup"
+              # EventBridge rules - manage this stack's cleanup rule
               - Effect: Allow
                 Action:
-                  - events:ListRules
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - events:ListTargetsByRule
                   - events:RemoveTargets
                   - events:DeleteRule
-                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/*"
-                Condition:
-                  StringLike:
-                    "events:source": "aws.cloudformation"
-              # IAM role management - only for roles created by this stack
-              - Effect: Allow
-                Action:
-                  - iam:DeleteRole
-                  - iam:DetachRolePolicy
-                  - iam:DeleteRolePolicy
-                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-delayed-cleanup"
 
   # Lambda function to clean up CDK staging bucket
   rCDKStagingBucketCleanupFunction:
