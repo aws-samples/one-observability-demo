@@ -24,6 +24,12 @@ Metadata:
           - pApplicationName
           - pDisableCleanup
       - Label:
+          default: Enhanced Cleanup Configuration
+        Parameters:
+          - pCleanupMode
+          - pTroubleshootingGracePeriodHours
+          - pCleanupLogRetentionDays
+      - Label:
           default: User Defined Tags
         Parameters:
           - pUserDefinedTagKey1
@@ -47,6 +53,30 @@ Parameters:
       - 'true'
       - 'false'
     ConstraintDescription: Must be either 'true' or 'false'
+
+  pCleanupMode:
+    Type: String
+    Description: Cleanup behavior mode - preserve for troubleshooting or auto-cleanup
+    Default: 'immediate'
+    AllowedValues:
+      - 'preserve'
+      - 'immediate'
+    ConstraintDescription: Must be either 'preserve' (keeps cleanup resources for troubleshooting) or 'immediate' (deletes everything immediately)
+
+  pTroubleshootingGracePeriodHours:
+    Type: Number
+    Description: Hours to keep cleanup resources available for troubleshooting (only applies in preserve mode)
+    Default: 48
+    MinValue: 1
+    MaxValue: 168
+    ConstraintDescription: Must be between 1 and 168 hours (1 week)
+
+  pCleanupLogRetentionDays:
+    Type: Number
+    Description: Days to retain cleanup logs for troubleshooting
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+    ConstraintDescription: Must be a valid CloudWatch Logs retention period
 
   pConfigFileUrl:
     Type: String
@@ -229,6 +259,9 @@ Conditions:
         - !Ref pUserDefinedTagValue5
         - ''
 
+  # Enhanced cleanup conditions
+  cPreserveCleanupResources: !Equals [!Ref pCleanupMode, 'preserve']
+
 Resources:
   # Lambda execution role for resource cleanup
   rResourceCleanupRole:
@@ -257,6 +290,38 @@ Resources:
                 Resource:
                   - !Sub ${rConfigBucket.Arn}/*
                   - !GetAtt rConfigBucket.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-resource-cleanup-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
   # Lambda function to clean up resources
   rResourceCleanupFunction:
@@ -288,25 +353,13 @@ Resources:
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
-
-  # Create S3 bucket to store configuration files
-  rConfigBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-config-bucket
+          Value: !Sub ${AWS::StackName}-resource-cleanup-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
         - !If
           - cCreateTag1
           - Key: !Ref pUserDefinedTagKey1
@@ -333,7 +386,55 @@ Resources:
             Value: !Ref pUserDefinedTagValue5
           - !Ref AWS::NoValue
 
-  # Custom resource to clean up resources on deletion
+  # Create S3 bucket to store configuration files
+  rConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Custom resource to clean up resources on deletion. Custom resource doesn't support tags
   rResourceCleanup:
     Type: AWS::CloudFormation::CustomResource
     Properties:
@@ -358,6 +459,48 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
+
+  # Create uniquely named cleanup log group (the only resource we keep long-term)
+  rCleanupLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /${AWS::StackName}-cleanup-log-${AWS::AccountId}-${AWS::Region}
+      RetentionInDays: !Ref pCleanupLogRetentionDays
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cleanup-log
+        - Key: Purpose
+          Value: 'Cleanup troubleshooting and audit trail'
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -389,6 +532,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-codebuild-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
         - !If
           - cCreateTag1
           - Key: !Ref pUserDefinedTagKey1
@@ -419,6 +566,7 @@ Resources:
   rCDKDeploymentWaitConditionHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
 
+
   # Create wait condition to ensure CodeBuild project completes successfully
   rCDKDeploymentWaitCondition:
     Type: AWS::CloudFormation::WaitCondition
@@ -426,6 +574,7 @@ Resources:
       Handle: !Ref rCDKDeploymentWaitConditionHandle
       Timeout: 3600
       Count: 1
+
 
   # Create CodeBuild project to orchestrate CDK deployment
   rCDKDeploymentProject:
@@ -721,6 +870,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-cdk-deployment
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
         - !If
           - cCreateTag1
           - Key: !Ref pUserDefinedTagKey1
@@ -755,6 +908,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt rStartDeploymentFunction.Arn
       CodeBuildProjectName: !Ref rCDKDeploymentProject
+
 
   # Create Lambda function to start the CodeBuild project
   rStartDeploymentFunction:
@@ -796,6 +950,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-start-deployment-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
         - !If
           - cCreateTag1
           - Key: !Ref pUserDefinedTagKey1
@@ -847,6 +1005,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-start-deployment-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
         - !If
           - cCreateTag1
           - Key: !Ref pUserDefinedTagKey1
@@ -881,6 +1043,38 @@ Resources:
     Properties:
       StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
       RoleArn: !GetAtt rCDKCleanupRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-cleanup
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
       DefinitionString: !Sub |
         {
           "Comment": "CDK Stack Cleanup State Machine",
@@ -1062,7 +1256,23 @@ Resources:
                 "FunctionName": "${rCDKStagingBucketCleanupFunction}",
                 "Payload": {}
               },
-              "Next": "CleanupComplete"
+              "Next": "ComprehensiveResourceCleanup"
+            },
+            "ComprehensiveResourceCleanup": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rComprehensiveResourceCleanupFunction}",
+                "Payload": {}
+              },
+              "Next": "CleanupComplete",
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "Next": "CleanupComplete",
+                  "Comment": "Continue to cleanup completion even if comprehensive cleanup fails"
+                }
+              ]
             },
             "CleanupComplete": {
               "Type": "Task",
@@ -1070,7 +1280,9 @@ Resources:
               "Parameters": {
                 "FunctionName": "${rCleanupCompletionFunction}",
                 "Payload": {
-                  "StackName": "${AWS::StackName}"
+                  "StackName": "${AWS::StackName}",
+                  "CleanupMode": "${pCleanupMode}",
+                  "GracePeriodHours": "${pTroubleshootingGracePeriodHours}"
                 }
               },
               "End": true
@@ -1117,6 +1329,39 @@ Resources:
                 Resource:
                   - !GetAtt rCleanupCompletionFunction.Arn
                   - !GetAtt rCDKStagingBucketCleanupFunction.Arn
+                  - !GetAtt rComprehensiveResourceCleanupFunction.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-cleanup-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
@@ -1129,6 +1374,38 @@ Resources:
       Handler: index.handler
       Role: !GetAtt rCDKStackListerRole.Arn
       Timeout: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-stack-lister
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
       Code:
         ZipFile: !Sub |
           import boto3
@@ -1206,6 +1483,38 @@ Resources:
                   - cloudformation:ListStacks
                   - cloudformation:DescribeStacks
                 Resource: "*"
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-stack-lister-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
   # Lambda function to create cleanup log and schedule delayed resource cleanup
   rCleanupCompletionFunction:
@@ -1218,6 +1527,38 @@ Resources:
       Handler: index.handler
       Role: !GetAtt rCleanupCompletionRole.Arn
       Timeout: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cleanup-completion-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
       Code:
         ZipFile: !Sub |
           import boto3
@@ -1227,6 +1568,9 @@ Resources:
 
           def handler(event, context):
               stack_name = event.get('StackName')
+              cleanup_mode = event.get('CleanupMode', 'immediate')
+              grace_period_hours = int(event.get('GracePeriodHours', 48))
+
               if not stack_name:
                   print("No stack name provided")
                   return
@@ -1235,33 +1579,25 @@ Resources:
                   logs_client = boto3.client('logs')
                   events_client = boto3.client('events')
 
-                  # Create cleanup log group with 1-week retention (the only resource we keep)
-                  log_group_name = f"/aws/lambda/{stack_name}-cleanup-log"
-
-                  try:
-                      logs_client.create_log_group(logGroupName=log_group_name)
-                      logs_client.put_retention_policy(
-                          logGroupName=log_group_name,
-                          retentionInDays=7
-                      )
-                      print(f"Created cleanup log group: {log_group_name}")
-                  except logs_client.exceptions.ResourceAlreadyExistsException:
-                      print(f"Log group already exists: {log_group_name}")
+                  # Use the pre-existing uniquely named cleanup log group
+                  log_group_name = f"/{stack_name}-cleanup-log-${AWS::AccountId}-${AWS::Region}"
 
                   # Log cleanup completion with timestamp and summary
                   cleanup_summary = {
                       "timestamp": datetime.utcnow().isoformat(),
                       "stack_name": stack_name,
                       "cleanup_status": "completed",
+                      "cleanup_mode": cleanup_mode,
                       "step_function_arn": f"arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:{stack_name}-cdk-cleanup",
                       "cleanup_functions": [
                           f"{stack_name}-cdk-stack-lister",
                           f"{stack_name}-cleanup-completion",
-                          f"{stack_name}-cdk-staging-cleanup"
+                          f"{stack_name}-cdk-staging-cleanup",
+                          f"{stack_name}-comprehensive-resource-cleanup"
                       ],
-                      "grace_period_hours": 48,
-                      "scheduled_deletion_time": (datetime.utcnow() + timedelta(hours=48)).isoformat(),
-                      "troubleshooting_note": "Cleanup resources will remain available for 48 hours for troubleshooting before automatic deletion"
+                      "grace_period_hours": grace_period_hours,
+                      "scheduled_deletion_time": (datetime.utcnow() + timedelta(hours=grace_period_hours)).isoformat() if cleanup_mode == 'preserve' else None,
+                      "troubleshooting_note": f"Cleanup resources will remain available for {grace_period_hours} hours for troubleshooting before automatic deletion" if cleanup_mode == 'preserve' else "Cleanup resources will be deleted immediately (immediate mode)"
                   }
 
                   try:
@@ -1285,42 +1621,46 @@ Resources:
                   except Exception as e:
                       print(f"Error creating cleanup log: {str(e)}")
 
-                  # Schedule delayed cleanup of resources after 48-hour grace period
-                  cleanup_time = datetime.utcnow() + timedelta(hours=48)
-                  schedule_expression = f"at({cleanup_time.strftime('%Y-%m-%dT%H:%M:%S')})"
+                  # Only schedule delayed cleanup in preserve mode
+                  if cleanup_mode == 'preserve':
+                      # Schedule delayed cleanup of resources after grace period
+                      cleanup_time = datetime.utcnow() + timedelta(hours=grace_period_hours)
+                      schedule_expression = f"at({cleanup_time.strftime('%Y-%m-%dT%H:%M:%S')})"
 
-                  rule_name = f"{stack_name}-delayed-cleanup"
+                      rule_name = f"{stack_name}-delayed-cleanup"
 
-                  try:
-                      # Create EventBridge rule for delayed cleanup
-                      events_client.put_rule(
-                          Name=rule_name,
-                          ScheduleExpression=schedule_expression,
-                          Description=f"Delayed cleanup for {stack_name} cleanup resources after 48-hour grace period",
-                          State='ENABLED'
-                      )
+                      try:
+                          # Create EventBridge rule for delayed cleanup
+                          events_client.put_rule(
+                              Name=rule_name,
+                              ScheduleExpression=schedule_expression,
+                              Description=f"Delayed cleanup for {stack_name} cleanup resources after {grace_period_hours}-hour grace period",
+                              State='ENABLED'
+                          )
 
-                      # Add target to invoke delayed cleanup function
-                      events_client.put_targets(
-                          Rule=rule_name,
-                          Targets=[
-                              {
-                                  'Id': '1',
-                                  'Arn': f"arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:{stack_name}-delayed-cleanup",
-                                  'Input': json.dumps({
-                                      'StackName': stack_name,
-                                      'LogGroupName': log_group_name
-                                  })
-                              }
-                          ]
-                      )
+                          # Add target to invoke delayed cleanup function
+                          events_client.put_targets(
+                              Rule=rule_name,
+                              Targets=[
+                                  {
+                                      'Id': '1',
+                                      'Arn': f"arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:{stack_name}-delayed-cleanup",
+                                      'Input': json.dumps({
+                                          'StackName': stack_name,
+                                          'LogGroupName': log_group_name
+                                      })
+                                  }
+                              ]
+                          )
 
-                      print(f"Scheduled delayed cleanup for {cleanup_time.isoformat()} UTC")
-                      print(f"Cleanup resources will remain available for troubleshooting until then")
+                          print(f"Scheduled delayed cleanup for {cleanup_time.isoformat()} UTC")
+                          print(f"Cleanup resources will remain available for troubleshooting until then")
 
-                  except Exception as e:
-                      print(f"Error scheduling delayed cleanup: {str(e)}")
-                      # Fallback: still complete normally but without delayed deletion
+                      except Exception as e:
+                          print(f"Error scheduling delayed cleanup: {str(e)}")
+                          # Fallback: still complete normally but without delayed deletion
+                  else:
+                      print(f"Immediate cleanup mode: cleanup resources will be deleted with stack deletion")
 
                   return {
                       'statusCode': 200,
@@ -1379,10 +1719,43 @@ Resources:
                 Action:
                   - lambda:AddPermission
                 Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-delayed-cleanup"
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cleanup-completion-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
-  # Lambda function for delayed cleanup of cleanup resources
+  # Lambda function for delayed cleanup of cleanup resources (only created in preserve mode)
   rDelayedCleanupFunction:
     Type: AWS::Lambda::Function
+    Condition: cPreserveCleanupResources
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
@@ -1391,6 +1764,38 @@ Resources:
       Handler: index.handler
       Role: !GetAtt rDelayedCleanupRole.Arn
       Timeout: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-delayed-cleanup-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
       Code:
         ZipFile: !Sub |
           import boto3
@@ -1494,9 +1899,10 @@ Resources:
               except Exception as e:
                   print(f"Error in delayed cleanup: {str(e)}")
 
-  # IAM Role for Delayed Cleanup Lambda
+  # IAM Role for Delayed Cleanup Lambda (only created in preserve mode)
   rDelayedCleanupRole:
     Type: AWS::IAM::Role
+    Condition: cPreserveCleanupResources
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
@@ -1538,7 +1944,564 @@ Resources:
                 Action:
                   - events:RemoveTargets
                   - events:DeleteRule
-                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-delayed-cleanup"
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule:${AWS::StackName}-delayed-cleanup"
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-delayed-cleanup-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Comprehensive resource cleanup Lambda function
+  rComprehensiveResourceCleanupFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-comprehensive-resource-cleanup
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rComprehensiveResourceCleanupRole.Arn
+      Timeout: 900  # 15 minutes for comprehensive cleanup
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-comprehensive-resource-cleanup-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+      Code:
+        ZipFile: !Sub |
+          import boto3
+          import json
+          import time
+          from datetime import datetime
+
+          def handler(event, context):
+              """
+              Comprehensive cleanup of workshop resources by tags
+              Mirrors functionality from cleanup-resources.ts script
+              """
+
+              # Initialize AWS clients
+              logs_client = boto3.client('logs')
+              ec2_client = boto3.client('ec2')
+              rds_client = boto3.client('rds')
+              ecs_client = boto3.client('ecs')
+              s3_client = boto3.client('s3')
+              resource_groups_client = boto3.client('resourcegroupstaggingapi')
+              ssm_client = boto3.client('ssm')
+              lambda_client = boto3.client('lambda')
+              iam_client = boto3.client('iam')
+
+              application_name = "${pApplicationName}"
+              environment = "non-prod"
+
+              # Log to the cleanup log group
+              log_group_name = f"/${AWS::StackName}-cleanup-log-${AWS::AccountId}-${AWS::Region}"
+              cleanup_results = {
+                  "timestamp": datetime.utcnow().isoformat(),
+                  "cleanup_type": "comprehensive_resource_cleanup",
+                  "results": {}
+              }
+
+              try:
+                  # 1. Clean up CloudWatch Log Groups
+                  log_groups_deleted = cleanup_cloudwatch_logs(logs_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["cloudwatch_logs"] = log_groups_deleted
+
+                  # 2. Clean up EBS Volumes
+                  ebs_volumes_deleted = cleanup_ebs_volumes(ec2_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["ebs_volumes"] = ebs_volumes_deleted
+
+                  # 3. Clean up EBS Snapshots
+                  ebs_snapshots_deleted = cleanup_ebs_snapshots(ec2_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["ebs_snapshots"] = ebs_snapshots_deleted
+
+                  # 4. Clean up RDS Backups
+                  rds_backups_deleted = cleanup_rds_backups(rds_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["rds_backups"] = rds_backups_deleted
+
+                  # 5. Clean up ECS Task Definitions
+                  ecs_tasks_deleted = cleanup_ecs_task_definitions(ecs_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["ecs_task_definitions"] = ecs_tasks_deleted
+
+                  # 6. Clean up S3 Buckets
+                  s3_buckets_deleted = cleanup_s3_buckets(s3_client, resource_groups_client, application_name, environment)
+                  cleanup_results["results"]["s3_buckets"] = s3_buckets_deleted
+
+                  # 7. Clean up SSM Parameters
+                  ssm_params_deleted = cleanup_ssm_parameters(ssm_client, application_name, environment)
+                  cleanup_results["results"]["ssm_parameters"] = ssm_params_deleted
+
+                  # 8. Clean up Lambda Functions
+                  lambda_functions_deleted = cleanup_lambda_functions(lambda_client, application_name, environment)
+                  cleanup_results["results"]["lambda_functions"] = lambda_functions_deleted
+
+                  # 9. Clean up IAM Roles
+                  iam_roles_deleted = cleanup_iam_roles(iam_client, application_name, environment)
+                  cleanup_results["results"]["iam_roles"] = iam_roles_deleted
+
+                  # 10. Clean up IAM Policies
+                  iam_policies_deleted = cleanup_iam_policies(iam_client, application_name, environment)
+                  cleanup_results["results"]["iam_policies"] = iam_policies_deleted
+
+                  total_deleted = sum(cleanup_results["results"].values())
+                  cleanup_results["total_resources_deleted"] = total_deleted
+
+                  # Log results to cleanup log group
+                  try:
+                      log_stream_name = f"comprehensive-cleanup-{int(time.time())}"
+                      logs_client.create_log_stream(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name
+                      )
+                      logs_client.put_log_events(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name,
+                          logEvents=[{
+                              'timestamp': int(time.time() * 1000),
+                              'message': json.dumps(cleanup_results, indent=2)
+                          }]
+                      )
+                  except Exception as e:
+                      print(f"Error logging comprehensive cleanup results: {str(e)}")
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': f'Comprehensive cleanup completed. Deleted {total_deleted} resources.',
+                          'details': cleanup_results["results"]
+                      })
+                  }
+
+              except Exception as e:
+                  error_msg = f"Error in comprehensive cleanup: {str(e)}"
+                  print(error_msg)
+
+                  # Log error
+                  cleanup_results["error"] = error_msg
+                  try:
+                      log_stream_name = f"comprehensive-cleanup-error-{int(time.time())}"
+                      logs_client.create_log_stream(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name
+                      )
+                      logs_client.put_log_events(
+                          logGroupName=log_group_name,
+                          logStreamName=log_stream_name,
+                          logEvents=[{
+                              'timestamp': int(time.time() * 1000),
+                              'message': json.dumps(cleanup_results, indent=2)
+                          }]
+                      )
+                  except:
+                      pass
+
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': error_msg})
+                  }
+
+          def get_resources_by_tags(resource_groups_client, resource_type, application_name, environment):
+              """Get resources by tags using Resource Groups API"""
+              try:
+                  resources = []
+                  paginator = resource_groups_client.get_paginator('get_resources')
+
+                  page_iterator = paginator.paginate(
+                      ResourceTypeFilters=[resource_type],
+                      TagFilters=[
+                          {'Key': 'application', 'Values': [application_name]},
+                          {'Key': 'environment', 'Values': [environment]}
+                      ]
+                  )
+
+                  for page in page_iterator:
+                      if 'ResourceTagMappingList' in page:
+                          for resource in page['ResourceTagMappingList']:
+                              if resource.get('ResourceARN'):
+                                  resources.append(resource['ResourceARN'])
+
+                  return resources
+              except Exception as e:
+                  print(f"Error getting resources for {resource_type}: {str(e)}")
+                  return []
+
+          def cleanup_cloudwatch_logs(logs_client, resource_groups_client, application_name, environment):
+              """Clean up CloudWatch Log Groups"""
+              deleted_count = 0
+              try:
+                  resources = get_resources_by_tags(resource_groups_client, 'logs:log-group', application_name, environment)
+
+                  for resource_arn in resources:
+                      # Extract log group name from ARN: arn:aws:logs:region:account:log-group:NAME:*
+                      log_group_name = ':'.join(resource_arn.split(':')[6:]).replace(':*', '')
+
+                      try:
+                          logs_client.delete_log_group(logGroupName=log_group_name)
+                          print(f"Deleted log group: {log_group_name}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to delete log group {log_group_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up CloudWatch logs: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_ebs_volumes(ec2_client, resource_groups_client, application_name, environment):
+              """Clean up EBS Volumes"""
+              deleted_count = 0
+              try:
+                  resources = get_resources_by_tags(resource_groups_client, 'ec2:volume', application_name, environment)
+
+                  for resource_arn in resources:
+                      # Extract volume ID from ARN
+                      volume_id = resource_arn.split('/')[-1]
+
+                      try:
+                          # Check if volume is available (not attached)
+                          response = ec2_client.describe_volumes(VolumeIds=[volume_id])
+                          volume = response['Volumes'][0]
+
+                          if volume['State'] == 'available':
+                              ec2_client.delete_volume(VolumeId=volume_id)
+                              print(f"Deleted EBS volume: {volume_id}")
+                              deleted_count += 1
+                          else:
+                              print(f"Skipping volume {volume_id} - state: {volume['State']}")
+                      except Exception as e:
+                          print(f"Failed to delete volume {volume_id}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up EBS volumes: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_ebs_snapshots(ec2_client, resource_groups_client, application_name, environment):
+              """Clean up EBS Snapshots"""
+              deleted_count = 0
+              try:
+                  resources = get_resources_by_tags(resource_groups_client, 'ec2:snapshot', application_name, environment)
+
+                  for resource_arn in resources:
+                      # Extract snapshot ID from ARN
+                      snapshot_id = resource_arn.split('/')[-1]
+
+                      try:
+                          ec2_client.delete_snapshot(SnapshotId=snapshot_id)
+                          print(f"Deleted EBS snapshot: {snapshot_id}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to delete snapshot {snapshot_id}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up EBS snapshots: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_rds_backups(rds_client, resource_groups_client, application_name, environment):
+              """Clean up RDS Backups (DB and Cluster Snapshots)"""
+              deleted_count = 0
+              try:
+                  # Clean up DB snapshots
+                  db_snapshots = get_resources_by_tags(resource_groups_client, 'rds:db-snapshot', application_name, environment)
+                  for resource_arn in db_snapshots:
+                      snapshot_id = resource_arn.split(':')[-1]
+                      try:
+                          rds_client.delete_db_snapshot(DBSnapshotIdentifier=snapshot_id)
+                          print(f"Deleted DB snapshot: {snapshot_id}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to delete DB snapshot {snapshot_id}: {str(e)}")
+
+                  # Clean up cluster snapshots
+                  cluster_snapshots = get_resources_by_tags(resource_groups_client, 'rds:cluster-snapshot', application_name, environment)
+                  for resource_arn in cluster_snapshots:
+                      snapshot_id = resource_arn.split(':')[-1]
+                      try:
+                          rds_client.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapshot_id)
+                          print(f"Deleted cluster snapshot: {snapshot_id}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to delete cluster snapshot {snapshot_id}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up RDS backups: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_ecs_task_definitions(ecs_client, resource_groups_client, application_name, environment):
+              """Clean up ECS Task Definitions"""
+              deleted_count = 0
+              try:
+                  resources = get_resources_by_tags(resource_groups_client, 'ecs:task-definition', application_name, environment)
+
+                  for task_definition_arn in resources:
+                      try:
+                          ecs_client.deregister_task_definition(taskDefinition=task_definition_arn)
+                          print(f"Deregistered task definition: {task_definition_arn}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to deregister task definition {task_definition_arn}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up ECS task definitions: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_s3_buckets(s3_client, resource_groups_client, application_name, environment):
+              """Clean up S3 Buckets"""
+              deleted_count = 0
+              try:
+                  resources = get_resources_by_tags(resource_groups_client, 's3:bucket', application_name, environment)
+
+                  for resource_arn in resources:
+                      # Extract bucket name from ARN
+                      bucket_name = resource_arn.split(':::')[-1]
+
+                      try:
+                          # Empty bucket first
+                          empty_s3_bucket(s3_client, bucket_name)
+
+                          # Delete bucket
+                          s3_client.delete_bucket(Bucket=bucket_name)
+                          print(f"Deleted S3 bucket: {bucket_name}")
+                          deleted_count += 1
+                      except Exception as e:
+                          print(f"Failed to delete bucket {bucket_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up S3 buckets: {str(e)}")
+
+              return deleted_count
+
+          def empty_s3_bucket(s3_client, bucket_name):
+              """Empty S3 bucket of all objects and versions"""
+              try:
+                  paginator = s3_client.get_paginator('list_object_versions')
+
+                  for page in paginator.paginate(Bucket=bucket_name):
+                      delete_keys = []
+
+                      if 'Versions' in page:
+                          delete_keys.extend([
+                              {'Key': obj['Key'], 'VersionId': obj['VersionId']}
+                              for obj in page['Versions']
+                          ])
+
+                      if 'DeleteMarkers' in page:
+                          delete_keys.extend([
+                              {'Key': obj['Key'], 'VersionId': obj['VersionId']}
+                              for obj in page['DeleteMarkers']
+                          ])
+
+                      if delete_keys:
+                          s3_client.delete_objects(
+                              Bucket=bucket_name,
+                              Delete={'Objects': delete_keys}
+                          )
+              except Exception as e:
+                  print(f"Error emptying bucket {bucket_name}: {str(e)}")
+
+          def cleanup_ssm_parameters(ssm_client, application_name, environment):
+              """Clean up SSM Parameters"""
+              deleted_count = 0
+              try:
+                  paginator = ssm_client.get_paginator('get_parameters_by_path')
+
+                  for page in paginator.paginate(Path='/', Recursive=True):
+                      if 'Parameters' in page:
+                          for parameter in page['Parameters']:
+                              parameter_name = parameter['Name']
+
+                              try:
+                                  # Check if parameter has workshop tags
+                                  tags_response = ssm_client.list_tags_for_resource(
+                                      ResourceType='Parameter',
+                                      ResourceId=parameter_name
+                                  )
+
+                                  tags = {tag['Key']: tag['Value'] for tag in tags_response.get('TagList', [])}
+
+                                  if (tags.get('application') == application_name and
+                                      tags.get('environment') == environment):
+
+                                      ssm_client.delete_parameter(Name=parameter_name)
+                                      print(f"Deleted SSM parameter: {parameter_name}")
+                                      deleted_count += 1
+
+                              except Exception as e:
+                                  print(f"Failed to delete parameter {parameter_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up SSM parameters: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_lambda_functions(lambda_client, application_name, environment):
+              """Clean up Lambda Functions"""
+              deleted_count = 0
+              try:
+                  paginator = lambda_client.get_paginator('list_functions')
+
+                  for page in paginator.paginate():
+                      if 'Functions' in page:
+                          for function in page['Functions']:
+                              function_name = function['FunctionName']
+                              function_arn = function['FunctionArn']
+
+                              try:
+                                  # Get function tags
+                                  tags_response = lambda_client.get_function(FunctionName=function_arn)
+                                  tags = tags_response.get('Tags', {})
+
+                                  if (tags.get('application') == application_name and
+                                      tags.get('environment') == environment):
+
+                                      lambda_client.delete_function(FunctionName=function_name)
+                                      print(f"Deleted Lambda function: {function_name}")
+                                      deleted_count += 1
+
+                              except Exception as e:
+                                  print(f"Failed to delete function {function_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up Lambda functions: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_iam_roles(iam_client, application_name, environment):
+              """Clean up IAM Roles"""
+              deleted_count = 0
+              try:
+                  paginator = iam_client.get_paginator('list_roles')
+
+                  for page in paginator.paginate():
+                      if 'Roles' in page:
+                          for role in page['Roles']:
+                              role_name = role['RoleName']
+
+                              try:
+                                  # Get role tags
+                                  role_detail = iam_client.get_role(RoleName=role_name)
+                                  tags = {tag['Key']: tag['Value'] for tag in role_detail.get('Role', {}).get('Tags', [])}
+
+                                  if (tags.get('application') == application_name and
+                                      tags.get('environment') == environment):
+
+                                      # Detach managed policies
+                                      attached_policies = iam_client.list_attached_role_policies(RoleName=role_name)
+                                      for policy in attached_policies.get('AttachedPolicies', []):
+                                          iam_client.detach_role_policy(
+                                              RoleName=role_name,
+                                              PolicyArn=policy['PolicyArn']
+                                          )
+
+                                      # Delete inline policies
+                                      inline_policies = iam_client.list_role_policies(RoleName=role_name)
+                                      for policy_name in inline_policies.get('PolicyNames', []):
+                                          iam_client.delete_role_policy(
+                                              RoleName=role_name,
+                                              PolicyName=policy_name
+                                          )
+
+                                      # Delete role
+                                      iam_client.delete_role(RoleName=role_name)
+                                      print(f"Deleted IAM role: {role_name}")
+                                      deleted_count += 1
+
+                              except Exception as e:
+                                  print(f"Failed to delete role {role_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up IAM roles: {str(e)}")
+
+              return deleted_count
+
+          def cleanup_iam_policies(iam_client, application_name, environment):
+              """Clean up IAM Policies"""
+              deleted_count = 0
+              try:
+                  paginator = iam_client.get_paginator('list_policies')
+
+                  for page in paginator.paginate(Scope='Local'):  # Only customer-managed policies
+                      if 'Policies' in page:
+                          for policy in page['Policies']:
+                              policy_name = policy['PolicyName']
+                              policy_arn = policy['Arn']
+
+                              try:
+                                  # Get policy tags
+                                  policy_detail = iam_client.get_policy(PolicyArn=policy_arn)
+                                  tags = {tag['Key']: tag['Value'] for tag in policy_detail.get('Policy', {}).get('Tags', [])}
+
+                                  if (tags.get('application') == application_name and
+                                      tags.get('environment') == environment):
+
+                                      iam_client.delete_policy(PolicyArn=policy_arn)
+                                      print(f"Deleted IAM policy: {policy_name}")
+                                      deleted_count += 1
+
+                              except Exception as e:
+                                  print(f"Failed to delete policy {policy_name}: {str(e)}")
+
+              except Exception as e:
+                  print(f"Error cleaning up IAM policies: {str(e)}")
+
+              return deleted_count
 
   # Lambda function to clean up CDK staging bucket
   rCDKStagingBucketCleanupFunction:
@@ -1551,6 +2514,38 @@ Resources:
       Handler: index.handler
       Role: !GetAtt rCDKStagingBucketCleanupRole.Arn
       Timeout: 300
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-staging-cleanup-function
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
       Code:
         ZipFile: !Sub |
           import boto3
@@ -1606,6 +2601,226 @@ Resources:
                   print(f"Error cleaning up CDK staging bucket: {str(e)}")
                   return {'statusCode': 500, 'body': f'Error: {str(e)}'}
 
+  # IAM Role for Comprehensive Resource Cleanup Lambda (Tag-Restricted)
+  rComprehensiveResourceCleanupRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-comprehensive-resource-cleanup-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+      Policies:
+        - PolicyName: ComprehensiveResourceCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Resource Groups Tagging API permissions (requires wildcard for discovery)
+              - Effect: Allow
+                Action:
+                  - tag:GetResources
+                  - resource-groups:*
+                Resource: "*"
+
+              # CloudWatch Logs permissions (tag-restricted where possible)
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:ListTagsLogGroup
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:DeleteLogGroup
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${AWS::StackName}-cleanup-log-${AWS::AccountId}-${AWS::Region}*"
+
+              # EC2 permissions for EBS volumes and snapshots (tag-restricted)
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeSnapshots
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ec2:DeleteVolume
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+              - Effect: Allow
+                Action:
+                  - ec2:DeleteSnapshot
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
+              # RDS permissions for backups (tag-restricted)
+              - Effect: Allow
+                Action:
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBClusterSnapshots
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - rds:DeleteDBSnapshot
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+              - Effect: Allow
+                Action:
+                  - rds:DeleteDBClusterSnapshot
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
+              # ECS permissions for task definitions (limited tag support, keep broader for discovery)
+              - Effect: Allow
+                Action:
+                  - ecs:ListTaskDefinitions
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DeregisterTaskDefinition
+                Resource: "*"
+
+              # S3 permissions for buckets (tag-restricted where possible)
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+              - Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteBucket
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
+              # SSM permissions for parameters (tag-restricted)
+              - Effect: Allow
+                Action:
+                  - ssm:DescribeParameters
+                  - ssm:GetParametersByPath
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:DeleteParameter
+                  - ssm:ListTagsForResource
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
+              # Lambda permissions for functions (tag-restricted)
+              - Effect: Allow
+                Action:
+                  - lambda:ListFunctions
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - lambda:GetFunction
+                  - lambda:DeleteFunction
+                  - lambda:ListTags
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
+              # IAM permissions for roles and policies (tag-restricted where supported)
+              - Effect: Allow
+                Action:
+                  - iam:ListRoles
+                  - iam:ListPolicies
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:DeleteRole
+                  - iam:ListAttachedRolePolicies
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:DeleteRolePolicy
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+              - Effect: Allow
+                Action:
+                  - iam:GetPolicy
+                  - iam:DeletePolicy
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/environment": "non-prod"
+
   # IAM Role for CDK Staging Bucket Cleanup Lambda
   rCDKStagingBucketCleanupRole:
     Type: AWS::IAM::Role
@@ -1636,6 +2851,38 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}'
                   - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}/*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-staging-bucket-cleanup-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
   # EventBridge Rule for Stack Deletion
   rStackDeletionRule:
@@ -1656,7 +2903,6 @@ Resources:
         - Arn: !GetAtt rCDKCleanupStateMachine.Arn
           Id: "CDKCleanupTarget"
           RoleArn: !GetAtt rEventBridgeRole.Arn
-
 
   # IAM Role for EventBridge to invoke Step Function
   rEventBridgeRole:
@@ -1680,6 +2926,38 @@ Resources:
                 Action:
                   - states:StartExecution
                 Resource: !GetAtt rCDKCleanupStateMachine.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-eventbridge-role
+        - Key: application
+          Value: !Ref pApplicationName
+        - Key: environment
+          Value: non-prod
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
 
 
 Outputs:
