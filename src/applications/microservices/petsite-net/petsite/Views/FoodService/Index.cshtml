@@ -24,7 +24,7 @@
     
     <h2 class="text-center mb-4" style="color: #006400; font-weight: bold;">🍽️ Delicious food for your @(Model?.foods?.FirstOrDefault()?.pet_type ?? "Pet") 🍽️</h2>
     <div class="row">
-        @if (Model?.foods != null)
+        @if (Model?.foods?.Count >0)
         {
             @foreach (var food in Model.foods)
             {

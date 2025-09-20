@@ -32,23 +32,12 @@ namespace PetSite.Controllers
 
             try
             {
-                using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var cartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
-                var response = await httpClient.GetAsync(cartUrl);
-                response.EnsureSuccessStatusCode();
-
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var cartData = JsonSerializer.Deserialize<CartResponse>(jsonContent, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
+                var cartData = await GetCartDataAsync(userId);
                 return View(cartData);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching cart data");
+                _logger.LogError(ex, $"Error fetching cart data for user: {userId}");
                 ViewBag.ErrorMessage = $"Unable to load cart data at this time. Please try again later.\nError message: {ex.Message}";
                 return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
@@ -63,8 +52,8 @@ namespace PetSite.Controllers
                 userId = requestData.GetProperty("userId").GetString();
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var paymentUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "checkout" }, null);
+                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var paymentUrl = UrlHelper.BuildUrl(cartApiUrl, new[] {  userId, "checkout" }, null);
                 var jsonContent = new StringContent(requestData.GetRawText(), Encoding.UTF8, "application/json");
 
                 var response = await httpClient.PostAsync(paymentUrl, jsonContent);
@@ -75,15 +64,7 @@ namespace PetSite.Controllers
                     var orderData = JsonSerializer.Deserialize<JsonElement>(responseContent);
 
                     // Clear cart after successful payment
-                    try
-                    {
-                        var clearCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
-                        await httpClient.DeleteAsync(clearCartUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to clear cart after successful payment");
-                    }
+                    await ClearCartAsync(userId);
 
                     return Ok(new
                     {
@@ -109,12 +90,7 @@ namespace PetSite.Controllers
         {
             try
             {
-                using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var clearCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
-                var response = await httpClient.DeleteAsync(clearCartUrl);
-                response.EnsureSuccessStatusCode();
-
+                await ClearCartAsync(userId);
                 return RedirectToAction("Index", new { userId });
             }
             catch (Exception ex)
@@ -122,6 +98,64 @@ namespace PetSite.Controllers
                 _logger.LogError(ex, $"Failed to clear cart for user: {userId}");
                 ViewBag.ErrorMessage = $"Unable to clear cart. Please try again later.\nError: {ex.Message}";
                 return RedirectToAction("Index", new { userId });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RemoveItem([FromBody] JsonElement requestData)
+        {
+            try
+            {
+                var userId = requestData.GetProperty("userId").GetString();
+                var foodId = requestData.GetProperty("food_id").GetString();
+
+                using var httpClient = _httpClientFactory.CreateClient();
+                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var removeItemUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId, "items", foodId }, null);
+                
+                var response = await httpClient.DeleteAsync(removeItemUrl);
+                response.EnsureSuccessStatusCode();
+
+                var cartData = await GetCartDataAsync(userId);
+                return Ok(cartData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to remove item from cart");
+                return BadRequest($"Failed to remove item from cart. Error: {ex.Message}");
+            }
+        }
+
+        private async Task<CartResponse> GetCartDataAsync(string userId)
+        {
+            using var httpClient = _httpClientFactory.CreateClient();
+            var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+            var cartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId }, null);
+            var response = await httpClient.GetAsync(cartUrl);
+            response.EnsureSuccessStatusCode();
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<CartResponse>(jsonContent, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+
+        private async Task ClearCartAsync(string userId)
+        {
+            try
+            {
+                _logger.LogInformation($"Clearing cart for user: {userId}");
+                using var httpClient = _httpClientFactory.CreateClient();
+                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var clearCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId, "clear" }, null);
+                await httpClient.PostAsync(clearCartUrl, new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+                _logger.LogInformation($"Cart cleared for user: {userId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to clear cart for user: {userId}");
+                throw;
             }
         }
     }

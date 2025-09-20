@@ -39,7 +39,7 @@ namespace PetSite.Controllers
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var url = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "foods" }, ("pettype", petType));
+                var url = UrlHelper.BuildUrl(foodApiUrl, null, ("pettype", petType));
                 var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -74,8 +74,8 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
 
                 // First API call - Add to cart
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var addToCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId, "items" }, null);
+                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var addToCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] {  userId, "items" }, null);
                 var cartData = new { food_id = foodId, quantity = 1 };
                 var cartJson = JsonSerializer.Serialize(cartData);
                 var cartContent = new StringContent(cartJson, Encoding.UTF8, "application/json");
@@ -97,31 +97,6 @@ namespace PetSite.Controllers
             }
         }
 
-        [HttpPost]
-        public async Task<IActionResult> BuyFood(string foodId, string userId)
-        {
-            if (EnsureUserId()) return new EmptyResult();
-
-            try
-            {
-                using var httpClient = _httpClientFactory.CreateClient();
-                var purchaseApiUrl = _configuration["FOOD_PURCHASE_API_URL"] ?? "https://api.example.com/purchase";
-                // var userId = ViewBag.UserId?.ToString();
-                var url = UrlHelper.BuildUrl(purchaseApiUrl, null, ("foodId", foodId), ("userId", userId));
-                var response = await httpClient.PostAsync(url, null);
-                response.EnsureSuccessStatusCode();
-
-                // Food purchase successful - could add ViewData or redirect with status
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error purchasing food");
-                // Food purchase failed - could add ViewData or redirect with error
-            }
-
-            return RedirectToAction("Index", "Payment", new { userId = userId });
-        }
-
         [HttpGet]
         public async Task<IActionResult> GetCartCount(string userId)
         {
@@ -134,8 +109,8 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
-                var getCartUrl = UrlHelper.BuildUrl(foodApiUrl, new[] { "api", "cart", userId }, null);
+                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var getCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId }, null);
                 var getCartResponse = await httpClient.GetAsync(getCartUrl);
 
                 if (getCartResponse.StatusCode == System.Net.HttpStatusCode.OK)

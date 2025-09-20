@@ -13,8 +13,8 @@ namespace PetSite.Controllers
 
         private static string GenerateUserId()
         {
-            int randomNumber = Random.Next(1, 10000);
-            return $"user{randomNumber:D4}";
+            int randomNumber = Random.Next(1, 100000);
+            return $"user{randomNumber:D5}";
         }
 
         protected bool EnsureUserId()
