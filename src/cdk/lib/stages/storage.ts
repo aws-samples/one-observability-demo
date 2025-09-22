@@ -81,6 +81,59 @@ export class StorageStage extends Stage {
 
         return seedStep;
     }
+
+    public getRDSSeedingStep(scope: Stack, artifactBucket: IBucket) {
+        const rdsSeedingRole = new Role(scope, 'RDSSeedingRole', {
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+            description: 'CodeBuild role for RDS Aurora seeding',
+        });
+
+        artifactBucket.grantRead(rdsSeedingRole);
+        new Policy(scope, 'RDSSeedingPolicy', {
+            roles: [rdsSeedingRole],
+            statements: [
+                new PolicyStatement({
+                    actions: [
+                        'ssm:GetParameter',
+                        'ssm:GetParameters',
+                        'secretsmanager:GetSecretValue',
+                        'rds:DescribeDBClusters',
+                        'rds:DescribeDBInstances',
+                    ],
+                    resources: ['*'],
+                }),
+            ],
+        });
+
+        const rdsSeedStep = new CodeBuildStep('RDSSeeding', {
+            commands: [
+                'cd src/cdk',
+                'npm install',
+                'npm run rds:seed',
+            ],
+            buildEnvironment: {
+                privileged: false,
+            },
+            role: rdsSeedingRole,
+        });
+
+        NagSuppressions.addResourceSuppressions(
+            rdsSeedingRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'CodeBuild managed policies are acceptable for the RDS Seeding action',
+                },
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Wildcard permissions are needed for SSM and Secrets Manager access',
+                },
+            ],
+            true,
+        );
+
+        return rdsSeedStep;
+    }
 }
 
 export class StorageStack extends Stack {

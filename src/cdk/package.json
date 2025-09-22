@@ -11,12 +11,14 @@
         "cdk": "cdk",
         "docs": "typedoc",
         "docs:wiki": "typedoc --out ./wiki-docs",
-        "cleanup": "ts-node scripts/cleanup-resources.ts"
+        "cleanup": "ts-node scripts/cleanup-resources.ts",
+        "rds:seed": "ts-node scripts/seed-rds.ts"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",
         "@types/node": "^24.3.1",
         "@types/nunjucks": "^3.2.6",
+        "@types/pg": "^8.11.10",
         "@typescript-eslint/eslint-plugin": "^8.42.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-jest": "^29.0.1",
@@ -43,6 +45,8 @@
         "@aws-sdk/client-rds": "^3.0.0",
         "@aws-sdk/client-resource-groups-tagging-api": "^3.0.0",
         "@aws-sdk/client-s3": "^3.0.0",
+        "@aws-sdk/client-secrets-manager": "^3.0.0",
+        "@aws-sdk/client-ssm": "^3.0.0",
         "@types/yaml": "^1.9.7",
         "aws-cdk": "^2.1029.0",
         "aws-cdk-lib": "2.214.0",
@@ -50,6 +54,7 @@
         "constructs": "^10.4.2",
         "dotenv": "^17.2.2",
         "nunjucks": "^3.2.4",
+        "pg": "^8.12.0",
         "yaml": "^2.8.1"
     }
 }
