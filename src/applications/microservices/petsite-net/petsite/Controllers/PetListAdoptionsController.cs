@@ -46,7 +46,7 @@ namespace PetSite.Controllers
             try
             {
                 // Begin activity span to track PetListAdoptions API call
-                using (var activity = Activity.Current?.Source?.StartActivity("Calling PetListAdoptions API"))
+                using (var activity = Activity.Current?.Source?.StartActivity($"Calling PetListAdoptions API for user: {ViewBag.UserId?.ToString()}"))
                 {
                     string petlistadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.PET_LIST_ADOPTIONS_URL, _configuration);
                     using var httpClient = _httpClientFactory.CreateClient();
@@ -63,7 +63,7 @@ namespace PetSite.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error calling PetListAdoptions API: {e.Message}");
+                _logger.LogError(e, $"Error calling PetListAdoptions API for user {ViewBag.UserId?.ToString()}: {e.Message}");
                 ViewBag.ErrorMessage = $"Unable to load adoption list at this time. Please try again later.\nError message: {e.Message}";
                 return View("Error", new PetSite.Models.ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }

@@ -53,7 +53,7 @@ namespace PetSite.Controllers
                 currentActivity.SetTag("pet.type", searchParams.pettype);
                 currentActivity.SetTag("pet.color", searchParams.petcolor);
                 
-                _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
+                _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor} - for user: {userId}");
             }
             
             List<Pet> pets;
@@ -69,13 +69,13 @@ namespace PetSite.Controllers
                         activity.SetTag("pet.type", searchParams.pettype);
                         activity.SetTag("pet.color", searchParams.petcolor);
                     }
-                    _logger.LogInformation($"Inside Adoption/TakeMeHome with - pettype: {searchParams.pettype}, petcolor: {searchParams.petcolor}, petid: {searchParams.petid}");
+                    _logger.LogInformation($"Inside Adoption/TakeMeHome with - pettype: {searchParams.pettype}, petcolor: {searchParams.petcolor}, petid: {searchParams.petid} - for user: {userId}");
                     pets = await _petSearchService.GetPetDetails(searchParams.pettype, searchParams.petcolor, searchParams.petid, "userxxx");
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Error calling PetSearch API");
+                _logger.LogError(e, $"Error calling PetSearch API for user: {userId}");
                 ViewBag.ErrorMessage = $"Unable to process adoption request at this time. Please try again later.\nError message: {e.Message}";
                 return View("Error", new PetSite.Models.ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }

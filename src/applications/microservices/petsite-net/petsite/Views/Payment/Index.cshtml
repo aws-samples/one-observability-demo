@@ -28,7 +28,7 @@
           <div class="col-md-6">
             <div class="pet-items mb-4" style="position: relative;">
               <div style="position: relative; display: inline-block;">
-                <img class="pet-thumbnail" src="@pet.peturl" style="border: 1px solid #000000; border-radius: 23px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <img class="pet-thumbnail" src="@pet.peturl" style="border: 1px solid #000000; border-radius: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
                 <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@pet.pettype-@pet.petcolor</span>
                 <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 18px;">$@pet.price</span>
                 @if (!string.IsNullOrEmpty(pet.cuteness_rate) && Int32.TryParse(pet.cuteness_rate, out int rating))

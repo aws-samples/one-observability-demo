@@ -66,6 +66,8 @@ spec:
                         value: {{ PAYMENT_API_URL_PARAM_NAME }}
                       - name: FOOD_API_URL_PARAM_NAME
                         value: {{ FOOD_API_URL_PARAM_NAME }}
+                      - name: CART_API_URL_PARAM_NAME
+                        value: {{ CART_API_URL_PARAM_NAME }}
                       - name: SEARCH_API_URL_PARAM_NAME
                         value: {{ SEARCH_API_URL_PARAM_NAME }}
                       - name: RUM_SCRIPT_PARAMETER_NAME

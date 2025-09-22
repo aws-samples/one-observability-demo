@@ -17,29 +17,32 @@
     {
         <div class="row">
             <div class="col-md-6">
-                @foreach (var item in Model.items)
-                {
-                    <div class="card mb-3">
-                        <div class="row g-0">
-                            <div class="col-md-4">
-                                <img src="@item.food_image" class="img-fluid rounded-start" alt="@item.food_name" style="height: 120px; object-fit: cover;">
-                            </div>
-                            <div class="col-md-8">
-                                <div class="card-body">
-                                    <h6 class="card-title">@item.food_name</h6>
-                                    <p class="card-text small">
-                                        <strong>$@item.unit_price</strong> x @item.quantity = <strong>$@item.total_price</strong>
-                                    </p>
-                                    @if (!item.is_available)
-                                    {
-                                        <span class="badge bg-warning">Out of Stock</span>
-                                    }
+                <div id="cart-items">
+                    @foreach (var item in Model.items)
+                    {
+                        <div class="card mb-3">
+                            <div class="row g-0">
+                                <div class="col-md-4">
+                                    <img src="@item.food_image" class="img-fluid rounded-start" alt="@item.food_name" style="height: 120px; object-fit: cover;">
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="card-body">
+                                        <h6 class="card-title">@item.food_name</h6>
+                                        <p class="card-text small">
+                                            <strong>$@item.unit_price</strong> x @item.quantity = <strong>$@item.total_price</strong>
+                                        </p>
+                                        @if (!item.is_available)
+                                        {
+                                            <span class="badge bg-warning">Out of Stock</span>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger remove-item-btn" data-food-id="@item.food_id">Remove from cart</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                }
-                <div class="card">
+                    }
+                </div>
+                <div class="card" id="cart-summary">
                     <div class="card-body text-center">
                         <h5>Total Items: @Model.total_items</h5>
                         <h4 style="color: #006400;">Total: $@Model.total_price</h4>
@@ -150,6 +153,60 @@ $(document).ready(function() {
     // Update cart count on page load
      var userId = '@ViewBag.UserId';
     
+    // Remove item from cart
+    $(document).on('click', '.remove-item-btn', function() {
+        var foodId = $(this).data('food-id');
+        
+        $.ajax({
+            url: '/Checkout/RemoveItem',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ userId: userId, food_id: foodId }),
+            success: function(cartData) {
+                // Refresh cart display
+                refreshCartDisplay(cartData);
+            },
+            error: function(xhr) {
+                $('#error-message').text('Failed to remove item: ' + xhr.responseText).show();
+            }
+        });
+    });
+    
+    function refreshCartDisplay(cartData) {
+        if (cartData.items && cartData.items.length > 0) {
+            var cartHtml = '';
+            cartData.items.forEach(function(item) {
+                cartHtml += `
+                    <div class="card mb-3">
+                        <div class="row g-0">
+                            <div class="col-md-4">
+                                <img src="${item.food_image}" class="img-fluid rounded-start" alt="${item.food_name}" style="height: 120px; object-fit: cover;">
+                            </div>
+                            <div class="col-md-8">
+                                <div class="card-body">
+                                    <h6 class="card-title">${item.food_name}</h6>
+                                    <p class="card-text small">
+                                        <strong>$${item.unit_price}</strong> x ${item.quantity} = <strong>$${item.total_price}</strong>
+                                    </p>
+                                    ${!item.is_available ? '<span class="badge bg-warning">Out of Stock</span>' : ''}
+                                    <button class="btn btn-sm btn-outline-danger remove-item-btn" data-food-id="${item.food_id}">Remove from cart</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            $('#cart-items').html(cartHtml);
+            $('#cart-summary .card-body').html(`
+                <h5>Total Items: ${cartData.total_items}</h5>
+                <h4 style="color: #006400;">Total: $${cartData.total_price}</h4>
+            `);
+        } else {
+            // Reload page if cart is empty
+            location.reload();
+        }
+    }
+    
     // Pay and Checkout button click
     $('#payCheckoutBtn').click(function() {
         var paymentData = {
@@ -196,6 +253,7 @@ $(document).ready(function() {
                 $('#success-message').html(orderDetails).show();
                 $('#payCheckoutBtn').prop('disabled', true);
                 $('#clearCartBtn').prop('disabled', true);
+                $('.remove-item-btn').prop('disabled', true);
                 $('#cart-count').hide();
             },
             error: function(xhr) {

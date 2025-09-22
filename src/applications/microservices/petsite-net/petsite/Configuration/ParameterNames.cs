@@ -11,6 +11,7 @@ namespace PetSite.Configuration
         public const string CLEANUP_ADOPTIONS_URL = "CLEANUP_ADOPTIONS_URL_PARAM_NAME";
         public const string PAYMENT_API_URL = "PAYMENT_API_URL_PARAM_NAME";
         public const string FOOD_API_URL = "FOOD_API_URL_PARAM_NAME";
+        public const string CART_API_URL = "CART_API_URL_PARAM_NAME";
         public const string SEARCH_API_URL = "SEARCH_API_URL_PARAM_NAME";
         public const string RUM_SCRIPT_PARAMETER = "RUM_SCRIPT_PARAMETER_NAME";
 
