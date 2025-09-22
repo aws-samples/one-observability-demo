@@ -633,15 +633,16 @@ Resources:
                 - npm install -g aws-cdk
                 - pip3 install git-remote-s3
                 - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
+                - cd repo
             pre_build:
               commands:
-                - ./repo/src/templates/scripts/pre_build.sh
+                - ./src/templates/scripts/pre_build.sh
             build:
               commands:
-                - ./repo/src/templates/scripts/build.sh
+                - ./src/templates/scripts/build.sh
             post_build:
               commands:
-                - ./repo/src/templates/scripts/post_build.sh
+                - ./src/templates/scripts/post_build.sh
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-cdk-deployment

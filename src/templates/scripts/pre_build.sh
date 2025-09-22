@@ -5,8 +5,6 @@ set -e
 git config --global user.email "codebuild@aws.amazon.com"
 git config --global user.name "AWS CodeBuild"
 
-cd ./repo
-
 # Download configuration file and append to .env
 curl -o ./config.env "$CONFIG_FILE_URL"
 cat ./config.env >> ${WORKING_FOLDER}/.env
