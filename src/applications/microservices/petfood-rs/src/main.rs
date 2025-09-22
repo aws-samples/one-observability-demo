@@ -20,6 +20,47 @@ use petfood_rs::{
     shutdown_observability, Config,
 };
 
+fn create_food_service(
+    config: Config,
+    food_repository: Arc<DynamoDbFoodRepository>,
+) -> Arc<FoodService> {
+    // Initialize event emitter if enabled
+    if config.events.enabled {
+        let event_config = EventConfig {
+            event_bus_name: config.events.event_bus_name.clone(),
+            source_name: config.events.source_name.clone(),
+            retry_attempts: config.events.retry_attempts,
+            timeout_seconds: config.events.timeout_seconds,
+            enable_dead_letter_queue: config.events.enable_dead_letter_queue,
+            enabled: config.events.enabled,
+        };
+
+        match EventEmitter::new(config.aws.eventbridge_client.clone(), event_config) {
+            Ok(event_emitter) => {
+                info!("Event emitter initialized successfully");
+                info!(
+                    "Events bus_name={}, source_name={}",
+                    config.events.event_bus_name, config.events.source_name
+                );
+                Arc::new(FoodService::new_with_event_emitter(
+                    food_repository.clone(),
+                    Arc::new(event_emitter),
+                ))
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to initialize event emitter: {}, continuing without events",
+                    e
+                );
+                Arc::new(FoodService::new(food_repository.clone()))
+            }
+        }
+    } else {
+        info!("Event emission disabled");
+        Arc::new(FoodService::new(food_repository.clone()))
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration first (basic logging only)
@@ -70,41 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     info!("Repositories initialized successfully");
 
-    // Initialize event emitter if enabled
-    let food_service = if config.events.enabled {
-        let event_config = EventConfig {
-            event_bus_name: config.events.event_bus_name.clone(),
-            source_name: config.events.source_name.clone(),
-            retry_attempts: config.events.retry_attempts,
-            timeout_seconds: config.events.timeout_seconds,
-            enable_dead_letter_queue: config.events.enable_dead_letter_queue,
-            enabled: config.events.enabled,
-        };
-
-        match EventEmitter::new(config.aws.eventbridge_client.clone(), event_config) {
-            Ok(event_emitter) => {
-                info!("Event emitter initialized successfully");
-                info!(
-                    "Events bus_name={}, source_name={}",
-                    config.events.event_bus_name, config.events.source_name
-                );
-                Arc::new(FoodService::new_with_event_emitter(
-                    food_repository.clone(),
-                    Arc::new(event_emitter),
-                ))
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to initialize event emitter: {}, continuing without events",
-                    e
-                );
-                Arc::new(FoodService::new(food_repository.clone()))
-            }
-        }
-    } else {
-        info!("Event emission disabled");
-        Arc::new(FoodService::new(food_repository.clone()))
-    };
+    // Configure services
+    let food_service = create_food_service(config.clone(), food_repository.clone());
 
     let cart_service = Arc::new(CartService::new(
         cart_repository,
