@@ -26,7 +26,7 @@
       <div class="container mt-2">
         <div class="row">
           <div class="col-md-6">
-            <div class="pet-items mb-4" style="position: relative;">
+            <div class="pet-items mb-4">
               <div style="position: relative; display: inline-block;">
                 <img class="pet-thumbnail" src="@pet.peturl" style="border: 1px solid #000000; border-radius: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
                 <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@pet.pettype-@pet.petcolor</span>
@@ -41,9 +41,12 @@
                   </div>
                 }
               </div>
-              <div style="position: absolute; bottom: 0; right: 0;">
+              <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="@pet.pettype" asp-route-petId="@pet.petid" class="btn btn-primary btn-lg">
                   Buy food for me
+                </a>
+                <a asp-controller="Waggle" asp-action="Index" asp-route-userId="@ViewBag.UserId" class="btn btn-info btn-lg">
+                  Chat with Waggle AI
                 </a>
               </div>
             </div>
@@ -97,4 +100,6 @@
     <p>Error @ViewData["txStatus"]</p>
   }
 </div>
+
+
 
