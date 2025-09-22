@@ -30,6 +30,22 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/petstyles.css" />
+    <style>
+        .active-page {
+            border-bottom-color: #ffff00 !important;
+        }
+        @@media (max-width: 768px) {
+            .pet-header .row {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .pet-header section:last-child {
+                justify-content: center !important;
+                margin-top: 10px;
+                gap: 0.5rem !important;
+            }
+        }
+    </style>
 
 </head>
 
@@ -47,21 +63,31 @@
                     </section>
 
                     <section class="col-lg-8 col-md-8 col-12 align-self-center"
-                        style="display: flex; justify-content: flex-end; gap: 2rem; align-items: center;">
+                        style="display: flex; justify-content: flex-end; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <a asp-controller="Waggle" asp-action="Index" asp-route-userId="@ViewBag.UserId"
+                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "Waggle" ? "active-page" : "")"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
+                            Waggle AI
+                        </a>
+
                         <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId"
                             asp-route-petType="puppy"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "FoodService" ? "active-page" : "")"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
                             Buy Food
                         </a>
 
                         <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId"
-                            id="seeadoptionlist" style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            id="seeadoptionlist" 
+                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "PetListAdoptions" ? "active-page" : "")"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
                             See Adoption List
                         </a>
 
                         <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId"
                             id="performhousekeeping"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none;">
+                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "Home" && ViewContext.RouteData.Values["action"].ToString() == "HouseKeeping" ? "active-page" : "")"
+                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
                             Perform Housekeeping
                         </a>
 

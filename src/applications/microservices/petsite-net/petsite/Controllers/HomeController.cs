@@ -77,12 +77,26 @@ namespace PetSite.Controllers
             if (EnsureUserId()) return new EmptyResult();
             _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
-            string cleanupadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.CLEANUP_ADOPTIONS_URL, _configuration);
+            try
+            {
+                string cleanupadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.CLEANUP_ADOPTIONS_URL, _configuration);
 
-            using var httpClient = _httpClientFactory.CreateClient();
-            var userId = ViewBag.UserId?.ToString();
-            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, null, ("userId", userId));
-            await httpClient.PostAsync(url, null);
+                using var httpClient = _httpClientFactory.CreateClient();
+                var userId = ViewBag.UserId?.ToString();
+                var url = UrlHelper.BuildUrl(cleanupadoptionsurl, null, ("userId", userId));
+                var response = await httpClient.PostAsync(url, null);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning($"Housekeeping API returned {response.StatusCode}");
+                    ViewBag.ErrorMessage = "Housekeeping operation failed. Please try again later.";
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error calling Housekeeping API: {e.Message}");
+                ViewBag.ErrorMessage = $"Unable to perform housekeeping at this time. Please try again later.\nError message: {e.Message}";
+            }
 
             return View();
         }
@@ -96,7 +110,14 @@ namespace PetSite.Controllers
                 ["environment"] = Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => entry.Key.ToString(), entry => entry.Value?.ToString())
             };
 
-            return Json(result);
+            return new JsonResult(result)
+            {
+                SerializerSettings = new Newtonsoft.Json.JsonSerializerSettings
+                {
+                    Formatting = Newtonsoft.Json.Formatting.Indented // Beautify JSON
+                }
+            };
+
         }
 
         [HttpGet]

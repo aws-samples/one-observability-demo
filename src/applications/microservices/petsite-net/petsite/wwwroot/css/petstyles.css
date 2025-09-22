@@ -148,7 +148,8 @@
     height: 3rem;
     margin-top: 1rem;
     transition: all 0.35s;
-    width: 50%; }
+    width: 50%;
+    font-family: 'Roboto', sans-serif !important; }
 .pet-button.is-disabled {
     opacity: .5;
     pointer-events: none; }

@@ -1,0 +1,334 @@
+@{
+    ViewData["Title"] = "Waggle AI Chat";
+}
+
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+    </div>
+</section>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-avatar">🐕</div>
+                    <h4 class="mb-0">Waggle AI</h4>
+                    <div class="online-status"></div>
+                </div>
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message bot-message animate-in">
+                        <div class="sender-name">Waggle</div>
+                        <div class="message-bubble">
+                            Hello! I'm Waggle AI, your pet care assistant. How can I help you today? 🐾
+                            <div class="timestamp"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <input type="text" id="message-input" class="chat-input" placeholder="Type your message here..." maxlength="500">
+                    <button id="send-button" class="send-btn" type="button">
+                        <span class="send-icon">➤</span>
+                        <div class="spinner" style="display: none;"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chat-container {
+        background: linear-gradient(135deg, #2d7f83 0%, #19dc91 100%);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        overflow: hidden;
+        font-family: 'Roboto', sans-serif !important;
+    }
+    
+    .chat-container * {
+        font-family: 'Roboto', sans-serif !important;
+    }
+    
+    .chat-header {
+        background: #000000;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .chat-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #dc7406, #19dc91);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        animation: bounce 2s infinite;
+    }
+    
+    .chat-header h4 {
+        color: #19dc91;
+        flex: 1;
+        font-weight: 600;
+    }
+    
+    .online-status {
+        width: 12px;
+        height: 12px;
+        background: #0fa828;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .chat-messages {
+        height: 500px;
+        overflow-y: auto;
+        padding: 20px;
+        background: #ffffff;
+    }
+    
+    .message {
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sender-name {
+        font-weight: 600;
+        color: #2d7f83;
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+    
+    .message-bubble {
+        max-width: 70%;
+        padding: 12px 18px;
+        border-radius: 15px;
+        font-size: 16px;
+        line-height: 1.5;
+        position: relative;
+        font-weight: 400;
+    }
+    
+    .timestamp {
+        color: #999999;
+        font-size: 10px;
+        text-align: right;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+    
+    .user-message {
+        align-items: flex-end;
+    }
+    
+    .user-message .sender-name {
+        align-self: flex-end;
+        text-align: right;
+    }
+    
+    .user-message .message-bubble {
+        background: #2d7f83;
+        color: #ffffff;
+        border-bottom-right-radius: 5px;
+        align-self: flex-end;
+    }
+    
+    .user-message .timestamp {
+        color: rgba(255,255,255,0.7);
+    }
+    
+    .bot-message .message-bubble {
+        background: #f8f9fa;
+        color: #333333;
+        border: 1px solid #e9ecef;
+        border-bottom-left-radius: 5px;
+    }
+    
+    .chat-input-container {
+        padding: 20px;
+        background: rgba(19, 126, 68, 0.67);
+        display: flex;
+        gap: 10px;
+    }
+    
+    .chat-input {
+        flex: 1;
+        border: 2px solid #19dc91;
+        border-radius: 25px;
+        padding: 12px 20px;
+        font-size: 14px;
+        background: #ffffff;
+        outline: none;
+        color: #333333;
+        font-family: 'Roboto', sans-serif !important;
+    }
+    
+    .chat-input:focus {
+        border-color: #0fa828;
+        box-shadow: 0 0 0 3px rgba(25, 220, 145, 0.1);
+    }
+    
+    .send-btn {
+        width: 50px;
+        height: 50px;
+        border: none;
+        border-radius: 50%;
+        background: #dc7406;
+        color: #ffffff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .send-btn:hover {
+        background: #0fa828;
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .send-icon {
+        font-size: 18px;
+        font-weight: bold;
+    }
+    
+    .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid #ffffff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @@keyframes bounce {
+        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-10px); }
+        60% { transform: translateY(-5px); }
+    }
+    
+    @@keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(78, 205, 196, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
+    }
+    
+    @@keyframes slideInLeft {
+        from { transform: translateX(-100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @@keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .animate-in {
+        animation: slideInLeft 0.5s ease-out;
+    }
+    
+    .animate-in-user {
+        animation: slideInRight 0.5s ease-out;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const chatMessages = document.getElementById('chat-messages');
+    const userId = '@ViewBag.UserId';
+    let sessionId = null;
+
+    function addMessage(message, isUser = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message animate-in-user' : 'bot-message animate-in'}`;
+        
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'sender-name';
+        senderDiv.textContent = isUser ? 'You' : 'Waggle';
+        
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'message-bubble';
+        bubbleDiv.textContent = message;
+        
+        const timestampDiv = document.createElement('div');
+        timestampDiv.className = 'timestamp';
+        timestampDiv.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        bubbleDiv.appendChild(timestampDiv);
+        messageDiv.appendChild(senderDiv);
+        messageDiv.appendChild(bubbleDiv);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage(message, true);
+        messageInput.value = '';
+        sendButton.disabled = true;
+        sendButton.querySelector('.send-icon').style.display = 'none';
+        sendButton.querySelector('.spinner').style.display = 'block';
+
+        // Send AJAX request
+        fetch('/Waggle/SendMessage', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                userId: userId,
+                sessionId: sessionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.sessionId) {
+                sessionId = data.sessionId;
+            }
+            addMessage(data.message, false);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            addMessage('Sorry, there was an error sending your message. Please try again.', false);
+        })
+        .finally(() => {
+            sendButton.disabled = false;
+            sendButton.querySelector('.send-icon').style.display = 'block';
+            sendButton.querySelector('.spinner').style.display = 'none';
+            messageInput.focus();
+        });
+    }
+
+    sendButton.addEventListener('click', sendMessage);
+    
+    messageInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    messageInput.focus();
+    
+    // Set timestamp for initial message
+    document.querySelector('.timestamp').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+});
+</script>
