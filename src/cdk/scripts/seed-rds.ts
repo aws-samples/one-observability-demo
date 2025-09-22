@@ -17,12 +17,12 @@ SPDX-License-Identifier: Apache-2.0
  *   npm run rds:seed -- --stack-name <STACK_NAME>
  */
 
-import { RDSClient } from '@aws-sdk/client-rds';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { Client } from 'pg';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { PARAMETER_STORE_PREFIX } from '../bin/environment';
 
 interface SeedOptions {
     stackName?: string;
@@ -100,16 +100,12 @@ async function throttlingBackOff<T>(
 }
 
 export class RDSSeeder {
-    private rds: RDSClient;
     private secretsManager: SecretsManagerClient;
     private ssm: SSMClient;
-    private region: string;
 
     constructor(region: string = process.env.AWS_REGION || 'us-east-1') {
         const clientConfig = { region };
-        this.region = region;
 
-        this.rds = new RDSClient(clientConfig);
         this.secretsManager = new SecretsManagerClient(clientConfig);
         this.ssm = new SSMClient(clientConfig);
     }
@@ -119,8 +115,8 @@ export class RDSSeeder {
      */
     private async getDatabaseCredentials(): Promise<DatabaseCredentials> {
         try {
-            // Get the RDS secret ARN from SSM Parameter Store
-            const parameterName = `/${process.env.STACK_NAME || 'OneObservabilityWorkshop'}/rdssecretarn`;
+            // Get the RDS secret ARN from SSM Parameter Store using the proper parameter structure
+            const parameterName = `${PARAMETER_STORE_PREFIX}/rdssecretarn`;
             const parameterCommand = new GetParameterCommand({
                 Name: parameterName,
             });
@@ -338,10 +334,8 @@ export class RDSSeeder {
         let insertedCount = 0;
 
         const insertSQL = `
-            INSERT INTO adoptions (pet_id, adopter_name, adopter_email, status, notes)
-            SELECT p.id, $2, $3, $4, $5
-            FROM pets p
-            WHERE p.petid = $1
+            INSERT INTO transactions (pet_id, adopter_name, adopter_email, status, notes)
+            VALUES ($1, $2, $3, $4, $5)
         `;
 
         for (const adoption of sampleAdoptions) {
@@ -360,8 +354,6 @@ export class RDSSeeder {
                     if (result.rowCount && result.rowCount > 0) {
                         console.log(`   ✅ Inserted adoption for pet: ${adoption.petid}`);
                         insertedCount++;
-                    } else {
-                        console.log(`   ⚠️ Pet ${adoption.petid} not found, skipping adoption record`);
                     }
                 } catch (error) {
                     console.error(`   ❌ Error inserting adoption for pet ${adoption.petid}:`, error);
@@ -381,10 +373,10 @@ export class RDSSeeder {
 
         try {
             const petsResult = await client.query('SELECT COUNT(*) as count FROM pets');
-            const adoptionsResult = await client.query('SELECT COUNT(*) as count FROM adoptions');
+            const transactionsResult = await client.query('SELECT COUNT(*) as count FROM transactions');
 
             console.log(`   📊 Total pets: ${petsResult.rows[0].count}`);
-            console.log(`   📊 Total adoptions: ${adoptionsResult.rows[0].count}`);
+            console.log(`   📊 Total transactions: ${transactionsResult.rows[0].count}`);
 
             // Show sample data
             const samplePets = await client.query('SELECT petid, pettype, petcolor, price FROM pets LIMIT 5');
