@@ -334,8 +334,8 @@ export class RDSSeeder {
         let insertedCount = 0;
 
         const insertSQL = `
-            INSERT INTO transactions (pet_id, adopter_name, adopter_email, status, notes)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO transactions (pet_id, transaction_id, adopter_name, adopter_email, status, notes)
+            VALUES ($1, $2, $3, $4, $5, $6)
         `;
 
         for (const adoption of sampleAdoptions) {
@@ -343,8 +343,12 @@ export class RDSSeeder {
                 console.log(`   [DRY RUN] Would insert adoption for pet: ${adoption.petid}`);
             } else {
                 try {
+                    // Generate a unique transaction ID
+                    const transactionId = `TXN-${adoption.petid}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
                     const result = await client.query(insertSQL, [
                         adoption.petid,
+                        transactionId,
                         adoption.adopter_name,
                         adoption.adopter_email,
                         adoption.status,
