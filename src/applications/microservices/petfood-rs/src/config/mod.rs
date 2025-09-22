@@ -62,8 +62,8 @@ pub struct DatabaseConfig {
     #[serde(default)]
     pub images_cdn_url: String,
     // SSM parameter prefix for this deployment
-    #[serde(default = "default_ssm_param_prefix")]
-    pub ssm_param_prefix: String,
+    #[serde(default = "default_param_prefix")]
+    pub param_prefix: String,
 }
 
 #[derive(Debug, Clone)]
@@ -157,14 +157,14 @@ impl Config {
         // Resolve database configuration
         // Priority: SSM (using prefix + param name) → Env Vars → Defaults
         println!(
-            "Using SSM parameter prefix: PETFOOD_SSM_PARAM_PREFIX={}",
-            database.ssm_param_prefix
+            "Using SSM parameter prefix: PETFOOD_PARAM_PREFIX={}",
+            database.param_prefix
         );
 
         // Resolve foods table name using dynamic SSM parameter resolution
         database.foods_table_name = parameter_store
             .resolve_parameter_with_prefix(
-                &database.ssm_param_prefix,
+                &database.param_prefix,
                 "PETFOOD_FOODS_TABLE_NAME", // Env var (value becomes SSM param name)
             )
             .await;
@@ -172,7 +172,7 @@ impl Config {
         // Resolve carts table name using dynamic SSM parameter resolution
         database.carts_table_name = parameter_store
             .resolve_parameter_with_prefix(
-                &database.ssm_param_prefix,
+                &database.param_prefix,
                 "PETFOOD_CARTS_TABLE_NAME", // Env var (value becomes SSM param name)
             )
             .await;
@@ -180,7 +180,7 @@ impl Config {
         // Resolve CDN URL using dynamic SSM parameter resolution
         database.images_cdn_url = parameter_store
             .resolve_parameter_with_prefix(
-                &database.ssm_param_prefix,
+                &database.param_prefix,
                 "PETFOOD_IMAGES_CDN_URL", // Env var (value becomes SSM param name)
             )
             .await;
@@ -595,7 +595,7 @@ pub(crate) fn default_enable_dead_letter_queue() -> bool {
     true
 }
 
-pub(crate) fn default_ssm_param_prefix() -> String {
+pub(crate) fn default_param_prefix() -> String {
     "".to_string()
 }
 

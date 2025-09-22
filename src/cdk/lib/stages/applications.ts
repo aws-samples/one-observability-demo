@@ -250,8 +250,6 @@ export class MicroservicesStack extends Stack {
                             PETFOOD_ENABLE_JSON_LOGGING: 'true',
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
-                            PETFOOD_FOODS_TABLE_NAME: imports.dynamodbExports.petFoodsTable.tableName,
-                            PETFOOD_CARTS_TABLE_NAME: imports.dynamodbExports.petFoodsCartTable.tableName,
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
