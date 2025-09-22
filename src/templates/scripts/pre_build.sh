@@ -55,7 +55,9 @@ elif [ -n "$STACK_DELETE_COMPLETE" ]; then
   cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
 else
   STACK_STATUS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
-  if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+  if [ "$STACK_STATUS" = "CREATE_COMPLETE" ]; then
+    echo "Account already bootstrapped with CDK toolkit stack in CREATE_COMPLETE state"
+  elif [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
     echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
     # Force remove ECR and S3 buckets
     aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
