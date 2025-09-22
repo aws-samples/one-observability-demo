@@ -132,7 +132,7 @@ $(document).ready(function() {
         
         $('#modalTitle').text(name);
         $('#modalBody').html(`
-            <img src="/images/food/${image}" class="img-fluid mb-3" alt="${name}" style="max-height: 200px; object-fit: cover;">
+            <img src="${image}" class="img-fluid mb-3" alt="${name}" style="max-height: 200px; object-fit: cover;">
             <p><strong>Description:</strong> ${description}</p>
             <p><strong>Price:</strong> $${price} | <strong>Quantity:</strong> ${quantity}</p>
             <p><strong>For:</strong> ${petType} | <strong>Type:</strong> ${type}</p>
