@@ -1,222 +1,251 @@
 [
-    {
-        "id": "F001",
-        "name": "Premium Dog Food - Adult",
-        "brand": "PetNutrition Pro",
-        "price": 24.99,
-        "pet_type": "puppy",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 80,
-        "description": "High-quality dry food for adult dogs with real chicken and rice",
-        "image": "petfood/f01.jpg",
-        "ingredients": ["Chicken", "Rice", "Vegetables", "Vitamins", "Minerals"],
-        "nutritional_info": {
-            "Protein": "28%",
-            "Fat": "15%",
-            "Fiber": "4%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+  {
+    "id": "F046a4eca",
+    "name": "Fresh Veggie Mix",
+    "brand": "PetNutrition Pro",
+    "price": 9.99,
+    "pet_type": "bunny",
+    "food_type": "wet",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 25,
+    "description": "A fresh mix of vegetables perfect for bunny nutrition.",
+    "image": "petfood/fresh-veggie-mix.jpg",
+    "ingredients": [
+      "carrots",
+      "leafy greens",
+      "bell peppers",
+      "herbs"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 17,
+      "fat_percentage": 6,
+      "fiber_percentage": 40,
+      "moisture_percentage": 10
     },
-    {
-        "id": "F002",
-        "name": "Kitten Food - Growth Formula",
-        "brand": "PetNutrition Pro",
-        "price": 19.99,
-        "pet_type": "kitten",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 100,
-        "description": "Specially formulated dry food for growing kittens",
-        "image": "petfood/f02.jpg",
-        "ingredients": ["Fish", "Rice", "Chicken", "Vitamins", "Minerals"],
-        "nutritional_info": {
-            "Protein": "32%",
-            "Fat": "18%",
-            "Fiber": "3%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Serve fresh daily as part of balanced diet",
+    "created_at": "2025-09-23T02:13:20.526376767Z",
+    "updated_at": "2025-09-23T02:13:20.526376767Z"
+  },
+  {
+    "id": "Fecd30d31",
+    "name": "Beef and Turkey Kibbles",
+    "brand": "PetNutrition Pro",
+    "price": 12.99,
+    "pet_type": "puppy",
+    "food_type": "dry",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 50,
+    "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
+    "image": "petfood/beef-and-turkey-kibbles.jpg",
+    "ingredients": [
+      "beef",
+      "turkey",
+      "rice",
+      "vegetables"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 50,
+      "fat_percentage": 19,
+      "fiber_percentage": 4,
+      "moisture_percentage": 10
     },
-    {
-        "id": "F003",
-        "name": "Wet Dog Food - Beef Stew",
-        "brand": "PetDelicious",
-        "price": 2.99,
-        "pet_type": "puppy",
-        "food_type": "wet",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 200,
-        "description": "Delicious wet food with real beef chunks in gravy",
-        "image": "petfood/f03.jpg",
-        "ingredients": ["Beef", "Carrots", "Peas", "Gravy", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "12%",
-            "Fat": "8%",
-            "Fiber": "2%",
-            "Moisture": "78%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Feed 2-3 times daily based on puppy's weight",
+    "created_at": "2025-09-23T02:13:20.343879146Z",
+    "updated_at": "2025-09-23T02:13:20.343879146Z"
+  },
+  {
+    "id": "F36a222eb",
+    "name": "Carrot and Herb Crunchies",
+    "brand": "PetNutrition Pro",
+    "price": 8.99,
+    "pet_type": "bunny",
+    "food_type": "dry",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 45,
+    "description": "Crunchy carrot and herb treats, specially designed for bunnies.",
+    "image": "petfood/carrot-and-herb-crunchies.jpg",
+    "ingredients": [
+      "carrots",
+      "timothy hay",
+      "herbs",
+      "oats"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 17,
+      "fat_percentage": 5,
+      "fiber_percentage": 4,
+      "moisture_percentage": 10
     },
-    {
-        "id": "F004",
-        "name": "Cat Food - Salmon Feast",
-        "brand": "PetDelicious",
-        "price": 3.49,
-        "pet_type": "kitten",
-        "food_type": "wet",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 50,
-        "description": "Premium wet food with wild-caught salmon",
-        "image": "petfood/f04.jpg",
-        "ingredients": ["Salmon", "Fish Broth", "Rice", "Vitamins", "Minerals"],
-        "nutritional_info": {
-            "Protein": "14%",
-            "Fat": "9%",
-            "Fiber": "1%",
-            "Moisture": "75%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Supplement to hay-based diet, 1/4 cup daily",
+    "created_at": "2025-09-23T02:13:20.494911452Z",
+    "updated_at": "2025-09-23T02:13:20.494911452Z"
+  },
+  {
+    "id": "Fc7f447a1",
+    "name": "Catnip Kitten Treats",
+    "brand": "PetNutrition Pro",
+    "price": 6.99,
+    "pet_type": "kitten",
+    "food_type": "treats",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 80,
+    "description": "Irresistible catnip-infused treats that kittens love.",
+    "image": "petfood/catnip-kitten-treats.jpg",
+    "ingredients": [
+      "chicken",
+      "catnip",
+      "wheat flour"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 62,
+      "fat_percentage": 20,
+      "fiber_percentage": 1,
+      "moisture_percentage": 18
     },
-    {
-        "id": "F005",
-        "name": "Puppy Food - Small Breed",
-        "brand": "PetNutrition Pro",
-        "price": 29.99,
-        "pet_type": "puppy",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 2,
-        "description": "Nutrient-rich food designed for small breed puppies",
-        "image": "petfood/f05.jpg",
-        "ingredients": ["Chicken", "Sweet Potato", "Fish Oil", "Probiotics", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "30%",
-            "Fat": "20%",
-            "Fiber": "3%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Give 2-3 treats per day as rewards",
+    "created_at": "2025-09-23T02:13:20.478258019Z",
+    "updated_at": "2025-09-23T02:13:20.478258019Z"
+  },
+  {
+    "id": "F233c473c",
+    "name": "Raw Chicken Bites",
+    "brand": "PetNutrition Pro",
+    "price": 10.99,
+    "pet_type": "puppy",
+    "food_type": "wet",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 30,
+    "description": "Tender raw chicken bites, ideal for puppies who love a meaty treat.",
+    "image": "petfood/raw-chicken-bites.jpg",
+    "ingredients": [
+      "chicken",
+      "chicken broth",
+      "vitamins"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 47,
+      "fat_percentage": 21,
+      "fiber_percentage": 9,
+      "moisture_percentage": 49
     },
-    {
-        "id": "F006",
-        "name": "Senior Cat Food - Low Fat",
-        "brand": "PetNutrition Pro",
-        "price": 22.99,
-        "pet_type": "kitten",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 70,
-        "description": "Low-fat formula for senior cats with joint support",
-        "image": "petfood/f06.jpg",
-        "ingredients": ["Turkey", "Rice", "Glucosamine", "Chondroitin", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "26%",
-            "Fat": "12%",
-            "Fiber": "5%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Serve as a supplement to dry food",
+    "created_at": "2025-09-23T02:13:20.389317018Z",
+    "updated_at": "2025-09-23T02:13:20.389317018Z"
+  },
+  {
+    "id": "Ffb5ef0e2",
+    "name": "Salmon and Tuna Delight",
+    "brand": "PetNutrition Pro",
+    "price": 14.99,
+    "pet_type": "kitten",
+    "food_type": "wet",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 40,
+    "description": "A delectable mix of salmon and tuna, perfect for kittens.",
+    "image": "petfood/salmon-and-tuna-delight.jpg",
+    "ingredients": [
+      "salmon",
+      "tuna",
+      "fish broth",
+      "vitamins"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 68,
+      "fat_percentage": 17,
+      "fiber_percentage": 8,
+      "moisture_percentage": 10
     },
-    {
-        "id": "F007",
-        "name": "Dog Treats - Training Bites",
-        "brand": "TreatTime",
-        "price": 8.99,
-        "pet_type": "puppy",
-        "food_type": "treat",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 17,
-        "description": "Small training treats perfect for positive reinforcement",
-        "image": "petfood/f07.jpg",
-        "ingredients": ["Chicken", "Rice Flour", "Natural Flavors", "Preservatives"],
-        "nutritional_info": {
-            "Protein": "20%",
-            "Fat": "10%",
-            "Fiber": "2%",
-            "Moisture": "12%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Feed 3-4 times daily for growing kittens",
+    "created_at": "2025-09-23T02:13:20.448895728Z",
+    "updated_at": "2025-09-23T02:13:20.448895728Z"
+  },
+  {
+    "id": "F3e40f637",
+    "name": "Puppy Training Treats",
+    "brand": "PetNutrition Pro",
+    "price": 8.99,
+    "pet_type": "puppy",
+    "food_type": "treats",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 75,
+    "description": "Small, soft treats perfect for training sessions with puppies.",
+    "image": "petfood/puppy-training-treats.jpg",
+    "ingredients": [
+      "chicken meal",
+      "sweet potato",
+      "peas"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 61,
+      "fat_percentage": 8,
+      "fiber_percentage": 15,
+      "moisture_percentage": 11
     },
-    {
-        "id": "F008",
-        "name": "Cat Treats - Tuna Crunch",
-        "brand": "TreatTime",
-        "price": 6.99,
-        "pet_type": "kitten",
-        "food_type": "treat",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 500,
-        "description": "Crunchy treats with real tuna flavor cats love",
-        "image": "petfood/f08.jpg",
-        "ingredients": ["Tuna", "Rice", "Corn", "Natural Flavors", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "18%",
-            "Fat": "8%",
-            "Fiber": "3%",
-            "Moisture": "12%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "Use sparingly during training sessions",
+    "created_at": "2025-09-23T02:13:20.433951641Z",
+    "updated_at": "2025-09-23T02:13:20.433951641Z"
+  },
+  {
+    "id": "F57580f2e",
+    "name": "Timothy Hay Pellets",
+    "brand": "PetNutrition Pro",
+    "price": 12.99,
+    "pet_type": "bunny",
+    "food_type": "dry",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 35,
+    "description": "High-fiber timothy hay pellets essential for bunny digestive health.",
+    "image": "petfood/timothy-hay-pellets.jpg",
+    "ingredients": [
+      "timothy hay",
+      "alfalfa",
+      "vitamins",
+      "minerals"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 13,
+      "fat_percentage": 12,
+      "fiber_percentage": 87,
+      "moisture_percentage": 10
     },
-    {
-        "id": "F009",
-        "name": "Grain-Free Dog Food",
-        "brand": "NaturalPet",
-        "price": 39.99,
-        "pet_type": "puppy",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 170,
-        "description": "Grain-free formula with lamb and sweet potato",
-        "image": "petfood/f09.jpg",
-        "ingredients": ["Lamb", "Sweet Potato", "Peas", "Fish Oil", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "26%",
-            "Fat": "16%",
-            "Fiber": "4%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
+    "feeding_guidelines": "1/4 to 1/2 cup daily depending on bunny size",
+    "created_at": "2025-09-23T02:13:20.510307836Z",
+    "updated_at": "2025-09-23T02:13:20.510307836Z"
+  },
+  {
+    "id": "F3585a442",
+    "name": "Kitten Growth Formula",
+    "brand": "PetNutrition Pro",
+    "price": 16.99,
+    "pet_type": "kitten",
+    "food_type": "dry",
+    "availability_status": "in_stock",
+    "is_active": true,
+    "stock_quantity": 60,
+    "description": "High-protein dry food specially formulated for kitten growth and development.",
+    "image": "petfood/kitten-growth-formula.jpg",
+    "ingredients": [
+      "chicken meal",
+      "fish meal",
+      "rice",
+      "taurine"
+    ],
+    "nutritional_info": {
+      "protein_percentage": 45,
+      "fat_percentage": 24,
+      "fiber_percentage": 4,
+      "moisture_percentage": 11
     },
-    {
-        "id": "F010",
-        "name": "Indoor Cat Food",
-        "brand": "NaturalPet",
-        "price": 25.99,
-        "pet_type": "kitten",
-        "food_type": "dry",
-        "availability_status": "in_stock",
-        "is_active": true,
-        "stock_quantity": 80,
-        "description": "Perfect formula for indoor cats with hairball control",
-        "image": "petfood/f10.jpg",
-        "ingredients": ["Chicken", "Rice", "Fiber", "Prebiotics", "Vitamins"],
-        "nutritional_info": {
-            "Protein": "24%",
-            "Fat": "13%",
-            "Fiber": "6%",
-            "Moisture": "10%"
-        },
-        "created_at": "2025-09-01T00:00:00Z",
-        "updated_at": "2025-09-01T00:00:00Z"
-    }
+    "feeding_guidelines": "Free feeding recommended for kittens under 6 months",
+    "created_at": "2025-09-23T02:13:20.463859382Z",
+    "updated_at": "2025-09-23T02:13:20.463859382Z"
+  }
 ]

@@ -114,9 +114,15 @@ seed_petfood_table() {
             with_entries(select(.value != null and .key != null)) |
             with_entries(
                 if (.key == "ingredients" and (.value | type) == "array") then
-                    .value = {SS: .value}
+                    .value = {L: (.value | map({S: .}))}
                 elif (.key == "nutritional_info" and (.value | type) == "object") then
-                    .value = {M: (.value | with_entries(.value = {S: .value}))}
+                    .value = {M: (.value | with_entries(
+                        if (.key | endswith("_percentage")) then
+                            .value = {N: (.value | tostring)}
+                        else
+                            .value = {S: (.value | tostring)}
+                        end
+                    ))}
                 elif (.value | type) == "number" then
                     .value = {N: (.value | tostring)}
                 else
