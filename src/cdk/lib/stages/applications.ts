@@ -160,6 +160,7 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
+                        enableCloudWatchAgent: true,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -253,6 +254,7 @@ export class MicroservicesStack extends Stack {
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
+                        enableCloudWatchAgent: true,
                         // Use pipeline if available, otherwise fall back to direct collection access
                         ...(imports.ecsExports.openSearchPipeline
                             ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }
