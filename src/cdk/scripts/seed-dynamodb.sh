@@ -118,9 +118,9 @@ seed_petfood_table() {
                 elif (.key == "nutritional_info" and (.value | type) == "object") then
                     .value = {M: (.value | with_entries(
                         if (.key | endswith("_percentage")) then
-                            .value = {N: .value}
+                            .value = {N: (.value | tostring)}
                         else
-                            .value = {S: .value}
+                            .value = {S: (.value | tostring)}
                         end
                     ))}
                 elif (.value | type) == "number" then
