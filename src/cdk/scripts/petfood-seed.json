@@ -18,9 +18,9 @@
       "herbs"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
-      "fiber_percentage": 4,
+      "protein_percentage": 17,
+      "fat_percentage": 6,
+      "fiber_percentage": 40,
       "moisture_percentage": 10
     },
     "feeding_guidelines": "Serve fresh daily as part of balanced diet",
@@ -46,8 +46,8 @@
       "vegetables"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
+      "protein_percentage": 50,
+      "fat_percentage": 19,
       "fiber_percentage": 4,
       "moisture_percentage": 10
     },
@@ -74,8 +74,8 @@
       "oats"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
+      "protein_percentage": 17,
+      "fat_percentage": 5,
       "fiber_percentage": 4,
       "moisture_percentage": 10
     },
@@ -101,10 +101,10 @@
       "wheat flour"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
-      "fiber_percentage": 4,
-      "moisture_percentage": 10
+      "protein_percentage": 62,
+      "fat_percentage": 20,
+      "fiber_percentage": 1,
+      "moisture_percentage": 18
     },
     "feeding_guidelines": "Give 2-3 treats per day as rewards",
     "created_at": "2025-09-23T02:13:20.478258019Z",
@@ -128,10 +128,10 @@
       "vitamins"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
-      "fiber_percentage": 4,
-      "moisture_percentage": 10
+      "protein_percentage": 47,
+      "fat_percentage": 21,
+      "fiber_percentage": 9,
+      "moisture_percentage": 49
     },
     "feeding_guidelines": "Serve as a supplement to dry food",
     "created_at": "2025-09-23T02:13:20.389317018Z",
@@ -156,9 +156,9 @@
       "vitamins"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
-      "fiber_percentage": 4,
+      "protein_percentage": 68,
+      "fat_percentage": 17,
+      "fiber_percentage": 8,
       "moisture_percentage": 10
     },
     "feeding_guidelines": "Feed 3-4 times daily for growing kittens",
@@ -183,10 +183,10 @@
       "peas"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
-      "fiber_percentage": 4,
-      "moisture_percentage": 10
+      "protein_percentage": 61,
+      "fat_percentage": 8,
+      "fiber_percentage": 15,
+      "moisture_percentage": 11
     },
     "feeding_guidelines": "Use sparingly during training sessions",
     "created_at": "2025-09-23T02:13:20.433951641Z",
@@ -211,9 +211,9 @@
       "minerals"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
+      "protein_percentage": 13,
       "fat_percentage": 12,
-      "fiber_percentage": 4,
+      "fiber_percentage": 87,
       "moisture_percentage": 10
     },
     "feeding_guidelines": "1/4 to 1/2 cup daily depending on bunny size",
@@ -239,10 +239,10 @@
       "taurine"
     ],
     "nutritional_info": {
-      "protein_percentage": 25,
-      "fat_percentage": 12,
+      "protein_percentage": 45,
+      "fat_percentage": 24,
       "fiber_percentage": 4,
-      "moisture_percentage": 10
+      "moisture_percentage": 11
     },
     "feeding_guidelines": "Free feeding recommended for kittens under 6 months",
     "created_at": "2025-09-23T02:13:20.463859382Z",
