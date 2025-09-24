@@ -57,6 +57,11 @@ export interface EcsServiceProperties extends MicroserviceProperties {
               pipelineRoleArn?: string;
           };
     additionalEnvironment?: { [key: string]: string };
+    /**
+     * Enable CloudWatch agent sidecar for application signals and OTLP traces
+     * When enabled, adds a CloudWatch agent container that listens on port 4317
+     */
+    enableCloudWatchAgent?: boolean;
 }
 
 export abstract class EcsService extends Microservice {
@@ -191,6 +196,11 @@ export abstract class EcsService extends Microservice {
         // Add FireLens log router container if OpenSearch collection or pipeline is provided
         if (properties.openSearchCollection || properties.openSearchPipeline) {
             this.addFireLensLogRouter(taskDefinition, properties);
+        }
+
+        // Add CloudWatch agent sidecar if explicitly enabled
+        if (properties.enableCloudWatchAgent) {
+            this.addCloudWatchAgentSidecar(taskDefinition, properties);
         }
 
         if (!properties.disableService) {
@@ -511,5 +521,56 @@ export abstract class EcsService extends Microservice {
                 }),
             );
         }
+    }
+
+    private addCloudWatchAgentSidecar(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
+        // CloudWatch agent configuration for application signals
+        const cloudWatchConfig = {
+            traces: {
+                traces_collected: {
+                    otlp: {}
+                },
+            },
+        };
+
+        // Add CloudWatch agent container
+        const cloudWatchContainer = taskDefinition.addContainer('cloudwatch-agent', {
+            image: ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
+            memoryLimitMiB: 256,
+            cpu: 128,
+            essential: false,
+            logging: new AwsLogDriver({
+                streamPrefix: 'cloudwatch-agent',
+                logGroup: new LogGroup(this, 'cloudwatch-agent-log-group', {
+                    logGroupName: `/ecs/cloudwatch-agent/${properties.name}`,
+                    removalPolicy: RemovalPolicy.DESTROY,
+                    retention: RetentionDays.ONE_WEEK,
+                }),
+            }),
+            environment: {
+                CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
+                AWS_REGION: Stack.of(this).region,
+            },
+        });
+
+        // Add necessary permissions for CloudWatch agent
+        taskDefinition.taskRole.addToPrincipalPolicy(
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: [
+                    'cloudwatch:PutMetricData',
+                    'ec2:DescribeVolumes',
+                    'ec2:DescribeTags',
+                    'logs:PutLogEvents',
+                    'logs:CreateLogGroup',
+                    'logs:CreateLogStream',
+                    'logs:DescribeLogStreams',
+                    'logs:DescribeLogGroups',
+                    'xray:PutTraceSegments',
+                    'xray:PutTelemetryRecords',
+                ],
+                resources: ['*'],
+            }),
+        );
     }
 }
