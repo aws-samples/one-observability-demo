@@ -2,21 +2,21 @@ name: Build Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/pethistory/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
       - 'PetAdoptions/trafficgenerator/**'
   push:
-    branches: [ main ]
+    branches: [ main, staging ]
     paths:
       - 'PetAdoptions/payforadoption-go/**'
-      - 'PetAdoptions/petadoptionshistory-py/**'
-      - 'PetAdoptions/petlistadoptions-go/**'
+      - 'PetAdoptions/pethistory/**'
+      - 'PetAdoptions/petlistadoptions-py/**'
       - 'PetAdoptions/petsearch-java/**'
       - 'PetAdoptions/petsite/**'
       - 'PetAdoptions/petstatusupdater/**'
@@ -31,10 +31,8 @@ jobs:
         service:
           - name: payforadoption-go
             path: PetAdoptions/payforadoption-go
-          - name: petadoptionshistory-py
-            path: PetAdoptions/petadoptionshistory-py
-          - name: petlistadoptions-go
-            path: PetAdoptions/petlistadoptions-go
+          - name: petlistadoptions-py
+            path: PetAdoptions/petlistadoptions-py
           - name: petsearch-java
             path: PetAdoptions/petsearch-java
           - name: petsite
@@ -58,25 +56,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  nodejs-build:
+  nodejs-builds:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: pethistory
+            path: PetAdoptions/pethistory
+            node-version: '18'
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: ${{ matrix.service.node-version }}
           cache: 'npm'
-          cache-dependency-path: PetAdoptions/petstatusupdater/package-lock.json
+          cache-dependency-path: ${{ matrix.service.path }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: PetAdoptions/petstatusupdater
+        working-directory: ${{ matrix.service.path }}
+
+      - name: Run tests
+        run: npm test
+        working-directory: ${{ matrix.service.path }}
 
       - name: Verify build
         run: npm run build --if-present
-        working-directory: PetAdoptions/petstatusupdater
+        working-directory: ${{ matrix.service.path }}
 
   dotnet-builds:
     runs-on: ubuntu-latest
@@ -95,7 +105,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore ${{ matrix.project.path }}

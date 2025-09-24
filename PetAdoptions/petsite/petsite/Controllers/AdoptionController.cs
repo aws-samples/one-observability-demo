@@ -1,85 +1,100 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Amazon.XRay.Recorder.Core;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
-using Amazon.XRay.Recorder.Handlers.System.Net;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
 using PetSite.ViewModels;
+
 
 namespace PetSite.Controllers
 {
-    public class AdoptionController : Controller
+    public class AdoptionController : BaseController
     {
-        private static readonly HttpClient HttpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
+        private readonly PetSite.Services.IPetSearchService _petSearchService;
         private static Variety _variety = new Variety();
-        private static IConfiguration _configuration;
+        private readonly ILogger<AdoptionController> _logger;
 
-        private static string _searchApiurl;
-
-        public AdoptionController(IConfiguration configuration)
+        public AdoptionController(ILogger<AdoptionController> logger, PetSite.Services.IPetSearchService petSearchService)
         {
-            _configuration = configuration;
-            
-            //_searchApiurl = _configuration["searchapiurl"];
-            _searchApiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
-           
-            AWSSDKHandler.RegisterXRayForAllServices();
+            _petSearchService = petSearchService;
+            _logger = logger;
         }
+        
         // GET: Adoption
         [HttpGet]
         public IActionResult Index([FromQuery] Pet pet)
         {
+            if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
+            
+            _logger.LogInformation($"In Index Adoption/Index method with pet: {JsonSerializer.Serialize(pet)}");
+            
             return View(pet);
         }
-        private async Task<string> GetPetDetails(SearchParams searchParams)
-        {
-            string searchString = string.Empty;
+        
 
-            if (!String.IsNullOrEmpty(searchParams.pettype) && searchParams.pettype != "all") searchString = $"pettype={searchParams.pettype}";
-            if (!String.IsNullOrEmpty(searchParams.petcolor) && searchParams.petcolor != "all") searchString = $"&{searchString}&petcolor={searchParams.petcolor}";
-            if (!String.IsNullOrEmpty(searchParams.petid) && searchParams.petid != "all") searchString = $"&{searchString}&petid={searchParams.petid}";
-
-            return await HttpClient.GetStringAsync($"{_searchApiurl}{searchString}");
-        }
 
         [HttpPost]
-        public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams)
+        public async Task<IActionResult> TakeMeHome([FromForm] SearchParams searchParams, string userId)
         {
-
-             Console.WriteLine(
-                $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - Inside TakeMehome. Pet in context - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
-              
-
-            AWSXRayRecorder.Instance.AddMetadata("PetType", searchParams.pettype);
-            AWSXRayRecorder.Instance.AddMetadata("PetId", searchParams.petid);
-            AWSXRayRecorder.Instance.AddMetadata("PetColor", searchParams.petcolor);
+            if(string.IsNullOrEmpty(userId)) EnsureUserId();
             
-            //String traceId = TraceId.NewId(); // This function is present in : Amazon.XRay.Recorder.Core.Internal.Entities
-            AWSXRayRecorder.Instance
-                .BeginSubsegment("Calling Search API"); // custom traceId used while creating segment
-            string result;
-
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("pet.id", searchParams.petid);
+                currentActivity.SetTag("pet.type", searchParams.pettype);
+                currentActivity.SetTag("pet.color", searchParams.petcolor);
+                
+                _logger.LogInformation($"Processing adoption request - PetId:{searchParams.petid}, PetType:{searchParams.pettype}, PetColor:{searchParams.petcolor}");
+            }
+            
+            List<Pet> pets;
+            
             try
             {
-                result = await GetPetDetails(searchParams);
+                // Create tracing span for Search API operation
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Search API"))
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.id", searchParams.petid);
+                        activity.SetTag("pet.type", searchParams.pettype);
+                        activity.SetTag("pet.color", searchParams.petcolor);
+                    }
+                    _logger.LogInformation($"Inside Adoption/TakeMeHome with - pettype: {searchParams.pettype}, petcolor: {searchParams.petcolor}, petid: {searchParams.petid}");
+                    pets = await _petSearchService.GetPetDetails(searchParams.pettype, searchParams.petcolor, searchParams.petid, "userxxx");
+                }
             }
             catch (Exception e)
             {
-                AWSXRayRecorder.Instance.AddException(e);
+                // Log the exception
+                _logger.LogError(e, "Error calling PetSearch API");
                 throw e;
             }
-            finally
-            {
-                AWSXRayRecorder.Instance.EndSubsegment();
-            }
 
-            return View("Index", JsonSerializer.Deserialize<List<Pet>>(result).FirstOrDefault());
+            var selectedPet = pets.FirstOrDefault();
+            if (selectedPet != null)
+            {
+                return RedirectToAction("Index", new { 
+                    userId = userId,
+                    petid = selectedPet.petid,
+                    pettype = selectedPet.pettype,
+                    petcolor = selectedPet.petcolor,
+                    peturl = selectedPet.peturl,
+                    price = selectedPet.price,
+                    cuteness_rate = selectedPet.cuteness_rate
+                });
+            }
+            
+            return RedirectToAction("Index", new { userId = userId });
         }
     }
 }

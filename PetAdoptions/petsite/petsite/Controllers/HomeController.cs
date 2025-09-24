@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,26 +6,24 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using PetSite.Models;
-using Amazon.XRay.Recorder.Handlers.AwsSdk;
 using System.Net.Http;
-using Amazon.XRay.Recorder.Handlers.System.Net;
-using Amazon.XRay.Recorder.Core;
 using System.Text.Json;
-using Amazon;
 using PetSite.ViewModels;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
+using PetSite.Helpers;
 using Prometheus;
 
 namespace PetSite.Controllers
 {
-    public class HomeController : Controller
+    public class HomeController : BaseController
     {
         private readonly ILogger<HomeController> _logger;
-        private static HttpClient _httpClient;
+        private readonly PetSite.Services.IPetSearchService _petSearchService;
+        private readonly IHttpClientFactory _httpClientFactory;
         private static Variety _variety = new Variety();
-
-        private IConfiguration _configuration;
+        private readonly IConfiguration _configuration;
 
         //Prometheus metric to count the number of searches performed
         private static readonly Counter PetSearchCount =
@@ -46,13 +44,13 @@ namespace PetSite.Controllers
         private static readonly Gauge PetsWaitingForAdoption = Metrics
             .CreateGauge("petsite_pets_waiting_for_adoption", "Number of pets waiting for adoption.");
 
-        public HomeController(ILogger<HomeController> logger, IConfiguration configuration)
-        {
-            AWSXRayRecorder.RegisterLogger(LoggingOptions.Console);
-            _configuration = configuration;
-            AWSSDKHandler.RegisterXRayForAllServices();
 
-            _httpClient = new HttpClient(new HttpClientXRayTracingHandler(new HttpClientHandler()));
+
+        public HomeController(ILogger<HomeController> logger, IConfiguration configuration, PetSite.Services.IPetSearchService petSearchService, IHttpClientFactory httpClientFactory)
+        {
+            _configuration = configuration;
+            _petSearchService = petSearchService;
+            _httpClientFactory = httpClientFactory;
             _logger = logger;
 
             _variety.PetTypes = new List<SelectListItem>()
@@ -72,63 +70,18 @@ namespace PetSite.Controllers
             };
         }
 
-        private async Task<string> GetPetDetails(string pettype, string petcolor, string petid)
-        {
-            string searchUri = string.Empty;
-
-            if (!String.IsNullOrEmpty(pettype) && pettype != "all") searchUri = $"pettype={pettype}";
-            if (!String.IsNullOrEmpty(petcolor) && petcolor != "all") searchUri = $"&{searchUri}&petcolor={petcolor}";
-            if (!String.IsNullOrEmpty(petid) && petid != "all") searchUri = $"&{searchUri}&petid={petid}";
-
-            switch (pettype)
-            {
-                case "puppy":
-                    PuppySearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-                case "kitten":
-                    KittenSearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-                case "bunny":
-                    BunnySearchCount.Inc();
-                    PetSearchCount.Inc();
-                    break;
-            }
-            //string searchapiurl = _configuration["searchapiurl"];
-            string searchapiurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"searchapiurl");
-            return await _httpClient.GetStringAsync($"{searchapiurl}{searchUri}");
-        }
-
         [HttpGet("housekeeping")]
         public async Task<IActionResult> HouseKeeping()
         {
-             Console.WriteLine(
-                $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}][{AWSXRayRecorder.Instance.GetEntity().TraceId}] - In Housekeeping, trying to reset the app.");
-                
-            /*var result = await GetPetDetails(null, null, null);
-            var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
+            if (EnsureUserId()) return new EmptyResult();
+            _logger.LogInformation("In Housekeeping, trying to reset the app.");
 
-            var searchParams = new SearchParams();
+            string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
             
-            //string updateadoptionstatusurl = _configuration["updateadoptionstatusurl"];
-            string updateadoptionstatusurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"updateadoptionstatusurl");
-                  
-
-            foreach (var pet in Pets.Where(item => item.availability == "no"))
-            {
-                searchParams.pettype = pet.pettype;
-                searchParams.petid = pet.petid;
-                searchParams.petavailability = "yes";
-
-                StringContent putData = new StringContent(JsonSerializer.Serialize(searchParams));
-                await _httpClient.PutAsync(updateadoptionstatusurl, putData);
-            }*/
-            
-            //string cleanupadoptionsurl = _configuration["cleanupadoptionsurl"];
-            string cleanupadoptionsurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"cleanupadoptionsurl");
-            
-            await _httpClient.PostAsync(cleanupadoptionsurl, null);
+            using var httpClient = _httpClientFactory.CreateClient();
+            var userId = ViewBag.UserId?.ToString();
+            var url = UrlHelper.BuildUrl(cleanupadoptionsurl, ("userId", userId));
+            await httpClient.PostAsync(url, null);
 
             return View();
         }
@@ -136,38 +89,57 @@ namespace PetSite.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(string selectedPetType, string selectedPetColor, string petid)
         {
-            Console.WriteLine(
-                $"AWS_XRAY_DAEMON_ADDRESS:- {Environment.GetEnvironmentVariable("AWS_XRAY_DAEMON_ADDRESS")}");
+            if (EnsureUserId()) return new EmptyResult();
+            // Add custom span attributes using Activity API
+            var currentActivity = Activity.Current;
+            if (currentActivity != null)
+            {
+                currentActivity.SetTag("pet.type", selectedPetType);
+                currentActivity.SetTag("pet.color", selectedPetColor);
+                currentActivity.SetTag("pet.id", petid);
                 
-
-            AWSXRayRecorder.Instance.BeginSubsegment("Calling Search API");
-
-            AWSXRayRecorder.Instance.AddMetadata("PetType", selectedPetType);
-            AWSXRayRecorder.Instance.AddMetadata("PetId", petid);
-            AWSXRayRecorder.Instance.AddMetadata("PetColor", selectedPetColor);
-
+                _logger.LogInformation($"Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
+            }
             
-            Console.WriteLine(
-                $"[{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.TraceId}]- Search string - PetType:{selectedPetType} PetColor:{selectedPetColor} PetId:{petid}");
-            
-            // | SegmentId: [{AWSXRayRecorder.Instance.TraceContext.GetEntity().RootSegment.Id}
-            string result;
+            List<Pet> Pets;
 
             try
             {
-                result = await GetPetDetails(selectedPetType, selectedPetColor, petid);
+                // Create a new activity for the API call
+                using (var activity = Activity.Current?.Source?.StartActivity("Calling Search API"))
+                {
+                    if (activity != null)
+                    {
+                        activity.SetTag("pet.type", selectedPetType);
+                        activity.SetTag("pet.color", selectedPetColor);
+                        activity.SetTag("pet.id", petid);
+                    }
+
+                    var userId = Request.Query["userId"].ToString();
+                    Pets = await _petSearchService.GetPetDetails(selectedPetType, selectedPetColor, petid, userId);
+                }
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.LogError(e, "HTTP error received after calling PetSearch API");
+                ViewBag.ErrorMessage = $"Unable to search pets at this time. Please try again later. \nError message received - {e.Message}";
+                Pets = new List<Pet>();
+                throw e;
+            }
+            catch (TaskCanceledException e)
+            {
+                _logger.LogError(e, "Timeout calling PetSearch API");
+                ViewBag.ErrorMessage = "Search request timed out. Please try again.";
+                Pets = new List<Pet>();
+                throw e;
             }
             catch (Exception e)
             {
-                AWSXRayRecorder.Instance.AddException(e);
+                _logger.LogError(e, "Unexpected error calling PetSearch API");
+                ViewBag.ErrorMessage = "An unexpected error occurred. Please try again.";
+                Pets = new List<Pet>();
                 throw e;
             }
-            finally
-            {
-                AWSXRayRecorder.Instance.EndSubsegment();
-            }
-
-            var Pets = JsonSerializer.Deserialize<List<Pet>>(result);
 
             var PetDetails = new PetDetails()
             {
@@ -180,9 +152,8 @@ namespace PetSite.Controllers
                     SelectedPetType = selectedPetType
                 }
             };
-            AWSXRayRecorder.Instance.AddMetadata("results", System.Text.Json.JsonSerializer.Serialize(PetDetails));
-            Console.WriteLine(
-                $" TraceId: [{AWSXRayRecorder.Instance.GetEntity().TraceId}] - {JsonSerializer.Serialize(PetDetails)}");
+            
+            _logger.LogInformation("Search completed with {PetCount} pets found", Pets.Count);
 
             // Sets the metric value to the number of pets available for adoption at the moment
             PetsWaitingForAdoption.Set(Pets.Where(pet => pet.availability == "yes").Count());
@@ -191,8 +162,16 @@ namespace PetSite.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(string userId, string message)
         {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                ViewBag.UserId = userId;
+                ViewData["UserId"] = userId;
+            }
+            
+            ViewBag.ErrorMessage = message;
+            
             return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
         }
     }

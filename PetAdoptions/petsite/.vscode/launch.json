@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/petsite/bin/Debug/netcoreapp3.0/PetSite.dll",
+            "program": "${workspaceFolder}/petsite/bin/Debug/net8.0/PetSite.dll",
             "args": [],
             "cwd": "${workspaceFolder}/petsite",
             "stopAtEntry": false,

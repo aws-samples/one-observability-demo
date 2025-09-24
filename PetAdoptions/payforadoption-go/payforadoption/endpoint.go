@@ -31,7 +31,7 @@ func makeHealthCheckEndpoint(s Service) endpoint.Endpoint {
 func makeCompleteAdoptionEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(completeAdoptionRequest)
-		return s.CompleteAdoption(ctx, req.PetId, req.PetType)
+		return s.CompleteAdoption(ctx, req.PetId, req.PetType, req.UserID)
 	}
 }
 

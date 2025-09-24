@@ -18,6 +18,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as applicationinsights from 'aws-cdk-lib/aws-applicationinsights';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
+import * as applicationsignals from 'aws-cdk-lib/aws-applicationsignals';
 
 import { Construct } from 'constructs'
 import { PayForAdoptionService } from './services/pay-for-adoption-service'
@@ -43,6 +44,11 @@ export class Services extends Stack {
         const sqsQueue = new sqs.Queue(this, 'sqs_petadoption', {
             visibilityTimeout: Duration.seconds(300)
         });
+
+        // Enable Application Signals in the account
+        const cfnDiscovery = new applicationsignals.CfnDiscovery(this,
+            'ApplicationSignalsServiceRole', { }
+        );
 
         // Create SNS and an email topic to send notifications to
         const topic_petadoption = new sns.Topic(this, 'topic_petadoption');
@@ -162,6 +168,13 @@ export class Services extends Stack {
             resources: ['*']
         });
 
+        const adoptionSQSPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'sqs:SendMessage',
+            ],
+            resources: [sqsQueue.queueArn]
+        });
 
         const ddbSeedPolicy = new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
@@ -204,6 +217,7 @@ export class Services extends Stack {
         });
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(readSSMParamsPolicy);
         payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(ddbSeedPolicy);
+        payForAdoptionService.taskDefinition.taskRole?.addToPrincipalPolicy(adoptionSQSPolicy);
 
 
         const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {
@@ -238,7 +252,7 @@ export class Services extends Stack {
             //repositoryURI: repositoryURI,
             healthCheck: '/health/status',
             desiredTaskCount: 2,
-            instrumentation: 'otel',
+            instrumentation: 'none',
             region: region,
             securityGroup: ecsServicesSecurityGroup
         })
@@ -296,30 +310,6 @@ export class Services extends Stack {
             port: 80,
             open: true,
             defaultTargetGroups: [targetGroup],
-        });
-
-        // PetAdoptionHistory - attach service to path /petadoptionhistory on PetSite ALB
-        const petadoptionshistory_targetGroup = new elbv2.ApplicationTargetGroup(this, 'PetAdoptionsHistoryTargetGroup', {
-            port: 80,
-            protocol: elbv2.ApplicationProtocol.HTTP,
-            vpc: theVPC,
-            targetType: elbv2.TargetType.IP,
-            healthCheck: {
-                path: '/health/status',
-            }
-        });
-
-        listener.addTargetGroups('PetAdoptionsHistoryTargetGroups', {
-            priority: 10,
-            conditions: [
-                elbv2.ListenerCondition.pathPatterns(['/petadoptionshistory/*']),
-            ],
-            targetGroups: [petadoptionshistory_targetGroup]
-        });
-
-        new ssm.StringParameter(this, "putPetHistoryParamTargetGroupArn", {
-            stringValue: petadoptionshistory_targetGroup.targetGroupArn,
-            parameterName: '/eks/pethistory/TargetGroupArn'
         });
 
         // PetSite - EKS Cluster
@@ -393,6 +383,8 @@ export class Services extends Stack {
         });
         cwserviceaccount.assumeRolePolicy?.addStatements(cw_trustRelationship);
 
+        // Comment out X-Ray service account for petsite
+        /*
         const xray_federatedPrincipal = new iam.FederatedPrincipal(
             cluster.openIdConnectProvider.openIdConnectProviderArn,
             {
@@ -418,6 +410,7 @@ export class Services extends Stack {
             ],
         });
         xrayserviceaccount.assumeRolePolicy?.addStatements(xray_trustRelationship);
+        */
 
         const loadbalancer_federatedPrincipal = new iam.FederatedPrincipal(
             cluster.openIdConnectProvider.openIdConnectProviderArn,
@@ -455,6 +448,8 @@ export class Services extends Stack {
             ]);
         }
 
+        // Comment out X-Ray deployment for petsite
+        /*
         var xRayYaml = yaml.loadAll(readFileSync("./resources/k8s_petsite/xray-daemon-config.yaml", "utf8")) as Record<string, any>[];
 
         xRayYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "xray_Role", { value: `${xrayserviceaccount.roleArn}` });
@@ -463,6 +458,7 @@ export class Services extends Stack {
             cluster: cluster,
             manifest: xRayYaml
         });
+        */
 
         var loadBalancerServiceAccountYaml = yaml.loadAll(readFileSync("./resources/load_balancer/service_account.yaml", "utf8")) as Record<string, any>[];
         loadBalancerServiceAccountYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "loadBalancer_Role", { value: `${loadBalancerserviceaccount.roleArn}` });
@@ -507,7 +503,7 @@ export class Services extends Stack {
 
 
         // NOTE: Amazon CloudWatch Observability Addon for CloudWatch Agent and Fluentbit
-        const otelAddon = new eks.CfnAddon(this, 'otelObservabilityAddon', {
+        const cwAddon = new eks.CfnAddon(this, 'CloudWatchObservabilityAddon', {
             addonName: 'amazon-cloudwatch-observability',
             addonVersion: 'v4.4.0-eksbuild.1',
             clusterName: cluster.clusterName,
@@ -657,7 +653,7 @@ export class Services extends Stack {
         this.createOuputs(new Map(Object.entries({
             'CWServiceAccountArn': cwserviceaccount.roleArn,
             'NetworkFlowMonitorServiceAccountArn': networkFlowMonitorRole.attrArn,
-            'XRayServiceAccountArn': xrayserviceaccount.roleArn,
+            //'XRayServiceAccountArn': xrayserviceaccount.roleArn,
             'OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             'OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             'PetSiteUrl': `http://${alb.loadBalancerDnsName}`,
@@ -680,16 +676,15 @@ export class Services extends Stack {
             '/petstore/searchimage': searchService.container.imageName,
             '/petstore/petlistadoptionsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/api/adoptionlist/`,
             '/petstore/petlistadoptionsmetricsurl': `http://${listAdoptionsService.service.loadBalancer.loadBalancerDnsName}/metrics`,
-            '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
+            '/petstore/paymentapiurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/completeadoption`,
             '/petstore/payforadoptionmetricsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/metrics`,
-            '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+            '/petstore/cleanupadoptionsurl': `http://${payForAdoptionService.service.loadBalancer.loadBalancerDnsName}/api/cleanupadoptions`,
             '/petstore/petsearch-collector-manual-config': readFileSync("./resources/collector/ecs-xray-manual.yaml", "utf8"),
             '/petstore/rdssecretarn': `${auroraCluster.secret?.secretArn}`,
             '/petstore/rdsendpoint': auroraCluster.clusterEndpoint.hostname,
             '/petstore/rds-reader-endpoint': auroraCluster.clusterReadEndpoint.hostname,
             '/petstore/stackname': stackName,
             '/petstore/petsiteurl': `http://${alb.loadBalancerDnsName}`,
-            '/petstore/pethistoryurl': `http://${alb.loadBalancerDnsName}/petadoptionshistory`,
             '/eks/petsite/OIDCProviderUrl': cluster.clusterOpenIdConnectIssuerUrl,
             '/eks/petsite/OIDCProviderArn': cluster.openIdConnectProvider.openIdConnectProviderArn,
             '/petstore/errormode1': "false"

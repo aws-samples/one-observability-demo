@@ -2,8 +2,6 @@ package payforadoption
 
 import (
 	"context"
-	"errors"
-	"runtime"
 	"time"
 
 	"github.com/go-kit/log"
@@ -13,16 +11,17 @@ import (
 )
 
 type Adoption struct {
-	TransactionID string `json:"transactionid,omitempty"`
-	PetID         string `json:"petid,omitempty"`
-	PetType       string `json:"pettype,omitempty"`
-	AdoptionDate  time.Time
+	TransactionID string    `json:"transactionid,omitempty"`
+	PetID         string    `json:"petid,omitempty"`
+	PetType       string    `json:"pettype,omitempty"`
+	UserID        string    `json:"userid,omitempty"`
+	AdoptionDate  time.Time `json:"adoptiondate,omitempty"`
 }
 
 // links endpoints to transport
 type Service interface {
 	HealthCheck(ctx context.Context) error
-	CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error)
+	CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error)
 	CleanupAdoptions(ctx context.Context) error
 	TriggerSeeding(ctx context.Context) error
 }
@@ -49,7 +48,7 @@ func (s service) HealthCheck(ctx context.Context) error {
 }
 
 // /api/completeadoption logic
-func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (Adoption, error) {
+func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error) {
 	logger := log.With(s.logger, "method", "CompleteAdoption")
 
 	uuid, _ := uuid.NewV4()
@@ -57,28 +56,47 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType string) (A
 		TransactionID: uuid.String(),
 		PetID:         petId,
 		PetType:       petType,
+		UserID:        userID,
 		AdoptionDate:  time.Now(),
 	}
 
-	// Introduce memory leaks for pettype bunnies. Sorry bunnies :)
-	if petType == "bunny" {
-		if s.repository.ErrorModeOn(ctx) {
-			level.Error(logger).Log("errorMode", "On")
-			memoryLeak()
-			return a, errors.New("illegal memory allocation")
-		} else {
-			level.Error(logger).Log("errorMode", "Off")
+	// Introduce degraded experience when error mode is enabled
+	if s.repository.ErrorModeOn(ctx) {
+		level.Error(logger).Log("errorMode", "On", "petType", petType, "userID", userID)
+
+		startTime := time.Now()
+
+		// Apply different degradation strategies
+		result := handleDefaultDegradation(ctx, logger, a, startTime, s.repository)
+
+		// Return the result from the degradation scenario
+		if result.Error != nil {
+			return result.Adoption, result.Error
 		}
+
+		// Update the adoption with any modifications from degradation
+		a = result.Adoption
 	}
 
+	// Step 1: Create transaction in database (synchronous)
 	if err := s.repository.CreateTransaction(ctx, a); err != nil {
-		level.Error(logger).Log("err", err)
+		level.Error(logger).Log("err", err, "action", "create_transaction_failed")
 		return Adoption{}, err
 	}
 
-	err := s.repository.UpdateAvailability(ctx, a)
+	// Step 2: Update pet availability (synchronous)
+	if err := s.repository.UpdateAvailability(ctx, a); err != nil {
+		level.Error(logger).Log("err", err, "action", "update_availability_failed")
+		return Adoption{}, err
+	}
 
-	return a, err
+	// Step 3: Send history message to SQS (asynchronous - don't fail if this fails)
+	if err := s.repository.SendHistoryMessage(ctx, a); err != nil {
+		level.Warn(logger).Log("err", err, "action", "send_history_message_failed", "note", "continuing despite history message failure")
+		// Don't return error - history tracking is not critical for adoption success
+	}
+
+	return a, nil
 }
 
 func (s service) CleanupAdoptions(ctx context.Context) error {
@@ -110,27 +128,4 @@ func (s service) TriggerSeeding(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func memoryLeak() {
-
-	// loosing time
-	time.Sleep(time.Duration(1000 * time.Millisecond))
-
-	type T struct {
-		v [2 << 20]int
-		t *T
-	}
-
-	var finalizer = func(t *T) {}
-
-	var x, y T
-
-	// The SetFinalizer call makes x escape to heap.
-	runtime.SetFinalizer(&x, finalizer)
-
-	// The following line forms a cyclic reference
-	// group with two members, x and y.
-	// This causes x and y are not collectable.
-	x.t, y.t = &y, &x // y also escapes to heap.
 }

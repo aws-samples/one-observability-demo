@@ -22,6 +22,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -132,12 +137,28 @@ public class SearchController {
 
 
     @GetMapping("/api/search")
-    public List<Pet> search(
+    public ResponseEntity<?> search(
             @RequestParam(name = "pettype", defaultValue = "", required = false) String petType,
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId
     ) throws InterruptedException {
         Span span = tracer.spanBuilder("Scanning DynamoDB Table").startSpan();
+
+        //  return 404 error with custom message for invalid pet type
+        if (petType != null && !petType.trim().isEmpty() && !petType.equals("puppy") && !petType.equals("kitten") && !petType.equals("bunny")) {
+            logger.warn(petType+" pet type requested - returning 404 error");
+            span.setAttribute("error", true);
+            String errorMsg = petType+" pet type not found";
+            span.setAttribute("error.message", errorMsg);
+            span.end();
+            ErrorResponse errorResponse = new ErrorResponse(
+                404, 
+                errorMsg, 
+                errorMsg, 
+                "/api/search"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
 
         // This line is intentional. Delays searches
         if (petType != null && !petType.trim().isEmpty() && petType.equals("bunny")) {
@@ -151,7 +172,7 @@ public class SearchController {
                     .getItems().stream().map(this::mapToPet)
                     .collect(Collectors.toList());
             metricEmitter.emitPetsReturnedMetric(result.size());
-            return result;
+            return ResponseEntity.ok(result);
 
         } catch (Exception e) {
             span.recordException(e);

@@ -3,23 +3,29 @@
     ViewData["Title"] = "Error";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<section class="pet-hero">
+    <div class="container">
+        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+    </div>
+</section>
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+<div class="container mt-4">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Oops! Something went wrong</h4>
+        <hr>
+        @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
+        {
+            <p class="mb-0"><strong>Error:</strong> @ViewBag.ErrorMessage</p>
+        }
+        else
+        {
+            <p class="mb-0">We're sorry, but an unexpected error occurred while processing your request.</p>
+        }
+    </div>
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+    <div class="text-center mt-4">
+        <a asp-controller="Home" asp-action="Index" asp-route-userId="@ViewBag.UserId" class="btn btn-primary btn-lg">
+            Return to Home
+        </a>
+    </div>
+</div>
