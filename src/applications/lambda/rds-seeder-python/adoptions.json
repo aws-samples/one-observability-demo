@@ -1,0 +1,23 @@
+[
+    {
+        "petid": "001",
+        "adopter_name": "John Smith",
+        "adopter_email": "john.smith@example.com",
+        "status": "completed",
+        "notes": "Great match! Very happy with the adoption process."
+    },
+    {
+        "petid": "016",
+        "adopter_name": "Sarah Johnson",
+        "adopter_email": "sarah.j@example.com",
+        "status": "pending",
+        "notes": "Waiting for home visit approval."
+    },
+    {
+        "petid": "023",
+        "adopter_name": "Mike Wilson",
+        "adopter_email": "mike.wilson@example.com",
+        "status": "completed",
+        "notes": "Perfect companion for the family."
+    }
+]

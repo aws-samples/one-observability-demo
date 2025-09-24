@@ -121,4 +121,10 @@ export const SSM_PARAMETER_NAMES = {
     PET_ADOPTION_TABLE_NAME: 'dynamodbtablename',
     PET_FOODS_TABLE_NAME: 'foods_table_name',
     PET_FOODS_CART_TABLE_NAME: 'carts_table_name',
+
+    // RDS
+    RDS_SECRET_ARN_NAME: 'rdssecretarn', //pragma: allowlist secret
+    RDS_READER_ENDPOINT_NAME: 'rds-reader-endpoint',
+    RDS_WRITER_ENDPOINT_NAME: 'rds-writer-endpoint',
+    RDS_DATABASE_NAME: 'rds-database-name',
 } as const;

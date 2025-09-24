@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Stack, StackProps, Stage, Duration } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AssetsProperties, WorkshopAssets } from '../constructs/assets';
 import { DynamoDatabase as DynamoDatabase, DynamoDatabaseProperties } from '../constructs/dynamodb';
@@ -14,6 +14,10 @@ import { ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from '
 import { NagSuppressions } from 'cdk-nag';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { SecurityGroup, Port, IVpc, Peer } from 'aws-cdk-lib/aws-ec2';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { RdsSeederFunction } from '../serverless/functions/rds-seeder/rds-seeder';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
@@ -82,51 +86,51 @@ export class StorageStage extends Stage {
         return seedStep;
     }
 
-    public getRDSSeedingStep(scope: Stack, artifactBucket: IBucket) {
-        const rdsSeedingRole = new Role(scope, 'RDSSeedingRole', {
+    public getRDSSeedingStep(scope: Stack) {
+        // Create a role for CodeBuild to invoke the Lambda function
+        const lambdaInvokeRole = new Role(scope, 'RDSLambdaInvokeRole', {
             assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
-            description: 'CodeBuild role for RDS Aurora seeding',
+            description: 'CodeBuild role for invoking RDS seeder Lambda',
         });
 
-        artifactBucket.grantRead(rdsSeedingRole);
-        new Policy(scope, 'RDSSeedingPolicy', {
-            roles: [rdsSeedingRole],
-            statements: [
-                new PolicyStatement({
-                    actions: [
-                        'ssm:GetParameter',
-                        'ssm:GetParameters',
-                        'secretsmanager:GetSecretValue',
-                        'rds:DescribeDBClusters',
-                        'rds:DescribeDBInstances',
-                    ],
-                    resources: ['*'],
-                }),
-            ],
-        });
+        // Grant permission to invoke the Lambda function
+        this.stack.rdsSeederLambda.grantInvoke(lambdaInvokeRole);
 
         const rdsSeedStep = new CodeBuildStep('RDSSeeding', {
             commands: [
-                'cd src/cdk',
-                'npm install',
-                'npm run rds:seed',
+                `LAMBDA_ARN=${this.stack.rdsSeederLambda.functionArn}`,
+                `SECRET_PARAM="${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME}"`,
+                'echo "Invoking RDS seeder Lambda..."',
+                'aws lambda invoke \\',
+                '  --function-name "$LAMBDA_ARN" \\',
+                '  --invocation-type RequestResponse \\',
+                '  --payload "{\\"secret_parameter_name\\": \\"$SECRET_PARAM\\"}" \\',
+                '  --cli-binary-format raw-in-base64-out \\',
+                '  response.json',
+                'echo "Lambda response:"',
+                'cat response.json',
+                'echo ""',
+                '# Check if the response indicates success',
+                'if grep -q \'"statusCode": 200\' response.json; then',
+                '  echo "✅ RDS seeding completed successfully"',
+                'else',
+                '  echo "❌ RDS seeding failed"',
+                '  cat response.json',
+                '  exit 1',
+                'fi',
             ],
             buildEnvironment: {
                 privileged: false,
             },
-            role: rdsSeedingRole,
+            role: lambdaInvokeRole,
         });
 
         NagSuppressions.addResourceSuppressions(
-            rdsSeedingRole,
+            lambdaInvokeRole,
             [
                 {
                     id: 'AwsSolutions-IAM4',
-                    reason: 'CodeBuild managed policies are acceptable for the RDS Seeding action',
-                },
-                {
-                    id: 'AwsSolutions-IAM5',
-                    reason: 'Wildcard permissions are needed for SSM and Secrets Manager access',
+                    reason: 'CodeBuild managed policies are acceptable for Lambda invocation',
                 },
             ],
             true,
@@ -140,6 +144,8 @@ export class StorageStack extends Stack {
     public readonly dynamoDatabase: DynamoDatabase;
     public readonly auroraDatabase: AuroraDatabase;
     public readonly workshopAssets: WorkshopAssets;
+    public readonly rdsSeederLambda: Function;
+
     constructor(scope: Construct, id: string, properties: StorageProperties) {
         super(scope, id, properties);
 
@@ -158,6 +164,45 @@ export class StorageStack extends Stack {
         /** Add Database resource */
         this.auroraDatabase = new AuroraDatabase(this, 'AuroraDatabase', databaseProperties);
 
+        /** Add RDS Seeder Lambda function */
+        const rdsSeederFunction = new RdsSeederFunction(this, 'RdsSeederFunction', {
+            name: 'rds-seeder',
+            runtime: Runtime.PYTHON_3_13,
+            entry: '../applications/lambda/rds-seeder-python',
+            index: 'index.py',
+            memorySize: 256,
+            timeout: Duration.minutes(5),
+            vpc: vpc,
+            vpcSubnets: {
+                subnetGroupName: 'Private',
+            },
+            securityGroups: [this.createRdsSeederSecurityGroup(vpc)],
+            databaseSecret: this.auroraDatabase.cluster.secret!,
+            secretParameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME}`,
+        });
+        this.rdsSeederLambda = rdsSeederFunction.function;
+
         Utilities.SuppressLogRetentionNagWarnings(this);
+    }
+
+    private createRdsSeederSecurityGroup(vpc: IVpc): SecurityGroup {
+        // Create security group for Lambda to access RDS
+        const lambdaSecurityGroup = new SecurityGroup(this, 'RdsSeederLambdaSecurityGroup', {
+            vpc: vpc,
+            description: 'Security group for RDS seeder Lambda function',
+        });
+
+        // Allow Lambda to access RDS by adding ingress rule to RDS security group
+        this.auroraDatabase.databaseSecurityGroup.addIngressRule(
+            lambdaSecurityGroup,
+            Port.POSTGRES,
+            'RDS seeder Lambda access',
+        );
+
+        // Allow outbound HTTPS access for AWS API calls
+        // TODO: Change to use VPCe
+        lambdaSecurityGroup.addEgressRule(Peer.anyIpv4(), Port.tcp(443), 'HTTPS outbound for AWS API calls');
+
+        return lambdaSecurityGroup;
     }
 }

@@ -19,6 +19,8 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
+import { IVpc, ISecurityGroup, SubnetSelection } from 'aws-cdk-lib/aws-ec2';
+import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import {
     PETFOOD_CLEANUP_PROCESSOR_FUNCTION,
     PETFOOD_IMAGE_GENERATOR_FUNCTION,
@@ -168,6 +170,18 @@ export interface WorkshopLambdaFunctionProperties {
      * Lambda Timeout
      */
     timeout?: Duration;
+    /**
+     * VPC for the Lambda function
+     */
+    vpc?: IVpc;
+    /**
+     * VPC subnets for the Lambda function
+     */
+    vpcSubnets?: SubnetSelection;
+    /**
+     * Security groups for the Lambda function
+     */
+    securityGroups?: ISecurityGroup[];
 }
 
 /**
@@ -210,6 +224,9 @@ export abstract class WokshopLambdaFunction extends Construct {
             removalPolicy: RemovalPolicy.DESTROY,
         });
 
+        // Create role with VPC permissions if VPC is specified
+        const role = this.createLambdaRole(properties);
+
         if (properties.runtime.name.startsWith('nodejs')) {
             /** NodeJS Lambda function */
             if (!properties.handler) {
@@ -233,6 +250,10 @@ export abstract class WokshopLambdaFunction extends Construct {
                     enforceSSL: true,
                 }),
                 timeout: properties.timeout || Duration.seconds(30),
+                role: role,
+                vpc: properties.vpc,
+                vpcSubnets: properties.vpcSubnets,
+                securityGroups: properties.securityGroups,
             });
         } else if (properties.runtime.name.startsWith('python')) {
             /** Python Lambda function */
@@ -244,6 +265,7 @@ export abstract class WokshopLambdaFunction extends Construct {
                 runtime: properties.runtime,
                 architecture: Architecture.X86_64,
                 index: properties.index,
+                handler: properties.handler || 'lambda_handler',
                 entry: properties.entry,
                 memorySize: properties.memorySize,
                 logGroup: logGroup,
@@ -254,6 +276,11 @@ export abstract class WokshopLambdaFunction extends Construct {
                     queueName: `${properties.name}-dlq`,
                     enforceSSL: true,
                 }),
+                timeout: properties.timeout || Duration.seconds(30),
+                role: role,
+                vpc: properties.vpc,
+                vpcSubnets: properties.vpcSubnets,
+                securityGroups: properties.securityGroups,
             });
         } else {
             throw new Error(`Runtime ${properties.runtime.name} not supported`);
@@ -264,6 +291,24 @@ export abstract class WokshopLambdaFunction extends Construct {
         }
 
         this.addFunctionPermissions(properties);
+    }
+
+    /**
+     * Creates IAM role for Lambda function with VPC permissions if needed
+     */
+    private createLambdaRole(properties: WorkshopLambdaFunctionProperties): Role {
+        const managedPolicies = ['service-role/AWSLambdaBasicExecutionRole'];
+
+        // Add VPC execution role if VPC is specified
+        if (properties.vpc) {
+            managedPolicies.push('service-role/AWSLambdaVPCAccessExecutionRole');
+        }
+
+        return new Role(this, 'LambdaRole', {
+            assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+            description: `Role for ${properties.name} Lambda function`,
+            managedPolicies: managedPolicies.map((policy) => ManagedPolicy.fromAwsManagedPolicyName(policy)),
+        });
     }
 
     /**
