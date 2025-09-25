@@ -88,13 +88,13 @@ namespace PetSite.Controllers
                 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning($"Housekeeping API returned {response.StatusCode}");
+                    _logger.LogWarning($"Housekeeping API returned - {response.StatusCode} - for user: {userId}");
                     ViewBag.ErrorMessage = "Housekeeping operation failed. Please try again later.";
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error calling Housekeeping API: {e.Message}");
+                _logger.LogError(e, $"Error calling Housekeeping API: {e.Message} - for user: {userId}");
                 ViewBag.ErrorMessage = $"Unable to perform housekeeping at this time. Please try again later.\nError message: {e.Message}";
             }
 
@@ -110,13 +110,10 @@ namespace PetSite.Controllers
                 ["environment"] = Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => entry.Key.ToString(), entry => entry.Value?.ToString())
             };
 
-            return new JsonResult(result)
+            return new JsonResult(result, new JsonSerializerOptions
             {
-                SerializerSettings = new Newtonsoft.Json.JsonSerializerSettings
-                {
-                    Formatting = Newtonsoft.Json.Formatting.Indented // Beautify JSON
-                }
-            };
+                WriteIndented = true
+            });
 
         }
 
