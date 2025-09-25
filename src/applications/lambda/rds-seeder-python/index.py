@@ -137,21 +137,6 @@ def create_tables(connection):
     logger.info("Creating database tables...")
 
     create_tables_sql = """
-        -- Create pets table for adoption listings
-        CREATE TABLE IF NOT EXISTS pets (
-            id SERIAL PRIMARY KEY,
-            petid VARCHAR(10) UNIQUE NOT NULL,
-            pettype VARCHAR(50) NOT NULL,
-            availability VARCHAR(10) NOT NULL DEFAULT 'yes',
-            cuteness_rate INTEGER NOT NULL DEFAULT 5,
-            image VARCHAR(100),
-            petcolor VARCHAR(50),
-            price DECIMAL(10,2) NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
         -- Create transactions table for tracking adoptions
         CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
@@ -163,13 +148,6 @@ def create_tables(connection):
             status VARCHAR(20) DEFAULT 'completed',
             notes TEXT
         );
-
-        -- Create indexes for better performance
-        CREATE INDEX IF NOT EXISTS idx_pets_pettype ON pets(pettype);
-        CREATE INDEX IF NOT EXISTS idx_pets_availability ON pets(availability);
-        CREATE INDEX IF NOT EXISTS idx_pets_petid ON pets(petid);
-        CREATE INDEX IF NOT EXISTS idx_transactions_pet_id ON transactions(pet_id);
-        CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
     """
 
     try:
@@ -181,199 +159,6 @@ def create_tables(connection):
         logger.error(f"Error creating tables: {error}")
         connection.rollback()
         raise
-
-
-def load_pet_data():
-    """
-    Load pet data from seed.json file
-    """
-    try:
-        # Get the directory of this script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        seed_file_path = os.path.join(script_dir, "seed.json")
-
-        with open(seed_file_path) as file:
-            return json.load(file)
-    except Exception as error:
-        logger.error(f"Error loading seed data: {error}")
-        raise
-
-
-def seed_pets_data(connection):
-    """
-    Seed pets data into the database
-    """
-    logger.info("Seeding pets data...")
-
-    pet_data = load_pet_data()
-    inserted_count = 0
-
-    # Clear existing data first
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions")
-        cursor.execute("DELETE FROM pets")
-    connection.commit()
-    logger.info("Cleared existing data")
-
-    insert_sql = """
-        INSERT INTO pets (petid, pettype, availability, cuteness_rate, image,
-                         petcolor, price, description)
-        VALUES (%(petid)s, %(pettype)s, %(availability)s, %(cuteness_rate)s,
-                %(image)s, %(petcolor)s, %(price)s, %(description)s)
-        ON CONFLICT (petid) DO UPDATE SET
-            pettype = EXCLUDED.pettype,
-            availability = EXCLUDED.availability,
-            cuteness_rate = EXCLUDED.cuteness_rate,
-            image = EXCLUDED.image,
-            petcolor = EXCLUDED.petcolor,
-            price = EXCLUDED.price,
-            description = EXCLUDED.description,
-            updated_at = CURRENT_TIMESTAMP
-    """
-
-    try:
-        with connection.cursor() as cursor:
-            for pet in pet_data:
-                cursor.execute(
-                    insert_sql,
-                    {
-                        "petid": pet["petid"],
-                        "pettype": pet["pettype"],
-                        "availability": pet["availability"],
-                        "cuteness_rate": int(pet["cuteness_rate"]),
-                        "image": pet["image"],
-                        "petcolor": pet["petcolor"],
-                        "price": float(pet["price"]),
-                        "description": pet["description"],
-                    },
-                )
-                inserted_count += 1
-                logger.info(f"Inserted pet: {pet['petid']} ({pet['pettype']})")
-
-        connection.commit()
-        logger.info(f"Successfully inserted {inserted_count} pets")
-        return inserted_count
-
-    except Exception as error:
-        logger.error(f"Error seeding pets data: {error}")
-        connection.rollback()
-        raise
-
-
-def load_adoption_data():
-    """
-    Load adoption data from adoptions.json file
-    """
-    try:
-        # Get the directory of this script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        adoptions_file_path = os.path.join(script_dir, "adoptions.json")
-
-        with open(adoptions_file_path) as file:
-            return json.load(file)
-    except Exception as error:
-        logger.error(f"Error loading adoption data: {error}")
-        raise
-
-
-def seed_adoptions_data(connection):
-    """
-    Seed sample adoptions data
-    """
-    logger.info("Seeding sample adoptions data...")
-
-    sample_adoptions = load_adoption_data()
-
-    inserted_count = 0
-    insert_sql = """
-        INSERT INTO transactions (pet_id, transaction_id, adopter_name,
-                                 adopter_email, status, notes)
-        VALUES (%(pet_id)s, %(transaction_id)s, %(adopter_name)s,
-                %(adopter_email)s, %(status)s, %(notes)s)
-    """
-
-    try:
-        with connection.cursor() as cursor:
-            for adoption in sample_adoptions:
-                # Generate a unique transaction ID
-                transaction_id = (
-                    f"TXN-{adoption['petid']}-{int(time.time())}-"
-                    f"{random.randint(1000, 9999)}"
-                )
-
-                cursor.execute(
-                    insert_sql,
-                    {
-                        "pet_id": adoption["petid"],
-                        "transaction_id": transaction_id,
-                        "adopter_name": adoption["adopter_name"],
-                        "adopter_email": adoption["adopter_email"],
-                        "status": adoption["status"],
-                        "notes": adoption["notes"],
-                    },
-                )
-                inserted_count += 1
-                logger.info(f"Inserted adoption for pet: {adoption['petid']}")
-
-        connection.commit()
-        logger.info(f"Successfully inserted {inserted_count} adoptions")
-        return inserted_count
-
-    except Exception as error:
-        logger.error(f"Error seeding adoptions data: {error}")
-        connection.rollback()
-        raise
-
-
-def verify_data(connection):
-    """
-    Verify seeded data
-    """
-    logger.info("Verifying seeded data...")
-
-    try:
-        with connection.cursor() as cursor:
-            # Count pets
-            cursor.execute("SELECT COUNT(*) as count FROM pets")
-            pets_count = cursor.fetchone()["count"]
-
-            # Count transactions
-            cursor.execute("SELECT COUNT(*) as count FROM transactions")
-            transactions_count = cursor.fetchone()["count"]
-
-            logger.info(f"Total pets: {pets_count}")
-            logger.info(f"Total transactions: {transactions_count}")
-
-            # Show sample data
-            cursor.execute("SELECT petid, pettype, petcolor, price FROM pets LIMIT 5")
-            sample_pets = cursor.fetchall()
-
-            logger.info("Sample pets:")
-            for pet in sample_pets:
-                logger.info(
-                    f"  - {pet['petid']}: {pet['pettype']} "
-                    f"({pet['petcolor']}) - ${pet['price']}",
-                )
-
-            # Convert Decimal objects to float for JSON serialization
-            sample_pets_serializable = []
-            for pet in sample_pets:
-                pet_dict = dict(pet)
-                # Convert Decimal to float
-                if "price" in pet_dict and isinstance(pet_dict["price"], Decimal):
-                    pet_dict["price"] = float(pet_dict["price"])
-                sample_pets_serializable.append(pet_dict)
-
-            return {
-                "pets_count": pets_count,
-                "transactions_count": transactions_count,
-                "sample_pets": sample_pets_serializable,
-            }
-
-    except Exception as error:
-        logger.error(f"Error verifying data: {error}")
-        raise
-
 
 def lambda_handler(event, context):
     """
@@ -403,23 +188,13 @@ def lambda_handler(event, context):
             # Create tables
             create_tables(connection)
 
-            # Seed data
-            pets_count = seed_pets_data(connection)
-            adoptions_count = seed_adoptions_data(connection)
-
-            # Verify data
-            verification_results = verify_data(connection)
-
             logger.info("RDS seeding completed successfully!")
 
             return {
                 "statusCode": 200,
                 "body": json.dumps(
                     {
-                        "message": "RDS seeding completed successfully",
-                        "pets_seeded": pets_count,
-                        "adoptions_seeded": adoptions_count,
-                        "verification": verification_results,
+                        "message": "RDS table created successfully",
                     },
                 ),
             }
@@ -429,6 +204,6 @@ def lambda_handler(event, context):
             logger.info("Database connection closed")
 
     except Exception as error:
-        error_msg = f"RDS seeding failed: {str(error)}"
+        error_msg = f"RDS table creation failed: {str(error)}"
         logger.error(error_msg, exc_info=True)
         return {"statusCode": 500, "body": json.dumps({"error": error_msg})}
