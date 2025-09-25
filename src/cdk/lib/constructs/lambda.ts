@@ -193,6 +193,7 @@ export const LambdaFunctionNames = {
     TrafficGenerator: TRAFFIC_GENERATOR_FUNCTION.name,
     PetfoodImageGenerator: PETFOOD_IMAGE_GENERATOR_FUNCTION.name,
     PetfoodCleanupProcessor: PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name,
+    RdsSeeder: 'rds-seeder',
 } as const;
 
 /**

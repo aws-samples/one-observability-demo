@@ -14,9 +14,9 @@ import { ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from '
 import { NagSuppressions } from 'cdk-nag';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
-import { Function, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Function } from 'aws-cdk-lib/aws-lambda';
 import { SecurityGroup, Port, IVpc, Peer } from 'aws-cdk-lib/aws-ec2';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { PARAMETER_STORE_PREFIX, RDS_SEEDER_FUNCTION } from '../../bin/environment';
 import { RdsSeederFunction } from '../serverless/functions/rds-seeder/rds-seeder';
 
 export interface StorageProperties extends StackProps {
@@ -90,19 +90,26 @@ export class StorageStage extends Stage {
         // Create a role for CodeBuild to invoke the Lambda function
         const lambdaInvokeRole = new Role(scope, 'RDSLambdaInvokeRole', {
             assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
-            description: 'CodeBuild role for invoking RDS seeder Lambda',
         });
 
-        // Grant permission to invoke the Lambda function
-        this.stack.rdsSeederLambda.grantInvoke(lambdaInvokeRole);
+        // Add policy to invoke Lambda functions by name pattern
+        new Policy(scope, 'RDSLambdaInvokePolicy', {
+            roles: [lambdaInvokeRole],
+            statements: [
+                new PolicyStatement({
+                    actions: ['lambda:InvokeFunction'],
+                    resources: [`arn:aws:lambda:${scope.region}:${scope.account}:function:${RDS_SEEDER_FUNCTION.name}`],
+                }),
+            ],
+        });
 
         const rdsSeedStep = new CodeBuildStep('RDSSeeding', {
             commands: [
-                `LAMBDA_ARN=${this.stack.rdsSeederLambda.functionArn}`,
+                `LAMBDA_NAME="${RDS_SEEDER_FUNCTION.name}"`,
                 `SECRET_PARAM="${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME}"`,
                 'echo "Invoking RDS seeder Lambda..."',
                 'aws lambda invoke \\',
-                '  --function-name "$LAMBDA_ARN" \\',
+                '  --function-name "$LAMBDA_NAME" \\',
                 '  --invocation-type RequestResponse \\',
                 '  --payload "{\\"secret_parameter_name\\": \\"$SECRET_PARAM\\"}" \\',
                 '  --cli-binary-format raw-in-base64-out \\',
@@ -131,6 +138,10 @@ export class StorageStage extends Stage {
                 {
                     id: 'AwsSolutions-IAM4',
                     reason: 'CodeBuild managed policies are acceptable for Lambda invocation',
+                },
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'Wildcard needed to invoke Lambda by name pattern across stages',
                 },
             ],
             true,
@@ -166,11 +177,11 @@ export class StorageStack extends Stack {
 
         /** Add RDS Seeder Lambda function */
         const rdsSeederFunction = new RdsSeederFunction(this, 'RdsSeederFunction', {
-            name: 'rds-seeder',
-            runtime: Runtime.PYTHON_3_13,
-            entry: '../applications/lambda/rds-seeder-python',
-            index: 'index.py',
-            memorySize: 256,
+            name: RDS_SEEDER_FUNCTION.name,
+            runtime: RDS_SEEDER_FUNCTION.runtime,
+            entry: RDS_SEEDER_FUNCTION.entry,
+            index: RDS_SEEDER_FUNCTION.index,
+            memorySize: RDS_SEEDER_FUNCTION.memorySize,
             timeout: Duration.minutes(5),
             vpc: vpc,
             vpcSubnets: {
