@@ -79,6 +79,10 @@ const storage = new StorageStack(app, 'DevStorageStack', {
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,
     },
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 });
 storage.addDependency(core, 'Network is needed');
 

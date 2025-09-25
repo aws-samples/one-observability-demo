@@ -31,6 +31,7 @@ import {
     AURORA_CLUSTER_ENDPOINT_EXPORT_NAME,
     AURORA_SECURITY_GROUP_ID_EXPORT_NAME,
     AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
+    SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Utilities } from '../utils/utilities';
@@ -203,10 +204,10 @@ export class AuroraDatabase extends Construct {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        rdssecretarn: this.cluster.secret?.secretArn,
-                        'rds-reader-endpoint': this.cluster.clusterReadEndpoint.hostname,
-                        'rds-writer-endpoint': this.cluster.clusterEndpoint.hostname,
-                        'rds-database-name': databaseName,
+                        [SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME]: this.cluster.secret?.secretArn,
+                        [SSM_PARAMETER_NAMES.RDS_READER_ENDPOINT_NAME]: this.cluster.clusterReadEndpoint.hostname,
+                        [SSM_PARAMETER_NAMES.RDS_WRITER_ENDPOINT_NAME]: this.cluster.clusterEndpoint.hostname,
+                        [SSM_PARAMETER_NAMES.RDS_DATABASE_NAME]: databaseName,
                     }),
                 ),
             );

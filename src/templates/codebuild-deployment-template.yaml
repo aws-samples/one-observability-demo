@@ -73,7 +73,7 @@ Parameters:
     Type: String
     Description: Branch to deploy from
     Default: feat/cdkpipeline
-    AllowedPattern: '[A-Za-z0-9_.-/]+'
+    AllowedPattern: '[A-Za-z0-9_./-]+'
     ConstraintDescription: Must contain only alphanumeric characters, underscores,
       periods, slashes, or hyphens
 
