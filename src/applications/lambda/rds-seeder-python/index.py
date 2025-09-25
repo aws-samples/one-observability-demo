@@ -382,10 +382,10 @@ def lambda_handler(event, context):
     logger.info(f"RDS Seeder Lambda started. Event: {json.dumps(event)}")
 
     try:
-        # Extract SSM parameter name from event
-        secret_parameter_name = event.get("secret_parameter_name")
+        # Get SSM parameter name from environment variable
+        secret_parameter_name = os.environ.get("SECRET_PARAMETER_NAME")
         if not secret_parameter_name:
-            error_msg = "secret_parameter_name is required in event payload"
+            error_msg = "SECRET_PARAMETER_NAME environment variable is required"
             logger.error(error_msg)
             return {"statusCode": 400, "body": json.dumps({"error": error_msg})}
 

@@ -235,6 +235,7 @@ export abstract class WokshopLambdaFunction extends Construct {
             }
 
             this.function = new NodejsFunction(this, `${properties.name}-function`, {
+                functionName: properties.name,
                 runtime: properties.runtime,
                 architecture: Architecture.X86_64,
                 depsLockFilePath: properties.depsLockFilePath,
@@ -263,6 +264,7 @@ export abstract class WokshopLambdaFunction extends Construct {
             }
 
             this.function = new PythonFunction(this, `${properties.name}-function`, {
+                functionName: properties.name,
                 runtime: properties.runtime,
                 architecture: Architecture.X86_64,
                 index: properties.index,

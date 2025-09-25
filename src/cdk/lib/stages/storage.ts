@@ -106,14 +106,8 @@ export class StorageStage extends Stage {
         const rdsSeedStep = new CodeBuildStep('RDSSeeding', {
             commands: [
                 `LAMBDA_NAME="${RDS_SEEDER_FUNCTION.name}"`,
-                `SECRET_PARAM="${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME}"`,
                 'echo "Invoking RDS seeder Lambda..."',
-                'aws lambda invoke \\',
-                '  --function-name "$LAMBDA_NAME" \\',
-                '  --invocation-type RequestResponse \\',
-                '  --payload "{\\"secret_parameter_name\\": \\"$SECRET_PARAM\\"}" \\',
-                '  --cli-binary-format raw-in-base64-out \\',
-                '  response.json',
+                'aws lambda invoke --function-name "$LAMBDA_NAME" --invocation-type RequestResponse --cli-binary-format raw-in-base64-out response.json',
                 'echo "Lambda response:"',
                 'cat response.json',
                 'echo ""',
