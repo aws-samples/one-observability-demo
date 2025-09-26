@@ -300,7 +300,10 @@ export abstract class WokshopLambdaFunction extends Construct {
      * Creates IAM role for Lambda function with VPC permissions if needed
      */
     private createLambdaRole(properties: WorkshopLambdaFunctionProperties): Role {
-        const managedPolicies = ['service-role/AWSLambdaBasicExecutionRole'];
+        const managedPolicies = [
+            'service-role/AWSLambdaBasicExecutionRole',
+            'CloudWatchLambdaApplicationSignalsExecutionRolePolicy',
+        ];
 
         // Add VPC execution role if VPC is specified
         if (properties.vpc) {
