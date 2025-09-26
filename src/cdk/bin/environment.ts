@@ -217,12 +217,22 @@ export const PETFOOD_CLEANUP_PROCESSOR_FUNCTION = {
     enableSchedule: false,
 };
 
+export const RDS_SEEDER_FUNCTION = {
+    name: 'rds-seeder',
+    runtime: Runtime.PYTHON_3_13,
+    entry: '../applications/lambda/rds-seeder-python',
+    index: 'index.py',
+    memorySize: 256,
+    handler: 'lambda_handler',
+};
+
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
     [TRAFFIC_GENERATOR_FUNCTION.name, TRAFFIC_GENERATOR_FUNCTION],
     [PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name, PETFOOD_CLEANUP_PROCESSOR_FUNCTION],
     [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],
+    [RDS_SEEDER_FUNCTION.name, RDS_SEEDER_FUNCTION],
 ]);
 
 export const PETSITE_CANARY = {
