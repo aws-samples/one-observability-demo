@@ -72,6 +72,13 @@ export const VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME = 'WorkshopVPCEndpointDynamoDb
 export const VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME = 'WorkshopVPCEndpointLambdaId';
 export const VPC_ENDPOINT_SERVICEDISCOVERY_ID_EXPORT_NAME = 'WorkshopVPCEndpointServiceDiscoveryId';
 export const VPC_ENDPOINT_DATA_SERVICEDISCOVERY_ID_EXPORT_NAME = 'WorkshopVPCEndpointDataServiceDiscoveryId';
+export const VPC_ENDPOINT_S3_ID_EXPORT_NAME = 'WorkshopVPCEndpointS3Id';
+export const VPC_ENDPOINT_SSM_ID_EXPORT_NAME = 'WorkshopVPCEndpointSSMId';
+export const VPC_ENDPOINT_EC2MESSAGES_ID_EXPORT_NAME = 'WorkshopVPCEndpointEC2MessagesId';
+export const VPC_ENDPOINT_SSMMESSAGES_ID_EXPORT_NAME = 'WorkshopVPCEndpointSSMMessagesId';
+export const VPC_ENDPOINT_SECRETSMANAGER_ID_EXPORT_NAME = 'WorkshopVPCEndpointSecretsManagerId';
+export const VPC_ENDPOINT_CLOUDWATCH_MONITORING_ID_EXPORT_NAME = 'WorkshopVPCEndpointCloudWatchMonitoringId';
+export const VPC_ENDPOINT_CLOUDWATCH_LOGS_ID_EXPORT_NAME = 'WorkshopVPCEndpointCloudWatchLogsId';
 
 // CloudMap Export Names
 export const CLOUDMAP_NAMESPACE_ID_EXPORT_NAME = 'WorkshopCloudMapNamespaceId';
