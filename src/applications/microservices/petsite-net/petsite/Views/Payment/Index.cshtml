@@ -1,0 +1,105 @@
+﻿@model PetSite.ViewModels.FoodApiResponse
+@{
+  ViewData["Title"] = "Complete Adoption";
+}
+
+<section class="pet-hero">
+  <div class="container">
+    <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+  </div>
+</section>
+<br/>
+
+<div class="container align-items-center">
+  @if (ViewData["txStatus"]?.ToString() == "success")
+  {
+    <div class="alert alert-success" role="alert" id="success-alert">
+      <h4 class="alert-heading">Adoption Complete</h4>
+      <hr>
+      <p class="mb-0">Thank you for adopting me!</p>
+      <canvas id="confetti-canvas"
+              style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></canvas>
+    </div>
+    @if (ViewData["PetDetails"] != null)
+    {
+      var pet = (PetSite.ViewModels.Pet)ViewData["PetDetails"];
+      <div class="container mt-2">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="pet-items mb-4">
+              <div style="position: relative; display: inline-block;">
+                <img class="pet-thumbnail" src="@pet.peturl" style="border: 1px solid #000000; border-radius: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@pet.pettype-@pet.petcolor</span>
+                <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 18px;">$@pet.price</span>
+                @if (!string.IsNullOrEmpty(pet.cuteness_rate) && Int32.TryParse(pet.cuteness_rate, out int rating))
+                {
+                  <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px;">
+                    @for (int i = 0; i < rating; i++)
+                    {
+                      <span style="color: #ffd700;">★</span>
+                    }
+                  </div>
+                }
+              </div>
+              <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="@pet.pettype" asp-route-petId="@pet.petid" class="btn btn-primary btn-lg">
+                  Buy food for me
+                </a>
+                <a asp-controller="Waggle" asp-action="Index" asp-route-userId="@ViewBag.UserId" class="btn btn-info btn-lg">
+                  Chat with Waggle AI
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    }
+    <script>
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const confetti = [];
+      for (let i = 0; i < 100; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: -10,
+          vx: (Math.random() - 0.5) * 4,
+          vy: Math.random() * 3 + 2,
+          color: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57'][Math.floor(Math.random() * 5)]
+        });
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        confetti.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, 8, 8);
+        });
+        if (confetti.some(p => p.y < canvas.height)) requestAnimationFrame(animate);
+        else canvas.remove();
+      }
+
+      animate();
+    </script>
+  }
+  else
+  {
+    <br/>
+    <div class="container align-items-center">
+      <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Error</h4>
+        <hr>
+        <p class="mb-0">Sorry, something went wrong</p>
+      </div>
+    </div>
+    <p>Error @ViewData["txStatus"]</p>
+  }
+</div>
+
+
+

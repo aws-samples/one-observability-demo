@@ -1,0 +1,86 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: {{ NAMESPACE }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: {{ SERVICE_ACCOUNT_NAME }}
+    namespace: {{ NAMESPACE }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: service-petsite
+    namespace: {{ NAMESPACE }}
+    annotations:
+        scrape: 'true'
+        prometheus.io/scrape: 'true'
+spec:
+    ports:
+        - port: 80
+          nodePort: 30300
+          targetPort: 80
+          protocol: TCP
+    type: NodePort
+    selector:
+        app: petsite
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: petsite-deployment
+    namespace: {{ NAMESPACE }}
+spec:
+    selector:
+        matchLabels:
+            app: petsite
+    replicas: 2
+    template:
+        metadata:
+            labels:
+                app: petsite
+            annotations:
+                instrumentation.opentelemetry.io/inject-dotnet: "true"
+        spec:
+            serviceAccountName: {{ SERVICE_ACCOUNT_NAME }}
+            containers:
+                - image: '{{ ECR_IMAGE_URL }}'
+                  imagePullPolicy: Always
+                  name: petsite
+                  ports:
+                      - containerPort: 80
+                        protocol: TCP
+                  env:
+                      - name: PET_HISTORY_URL_PARAM_NAME
+                        value: {{ PET_HISTORY_URL_PARAM_NAME }}
+                      - name: PET_LIST_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ PET_LIST_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: CLEANUP_ADOPTIONS_URL_PARAM_NAME
+                        value: {{ CLEANUP_ADOPTIONS_URL_PARAM_NAME }}
+                      - name: PAYMENT_API_URL_PARAM_NAME
+                        value: {{ PAYMENT_API_URL_PARAM_NAME }}
+                      - name: FOOD_API_URL_PARAM_NAME
+                        value: {{ FOOD_API_URL_PARAM_NAME }}
+                      - name: CART_API_URL_PARAM_NAME
+                        value: {{ CART_API_URL_PARAM_NAME }}
+                      - name: SEARCH_API_URL_PARAM_NAME
+                        value: {{ SEARCH_API_URL_PARAM_NAME }}
+                      - name: RUM_SCRIPT_PARAMETER_NAME
+                        value: {{ RUM_SCRIPT_PARAMETER_NAME }}
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: petsite-tgb
+  namespace: {{ NAMESPACE }}
+spec:
+  serviceRef:
+    name: service-petsite
+    port: 80
+  targetGroupARN: {{ TARGET_GROUP_ARN }}
+  targetType: ip

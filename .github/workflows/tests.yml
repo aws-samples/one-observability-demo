@@ -1,0 +1,129 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [ main, staging, feat/cdkpipeline ]
+  push:
+    branches: [ main, staging, feat/cdkpipeline ]
+
+jobs:
+  cdk-synth-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: src/cdk/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('src/cdk/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: src/cdk
+
+      - name: Build TypeScript
+        run: npm run build
+        working-directory: src/cdk
+
+      - name: TypeScript compilation check
+        run: npx tsc --noEmit
+        working-directory: src/cdk
+
+      - name: CDK context validation
+        run: |
+          echo "Validating CDK context and configuration..."
+          cp .env.sample .env
+          npx cdk context --clear
+          npx cdk ls
+        working-directory: src/cdk
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+
+      - name: Run CDK synth (dry run)
+        run: |
+          cp .env.sample .env
+          npx cdk synth --no-staging
+        working-directory: src/cdk
+        env:
+          # Set required AWS environment variables for synth
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_REGION: us-east-1
+          # CDK doesn't need real AWS credentials for synth, but some constructs might check
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+
+  petfood-rust-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: src/applications/microservices/petfood-rs/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('src/applications/microservices/petfood-rs/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+        working-directory: src/applications/microservices/petfood-rs
+
+      - name: Run Clippy (linting)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src/applications/microservices/petfood-rs
+
+      - name: Run cargo unit tests
+        run: cargo test --lib --bins
+        working-directory: src/applications/microservices/petfood-rs
+        env:
+          RUST_BACKTRACE: 1
+
+      # - name: Run cargo tests with all features
+      #   run: cargo test --all-features --verbose
+      #   working-directory: src/applications/microservices/petfood-rs
+      #   env:
+      #     RUST_BACKTRACE: 1
+
+      - name: Check cargo build
+        run: cargo build --release
+        working-directory: src/applications/microservices/petfood-rs

@@ -1,0 +1,17 @@
+{
+    "name": "traffic-generator-node",
+    "version": "1.0.0",
+    "description": "Generates concurrent traffic by invoking canary functions",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest"
+    },
+    "author": "",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "@aws-sdk/client-lambda": "^3.0.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0"
+    }
+}

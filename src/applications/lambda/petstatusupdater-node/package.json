@@ -1,0 +1,19 @@
+{
+    "name": "petstatusupdater",
+    "version": "1.0.0",
+    "description": "Updates pet availability",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest"
+    },
+    "author": "",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "aws-xray-sdk-core": "^3.10.3",
+        "@aws-sdk/client-dynamodb": "^3.0.0",
+        "@aws-sdk/lib-dynamodb": "^3.0.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0"
+    }
+}

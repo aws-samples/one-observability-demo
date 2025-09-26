@@ -1,3 +1,7 @@
+<!--
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
 # Contributing Guidelines
 
 Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or additional
@@ -49,6 +53,188 @@ This project has adopted the [Amazon Open Source Code of Conduct](https://aws.gi
 For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq) or contact
 opensource-codeofconduct@amazon.com with any additional questions or comments.
 
+
+## Security Scanning and Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and security. The following hooks are configured:
+
+### Security Hooks
+- **python-safety-dependencies-check**: Scans Python dependencies for known security vulnerabilities
+- **detect-secrets**: Prevents secrets from being committed to the repository
+- **detect-private-key**: Detects private keys in code
+- **detect-aws-credentials**: Prevents AWS credentials from being committed
+
+### Code Quality Hooks
+- **commitizen**: Enforces conventional commit message format
+- **check-json**: Validates JSON file syntax
+- **check-yaml**: Validates YAML file syntax
+- **trailing-whitespace**: Removes trailing whitespace
+- **mixed-line-ending**: Ensures consistent line endings
+- **check-merge-conflict**: Detects merge conflict markers
+- **codespell**: Checks for common spelling mistakes
+- **eslint**: Lints JavaScript/TypeScript files
+- **dockerfile_lint**: Lints Dockerfile syntax
+- **black**: Formats Python code
+- **flake8**: Python code linting
+- **mypy**: Python type checking
+- **cfn-python-lint**: CloudFormation template linting
+- **jest**: Runs unit tests
+- **ash-simple-scan**: AWS security scanning
+
+### Prerequisites
+
+1. **Install git-remote-s3** (required for pushing initial repo to S3 for container pipelines):
+   ```bash
+   pip install git-remote-s3
+   ```
+
+2. **Install dependencies** from the root of the repository:
+   ```bash
+   npm install
+   ```
+
+### Installing Pre-commit Hooks
+
+**Mac:**
+```bash
+# Use pip instead of brew to avoid old version issues
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+**Windows:**
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+## Local Development
+
+For faster development without waiting for the pipeline, you can use the local CDK application located in `bin/local.ts`. This deploys resources directly using CDK commands.
+
+**Prerequisites:**
+- Authenticate with your target AWS account
+- **IMPORTANT:** Run the deploy check script first (see Deployment Scripts section below)
+
+**Usage:**
+```bash
+# List available stacks
+cdk -a "npx ts-node bin/local.ts" list
+
+# Deploy all stacks
+cdk -a "npx ts-node bin/local.ts" deploy --all
+
+# Other CDK commands using local app
+cdk -a "npx ts-node bin/local.ts" <cdk-command>
+```
+
+Example commands:
+```bash
+# Show differences
+cdk -a "npx ts-node bin/local.ts" diff
+
+# Destroy the stack
+cdk -a "npx ts-node bin/local.ts" destroy
+```
+
+## Deployment Scripts
+
+### Environment Validation Script
+
+**IMPORTANT:** The `scripts/deploy-check.sh` script must be executed first before deploying the local stack.
+
+The script validates your environment and prepares the repository for deployment.
+
+**Setup:**
+1. Copy `src/cdk/.env.sample` to `src/cdk/.env`
+2. Update the `.env` file with your AWS account details:
+   - `CONFIG_BUCKET`: Your S3 bucket name
+   - `BRANCH_NAME`: Your git branch name
+   - `AWS_ACCOUNT_ID`: Your AWS account ID
+   - `AWS_REGION`: Your target AWS region
+
+**Usage:**
+```bash
+./scripts/deploy-check.sh
+```
+
+The script will:
+- Validate AWS credentials and display current role/account
+- Check if the S3 bucket exists (create if needed)
+- Verify the repository archive exists in S3 (upload if needed)
+
+**After running the deploy check script, you can then deploy the local stack using CDK commands.**
+
+### Application Redeployment Script
+
+The `src/cdk/scripts/redeploy-app.sh` script helps developers quickly redeploy individual microservices for testing new versions.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- One of: Docker, Finch, or Podman installed
+- Deployed One Observability Demo infrastructure
+
+**Usage:**
+```bash
+./src/cdk/scripts/redeploy-app.sh
+```
+
+See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
+
+### DynamoDB Seeding Script
+
+The `src/cdk/scripts/seed-dynamodb.sh` script helps populate DynamoDB tables with initial pet adoption data.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- `jq` command-line JSON processor installed
+- CDK resources must be deployed first
+- The script uses data from `src/cdk/scripts/seed.json`
+
+**Usage:**
+```bash
+# Interactive mode
+./src/cdk/scripts/seed-dynamodb.sh
+
+# Non-interactive mode with table name
+./src/cdk/scripts/seed-dynamodb.sh TABLE_NAME
+```
+
+The script will:
+- Accept table name as parameter for non-interactive usage
+- List all DynamoDB tables in your account (interactive mode)
+- Automatically suggest tables containing "Petadoption" in the name (interactive mode)
+- Allow you to select which table to seed (interactive mode)
+- Populate the selected table with pet data from the seed file
+
+**Note:** This script must be executed after the CDK resources are deployed.
+
+### Parameter Store Retrieval Script
+
+The `src/cdk/scripts/get-parameter.sh` script retrieves values from AWS Systems Manager Parameter Store using the configured prefix.
+
+**Prerequisites:**
+- AWS CLI configured with appropriate credentials
+- CDK resources must be deployed first
+
+**Usage:**
+```bash
+./src/cdk/scripts/get-parameter.sh <parameter-key>
+```
+
+**Example:**
+```bash
+./src/cdk/scripts/get-parameter.sh database-endpoint
+```
+
+This retrieves the parameter `/petstore/database-endpoint` from Parameter Store.
+
+**Return Values:**
+- Parameter value if found
+- `-1` if parameter not found or invalid key
+- `-2` if access denied
 
 ## Security issue notifications
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
