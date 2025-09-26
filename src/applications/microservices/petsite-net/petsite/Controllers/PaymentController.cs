@@ -115,7 +115,7 @@ namespace PetSite.Controllers
             catch (Exception ex)
             {
                 // Log the exception
-                _logger.LogError(ex, $"Error in MakePayment: {ex.Message}");
+                _logger.LogError(ex, $"Error in MakePayment: {ex.Message} - for user: {userId}");
 
                 return RedirectToAction("Index", new { userId = userId, status = ex.Message });
             }
