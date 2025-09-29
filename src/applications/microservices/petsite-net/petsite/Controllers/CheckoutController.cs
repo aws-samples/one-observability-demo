@@ -112,7 +112,7 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
                 var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
                 var removeItemUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId, "items", foodId }, null);
-                
+
                 var response = await httpClient.DeleteAsync(removeItemUrl);
                 response.EnsureSuccessStatusCode();
 

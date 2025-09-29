@@ -41,7 +41,7 @@ namespace PetSite.Controllers
                 }
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                
+
                 // TEMP - Remove this once the Parameter name is available via CDK
                 var waggleApiUrl = _configuration.GetValue<string>("waggleapiurl");
 
@@ -60,7 +60,7 @@ namespace PetSite.Controllers
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 //var apiResponse = JsonSerializer.Deserialize<dynamic>(responseContent);
-                
+
                 return Json(new ChatResponse
                 {
                     //Message = apiResponse.GetProperty("message").GetString(),

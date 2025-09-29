@@ -217,20 +217,19 @@ export class OpenSearchCollection extends Construct {
      * @param roles - Array of IAM roles to grant access
      */
     public addIngestionRoles(roles: IRole[]): void {
-        const accountId = Stack.of(this).account;
         const collectionName = this.collection.name;
-        
+
         // Get current principals
         const currentPolicy = JSON.parse(this.accessPolicy.policy as string);
         const currentPrincipals = currentPolicy[0].Principal || [];
-        
+
         // Add new role ARNs
-        roles.forEach(role => {
+        for (const role of roles) {
             if (!currentPrincipals.includes(role.roleArn)) {
                 currentPrincipals.push(role.roleArn);
             }
-        });
-        
+        }
+
         // Update the access policy
         this.accessPolicy.policy = JSON.stringify([
             {

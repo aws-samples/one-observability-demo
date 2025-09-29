@@ -69,6 +69,7 @@ repos:
             types: [file]
             args:
                 - --fix
+                - --no-warn-ignored
             additional_dependencies:
                 - eslint-plugin-unicorn@v58.0.0
                 - eslint-plugin-prettier@v5.2.6
@@ -138,7 +139,7 @@ repos:
             pass_filenames: false
             always_run: true
     - repo: https://github.com/awslabs/automated-security-helper
-      rev: v3.0.0
+      rev: v3.0.3
       hooks:
           - id: ash-simple-scan
             args: [--no-fail-on-findings] # Until we fix dockerfile issues

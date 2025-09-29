@@ -1,0 +1,2 @@
+strands-agents>=1.10.0
+strands-agents-tools>=1.10.0

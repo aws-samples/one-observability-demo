@@ -37,20 +37,7 @@ export abstract class WorkshopCanary extends Construct {
             schedule: Schedule.expression(properties.scheduleExpression || 'rate(5 minutes)'),
             test: Test.custom({
                 handler: properties.handler,
-                code: Code.fromAsset(properties.path, {
-                    bundling: {
-                        image: properties.runtime.bundlingImage,
-                        command: [
-                            'bash',
-                            '-c',
-                            [
-                                'cp -r /asset-input/* /asset-output/',
-                                'cd /asset-output',
-                                'npm install @aws-sdk/client-ssm@^3.0.0',
-                            ].join(' && '),
-                        ],
-                    },
-                }),
+                code: Code.fromAsset(properties.path),
             }),
             activeTracing: true,
             artifactsBucketLocation: properties.artifactsBucket

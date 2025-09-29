@@ -9,7 +9,6 @@ import random
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from decimal import Decimal
 
 # Configure logging
 logger = logging.getLogger()
@@ -159,6 +158,7 @@ def create_tables(connection):
         logger.error(f"Error creating tables: {error}")
         connection.rollback()
         raise
+
 
 def lambda_handler(event, context):
     """

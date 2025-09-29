@@ -528,13 +528,13 @@ export abstract class EcsService extends Microservice {
         const cloudWatchConfig = {
             traces: {
                 traces_collected: {
-                    otlp: {}
+                    otlp: {},
                 },
             },
         };
 
         // Add CloudWatch agent container
-        const cloudWatchContainer = taskDefinition.addContainer('cloudwatch-agent', {
+        taskDefinition.addContainer('cloudwatch-agent', {
             image: ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
             memoryLimitMiB: 256,
             cpu: 128,

@@ -85,7 +85,7 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
                 var url = UrlHelper.BuildUrl(cleanupadoptionsurl, new string[]{"userId", userId}, null);
                 var response = await httpClient.PostAsync(url, null);
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning($"Housekeeping API returned - {response.StatusCode} - for user: {userId}");
