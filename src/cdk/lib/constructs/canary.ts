@@ -38,7 +38,9 @@ export abstract class WorkshopCanary extends Construct {
                     bundling: {
                         image: properties.runtime.bundlingImage,
                         command: [
-                            'bash', '-c', [
+                            'bash',
+                            '-c',
+                            [
                                 'cp -r /asset-input/* /asset-output/',
                                 'cd /asset-output',
                                 'npm install @aws-sdk/client-ssm@^3.0.0',
