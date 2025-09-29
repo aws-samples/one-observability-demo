@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { Runtime, Function, ILayerVersion, Architecture } from 'aws-cdk-lib/aws-lambda';
+import { Runtime, Function, ILayerVersion, Architecture, Tracing } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions, NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
@@ -78,6 +78,50 @@ export function getOpenTelemetryPythonLayerArn(region: string): string {
     }
 
     return `arn:aws:lambda:${region}:${mapping.account}:layer:AWSOpenTelemetryDistroPython:${mapping.version}`;
+}
+
+export function getOpenTelemetryNodeJSLayerArn(region: string): string {
+    const layerMappings: Record<string, { account: string; version: string }> = {
+        'us-east-1': { account: '615299751070', version: '8' },
+        'us-east-2': { account: '615299751070', version: '8' },
+        'us-west-1': { account: '615299751070', version: '8' },
+        'us-west-2': { account: '615299751070', version: '8' },
+        'af-south-1': { account: '904233096616', version: '8' },
+        'ap-east-1': { account: '888577020596', version: '8' },
+        'ap-south-2': { account: '796973505492', version: '6' },
+        'ap-southeast-3': { account: '039612877180', version: '8' },
+        'ap-southeast-4': { account: '713881805771', version: '8' },
+        'ap-southeast-5': { account: '152034782359', version: '1' },
+        'ap-southeast-7': { account: '980416031188', version: '1' },
+        'ap-south-1': { account: '615299751070', version: '8' },
+        'ap-northeast-3': { account: '615299751070', version: '8' },
+        'ap-northeast-2': { account: '615299751070', version: '8' },
+        'ap-southeast-1': { account: '615299751070', version: '8' },
+        'ap-southeast-2': { account: '615299751070', version: '8' },
+        'ap-northeast-1': { account: '615299751070', version: '8' },
+        'ca-central-1': { account: '615299751070', version: '8' },
+        'ca-west-1': { account: '595944127152', version: '1' },
+        'eu-central-1': { account: '615299751070', version: '8' },
+        'eu-west-1': { account: '615299751070', version: '8' },
+        'eu-west-2': { account: '615299751070', version: '8' },
+        'eu-south-1': { account: '257394471194', version: '8' },
+        'eu-west-3': { account: '615299751070', version: '8' },
+        'eu-south-2': { account: '490004653786', version: '8' },
+        'eu-north-1': { account: '615299751070', version: '8' },
+        'eu-central-2': { account: '156041407956', version: '8' },
+        'il-central-1': { account: '746669239226', version: '8' },
+        'me-south-1': { account: '980921751758', version: '8' },
+        'me-central-1': { account: '739275441131', version: '8' },
+        'sa-east-1': { account: '615299751070', version: '8' },
+        'mx-central-1': { account: '610118373846', version: '1' },
+    };
+
+    const mapping = layerMappings[region];
+    if (!mapping) {
+        throw new Error(`OpenTelemetry NodeJS layer not available in region: ${region}`);
+    }
+
+    return `arn:aws:lambda:${region}:${mapping.account}:layer:AWSOpenTelemetryDistroJs:${mapping.version}`;
 }
 
 /**
@@ -256,6 +300,7 @@ export abstract class WokshopLambdaFunction extends Construct {
                 vpc: properties.vpc,
                 vpcSubnets: properties.vpcSubnets,
                 securityGroups: properties.securityGroups,
+                tracing: Tracing.ACTIVE,
             });
         } else if (properties.runtime.name.startsWith('python')) {
             /** Python Lambda function */
@@ -274,6 +319,7 @@ export abstract class WokshopLambdaFunction extends Construct {
                 logGroup: logGroup,
                 layers: this.getLayers(properties),
                 environment: this.getEnvironmentVariables(properties),
+
                 deadLetterQueueEnabled: true,
                 deadLetterQueue: new Queue(this, 'DeadLetterQueue', {
                     queueName: `${properties.name}-dlq`,
@@ -284,6 +330,7 @@ export abstract class WokshopLambdaFunction extends Construct {
                 vpc: properties.vpc,
                 vpcSubnets: properties.vpcSubnets,
                 securityGroups: properties.securityGroups,
+                tracing: Tracing.ACTIVE,
             });
         } else {
             throw new Error(`Runtime ${properties.runtime.name} not supported`);
