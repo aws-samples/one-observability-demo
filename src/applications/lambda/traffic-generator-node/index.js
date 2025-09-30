@@ -4,11 +4,11 @@ const lambda = new LambdaClient({});
 exports.handler = async (event) => {
     console.log('Traffic generator started:', JSON.stringify(event));
 
-    const canaryFunctionArn = process.env.CANARY_FUNCTION_ARN;
+    const petsiteTrafficFunctionArn = process.env.PETSITE_TRAFFIC_FUNCTION_ARN;
     const concurrentUsers = Number.parseInt(process.env.CONCURRENT_USERS || '50');
 
     console.log(`Generating traffic for ${concurrentUsers} concurrent users`);
-    console.log(`Invoking canary function: ${canaryFunctionArn}`);
+    console.log(`Invoking petsite traffic function: ${petsiteTrafficFunctionArn}`);
 
     const startTime = Date.now();
     const promises = [];
@@ -21,7 +21,7 @@ exports.handler = async (event) => {
         const userId = userIds[index];
 
         const invokeParameters = {
-            FunctionName: canaryFunctionArn,
+            FunctionName: petsiteTrafficFunctionArn,
             InvocationType: 'Event', // Async invocation
             Payload: JSON.stringify({
                 userId: userId,
@@ -31,24 +31,24 @@ exports.handler = async (event) => {
             }),
         };
 
-        console.log(`Invoking canary for user: ${userId}`);
+        console.log(`Invoking petsite traffic function for user: ${userId}`);
         const command = new InvokeCommand(invokeParameters);
         promises.push(
             lambda
                 .send(command)
                 .then((result) => {
-                    console.log(`Successfully invoked canary for user ${userId}`);
+                    console.log(`Successfully invoked petsite traffic function for user ${userId}`);
                     return { userId, success: true, result };
                 })
                 .catch((error) => {
-                    console.error(`Failed to invoke canary for user ${userId}:`, error);
+                    console.error(`Failed to invoke petsite traffic function for user ${userId}:`, error);
                     return { userId, success: false, error: error.message };
                 }),
         );
     }
 
     // Wait for all invocations to complete
-    console.log(`Waiting for \${concurrentUsers} canary invocations to complete...`);
+    console.log(`Waiting for ${concurrentUsers} petsite traffic function invocations to complete...`);
     const results = await Promise.allSettled(promises);
 
     const endTime = Date.now();

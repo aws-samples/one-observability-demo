@@ -1,0 +1,15 @@
+{
+  "name": "petsite-traffic-generator-node",
+  "version": "1.0.0",
+  "description": "Lambda function for generating traffic to the petsite application",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.0.0",
+    "puppeteer-core": "^21.0.0"
+  },
+  "author": "AWS",
+  "license": "Apache-2.0"
+}
