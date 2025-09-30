@@ -4,7 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
-const https = require('https');
+const https = require('node:https');
 
 const ssmClient = new SSMClient({});
 
@@ -41,21 +41,25 @@ exports.handler = async (event) => {
 
     // Create promises for all user journeys
     const userPromises = [];
-    for (let i = 0; i < concurrentUsers; i++) {
-        userPromises.push(simulateUserJourney(petsiteBaseUrl, i + 1));
+    for (let index = 0; index < concurrentUsers; index++) {
+        userPromises.push(simulateUserJourney(petsiteBaseUrl, index + 1));
     }
 
     // Wait for all user journeys to complete
     const results = await Promise.allSettled(userPromises);
 
     // Count successful and failed journeys
-    const successfulJourneys = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const failedJourneys = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+    const successfulJourneys = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
+    const failedJourneys = results.filter(
+        (r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success),
+    ).length;
 
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    console.log(`Overall traffic generation completed: ${successfulJourneys} successful, ${failedJourneys} failed in ${duration}ms`);
+    console.log(
+        `Overall traffic generation completed: ${successfulJourneys} successful, ${failedJourneys} failed in ${duration}ms`,
+    );
 
     return {
         statusCode: 200,
@@ -112,7 +116,7 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
 
         // Execute all requests concurrently
         const results = await Promise.allSettled(requests);
-        const failedRequests = results.filter(r => r.status === 'rejected').length;
+        const failedRequests = results.filter((r) => r.status === 'rejected').length;
 
         if (failedRequests > 0) {
             console.warn(`User ${userId} journey completed with ${failedRequests} failed requests.`);
@@ -121,7 +125,6 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
 
         console.log(`User ${userId} journey completed successfully.`);
         return { userId, success: true };
-
     } catch (error) {
         console.error(`User ${userId} journey failed:`, error.message);
         return { userId, success: false, message: error.message };
@@ -141,13 +144,13 @@ function makeHttpRequest(url, method = 'GET', description = 'Request') {
             method: method,
             headers: {
                 'User-Agent': 'CloudWatchSynthetics/TrafficGenerator',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
+                Connection: 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
             },
-            timeout: 15000 // 15 seconds timeout
+            timeout: 15_000, // 15 seconds timeout
         };
 
         const request = https.request(url, options, (response) => {
@@ -161,7 +164,7 @@ function makeHttpRequest(url, method = 'GET', description = 'Request') {
                     resolve({
                         statusCode: response.statusCode,
                         description: description,
-                        data: data.substring(0, 100)
+                        data: data.slice(0, 100),
                     });
                 } else {
                     console.error(`${description} failed with status: ${response.statusCode}`);
