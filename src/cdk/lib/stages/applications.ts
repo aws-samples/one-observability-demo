@@ -161,6 +161,10 @@ export class MicroservicesStack extends Stack {
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
+                        additionalEnvironment: {
+                            PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
+                            OTEL_RESOURCE_ATTRIBUTES: 'service.name=payforadoption-api-go,deployment.environment=ecs:PetsiteECS-cluster',
+                        },
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -189,6 +193,10 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
+                        additionalEnvironment: {
+                            OTEL_RESOURCE_ATTRIBUTES:
+                                'service.name=petlistadoptions-api-py,deployment.environment=ecs:PetsiteECS-cluster',
+                        },
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -219,6 +227,10 @@ export class MicroservicesStack extends Stack {
                         cloudMapNamespace: imports.cloudMap,
                         table: imports.dynamodbExports.table,
                         bucket: imports.assetsBucket,
+                        additionalEnvironment: {
+                            OTEL_SERVICE_NAME: 'petsearch-api-java',
+                            OTEL_RESOURCE_ATTRIBUTES: 'service.name=petsearch-api-java,deployment.environment=ecs:PetsiteECS-cluster',
+                        },
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -249,8 +261,10 @@ export class MicroservicesStack extends Stack {
                         petFoodCartTable: imports.dynamodbExports.petFoodsCartTable,
                         additionalEnvironment: {
                             PETFOOD_ENABLE_JSON_LOGGING: 'true',
+                            PETFOOD_SERVICE_NAME:'petfood-api-rs',
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
+                            OTEL_RESOURCE_ATTRIBUTES: 'service.name=petfood-rs-api,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,

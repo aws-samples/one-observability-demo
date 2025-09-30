@@ -544,7 +544,7 @@ pub(crate) fn default_region() -> String {
 }
 
 pub(crate) fn default_service_name() -> String {
-    "petfood-rs".to_string()
+    "petfood-api-rs".to_string()
 }
 
 pub(crate) fn default_service_version() -> String {

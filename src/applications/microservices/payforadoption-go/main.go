@@ -31,7 +31,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const otelServiceName = "payforadoption"
+func getServiceName() string {
+	serviceName := os.Getenv("PAYFORADOPTION_SERVICE_NAME")
+	if serviceName == "" {
+		return "payforadoption-api-go" // default fallback
+	}
+	return serviceName
+}
 
 var tracer trace.Tracer
 
@@ -55,9 +61,10 @@ func otelInit(ctx context.Context) {
 	}
 
 	// service name used to display traces in backends
+	serviceName := getServiceName()
 	svcNameResource := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String(otelServiceName),
+		semconv.ServiceNameKey.String(serviceName),
 	)
 
 	ecsResourceDetector := ecs.NewResourceDetector()
@@ -77,7 +84,7 @@ func otelInit(ctx context.Context) {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(xray.Propagator{})
 
-	tracer = tp.Tracer(otelServiceName)
+	tracer = tp.Tracer(serviceName)
 }
 
 func main() {

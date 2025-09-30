@@ -50,7 +50,7 @@ export class PetSearchService extends EcsService {
             instrumentation: {
                 sdkVersion: JavaInstrumentationVersion.V2_10_0,
             },
-            serviceName: `${properties.name}-Service`,
+            serviceName: 'petsearch-api-java',
             cloudWatchAgentSidecar: {
                 containerName: 'ecs-cwagent',
                 enableLogging: true,

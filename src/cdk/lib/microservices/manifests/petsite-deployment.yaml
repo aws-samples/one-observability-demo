@@ -33,7 +33,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: petsite-deployment
+    name: petsite-frontend-dotnet
     namespace: {{ NAMESPACE }}
 spec:
     selector:
@@ -72,6 +72,8 @@ spec:
                         value: {{ SEARCH_API_URL_PARAM_NAME }}
                       - name: RUM_SCRIPT_PARAMETER_NAME
                         value: {{ RUM_SCRIPT_PARAMETER_NAME }}
+                      - name: OTEL_RESOURCE_ATTRIBUTES
+                        value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
