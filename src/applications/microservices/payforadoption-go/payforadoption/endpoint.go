@@ -40,8 +40,9 @@ func makeCompleteAdoptionEndpoint(s Service) endpoint.Endpoint {
 }
 
 func makeCleanupAdoptionsEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		return nil, s.CleanupAdoptions(ctx)
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(cleanupAdoptionsRequest)
+		return nil, s.CleanupAdoptions(ctx, req.UserID)
 	}
 }
 

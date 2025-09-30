@@ -179,7 +179,11 @@ export class WorkshopEcs extends Construct {
         scope: Construct,
         id: string,
         vpc: IVpc,
-    ): { cluster: ICluster; securityGroup: ISecurityGroup; openSearchPipeline?: { pipelineEndpoint: string; pipelineArn: string; pipelineRoleArn: string } } {
+    ): {
+        cluster: ICluster;
+        securityGroup: ISecurityGroup;
+        openSearchPipeline?: { pipelineEndpoint: string; pipelineArn: string; pipelineRoleArn: string };
+    } {
         const clusterName = Fn.importValue(ECS_CLUSTER_NAME_EXPORT_NAME);
         const securityGroupId = Fn.importValue(ECS_SECURITY_GROUP_ID_EXPORT_NAME);
 
@@ -191,10 +195,10 @@ export class WorkshopEcs extends Construct {
         const securityGroup = SecurityGroup.fromSecurityGroupId(scope, `${id}-SecurityGroup`, securityGroupId);
 
         // Import OpenSearch pipeline information if available
-        // This provides backward compatibility - if pipeline exports don't exist, 
+        // This provides backward compatibility - if pipeline exports don't exist,
         // the import will gracefully handle the missing values
         let openSearchPipeline: { pipelineEndpoint: string; pipelineArn: string; pipelineRoleArn: string } | undefined;
-        
+
         try {
             const pipelineImports = OpenSearchPipeline.importFromExports();
             openSearchPipeline = {
@@ -202,7 +206,7 @@ export class WorkshopEcs extends Construct {
                 pipelineArn: pipelineImports.pipelineArn,
                 pipelineRoleArn: pipelineImports.pipelineRoleArn,
             };
-        } catch (error) {
+        } catch {
             // Pipeline exports don't exist - this is fine for backward compatibility
             openSearchPipeline = undefined;
         }

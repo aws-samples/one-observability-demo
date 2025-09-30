@@ -10,7 +10,7 @@ describe('Traffic Generator Lambda', () => {
         mockSend = jest.fn();
 
         require('@aws-sdk/client-lambda').LambdaClient = jest.fn(() => ({
-            send: mockSend
+            send: mockSend,
         }));
         require('@aws-sdk/client-lambda').InvokeCommand = jest.fn();
 
@@ -54,8 +54,9 @@ describe('Traffic Generator Lambda', () => {
 
     test('should generate user IDs correctly', () => {
         const concurrentUsers = 3;
-        const userIds = Array.from({ length: concurrentUsers }, (_, index) =>
-            `user${String(index + 1).padStart(4, '0')}`
+        const userIds = Array.from(
+            { length: concurrentUsers },
+            (_, index) => `user${String(index + 1).padStart(4, '0')}`,
         );
 
         expect(userIds).toEqual(['user0001', 'user0002', 'user0003']);

@@ -1,4 +1,4 @@
-﻿@using PetSite.ViewModels
+@using PetSite.ViewModels
 @{
     ViewData["Title"] = "Adopt Me";
     @model Pet;
@@ -20,7 +20,7 @@
             <div class="pet-items mb-4">
                 <partial name="_PetItem" for="@Model" view-data='@new ViewDataDictionary(ViewData) { { "ShowTakeMeHomeButton", false } }' />
             </div>
-            
+
             <div class="card">
                 <div class="card-body">
                     <!-- Demo payment form -->
@@ -28,7 +28,7 @@
                     <div class="alert alert-warning">
                         This is a demo - no real payment will be processed
                     </div>
-                    
+
                     <div class="form-group mb-3">
                         <label for="cardName">Name on Card</label>
                         <input type="text" class="form-control" id="cardName" value="John Doe" readonly>
@@ -56,7 +56,7 @@
                             <div class="form-group mb-3">
                                 <form asp-controller="Payment" asp-action="MakePayment" method="post">
                                     <input class="btn btn-success btn-lg btn-block" type="submit" value="Pay and Adopt" />
-                                    <input type="hidden" asp-for="@Model.petid" name="petid" />    
+                                    <input type="hidden" asp-for="@Model.petid" name="petid" />
                                     <input type="hidden" asp-for="@Model.pettype" name="pettype" />
                                     <input type="hidden" asp-for="@Model.peturl" name="peturl" />
                                     <input type="hidden" name="userId" value="@ViewBag.UserId" />

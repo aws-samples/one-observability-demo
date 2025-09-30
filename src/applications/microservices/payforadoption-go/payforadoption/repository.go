@@ -31,7 +31,7 @@ import (
 type Repository interface {
 	CreateTransaction(ctx context.Context, a Adoption) error
 	SendHistoryMessage(ctx context.Context, a Adoption) error
-	DropTransactions(ctx context.Context) error
+	DropTransactions(ctx context.Context, userID string) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
 	CreateSQLTables(ctx context.Context) error
@@ -152,18 +152,26 @@ func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 	return nil
 }
 
-func (r *repo) DropTransactions(ctx context.Context) error {
+func (r *repo) DropTransactions(ctx context.Context, userID string) error {
 	span := trace.SpanFromContext(ctx)
-	span.AddEvent("removing transactions in PG DB")
+	span.AddEvent("removing user transactions in PG DB")
 
-	sql := `DELETE FROM transactions`
+	sql := `DELETE FROM transactions WHERE user_id = $1`
 
-	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql)
+	r.logger.Log("sql", sql, "userID", userID)
+	result, err := r.db.ExecContext(ctx, sql, userID)
 	if err != nil {
 		span.RecordError(err)
+		level.Error(r.logger).Log("error", "failed to delete user transactions", "err", err, "userID", userID)
 		return err
 	}
+
+	rowsAffected, _ := result.RowsAffected()
+	level.Info(r.logger).Log(
+		"action", "user_transactions_deleted",
+		"userID", userID,
+		"rowsAffected", rowsAffected,
+	)
 
 	return nil
 }

@@ -91,9 +91,9 @@ export class PayForAdoptionService extends EcsService {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        [SSM_PARAMETER_NAMES.PAYMENT_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/completeadoption`,
+                        [SSM_PARAMETER_NAMES.PAYMENT_API_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/completeadoption`,
                         [SSM_PARAMETER_NAMES.PAY_FOR_ADOPTION_METRICS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/metrics`,
-                        [SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/home/cleanupadoptions`,
+                        [SSM_PARAMETER_NAMES.CLEANUP_ADOPTIONS_URL]: `http://${this.loadBalancedService?.loadBalancer.loadBalancerDnsName}/api/cleanupadoptions`,
                     }),
                 ),
             );

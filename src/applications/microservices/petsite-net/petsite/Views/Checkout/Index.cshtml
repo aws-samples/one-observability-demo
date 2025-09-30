@@ -12,7 +12,7 @@
 <div class="container mt-4">
     <div id="error-message" class="alert alert-danger" style="display: none;"></div>
     <h2 class="text-center mb-4" style="color: #006400; font-weight: bold;">🛒 Your Cart 🛒</h2>
-    
+
     @if (Model?.items != null && Model.items.Any())
     {
         <div class="row">
@@ -48,7 +48,7 @@
                         <h4 style="color: #006400;">Total: $@Model.total_price</h4>
                     </div>
                 </div>
-                
+
                 <div class="mt-3">
                     <form asp-controller="Checkout" asp-action="ClearCart" method="post">
                         <input type="hidden" name="userId" value="@ViewBag.UserId" />
@@ -56,7 +56,7 @@
                     </form>
                 </div>
             </div>
-            
+
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
@@ -64,7 +64,7 @@
                         <div class="alert alert-warning">
                             This is a demo - no real payment will be processed
                         </div>
-                        
+
                         <div class="form-group mb-3">
                             <label for="cardName">Name on Card</label>
                             <input type="text" class="form-control" id="cardName" value="John Doe" readonly>
@@ -89,7 +89,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <h5 class="mt-4 mb-3">Shipping Address</h5>
                         <div class="row">
                             <div class="col-md-6">
@@ -109,7 +109,7 @@
                                 <input type="text" class="form-control mb-2" value="USA" readonly>
                             </div>
                         </div>
-                        
+
                         <h5 class="mt-3 mb-3">Billing Address</h5>
                         <div class="row">
                             <div class="col-md-6">
@@ -129,7 +129,7 @@
                                 <input type="text" class="form-control mb-2" value="USA" readonly>
                             </div>
                         </div>
-                        
+
                         <button id="payCheckoutBtn" class="btn btn-primary btn-lg btn-block w-100">Pay and Checkout</button>
                         <div id="success-message" class="alert alert-success mt-3" style="display: none;">Thank you for your order!</div>
                     </div>
@@ -152,11 +152,11 @@
 $(document).ready(function() {
     // Update cart count on page load
      var userId = '@ViewBag.UserId';
-    
+
     // Remove item from cart
     $(document).on('click', '.remove-item-btn', function() {
         var foodId = $(this).data('food-id');
-        
+
         $.ajax({
             url: '/Checkout/RemoveItem',
             type: 'POST',
@@ -171,7 +171,7 @@ $(document).ready(function() {
             }
         });
     });
-    
+
     function refreshCartDisplay(cartData) {
         if (cartData.items && cartData.items.length > 0) {
             var cartHtml = '';
@@ -206,7 +206,7 @@ $(document).ready(function() {
             location.reload();
         }
     }
-    
+
     // Pay and Checkout button click
     $('#payCheckoutBtn').click(function() {
         var paymentData = {
@@ -236,7 +236,7 @@ $(document).ready(function() {
                 country: $('h5:contains("Billing Address")').next('.row').find('input').eq(5).val()
             }
         };
-        
+
         $.ajax({
             url: '/Checkout/PayAndCheckOut',
             type: 'POST',

@@ -12,11 +12,11 @@ describe('Pet Status Updater Lambda', () => {
         const mockDocumentClient = { send: mockSend };
 
         require('@aws-sdk/lib-dynamodb').DynamoDBDocumentClient = {
-            from: jest.fn(() => mockDocumentClient)
+            from: jest.fn(() => mockDocumentClient),
         };
         require('@aws-sdk/lib-dynamodb').UpdateCommand = jest.fn();
         require('@aws-sdk/client-dynamodb').DynamoDBClient = jest.fn();
-        require('aws-xray-sdk-core').captureAWSv3Client = jest.fn(client => client);
+        require('aws-xray-sdk-core').captureAWSv3Client = jest.fn((client) => client);
 
         // Now require the handler
         handler = require('./index').handler;
@@ -32,8 +32,8 @@ describe('Pet Status Updater Lambda', () => {
             body: JSON.stringify({
                 pettype: 'dog',
                 petid: '123',
-                petavailability: 'available'
-            })
+                petavailability: 'available',
+            }),
         };
 
         const result = await handler(event);
@@ -46,8 +46,8 @@ describe('Pet Status Updater Lambda', () => {
         const event = {
             body: JSON.stringify({
                 pettype: 'cat',
-                petid: '456'
-            })
+                petid: '456',
+            }),
         };
 
         const result = await handler(event);
@@ -60,10 +60,10 @@ describe('Pet Status Updater Lambda', () => {
         const testPayload = {
             pettype: 'rabbit',
             petid: '789',
-            petavailability: 'yes'
+            petavailability: 'yes',
         };
 
-        const parsed = JSON.parse(JSON.stringify(testPayload));
+        const parsed = structuredClone(testPayload);
         expect(parsed.pettype).toBe('rabbit');
         expect(parsed.petid).toBe('789');
         expect(parsed.petavailability).toBe('yes');

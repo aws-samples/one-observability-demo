@@ -1,5 +1,5 @@
 import { Duration, Stack } from 'aws-cdk-lib';
-import { Effect, ManagedPolicy, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Effect, ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Canary, Code, ResourceToReplicateTags, Runtime, Schedule, Test } from 'aws-cdk-lib/aws-synthetics';
@@ -28,6 +28,9 @@ export abstract class WorkshopCanary extends Construct {
     constructor(scope: Construct, id: string, properties: WorkshopCanaryProperties) {
         super(scope, id);
 
+        const canaryRole = this.createLambdaRole(properties);
+        properties.artifactsBucket?.grantReadWrite(canaryRole);
+
         this.canary = new Canary(this, `canary-${id}`, {
             canaryName: properties.name,
             runtime: properties.runtime,
@@ -43,7 +46,11 @@ export abstract class WorkshopCanary extends Construct {
                       prefix: `canary-${id}`,
                   }
                 : undefined,
-            environmentVariables: this.getEnvironmentVariables(properties),
+            environmentVariables: {
+                ...this.getEnvironmentVariables(properties),
+                // AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',
+                // LAMBDA_APPLICATION_SIGNALS_REMOTE_ENVIRONMENT: 'lambda:default',
+            },
             provisionedResourceCleanup: true,
             resourcesToReplicateTags: [ResourceToReplicateTags.LAMBDA_FUNCTION],
             artifactsBucketLifecycleRules: [
@@ -51,9 +58,20 @@ export abstract class WorkshopCanary extends Construct {
                     expiration: Duration.days(properties.logRetentionDays?.valueOf() || 30),
                 },
             ],
-            timeToLive: Duration.minutes(5),
             startAfterCreation: true,
+            role: canaryRole,
         });
+
+        // Add Application signals layer
+        // const cfnCanary = this.canary.node.defaultChild as CfnCanary;
+        // cfnCanary.addPropertyOverride('Code.Dependencies', [
+        //     {
+        //         Type: 'LambdaLayer',
+        //         Reference: getOpenTelemetryNodeJSLayerArn(Stack.of(this).region),
+        //     },
+        // ]);
+        // // Canary role must have access to describe the layer or it will fail
+        // cfnCanary.node.addDependency(canaryRole);
 
         const parameterStorePolicy = new Policy(this, `${id}-paramterstore-policy`, {
             statements: [WorkshopCanary.getDefaultSSMPolicy(this, '/petstore/')],
@@ -102,6 +120,46 @@ export abstract class WorkshopCanary extends Construct {
         });
 
         return readSMParametersPolicy;
+    }
+
+    /**
+     * Creates IAM role for the Canary
+     */
+    private createLambdaRole(properties: WorkshopCanaryProperties): Role {
+        const managedPolicies = [
+            'service-role/AWSLambdaBasicExecutionRole',
+            'CloudWatchLambdaApplicationSignalsExecutionRolePolicy',
+            'AWSXRayDaemonWriteAccess',
+        ];
+
+        const role = new Role(this, 'LambdaRole', {
+            assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+            description: `Role for ${properties.name} Canary Lambda function`,
+            managedPolicies: managedPolicies.map((policy) => ManagedPolicy.fromAwsManagedPolicyName(policy)),
+        });
+
+        const metricPolicy = new Policy(this, 'MetricsDataPolicy', {
+            roles: [role],
+            statements: [
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['cloudwatch:PutMetricData'],
+                    resources: ['*'],
+                }),
+            ],
+        });
+
+        NagSuppressions.addResourceSuppressions(
+            [metricPolicy],
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'PutMetricData action allowed for simplicity on wildcard',
+                },
+            ],
+            true,
+        );
+        return role;
     }
 
     /**

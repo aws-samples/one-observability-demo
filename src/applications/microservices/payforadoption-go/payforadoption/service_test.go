@@ -31,7 +31,7 @@ func (m *mockRepository) SendHistoryMessage(ctx context.Context, a Adoption) err
 	return m.sendHistoryMessageErr
 }
 
-func (m *mockRepository) DropTransactions(ctx context.Context) error {
+func (m *mockRepository) DropTransactions(ctx context.Context, userID string) error {
 	return nil
 }
 
@@ -325,7 +325,7 @@ func TestCleanupAdoptions(t *testing.T) {
 
 	service := NewService(logger, repo, tracer)
 
-	err := service.CleanupAdoptions(context.Background())
+	err := service.CleanupAdoptions(context.Background(), "test-user-123")
 	if err != nil {
 		t.Errorf("CleanupAdoptions should succeed with mock repo, got %v", err)
 	}

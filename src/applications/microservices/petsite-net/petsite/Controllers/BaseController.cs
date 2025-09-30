@@ -20,16 +20,16 @@ namespace PetSite.Controllers
         protected bool EnsureUserId()
         {
             string userId = Request.Query["userId"].ToString();
-            
+
             // Generate userId only on Home/Index if not provided
             if (string.IsNullOrEmpty(userId))
             {
                 // Only generate on Home/Index, otherwise require userId
-                if (ControllerContext.ActionDescriptor.ControllerName == "Home" && 
+                if (ControllerContext.ActionDescriptor.ControllerName == "Home" &&
                     ControllerContext.ActionDescriptor.ActionName == "Index")
                 {
                     userId = GenerateUserId();
-                    
+
                     if (Request.Method == "GET")
                     {
                         var queryString = Request.QueryString.HasValue ? Request.QueryString.Value + "&userId=" + userId : "?userId=" + userId;
@@ -44,17 +44,17 @@ namespace PetSite.Controllers
                     return true;
                 }
             }
-            
+
             // Set ViewBag and ViewData for all views
             ViewBag.UserId = userId;
             ViewData["UserId"] = userId;
-            
+
             var currentActivity = Activity.Current;
             if (currentActivity != null && !currentActivity.Tags.Any(tag => tag.Key == "userId"))
             {
                 currentActivity.SetTag("userId", userId);
             }
-            
+
             return false;
         }
     }

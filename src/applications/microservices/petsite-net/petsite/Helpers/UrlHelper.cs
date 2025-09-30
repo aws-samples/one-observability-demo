@@ -5,7 +5,7 @@ namespace PetSite.Helpers
 {
     public static class UrlHelper
     {
-        public static string BuildUrl(string baseUrl, string[]? path, params (string key, string value)[] parameters)
+        public static string BuildUrl(string baseUrl, string[]? path, params (string key, string value)[]? parameters)
         {
             if (string.IsNullOrEmpty(baseUrl))
                 return string.Empty;

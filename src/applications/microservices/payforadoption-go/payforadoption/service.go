@@ -26,7 +26,7 @@ type Adoption struct {
 type Service interface {
 	HealthCheck(ctx context.Context) error
 	CompleteAdoption(ctx context.Context, petId, petType, userID string) (Adoption, error)
-	CleanupAdoptions(ctx context.Context) error
+	CleanupAdoptions(ctx context.Context, userID string) error
 	TriggerSeeding(ctx context.Context) error
 }
 
@@ -103,20 +103,17 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 	return a, nil
 }
 
-func (s service) CleanupAdoptions(ctx context.Context) error {
-	logger := log.With(s.logger, "method", "CleanupAdoptions")
+func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
+	logger := log.With(s.logger, "method", "CleanupAdoptions", "userID", userID)
 
-	if err := s.TriggerSeeding(ctx); err != nil {
-		level.Error(logger).Log("err", err)
-	}
-
-	ctx, parentSpan := s.tracer.Start(ctx, "PG drop tables")
+	ctx, parentSpan := s.tracer.Start(ctx, "PG drop user transactions")
 	defer parentSpan.End()
-	if err := s.repository.DropTransactions(ctx); err != nil {
+	if err := s.repository.DropTransactions(ctx, userID); err != nil {
 		level.Error(logger).Log("err", err)
 		return err
 	}
 
+	level.Info(logger).Log("action", "user_transactions_cleaned", "userID", userID)
 	return nil
 }
 

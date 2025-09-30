@@ -11,7 +11,7 @@ import random
 import time
 from typing import Any
 from typing import Dict
-from strands import Agent, tool
+from strands import tool
 
 import boto3
 from botocore.exceptions import ClientError
@@ -50,7 +50,8 @@ You will be triggered by an AWS EventBridge event `FoodItemCreated`.
 The event payload contains a food object with details like `food_id`, `description`
 `food_name`, `pet_type` (which type of pet this is for) with potentially `ingredients`,
 which you will use to form a prompt. The EventBridge event will also have metadata of
-which you will get booleans `requires_validation`, `is_seed_data` and `is_manual_creation`.
+which you will get booleans `requires_validation`, `is_seed_data` and
+`is_manual_creation`.
 
 You MUST use the "amazon.titan-image-generator-v2:0" Amazon Bedrock model.
 
@@ -322,20 +323,25 @@ def extract_event_fields(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def handler(event: Dict[str, Any], _context) -> str:
-    weather_agent = Agent(
-        system_prompt=WEATHER_SYSTEM_PROMPT,
-        tools=[http_request],
-    )
+    # weather_agent = Agent(
+    #     system_prompt=WEATHER_SYSTEM_PROMPT,
+    #     tools=[http_request],
+    # )
 
-    image_gen_agent = Agent(
-        system_prompt=IMAGE_GEN_PROMPT,
-        tools=[
-            generate_image_with_bedrock,
-            store_image_in_s3,
-            update_food_record,
-            extract_event_fields,
-        ],
-    )
+    # image_gen_agent = Agent(
+    #     system_prompt=IMAGE_GEN_PROMPT,
+    #     tools=[
+    #         generate_image_with_bedrock,
+    #         store_image_in_s3,
+    #         update_food_record,
+    #         extract_event_fields,
+    #     ],
+    # )
 
-    response = weather_agent(event.get("prompt"))
-    return str(response)
+    # response = weather_agent(event.get("prompt"))
+    # return str(response)
+    return {
+        "statusCode": 500,
+        "headers": {"Content-Type": "application/json"},
+        "body": "Function not implemented",
+    }

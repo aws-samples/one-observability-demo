@@ -45,4 +45,7 @@ export default [
             '@typescript-eslint/no-require-imports': 'off',
         },
     },
+    {
+        ignores: ['src/applications/microservices/petsite-net/petsite/wwwroot/**/*.js'],
+    },
 ];

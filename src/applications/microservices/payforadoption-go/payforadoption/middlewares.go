@@ -76,7 +76,7 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType, user
 	return mw.Service.CompleteAdoption(ctx, petId, petType, userID)
 }
 
-func (mw *middleware) CleanupAdoptions(ctx context.Context) (err error) {
+func (mw *middleware) CleanupAdoptions(ctx context.Context, userID string) (err error) {
 	defer func(begin time.Time) {
 
 		labelValues := []string{
@@ -88,16 +88,20 @@ func (mw *middleware) CleanupAdoptions(ctx context.Context) (err error) {
 		mw.requestLatency.With(labelValues...).Observe(time.Since(begin).Seconds())
 
 		span := trace.SpanFromContext(ctx)
-		span.SetAttributes(attribute.Float64("TimeTakenSeconds", time.Since(begin).Seconds()))
+		span.SetAttributes(
+			attribute.String("UserID", userID),
+			attribute.Float64("TimeTakenSeconds", time.Since(begin).Seconds()),
+		)
 
 		mw.logger.Log(
 			"method", "In CleanupAdoptions",
 			"traceId", span.SpanContext().SpanID(),
+			"userID", userID,
 			"took", time.Since(begin),
 			"err", err)
 	}(time.Now())
 
-	return mw.Service.CleanupAdoptions(ctx)
+	return mw.Service.CleanupAdoptions(ctx, userID)
 }
 
 func (mw *middleware) HealthCheck(ctx context.Context) (err error) {
