@@ -58,9 +58,9 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		options...,
 	))
 
-	r.Methods("POST").Path("/api/cleanupadoptions").Handler(httptransport.NewServer(
+	r.Methods("DELETE").Path("/api/cleanup-adoptions/{userId}").Handler(httptransport.NewServer( // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions
 		e.CleanupAdoptionsEndpoint,
-		decodeEmptyRequest,
+		decodeCleanupAdoptionsRequest,
 		encodeEmptyResponse,
 		options...,
 	))
@@ -88,6 +88,10 @@ type completeAdoptionRequest struct {
 	UserID  string `json:"userid"`
 }
 
+type cleanupAdoptionsRequest struct {
+	UserID string `json:"userid"`
+}
+
 var (
 	ErrNotFound   = errors.New("not found")
 	ErrBadRequest = errors.New("Bad request parameters")
@@ -108,6 +112,17 @@ func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interfac
 	}
 
 	return completeAdoptionRequest{petId, petType, userID}, nil
+}
+
+func decodeCleanupAdoptionsRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	vars := mux.Vars(r)
+	userID := vars["userId"]
+
+	if userID == "" {
+		return nil, ErrBadRequest
+	}
+
+	return cleanupAdoptionsRequest{userID}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
