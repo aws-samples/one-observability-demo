@@ -140,6 +140,7 @@ def create_tables(connection):
         CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
             pet_id VARCHAR(10) NOT NULL,
+            user_id VARCHAR(10) NOT NULL,
             transaction_id VARCHAR(50) NOT NULL,
             adoption_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             adopter_name VARCHAR(255),
