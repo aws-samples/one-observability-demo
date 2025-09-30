@@ -33,6 +33,7 @@ import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator
 import { NagSuppressions } from 'cdk-nag';
 import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood/cleanup-processor';
 import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
+import { PetsiteTrafficGeneratorFunction } from '../serverless/functions/petsite-traffic-generator/petsite-traffic-generator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 
 export interface MicroserviceApplicationPlacement {
@@ -325,6 +326,22 @@ export class MicroservicesStack extends Stack {
             throw new Error('Traffic canary not found');
         }
 
+        // Create petsite traffic generator function
+        let petsiteTrafficFunction;
+        for (const name of properties.lambdaFunctions.keys()) {
+            const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
+
+            if (name == 'petsite-traffic-generator-node') {
+                petsiteTrafficFunction = new PetsiteTrafficGeneratorFunction(this, name, {
+                    ...lambdafunction,
+                });
+            }
+        }
+
+        if (!petsiteTrafficFunction) {
+            throw new Error('Petsite traffic generator function not found');
+        }
+
         for (const name of properties.lambdaFunctions.keys()) {
             const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
 
@@ -338,7 +355,7 @@ export class MicroservicesStack extends Stack {
             if (name == LambdaFunctionNames.TrafficGenerator) {
                 new TrafficGeneratorFunction(this, name, {
                     ...lambdafunction,
-                    trafficCanary: trafficCanary.canary,
+                    petsiteTrafficFunction: petsiteTrafficFunction.function!,
                 });
             }
             if (name == LambdaFunctionNames.PetfoodCleanupProcessor) {

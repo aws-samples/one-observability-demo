@@ -226,6 +226,17 @@ export const RDS_SEEDER_FUNCTION = {
     handler: 'lambda_handler',
 };
 
+export const PETSITE_TRAFFIC_GENERATOR_FUNCTION = {
+    name: 'petsite-traffic-generator-node',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../applications/lambda/petsite-traffic-generator-node/package-lock.json',
+    entry: '../applications/lambda/petsite-traffic-generator-node/index.js',
+    memorySize: 512,
+    handler: 'handler',
+    enableSchedule: false,
+    timeout: Duration.seconds(60),
+};
+
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
@@ -233,6 +244,7 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
     [PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name, PETFOOD_CLEANUP_PROCESSOR_FUNCTION],
     [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],
     [RDS_SEEDER_FUNCTION.name, RDS_SEEDER_FUNCTION],
+    [PETSITE_TRAFFIC_GENERATOR_FUNCTION.name, PETSITE_TRAFFIC_GENERATOR_FUNCTION],
 ]);
 
 export const PETSITE_CANARY = {
