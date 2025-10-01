@@ -14,10 +14,10 @@ import { Arn, ArnFormat, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
-import { Function } from 'aws-cdk-lib/aws-lambda';
+import { Canary } from 'aws-cdk-lib/aws-synthetics';
 
 export interface TrafficGeneratorFunctionProperties extends WorkshopLambdaFunctionProperties {
-    petsiteTrafficFunction: Function;
+    trafficCanary: Canary;
 }
 
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
@@ -43,7 +43,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
                         new PolicyStatement({
                             effect: Effect.ALLOW,
                             actions: ['lambda:InvokeFunction'],
-                            resources: [properties.petsiteTrafficFunction.functionArn],
+                            resources: [this.getCanaryFunctionArn(properties.trafficCanary)],
                         }),
                     ],
                 }),
@@ -68,15 +68,28 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     }
     createOutputs(): void {}
     getEnvironmentVariables(properties: TrafficGeneratorFunctionProperties): { [key: string]: string } | undefined {
+        // No environment variables to create
         return {
-            PETSITE_TRAFFIC_FUNCTION_ARN: properties.petsiteTrafficFunction.functionArn,
+            CANARY_FUNCTION_ARN: this.getCanaryFunctionArn(properties.trafficCanary),
         };
+    }
+
+    getCanaryFunctionArn(canary: Canary) {
+        return Arn.format(
+            {
+                service: 'lambda',
+                resource: 'function',
+                arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+                resourceName: `cwsyn-${canary.canaryName}-${canary.canaryId}`,
+            },
+            Stack.of(this),
+        );
     }
 
     getBundling(): BundlingOptions {
         return {
             externalModules: [],
-            nodeModules: [],
+            nodeModules: ['@aws-sdk/client-lambda'],
         };
     }
 
