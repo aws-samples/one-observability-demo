@@ -49,6 +49,7 @@ class Adoption(BaseModel):
     pettype: Optional[str] = None
     peturl: Optional[str] = None
     price: Optional[str] = None
+    adoptedby: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
@@ -154,7 +155,7 @@ class PetAdoptionsService:
         with self._get_database_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT pet_id, transaction_id, adoption_date FROM "
+                    "SELECT pet_id, transaction_id, adoption_date, user_id FROM "
                     "transactions ORDER BY id DESC LIMIT 25",
                 )
                 rows = cursor.fetchall()
@@ -166,8 +167,9 @@ class PetAdoptionsService:
                         "adoption_date": (
                             adoption_date.isoformat() if adoption_date else None
                         ),
+                        "user_id": user_id,
                     }
-                    for pet_id, transaction_id, adoption_date in rows
+                    for pet_id, transaction_id, adoption_date, user_id in rows
                 ]
 
     def _search_pet_info(self, pet_id: str) -> List[Dict[str, Any]]:
@@ -210,6 +212,7 @@ class PetAdoptionsService:
                         pettype=pet.get("pettype", ""),
                         peturl=pet.get("peturl", ""),
                         price=pet.get("price", ""),
+                        adoptedby=adoption["user_id"],
                     )
                     enriched_adoptions.append(enriched_adoption)
 
