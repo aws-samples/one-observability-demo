@@ -124,7 +124,7 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
     let failedRequests = 0;
 
     // Helper function to make request and track results
-    const makeTrackedRequest = async (url, method, description, data = null) => {
+    const makeTrackedRequest = async (url, method, description, data) => {
         try {
             const result = await makeHttpRequest(url, method, description, data);
             requests.push({ url, method, statusCode: result.statusCode, duration: result.duration });
@@ -298,7 +298,7 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
  * @param {string} data - Request body data (for POST requests)
  * @returns {Promise<{statusCode: number, description: string, data: string}>}
  */
-function makeHttpRequest(url, method = 'GET', description = 'Request', data = null) {
+function makeHttpRequest(url, method = 'GET', description = 'Request', data) {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
 

@@ -1,5 +1,5 @@
 // Mock AWS SDK modules before requiring the handler
-jest.mock('@aws-sdk/client-lambda');
+jest.mock('@aws-sdk/client-ssm');
 
 describe('Traffic Generator Lambda', () => {
     let handler;
@@ -9,20 +9,24 @@ describe('Traffic Generator Lambda', () => {
         // Set up mocks
         mockSend = jest.fn();
 
-        require('@aws-sdk/client-lambda').LambdaClient = jest.fn(() => ({
+        require('@aws-sdk/client-ssm').SSMClient = jest.fn(() => ({
             send: mockSend,
         }));
-        require('@aws-sdk/client-lambda').InvokeCommand = jest.fn();
+        require('@aws-sdk/client-ssm').GetParameterCommand = jest.fn();
 
         // Now require the handler
         handler = require('./index').handler;
     });
 
     beforeEach(() => {
-        process.env.CANARY_FUNCTION_ARN = 'arn:aws:lambda:us-east-1:123456789012:function:test-canary';
+        process.env.PETSITE_URL = 'https://test-petsite.com';
         process.env.CONCURRENT_USERS = '5'; // Use smaller number for faster tests
         jest.clearAllMocks();
-        mockSend.mockResolvedValue({ StatusCode: 202 });
+        mockSend.mockResolvedValue({ 
+            Parameter: { 
+                Value: 'https://test-petsite.com' 
+            } 
+        });
     });
 
     test('should return success response with correct structure', async () => {
@@ -33,7 +37,9 @@ describe('Traffic Generator Lambda', () => {
         expect(result.statusCode).toBe(200);
         expect(result.body).toHaveProperty('totalUsers');
         expect(result.body).toHaveProperty('message');
-        expect(result.body.message).toBe('Traffic generation completed');
+        expect(result.body).toHaveProperty('totalRequests');
+        expect(result.body).toHaveProperty('urlStatistics');
+        expect(result.body.message).toBe('Traffic generation completed with detailed URL statistics');
     });
 
     test('should use default concurrent users when not specified', async () => {
