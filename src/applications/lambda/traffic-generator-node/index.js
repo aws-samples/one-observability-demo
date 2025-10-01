@@ -39,36 +39,57 @@ exports.handler = async (event) => {
 
     console.log(`Generating traffic for ${concurrentUsers} concurrent users to base URL: ${petsiteBaseUrl}`);
 
-    // Create promises for all user journeys
-    const userPromises = [];
+    // Process user journeys sequentially to maintain session state
+    const allRequestResults = [];
     for (let index = 0; index < concurrentUsers; index++) {
-        userPromises.push(simulateUserJourney(petsiteBaseUrl, index + 1));
+        try {
+            const result = await simulateUserJourney(petsiteBaseUrl, index + 1);
+            allRequestResults.push(...result.requests);
+        } catch (error) {
+            console.error(`User journey ${index + 1} failed:`, error.message);
+        }
     }
 
-    // Wait for all user journeys to complete
-    const results = await Promise.allSettled(userPromises);
+    // Aggregate results by URL and status code
+    const urlStats = {};
+    for (const request of allRequestResults) {
+        const url = request.url;
+        const statusCode = request.statusCode;
 
-    // Count successful and failed journeys
-    const successfulJourneys = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
-    const failedJourneys = results.filter(
-        (r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success),
-    ).length;
+        if (!urlStats[url]) {
+            urlStats[url] = {};
+        }
+        if (!urlStats[url][statusCode]) {
+            urlStats[url][statusCode] = 0;
+        }
+        urlStats[url][statusCode]++;
+    }
 
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    console.log(
-        `Overall traffic generation completed: ${successfulJourneys} successful, ${failedJourneys} failed in ${duration}ms`,
-    );
+    // Log detailed statistics
+    console.log(`\n=== TRAFFIC GENERATION RESULTS (${duration}ms) ===`);
+    console.log(`Total requests fired: ${allRequestResults.length}`);
+    console.log(`Total users: ${concurrentUsers}`);
+
+    for (const url of Object.keys(urlStats)) {
+        console.log(`\n${url}:`);
+        for (const statusCode of Object.keys(urlStats[url])) {
+            const count = urlStats[url][statusCode];
+            const percentage = ((count / allRequestResults.length) * 100).toFixed(1);
+            console.log(`  Status ${statusCode}: ${count} requests (${percentage}%)`);
+        }
+    }
 
     return {
         statusCode: 200,
         body: {
-            message: 'Overall traffic generation completed',
+            message: 'Traffic generation completed with detailed URL statistics',
+            totalRequests: allRequestResults.length,
             totalUsers: concurrentUsers,
-            successfulJourneys,
-            failedJourneys,
             duration: `${duration}ms`,
+            urlStatistics: urlStats,
             timestamp: new Date().toISOString(),
         },
     };
@@ -100,106 +121,172 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
     const randomFoodId = availableFoodIds[Math.floor(Math.random() * availableFoodIds.length)];
 
     const requests = [];
+    let failedRequests = 0;
+
+    // Helper function to make request and track results
+    const makeTrackedRequest = async (url, method, description, data = null) => {
+        try {
+            const result = await makeHttpRequest(url, method, description, data);
+            requests.push({ url, method, statusCode: result.statusCode, duration: result.duration });
+            return result;
+        } catch (error) {
+            console.error(`${description} failed:`, error.message);
+            const statusCode = error.message.includes('status:')
+                ? Number.parseInt(error.message.match(/status: (\d+)/)?.[1])
+                : 0;
+            requests.push({ url, method, statusCode, duration: 0 });
+            failedRequests++;
+            throw error;
+        }
+    };
 
     try {
-        // 1. Homepage request
-        requests.push(makeHttpRequest(petsiteBaseUrl, 'GET', `Homepage for ${userId}`));
+        // 1. Homepage request - establish session
+        try {
+            await makeTrackedRequest(petsiteBaseUrl, 'GET', `Homepage for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 2. Pet selection page with parameters
-        const petSelectionUrl = `${petsiteBaseUrl}/?selectedPetType=${petType}&selectedPetColor=${petColor}&userId=${userId}`;
-        requests.push(makeHttpRequest(petSelectionUrl, 'GET', `Pet Selection for ${userId}`));
+        try {
+            const petSelectionUrl = `${petsiteBaseUrl}/?selectedPetType=${petType}&selectedPetColor=${petColor}&userId=${userId}`;
+            await makeTrackedRequest(petSelectionUrl, 'GET', `Pet Selection for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 3. Pet adoption page
-        const adoptionUrl = `${petsiteBaseUrl}/Adoption?userId=${userId}&petid=${petId}&pettype=${petType}&petcolor=${petColor}&price=${price}&cuteness_rate=${cutenessRate}`;
-        requests.push(makeHttpRequest(adoptionUrl, 'GET', `Pet Adoption for ${userId}`));
+        try {
+            const adoptionUrl = `${petsiteBaseUrl}/Adoption?userId=${userId}&petid=${petId}&pettype=${petType}&petcolor=${petColor}&price=${price}&cuteness_rate=${cutenessRate}`;
+            await makeTrackedRequest(adoptionUrl, 'GET', `Pet Adoption for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 4. Payment page for pet adoption
-        const paymentUrl = `${petsiteBaseUrl}/Payment?userId=${userId}&status=success&petType=${petType}&petId=${petId}`;
-        requests.push(makeHttpRequest(paymentUrl, 'GET', `Payment for ${userId}`));
+        try {
+            const paymentUrl = `${petsiteBaseUrl}/Payment?userId=${userId}&status=success&petType=${petType}&petId=${petId}`;
+            await makeTrackedRequest(paymentUrl, 'GET', `Payment for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 5. Food service page - browse food for the adopted pet
-        const foodServiceUrl = `${petsiteBaseUrl}/FoodService?userId=${userId}&petType=${petType}&petId=${petId}`;
-        requests.push(makeHttpRequest(foodServiceUrl, 'GET', `Food Service for ${userId}`));
+        try {
+            const foodServiceUrl = `${petsiteBaseUrl}/FoodService?userId=${userId}&petType=${petType}&petId=${petId}`;
+            await makeTrackedRequest(foodServiceUrl, 'GET', `Food Service for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 6. Add food items to cart
-        const addToCartUrl = `${petsiteBaseUrl}/FoodService/AddToCart`;
-        const addToCartData = JSON.stringify({ foodId: randomFoodId, userId: userId });
-        requests.push(makeHttpRequest(addToCartUrl, 'POST', `Add To Cart for ${userId}`, addToCartData));
+        try {
+            const addToCartUrl = `${petsiteBaseUrl}/FoodService/AddToCart`;
+            const addToCartData = JSON.stringify({ foodId: randomFoodId, userId: userId });
+            await makeTrackedRequest(addToCartUrl, 'POST', `Add To Cart for ${userId}`, addToCartData);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 7. Check cart count
-        const cartCountUrl = `${petsiteBaseUrl}/FoodService/GetCartCount?userId=${userId}`;
-        requests.push(makeHttpRequest(cartCountUrl, 'GET', `Get Cart Count for ${userId}`));
+        try {
+            const cartCountUrl = `${petsiteBaseUrl}/FoodService/GetCartCount?userId=${userId}`;
+            await makeTrackedRequest(cartCountUrl, 'GET', `Get Cart Count for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 8. Remove some items from cart (simulate changing mind)
-        const removeItemUrl = `${petsiteBaseUrl}/Checkout/RemoveItem`;
-        const removeItemData = JSON.stringify({ userId: userId, food_id: randomFoodId });
-        requests.push(makeHttpRequest(removeItemUrl, 'POST', `Remove Item for ${userId}`, removeItemData));
+        try {
+            const removeItemUrl = `${petsiteBaseUrl}/Checkout/RemoveItem`;
+            const removeItemData = JSON.stringify({ userId: userId, food_id: randomFoodId });
+            await makeTrackedRequest(removeItemUrl, 'POST', `Remove Item for ${userId}`, removeItemData);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 9. Add different food items to cart
-        const addToCartUrl2 = `${petsiteBaseUrl}/FoodService/AddToCart`;
-        const addToCartData2 = JSON.stringify({ foodId: randomFoodId, userId: userId });
-        requests.push(makeHttpRequest(addToCartUrl2, 'POST', `Add To Cart (2nd time) for ${userId}`, addToCartData2));
+        try {
+            const addToCartUrl2 = `${petsiteBaseUrl}/FoodService/AddToCart`;
+            const addToCartData2 = JSON.stringify({ foodId: randomFoodId, userId: userId });
+            await makeTrackedRequest(addToCartUrl2, 'POST', `Add To Cart (2nd time) for ${userId}`, addToCartData2);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 10. Clear entire cart (simulate starting over)
-        const clearCartUrl = `${petsiteBaseUrl}/Checkout/ClearCart`;
-        const clearCartData = JSON.stringify({ userId: userId });
-        requests.push(makeHttpRequest(clearCartUrl, 'POST', `Clear Cart for ${userId}`, clearCartData));
+        try {
+            const clearCartUrl = `${petsiteBaseUrl}/Checkout/ClearCart`;
+            const clearCartData = JSON.stringify({ userId: userId });
+            await makeTrackedRequest(clearCartUrl, 'POST', `Clear Cart for ${userId}`, clearCartData);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 11. Reorder items (fresh start with new selection)
-        const addToCartUrl3 = `${petsiteBaseUrl}/FoodService/AddToCart`;
-        const addToCartData3 = JSON.stringify({ foodId: randomFoodId, userId: userId });
-        requests.push(makeHttpRequest(addToCartUrl3, 'POST', `Reorder Items for ${userId}`, addToCartData3));
+        try {
+            const addToCartUrl3 = `${petsiteBaseUrl}/FoodService/AddToCart`;
+            const addToCartData3 = JSON.stringify({ foodId: randomFoodId, userId: userId });
+            await makeTrackedRequest(addToCartUrl3, 'POST', `Reorder Items for ${userId}`, addToCartData3);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 12. Checkout page - review items
-        const checkoutUrl = `${petsiteBaseUrl}/Checkout?userId=${userId}`;
-        requests.push(makeHttpRequest(checkoutUrl, 'GET', `Checkout for ${userId}`));
+        try {
+            const checkoutUrl = `${petsiteBaseUrl}/Checkout?userId=${userId}`;
+            await makeTrackedRequest(checkoutUrl, 'GET', `Checkout for ${userId}`);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         // 13. Pay and checkout - complete the purchase
-        const payAndCheckoutUrl = `${petsiteBaseUrl}/Checkout/PayAndCheckOut`;
-        const payAndCheckoutData = JSON.stringify({
-            payment_method: {
-                CreditCard: {
-                    card_number: '4111111111111111',
-                    expiry_month: 12,
-                    expiry_year: 2025,
-                    cvv: '123',
-                    cardholder_name: 'John Doe',
+        try {
+            const payAndCheckoutUrl = `${petsiteBaseUrl}/Checkout/PayAndCheckOut`;
+            const payAndCheckoutData = JSON.stringify({
+                payment_method: {
+                    CreditCard: {
+                        card_number: '4111111111111111',
+                        expiry_month: 12,
+                        expiry_year: 2025,
+                        cvv: '123',
+                        cardholder_name: 'John Doe',
+                    },
                 },
-            },
-            shipping_address: {
-                name: 'John Doe',
-                street: '123 Main St',
-                city: 'Seattle',
-                state: 'WA',
-                zip_code: '98101',
-                country: 'USA',
-            },
-            billing_address: {
-                name: 'John Doe',
-                street: '123 Main St',
-                city: 'Seattle',
-                state: 'WA',
-                zip_code: '98101',
-                country: 'USA',
-            },
-            userId: userId,
-        });
-        requests.push(makeHttpRequest(payAndCheckoutUrl, 'POST', `Pay and Checkout for ${userId}`, payAndCheckoutData));
-
-        // Execute all requests concurrently
-        const results = await Promise.allSettled(requests);
-        const failedRequests = results.filter((r) => r.status === 'rejected').length;
+                shipping_address: {
+                    name: 'John Doe',
+                    street: '123 Main St',
+                    city: 'Seattle',
+                    state: 'WA',
+                    zip_code: '98101',
+                    country: 'USA',
+                },
+                billing_address: {
+                    name: 'John Doe',
+                    street: '123 Main St',
+                    city: 'Seattle',
+                    state: 'WA',
+                    zip_code: '98101',
+                    country: 'USA',
+                },
+                userId: userId,
+            });
+            await makeTrackedRequest(payAndCheckoutUrl, 'POST', `Pay and Checkout for ${userId}`, payAndCheckoutData);
+        } catch {
+            // Error already handled by makeTrackedRequest
+        }
 
         if (failedRequests > 0) {
             console.warn(`User ${userId} journey completed with ${failedRequests} failed requests.`);
-            return { userId, success: false, message: `${failedRequests} requests failed` };
+            return { userId, success: false, message: `${failedRequests} requests failed`, requests };
         }
 
         console.log(`User ${userId} journey completed successfully.`);
-        return { userId, success: true };
+        return { userId, success: true, requests };
     } catch (error) {
         console.error(`User ${userId} journey failed:`, error.message);
-        return { userId, success: false, message: error.message };
+        return { userId, success: false, message: error.message, requests };
     }
 }
 
@@ -213,6 +300,8 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
  */
 function makeHttpRequest(url, method = 'GET', description = 'Request', data = null) {
     return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+
         const headers = {
             'User-Agent': 'CloudWatchSynthetics/TrafficGenerator',
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -231,7 +320,7 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data = nu
         const options = {
             method: method,
             headers: headers,
-            timeout: 15_000, // 15 seconds timeout
+            timeout: 60_000, // Increased to 60 seconds timeout for slow AddToCart
         };
 
         const request = https.request(url, options, (response) => {
@@ -240,29 +329,37 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data = nu
                 data += chunk;
             });
             response.on('end', () => {
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+
                 if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
-                    console.log(`${description} completed with status: ${response.statusCode}`);
+                    console.log(`${description} completed with status: ${response.statusCode} in ${duration}ms`);
                     resolve({
                         statusCode: response.statusCode,
                         description: description,
+                        duration: duration,
                         data: data.slice(0, 100),
                     });
                 } else {
-                    console.error(`${description} failed with status: ${response.statusCode}`);
-                    reject(new Error(`${description} failed with status: ${response.statusCode}`));
+                    console.error(`${description} failed with status: ${response.statusCode} in ${duration}ms`);
+                    reject(new Error(`${description} failed with status: ${response.statusCode} in ${duration}ms`));
                 }
             });
         });
 
         request.on('error', (error) => {
-            console.error(`${description} failed:`, error.message);
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            console.error(`${description} failed after ${duration}ms:`, error.message);
             reject(error);
         });
 
         request.on('timeout', () => {
-            console.error(`${description} timeout after 15 seconds`);
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            console.error(`${description} timeout after ${duration}ms (60 second limit)`);
             request.destroy();
-            reject(new Error(`${description} timeout`));
+            reject(new Error(`${description} timeout after ${duration}ms`));
         });
 
         // Write data for POST requests
