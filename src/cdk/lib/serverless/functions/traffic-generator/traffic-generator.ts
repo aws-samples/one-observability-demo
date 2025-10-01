@@ -89,7 +89,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     getBundling(): BundlingOptions {
         return {
             externalModules: [],
-            nodeModules: ['@aws-sdk/client-lambda'],
+            nodeModules: ['@aws-sdk/client-ssm'],
         };
     }
 
