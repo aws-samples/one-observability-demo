@@ -62,4 +62,3 @@ describe('Traffic Generator Lambda', () => {
         expect(userIds).toEqual(['user0001', 'user0002', 'user0003']);
     });
 });
-
