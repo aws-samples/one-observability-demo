@@ -58,7 +58,7 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 		options...,
 	))
 
-	r.Methods("DELETE").Path("/api/cleanup-adoptions/{userId}").Handler(httptransport.NewServer( // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions
+	r.Methods("DELETE").Path("/api/cleanupadoptions/{userId}").Handler(httptransport.NewServer( // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions // cSpell:ignore cleanupadoptions
 		e.CleanupAdoptionsEndpoint,
 		decodeCleanupAdoptionsRequest,
 		encodeEmptyResponse,

@@ -41,12 +41,10 @@ pub fn init_observability(
     let opentelemetry_layer = OpenTelemetryLayer::new(tracer);
 
     // Create environment filter
+    // Use the crate name for logging filter, not the service name
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        format!(
-            "{}=info,tower_http=info,aws_sdk_dynamodb=info,aws_config=info,aws_smithy_runtime=info",
-            service_name.replace('-', "_")
-        )
-        .into()
+        "petfood_rs=info,tower_http=info,aws_sdk_dynamodb=info,aws_config=info,aws_smithy_runtime=info"
+            .into()
     });
 
     // Initialize tracing subscriber with different formatters based on configuration

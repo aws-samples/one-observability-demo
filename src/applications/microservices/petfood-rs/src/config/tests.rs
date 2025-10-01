@@ -160,7 +160,7 @@ mod config_tests {
         assert_eq!(default_timeout(), 30);
         assert_eq!(default_max_request_size(), 1024 * 1024);
         assert_eq!(default_region(), "us-west-2"); // Falls back to us-west-2 when AWS_REGION is not set
-        assert_eq!(default_service_name(), "petfood-rs");
+        assert_eq!(default_service_name(), "petfood-api-rs");
         assert_eq!(default_otlp_endpoint_option(), "http://localhost:4317",);
         assert_eq!(default_metrics_port(), 9090);
         assert_eq!(default_log_level(), "info");

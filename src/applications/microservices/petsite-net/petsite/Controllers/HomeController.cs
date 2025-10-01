@@ -86,8 +86,9 @@ namespace PetSite.Controllers
                 var response = await httpClient.DeleteAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
+                    _logger.LogInformation($"Calling Cleanup API at :{url} for user: {userId}");
                     _logger.LogWarning($"Housekeeping API returned - {response.StatusCode} - for user: {userId}");
-                    ViewBag.ErrorMessage = "Housekeeping operation failed. Please try again later.";
+                    ViewBag.ErrorMessage = $"Housekeeping operation failed. Please try again later. Response status code: {response.StatusCode}";
                 }
             }
             catch (Exception e)

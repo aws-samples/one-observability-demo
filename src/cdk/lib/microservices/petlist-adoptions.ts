@@ -27,7 +27,7 @@ export class ListAdoptionsService extends EcsService {
             instrumentation: {
                 sdkVersion: PythonInstrumentationVersion.V0_9_0,
             },
-            serviceName: `${properties.name}-Service`,
+            serviceName: 'petlistadoptions-api-py',
             cloudWatchAgentSidecar: {
                 containerName: 'ecs-cwagent',
                 enableLogging: true,

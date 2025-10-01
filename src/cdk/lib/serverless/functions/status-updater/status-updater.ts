@@ -7,6 +7,7 @@ import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,
     getLambdaInsightsLayerArn,
+    getOpenTelemetryPythonLayerArn,
 } from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
@@ -172,6 +173,11 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                 this,
                 'LambdaInsightsLayer',
                 getLambdaInsightsLayerArn(Stack.of(this).region),
+            ),
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'OpenTelemetryLayer',
+                getOpenTelemetryPythonLayerArn(Stack.of(this).region),
             ),
         ];
     }

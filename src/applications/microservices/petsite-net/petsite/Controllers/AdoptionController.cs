@@ -29,11 +29,47 @@ namespace PetSite.Controllers
 
         // GET: Adoption
         [HttpGet]
-        public IActionResult Index([FromQuery] Pet pet)
+        public async Task<IActionResult> Index(string userId, string petid)
         {
             if (EnsureUserId()) return new EmptyResult(); // Redirect happened, stop processing
 
-            _logger.LogInformation($"In Index Adoption/Index method with pet: {JsonSerializer.Serialize(pet)}");
+            Pet pet;
+            ViewBag.UserId = userId; // Pass userId to view for forms
+
+            // If petid is provided, fetch pet details from the service
+            if (!string.IsNullOrEmpty(petid))
+            {
+                try
+                {
+                    _logger.LogInformation($"Fetching pet details for petid: {petid}, user: {userId}");
+
+                    // Call the service to get pet details by petid
+                    var pets = await _petSearchService.GetPetDetails("", "", petid, userId);
+                    pet = pets.FirstOrDefault();
+
+                    if (pet != null)
+                    {
+                        _logger.LogInformation($"Retrieved pet details for petid {petid}: {JsonSerializer.Serialize(pet)}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"No pet found for petid: {petid}");
+                        pet = new Pet();
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, $"Error fetching pet details for petid: {petid}, user: {userId}");
+                    pet = new Pet();
+                    ViewBag.ErrorMessage = "Unable to load pet details. Please try again.";
+                }
+            }
+            else
+            {
+                // For direct navigation without petid, show empty pet form
+                pet = new Pet();
+                _logger.LogInformation($"Direct navigation to Index with empty pet for user: {userId}");
+            }
 
             return View(pet);
         }
@@ -83,17 +119,12 @@ namespace PetSite.Controllers
             var selectedPet = pets.FirstOrDefault();
             if (selectedPet != null)
             {
-                return RedirectToAction("Index", new {
-                    userId = userId,
-                    petid = selectedPet.petid,
-                    pettype = selectedPet.pettype,
-                    petcolor = selectedPet.petcolor,
-                    peturl = selectedPet.peturl,
-                    price = selectedPet.price,
-                    cuteness_rate = selectedPet.cuteness_rate
-                });
+                // Redirect to Index with only petid and userId in querystring
+                _logger.LogInformation($"Redirecting to Index with petid: {selectedPet.petid} for user: {userId}");
+                return RedirectToAction("Index", new { userId = userId, petid = selectedPet.petid });
             }
 
+            // Redirect to Index with only userId if no pet found
             return RedirectToAction("Index", new { userId = userId });
         }
     }
