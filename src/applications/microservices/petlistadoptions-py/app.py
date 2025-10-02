@@ -49,6 +49,12 @@ class Adoption(BaseModel):
     pettype: Optional[str] = None
     peturl: Optional[str] = None
     price: Optional[str] = None
+    # User information from database join
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    name_length: Optional[int] = None
+    email_lower: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
@@ -150,24 +156,51 @@ class PetAdoptionsService:
             conn.close()
 
     def _get_latest_adoptions(self) -> List[Dict[str, Any]]:
-        """Get latest adoptions from database"""
+        """Get latest adoptions from database with user information - intentionally slow for observability workshop"""
         with self._get_database_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT pet_id, transaction_id, adoption_date FROM "
-                    "transactions ORDER BY id DESC LIMIT 25",
-                )
+                # Intentionally inefficient query for observability demo:
+                # - Uses old-style JOIN syntax (comma-separated tables)
+                # - No proper indexes on the join condition
+                # - Function calls without indexes (LOWER, LENGTH)
+                # - ORDER BY with function calls
+                slow_query = """
+                SELECT 
+                    t.pet_id, 
+                    t.transaction_id, 
+                    t.adoption_date,
+                    t.user_id,
+                    u.full_name,
+                    u.email,
+                    LENGTH(u.full_name) as name_length,
+                    LOWER(u.email) as email_lower
+                FROM transactions t, users u 
+                WHERE t.user_id = u.user_id 
+                    AND t.status = 'completed'
+                ORDER BY t.adoption_date DESC, LENGTH(u.full_name) DESC
+                LIMIT 25
+                """
+                
+                logger.info("Executing adoption list query with user join")
+                start_time = time.time()
+                cursor.execute(slow_query)
                 rows = cursor.fetchall()
+                query_duration = time.time() - start_time
+                
+                logger.info(f"Adoption list query completed in {query_duration:.2f}s, returned {len(rows)} rows")
 
                 return [
                     {
-                        "pet_id": pet_id,
-                        "transaction_id": transaction_id,
-                        "adoption_date": (
-                            adoption_date.isoformat() if adoption_date else None
-                        ),
+                        "pet_id": row[0],
+                        "transaction_id": row[1],
+                        "adoption_date": row[2].isoformat() if row[2] else None,
+                        "user_id": row[3],
+                        "user_name": row[4],
+                        "user_email": row[5],
+                        "name_length": row[6],
+                        "email_lower": row[7]
                     }
-                    for pet_id, transaction_id, adoption_date in rows
+                    for row in rows
                 ]
 
     def _search_pet_info(self, pet_id: str) -> List[Dict[str, Any]]:
@@ -210,6 +243,12 @@ class PetAdoptionsService:
                         pettype=pet.get("pettype", ""),
                         peturl=pet.get("peturl", ""),
                         price=pet.get("price", ""),
+                        # Include user information from database
+                        user_id=adoption["user_id"],
+                        user_name=adoption["user_name"],
+                        user_email=adoption["user_email"],
+                        name_length=adoption["name_length"],
+                        email_lower=adoption["email_lower"],
                     )
                     enriched_adoptions.append(enriched_adoption)
 
