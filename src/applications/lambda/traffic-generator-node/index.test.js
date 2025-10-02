@@ -87,12 +87,8 @@ describe('Traffic Generator Lambda', () => {
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
-        const result = await handler(event);
-
-        expect(result.statusCode).toBe(200);
-        expect(consoleSpy.log).toHaveBeenCalledWith(
-            'SSM access failed, using environment variable URL:',
-            'https://test-petsite.com',
+        await expect(handler(event)).rejects.toThrow(
+            'Petsite URL not found in environment variables or SSM Parameter Store',
         );
     });
 
