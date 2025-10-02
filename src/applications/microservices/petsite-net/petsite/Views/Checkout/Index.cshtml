@@ -79,7 +79,7 @@
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
                                     <label for="expiry">Expiry Date</label>
-                                    <input type="text" class="form-control" id="expiry" value="12/25" readonly>
+                                    <input type="text" class="form-control" id="expiry" value="12/30" readonly>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -165,6 +165,13 @@ $(document).ready(function() {
             success: function(cartData) {
                 // Refresh cart display
                 refreshCartDisplay(cartData);
+
+                // Update cart count in header
+                if (cartData.total_items > 0) {
+                    $('#cart-count').text(cartData.total_items).show();
+                } else {
+                    $('#cart-count').hide();
+                }
             },
             error: function(xhr) {
                 $('#error-message').text('Failed to remove item: ' + xhr.responseText).show();
@@ -202,6 +209,8 @@ $(document).ready(function() {
                 <h4 style="color: #006400;">Total: $${cartData.total_price}</h4>
             `);
         } else {
+            // Hide cart count when cart is empty
+            $('#cart-count').hide();
             // Reload page if cart is empty
             location.reload();
         }
