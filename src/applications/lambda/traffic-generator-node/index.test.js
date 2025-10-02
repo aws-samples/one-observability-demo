@@ -4,9 +4,17 @@ jest.mock('@aws-sdk/client-ssm');
 describe('Traffic Generator Lambda', () => {
     let handler;
     let mockSend;
+    let consoleSpy;
 
     beforeAll(() => {
-        // Set up mocks
+        // Mock console methods to prevent noise in test output
+        consoleSpy = {
+            log: jest.spyOn(console, 'log').mockImplementation(() => {}),
+            error: jest.spyOn(console, 'error').mockImplementation(() => {}),
+            warn: jest.spyOn(console, 'warn').mockImplementation(() => {}),
+        };
+
+        // Set up AWS SDK mocks
         mockSend = jest.fn();
 
         require('@aws-sdk/client-ssm').SSMClient = jest.fn(() => ({
@@ -16,6 +24,13 @@ describe('Traffic Generator Lambda', () => {
 
         // Now require the handler
         handler = require('./index').handler;
+    });
+
+    afterAll(() => {
+        // Restore console methods
+        consoleSpy.log.mockRestore();
+        consoleSpy.error.mockRestore();
+        consoleSpy.warn.mockRestore();
     });
 
     beforeEach(() => {
@@ -66,5 +81,28 @@ describe('Traffic Generator Lambda', () => {
         );
 
         expect(userIds).toEqual(['user0001', 'user0002', 'user0003']);
+    });
+
+    test('should handle SSM parameter retrieval failure gracefully', async () => {
+        mockSend.mockRejectedValue(new Error('SSM access denied'));
+        const event = {};
+
+        const result = await handler(event);
+
+        expect(result.statusCode).toBe(200);
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+            'SSM access failed, using environment variable URL:',
+            'https://test-petsite.com',
+        );
+    });
+
+    test('should throw error when no petsite URL is available', async () => {
+        delete process.env.PETSITE_URL;
+        mockSend.mockRejectedValue(new Error('SSM access denied'));
+        const event = {};
+
+        await expect(handler(event)).rejects.toThrow(
+            'Petsite URL not found in environment variables or SSM Parameter Store',
+        );
     });
 });
