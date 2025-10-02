@@ -152,7 +152,7 @@ def create_tables(connection):
             full_name VARCHAR(255),
             email VARCHAR(255) NOT NULL,
             address VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
     """
 
