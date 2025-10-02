@@ -15,7 +15,7 @@ exports.handler = async (event) => {
     const concurrentUsers = Number.parseInt(process.env.CONCURRENT_USERS || '50');
     const petsiteUrlParameterName = process.env.PETSITE_URL_PARAMETER_NAME || '/petstore/petsiteurl';
 
-    let petsiteBaseUrl = process.env.PETSITE_URL;
+    let petsiteBaseUrl;
 
     // Get petsite URL from SSM Parameter Store or environment variable
     try {
@@ -126,6 +126,7 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
     // Helper function to make request and track results
     const makeTrackedRequest = async (url, method, description, data) => {
         try {
+            console.log(`Making ${method} request to ${url} for ${userId}...`);
             const result = await makeHttpRequest(url, method, description, data);
             requests.push({ url, method, statusCode: result.statusCode, duration: result.duration });
             return result;
