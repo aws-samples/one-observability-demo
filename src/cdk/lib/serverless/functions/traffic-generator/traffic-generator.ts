@@ -6,28 +6,26 @@ import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,
     getLambdaInsightsLayerArn,
+    getOpenTelemetryPythonLayerArn,
 } from '../../../constructs/lambda';
 import { Construct } from 'constructs';
-import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, Policy } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { Arn, ArnFormat, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
-import { Canary } from 'aws-cdk-lib/aws-synthetics';
-
-export interface TrafficGeneratorFunctionProperties extends WorkshopLambdaFunctionProperties {
-    trafficCanary: Canary;
-}
+import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
+import { Stack } from 'aws-cdk-lib';
+import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
-    constructor(scope: Construct, id: string, properties: TrafficGeneratorFunctionProperties) {
+    constructor(scope: Construct, id: string, properties: WorkshopLambdaFunctionProperties) {
         super(scope, id, properties);
 
         this.createOutputs();
     }
-    addFunctionPermissions(properties: TrafficGeneratorFunctionProperties): void {
+    addFunctionPermissions(): void {
         if (this.function) {
             this.function.role?.addManagedPolicy(
                 ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLambdaInsightsExecutionRolePolicy'),
@@ -36,17 +34,17 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
                 ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
             );
 
-            new Policy(this, 'TrafficGeneratorPolicy', {
-                policyName: 'TrafficGeneratorPolicy',
-                document: new PolicyDocument({
-                    statements: [
-                        new PolicyStatement({
-                            effect: Effect.ALLOW,
-                            actions: ['lambda:InvokeFunction'],
-                            resources: [this.getCanaryFunctionArn(properties.trafficCanary)],
-                        }),
-                    ],
-                }),
+            new Policy(this, 'GetParameterPolicy', {
+                statements: [
+                    new PolicyStatement({
+                        resources: [
+                            `arn:aws:ssm:${Stack.of(this).region}:${
+                                Stack.of(this).account
+                            }:parameter${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
+                        ],
+                        actions: ['ssm:GetParameter'],
+                    }),
+                ],
                 roles: [this.function.role!],
             });
 
@@ -67,23 +65,11 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
         }
     }
     createOutputs(): void {}
-    getEnvironmentVariables(properties: TrafficGeneratorFunctionProperties): { [key: string]: string } | undefined {
+    getEnvironmentVariables(): { [key: string]: string } | undefined {
         // No environment variables to create
         return {
-            CANARY_FUNCTION_ARN: this.getCanaryFunctionArn(properties.trafficCanary),
+            PETSITE_URL_PARAMETER_NAME: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
         };
-    }
-
-    getCanaryFunctionArn(canary: Canary) {
-        return Arn.format(
-            {
-                service: 'lambda',
-                resource: 'function',
-                arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-                resourceName: `cwsyn-${canary.canaryName}-${canary.canaryId}`,
-            },
-            Stack.of(this),
-        );
     }
 
     getBundling(): BundlingOptions {
@@ -99,6 +85,11 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
                 this,
                 'LambdaInsightsLayer',
                 getLambdaInsightsLayerArn(Stack.of(this).region),
+            ),
+            LayerVersion.fromLayerVersionArn(
+                this,
+                'OpenTelemetryLayer',
+                getOpenTelemetryPythonLayerArn(Stack.of(this).region),
             ),
         ];
     }
