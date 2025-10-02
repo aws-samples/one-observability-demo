@@ -9,7 +9,7 @@ import random
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Configure logging
 logger = logging.getLogger()
@@ -267,7 +267,7 @@ def create_or_update_user(connection, user_data):
                     user_data["full_name"],
                     user_data["email"],
                     user_data["address"],
-                    datetime.now(datetime.timezone.utc),
+                    datetime.now(timezone.utc),
                 ),
             )
 
@@ -314,9 +314,7 @@ def process_sqs_message(message_body, connection):
                     },
                     "method": "ProcessUserCreation",
                     "transactionId": adoption_data.get("transactionId", ""),
-                    "timestamp": datetime.now(datetime.timezone.utc)
-                    .isoformat()
-                    .replace("+00:00", "Z"),
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 },
             ),
         )
