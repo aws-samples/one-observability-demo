@@ -69,7 +69,6 @@ func (mw *middleware) CompleteAdoption(ctx context.Context, petId, petType, user
 			"PetType", petType,
 			"UserID", userID,
 			"took", time.Since(begin),
-			"customer", getFakeCustomer(),
 			"err", err)
 	}(time.Now())
 
