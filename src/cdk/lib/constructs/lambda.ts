@@ -238,6 +238,7 @@ export const LambdaFunctionNames = {
     PetfoodImageGenerator: PETFOOD_IMAGE_GENERATOR_FUNCTION.name,
     PetfoodCleanupProcessor: PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name,
     RdsSeeder: 'rds-seeder',
+    UserCreator: 'user-creator',
 } as const;
 
 /**

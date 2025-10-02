@@ -34,6 +34,7 @@ import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator
 import { NagSuppressions } from 'cdk-nag';
 import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood/cleanup-processor';
 import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
+import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 
 export interface MicroserviceApplicationPlacement {
@@ -377,6 +378,14 @@ export class MicroservicesStack extends Stack {
                     imageBucket: imports.assetsBucket,
                     eventBridgeBus: imports.eventBusExports.eventBus,
                     petfoodTable: imports.dynamodbExports.petFoodsTable,
+                });
+            }
+            if (name == LambdaFunctionNames.UserCreator) {
+                new UserCreatorFunction(this, name, {
+                    ...lambdafunction,
+                    databaseSecret: imports.rdsExports.adminSecret,
+                    secretParameterName: '/petstore/rdssecretarn',
+                    sqsQueue: imports.queueExports.queue,
                 });
             }
         }

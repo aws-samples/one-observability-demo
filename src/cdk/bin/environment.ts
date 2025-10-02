@@ -226,6 +226,15 @@ export const RDS_SEEDER_FUNCTION = {
     handler: 'lambda_handler',
 };
 
+export const USER_CREATOR_FUNCTION = {
+    name: 'user-creator',
+    runtime: Runtime.PYTHON_3_13,
+    entry: '../applications/lambda/user-creator-python',
+    index: 'index.py',
+    memorySize: 256,
+    handler: 'lambda_handler',
+};
+
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
@@ -233,6 +242,7 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
     [PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name, PETFOOD_CLEANUP_PROCESSOR_FUNCTION],
     [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],
     [RDS_SEEDER_FUNCTION.name, RDS_SEEDER_FUNCTION],
+    [USER_CREATOR_FUNCTION.name, USER_CREATOR_FUNCTION],
 ]);
 
 export const PETSITE_CANARY = {
