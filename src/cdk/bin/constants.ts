@@ -134,4 +134,7 @@ export const SSM_PARAMETER_NAMES = {
     RDS_READER_ENDPOINT_NAME: 'rds-reader-endpoint',
     RDS_WRITER_ENDPOINT_NAME: 'rds-writer-endpoint',
     RDS_DATABASE_NAME: 'rds-database-name',
+
+    // SQS Queue
+    SQS_QUEUE_URL: 'queueurl',
 } as const;
