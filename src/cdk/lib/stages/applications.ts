@@ -24,6 +24,7 @@ import { SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
 import { EventBusResources } from '../constructs/eventbus';
+import { QueueResources } from '../constructs/queue';
 import { PetFoodECSService } from '../microservices/petfood';
 import { CanaryNames, WorkshopCanaryProperties } from '../constructs/canary';
 import { TrafficGeneratorFunction } from '../serverless/functions/traffic-generator/traffic-generator';
@@ -53,6 +54,7 @@ interface ImportedResources {
     openSearchExports: any;
     assetsBucket: any;
     eventBusExports: any;
+    queueExports: any;
     baseURI: string;
 }
 
@@ -107,6 +109,7 @@ export class MicroservicesStack extends Stack {
         const openSearchExports = OpenSearchCollection.importFromExports();
         const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
         const eventBusExports = EventBusResources.importFromExports(this, 'EventBusResources');
+        const queueExports = QueueResources.importFromExports(this, 'QueueResources');
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
 
         return {
@@ -120,6 +123,7 @@ export class MicroservicesStack extends Stack {
             openSearchExports,
             assetsBucket,
             eventBusExports,
+            queueExports,
             baseURI,
         };
     }
@@ -155,6 +159,7 @@ export class MicroservicesStack extends Stack {
                         database: imports.rdsExports.cluster,
                         secret: imports.rdsExports.adminSecret,
                         table: imports.dynamodbExports.table,
+                        queue: imports.queueExports.queue,
                         healthCheck: '/health/status',
                         vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,

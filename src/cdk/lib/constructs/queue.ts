@@ -8,7 +8,14 @@ import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { IQueue, Queue } from 'aws-cdk-lib/aws-sqs';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
-import { SNS_TOPIC_ARN_EXPORT_NAME, SQS_QUEUE_ARN_EXPORT_NAME, SQS_QUEUE_URL_EXPORT_NAME } from '../../bin/constants';
+import {
+    SNS_TOPIC_ARN_EXPORT_NAME,
+    SQS_QUEUE_ARN_EXPORT_NAME,
+    SQS_QUEUE_URL_EXPORT_NAME,
+    SSM_PARAMETER_NAMES,
+} from '../../bin/constants';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 /**
  * Properties for configuring QueueResources construct
@@ -76,6 +83,9 @@ export class QueueResources extends Construct {
 
         // Create CloudFormation outputs for queue resources
         this.createQueueOutputs();
+
+        // Create SSM parameters for queue resources
+        this.createSsmParameters();
     }
 
     /**
@@ -115,5 +125,24 @@ export class QueueResources extends Construct {
             value: this.queue.queueUrl,
             exportName: SQS_QUEUE_URL_EXPORT_NAME,
         });
+    }
+
+    /**
+     * Creates SSM parameters for queue resources
+     */
+    private createSsmParameters(): void {
+        if (this.queue) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        [SSM_PARAMETER_NAMES.SQS_QUEUE_URL]: this.queue.queueUrl,
+                    }),
+                ),
+            );
+        } else {
+            throw new Error('Queue is not available');
+        }
     }
 }

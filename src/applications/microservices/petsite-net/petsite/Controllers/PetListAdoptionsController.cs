@@ -52,6 +52,7 @@ namespace PetSite.Controllers
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
                     //var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, ("userId",userId));
+                    _logger.LogInformation($"Calling PetListAdoptions API for user: {userId} at: {petlistadoptionsurl}");
                     result = await httpClient.GetStringAsync(petlistadoptionsurl);
                     Pets = JsonSerializer.Deserialize<List<Pet>>(result);
                 }

@@ -12,11 +12,13 @@ import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { IQueue } from 'aws-cdk-lib/aws-sqs';
 
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
     secret: ISecret;
     table: ITable;
+    queue: IQueue;
 }
 
 export class PayForAdoptionService extends EcsService {
@@ -50,6 +52,7 @@ export class PayForAdoptionService extends EcsService {
         });
 
         properties.table.grantReadWriteData(this.taskRole);
+        properties.queue.grantSendMessages(this.taskRole);
 
         NagSuppressions.addResourceSuppressions(
             taskPolicy,

@@ -19,6 +19,7 @@ namespace PetSite.ViewModels
 
         public string transactionid { get; set; }
         public string adoptiondate { get; set; }
+        public string adoptedby { get; set; }
     }
 
     public class Variety
