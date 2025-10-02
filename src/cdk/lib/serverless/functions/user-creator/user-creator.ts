@@ -41,7 +41,7 @@ export class UserCreatorFunction extends WokshopLambdaFunction {
                 batchSize: 10,
                 maxBatchingWindow: Duration.seconds(5),
                 reportBatchItemFailures: true,
-            })
+            }),
         );
     }
 
@@ -62,11 +62,7 @@ export class UserCreatorFunction extends WokshopLambdaFunction {
                 }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'sqs:ReceiveMessage',
-                        'sqs:DeleteMessage',
-                        'sqs:GetQueueAttributes',
-                    ],
+                    actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
                     resources: [properties.sqsQueue.queueArn],
                 }),
             ],

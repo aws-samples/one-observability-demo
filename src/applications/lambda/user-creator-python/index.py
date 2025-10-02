@@ -32,14 +32,12 @@ def exponential_backoff(func, max_retries=5, base_delay=1.0):
         except Exception as error:
             last_error = error
             error_name = getattr(error, "__class__.__name__", "Unknown")
-            error_code = getattr(error, "response", {}).get(
-                "Error", {}).get("Code", "")
+            error_code = getattr(error, "response", {}).get("Error", {}).get("Code", "")
             error_message = str(error)
 
             # Check if it's a throttling error
             is_throttling_error = (
-                error_name in ["ThrottlingException",
-                               "TooManyRequestsException"]
+                error_name in ["ThrottlingException", "TooManyRequestsException"]
                 or error_code in ["Throttling", "TooManyRequests"]
                 or "Rate exceeded" in error_message
             )
@@ -65,8 +63,7 @@ def get_database_credentials(secret_parameter_name):
     """
     try:
         # Get the RDS secret ARN from SSM Parameter Store
-        logger.info(
-            f"Getting secret ARN from parameter: {secret_parameter_name}")
+        logger.info(f"Getting secret ARN from parameter: {secret_parameter_name}")
 
         def get_parameter():
             return ssm_client.get_parameter(Name=secret_parameter_name)
@@ -89,8 +86,7 @@ def get_database_credentials(secret_parameter_name):
         secret_string = secret_response["SecretString"]
 
         if not secret_string:
-            raise ValueError(
-                "Could not retrieve database credentials from secret")
+            raise ValueError("Could not retrieve database credentials from secret")
 
         credentials = json.loads(secret_string)
 
@@ -139,17 +135,57 @@ def generate_fake_user_data(user_id):
     Generate fake user data
     """
     first_names = [
-        "Catherine", "Javier", "Alex", "Frank", "Mark", "Fatiha",
-        "Purva", "Selim", "Jane", "Alan", "Mohamed", "Maria", "Ahmed",
-        "Sofia", "Liam", "Emma", "Noah", "Olivia", "Ethan", "Aiden"
+        "Catherine",
+        "Javier",
+        "Alex",
+        "Frank",
+        "Mark",
+        "Fatiha",
+        "Purva",
+        "Selim",
+        "Jane",
+        "Alan",
+        "Mohamed",
+        "Maria",
+        "Ahmed",
+        "Sofia",
+        "Liam",
+        "Emma",
+        "Noah",
+        "Olivia",
+        "Ethan",
+        "Aiden",
     ]
 
     last_names = [
-        "Banks", "Marley", "Konan", "Lopez", "Gonzales", "Levine",
-        "Fofana", "Hernan", "Zheng", "Chergui", "Courrege", "Blue",
-        "Green", "Wood", "Smith", "Johnson", "Williams", "Brown",
-        "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
-        "Hernandez", "Wilson", "Anderson", "Thomas",
+        "Banks",
+        "Marley",
+        "Konan",
+        "Lopez",
+        "Gonzales",
+        "Levine",
+        "Fofana",
+        "Hernan",
+        "Zheng",
+        "Chergui",
+        "Courrege",
+        "Blue",
+        "Green",
+        "Wood",
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
     ]
 
     addresses = [
@@ -194,7 +230,7 @@ def generate_fake_user_data(user_id):
         "full_name": full_name,
         "email": email,
         "address": address,
-        "credit_card": credit_card
+        "credit_card": credit_card,
     }
 
 
@@ -206,15 +242,15 @@ def create_or_update_user(connection, user_data):
         with connection.cursor() as cursor:
             # Check if user already exists
             cursor.execute(
-                "SELECT user_id FROM users WHERE user_id = %s",
-                (user_data["user_id"],)
+                "SELECT user_id FROM users WHERE user_id = %s", (user_data["user_id"],),
             )
 
             existing_user = cursor.fetchone()
 
             if existing_user:
                 logger.info(
-                    f"User {user_data['user_id']} already exists, skipping creation")
+                    f"User {user_data['user_id']} already exists, skipping creation",
+                )
                 return False
 
             # Insert new user
@@ -223,13 +259,16 @@ def create_or_update_user(connection, user_data):
                 VALUES (%s, %s, %s, %s, %s)
             """
 
-            cursor.execute(insert_sql, (
-                user_data["user_id"],
-                user_data["full_name"],
-                user_data["email"],
-                user_data["address"],
-                datetime.now(datetime.timezone.utc)
-            ))
+            cursor.execute(
+                insert_sql,
+                (
+                    user_data["user_id"],
+                    user_data["full_name"],
+                    user_data["email"],
+                    user_data["address"],
+                    datetime.now(datetime.timezone.utc),
+                ),
+            )
 
             connection.commit()
             return True
@@ -260,21 +299,25 @@ def process_sqs_message(message_body, connection):
 
         # Log customer information for CloudWatch data protection demo
         logger.info(
-            json.dumps({
-                "PetId": adoption_data.get("petId", ""),
-                "PetType": adoption_data.get("petType", ""),
-                "UserID": user_id,
-                "caller": "user-creator-lambda",
-                "customer": {
-                    "FullName": user_data["full_name"],
-                    "Address": user_data["address"],
-                    "CreditCard": user_data["credit_card"],
-                    "Email": user_data["email"]
+            json.dumps(
+                {
+                    "PetId": adoption_data.get("petId", ""),
+                    "PetType": adoption_data.get("petType", ""),
+                    "UserID": user_id,
+                    "caller": "user-creator-lambda",
+                    "customer": {
+                        "FullName": user_data["full_name"],
+                        "Address": user_data["address"],
+                        "CreditCard": user_data["credit_card"],
+                        "Email": user_data["email"],
+                    },
+                    "method": "ProcessUserCreation",
+                    "transactionId": adoption_data.get("transactionId", ""),
+                    "timestamp": datetime.now(datetime.timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 },
-                "method": "ProcessUserCreation",
-                "transactionId": adoption_data.get("transactionId", ""),
-                "timestamp": datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
-            })
+            ),
         )
 
         # Create user in database
@@ -300,7 +343,8 @@ def lambda_handler(event, context):
     Main Lambda handler for processing SQS messages and creating users
     """
     logger.info(
-        f"User Creator Lambda started. Processing {len(event.get('Records', []))} messages")
+        f"User Creator Lambda started. Processing {len(event.get('Records', []))} messages",
+    )
 
     try:
         # Get SSM parameter name from environment variable
@@ -333,16 +377,18 @@ def lambda_handler(event, context):
 
             logger.info(
                 f"Processing complete. Processed: {processed_count}, "
-                f"Failed: {failed_count}"
+                f"Failed: {failed_count}",
             )
 
             return {
                 "statusCode": 200,
-                "body": json.dumps({
-                    "message": "User creation processing completed",
-                    "processed": processed_count,
-                    "failed": failed_count
-                })
+                "body": json.dumps(
+                    {
+                        "message": "User creation processing completed",
+                        "processed": processed_count,
+                        "failed": failed_count,
+                    },
+                ),
             }
 
         finally:
@@ -352,7 +398,4 @@ def lambda_handler(event, context):
     except Exception as error:
         error_msg = f"User creation processing failed: {str(error)}"
         logger.error(error_msg, exc_info=True)
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": error_msg})
-        }
+        return {"statusCode": 500, "body": json.dumps({"error": error_msg})}

@@ -15,8 +15,8 @@ import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { AdotCollector } from '../lib/constructs/adot-collector';
 
 export class AdotExampleStack extends Stack {
-    constructor(scope: Construct, id: string, props?: StackProps) {
-        super(scope, id, props);
+    constructor(scope: Construct, id: string, properties?: StackProps) {
+        super(scope, id, properties);
 
         // Create a task role
         const taskRole = new Role(this, 'TaskRole', {
