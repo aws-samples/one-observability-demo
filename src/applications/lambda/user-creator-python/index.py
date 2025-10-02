@@ -242,7 +242,8 @@ def create_or_update_user(connection, user_data):
         with connection.cursor() as cursor:
             # Check if user already exists
             cursor.execute(
-                "SELECT user_id FROM users WHERE user_id = %s", (user_data["user_id"],),
+                "SELECT user_id FROM users WHERE user_id = %s",
+                (user_data["user_id"],),
             )
 
             existing_user = cursor.fetchone()

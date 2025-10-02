@@ -20,7 +20,7 @@ import { StatusUpdatedService } from '../serverless/functions/status-updater/sta
 import { VpcEndpoints } from '../constructs/vpc-endpoints';
 import { PetSite } from '../microservices/petsite';
 import { WorkshopEks } from '../constructs/eks';
-import { SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { SubnetType, SecurityGroup, Port, Peer } from 'aws-cdk-lib/aws-ec2';
 import { OpenSearchCollection } from '../constructs/opensearch-collection';
 import { WorkshopAssets } from '../constructs/assets';
 import { EventBusResources } from '../constructs/eventbus';
@@ -386,6 +386,13 @@ export class MicroservicesStack extends Stack {
                     databaseSecret: imports.rdsExports.adminSecret,
                     secretParameterName: '/petstore/rdssecretarn',
                     sqsQueue: imports.queueExports.queue,
+                    vpc: imports.vpcExports,
+                    vpcSubnets: {
+                        subnetGroupName: 'Private',
+                    },
+                    securityGroups: [
+                        this.createUserCreatorSecurityGroup(imports.vpcExports, imports.rdsExports.securityGroup),
+                    ],
                 });
             }
         }
@@ -396,5 +403,21 @@ export class MicroservicesStack extends Stack {
                 reason: 'This bucket is used for canary artifacts and does not need access logs',
             },
         ]);
+    }
+
+    private createUserCreatorSecurityGroup(vpc: any, rdsSecurityGroup: any): any {
+        // Create security group for Lambda to access RDS
+        const lambdaSecurityGroup = new SecurityGroup(this, 'UserCreatorLambdaSecurityGroup', {
+            vpc: vpc,
+            description: 'Security group for User Creator Lambda function',
+        });
+
+        // Allow Lambda to access RDS by adding ingress rule to RDS security group
+        rdsSecurityGroup.addIngressRule(lambdaSecurityGroup, Port.POSTGRES, 'User Creator Lambda access');
+
+        // Allow outbound HTTPS access for AWS API calls
+        lambdaSecurityGroup.addEgressRule(Peer.anyIpv4(), Port.tcp(443), 'HTTPS outbound for AWS API calls');
+
+        return lambdaSecurityGroup;
     }
 }
