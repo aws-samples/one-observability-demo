@@ -41,7 +41,7 @@ namespace PetSite.Controllers
             }
 
             string result;
-            List<Pet> Pets = new List<Pet>();
+            List<AdoptedPet> Pets = new List<AdoptedPet>();
 
             try
             {
@@ -54,13 +54,13 @@ namespace PetSite.Controllers
                     //var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, ("userId",userId));
                     _logger.LogInformation($"Calling PetListAdoptions API for user: {userId} at: {petlistadoptionsurl}");
                     result = await httpClient.GetStringAsync(petlistadoptionsurl);
-                    Pets = JsonSerializer.Deserialize<List<Pet>>(result);
+                    Pets = JsonSerializer.Deserialize<List<AdoptedPet>>(result);
                 }
             }
             catch (HttpRequestException e) when (e.Message.Contains("404"))
             {
                 _logger.LogWarning("PetListAdoptions API returned 404 - returning empty pets list");
-                Pets = new List<Pet>();
+                Pets = new List<AdoptedPet>();
             }
             catch (Exception e)
             {

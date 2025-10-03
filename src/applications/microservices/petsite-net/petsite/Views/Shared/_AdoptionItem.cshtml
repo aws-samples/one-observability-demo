@@ -1,5 +1,5 @@
 @using Microsoft.CodeAnalysis.CSharp.Syntax
-@model Pet;
+@model AdoptedPet;
 
 <div style="position: relative; display: inline-block;">
     <img class="pet-thumbnail" src="@Model.peturl"
@@ -16,7 +16,7 @@
     <span>Adoption Id: @Model.transactionid</span>
 </div> -->
 <div class="pet-list-item adoption-info" style="margin-top: 4px; padding: 6px; background: rgba(240, 248, 255, 0.8); border-radius: 4px;" data-adoption-date="@Model.adoptiondate">
-    <span>Adopted by <strong style="color: #2c5aa0;">@(Model.adoptedby ?? "user12345")</strong> on <strong style="color: #2c5aa0;" class="adoption-date">Loading...</strong> at <strong style="color: #2c5aa0;" class="adoption-time">Loading...</strong></span>
+    <span>Adopted by <strong style="color: #2c5aa0;">@(Model.user_name ?? "John Doe")</strong> on <strong style="color: #2c5aa0;" class="adoption-date">Loading...</strong> at <strong style="color: #2c5aa0;" class="adoption-time">Loading...</strong></span>
 </div>
 
 <script>
