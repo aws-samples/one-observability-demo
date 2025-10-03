@@ -156,7 +156,10 @@ class PetAdoptionsService:
             conn.close()
 
     def _get_latest_adoptions(self) -> List[Dict[str, Any]]:
-        """Get latest adoptions from database with user information - intentionally slow for observability workshop"""
+        """
+        Get latest adoptions from database with user information -
+        intentionally slow for observability workshop
+        """
         with self._get_database_connection() as conn:
             with conn.cursor() as cursor:
                 # Intentionally inefficient query for observability demo:
@@ -188,7 +191,8 @@ class PetAdoptionsService:
                 query_duration = time.time() - start_time
 
                 logger.info(
-                    f"Adoption list query completed in {query_duration:.2f}s, returned {len(rows)} rows",
+                    f"Adoption list query completed in {query_duration:.2f}s, "
+                    f"returned {len(rows)} rows",
                 )
 
                 return [

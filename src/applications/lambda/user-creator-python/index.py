@@ -344,7 +344,8 @@ def lambda_handler(event, context):
     Main Lambda handler for processing SQS messages and creating users
     """
     logger.info(
-        f"User Creator Lambda started. Processing {len(event.get('Records', []))} messages",
+        f"User Creator Lambda started. Processing "
+        f"{len(event.get('Records', []))} messages",
     )
 
     try:
