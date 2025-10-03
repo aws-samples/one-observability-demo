@@ -143,7 +143,8 @@ global_settings:
           reason: 'Function is executed only once, no need for concurrency configurations'
 
 fail_on_findings: true
-ash_plugin_modules: []
+ash_plugin_modules:
+    - automated_security_helper.plugin_modules.ash_trivy_plugins
 external_reports_to_include: []
 build: null
 converters:
@@ -265,6 +266,14 @@ scanners:
             exclude: []
             additional_outputs:
                 - syft-table
+    trivy-repo:
+        enabled: true
+        options:
+            scanners: ['vuln', 'misconfig', 'secret', 'license']
+            severity_threshold: 'MEDIUM'
+            ignore_unfixed: false
+            license_full: false
+            disable_telemetry: true
 reporters:
     csv:
         name: csv
