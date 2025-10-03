@@ -314,7 +314,9 @@ def process_sqs_message(message_body, connection):
                     },
                     "method": "ProcessUserCreation",
                     "transactionId": adoption_data.get("transactionId", ""),
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "timestamp": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 },
             ),
         )

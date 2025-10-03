@@ -165,29 +165,31 @@ class PetAdoptionsService:
                 # - Function calls without indexes (LOWER, LENGTH)
                 # - ORDER BY with function calls
                 slow_query = """
-                SELECT 
-                    t.pet_id, 
-                    t.transaction_id, 
+                SELECT
+                    t.pet_id,
+                    t.transaction_id,
                     t.adoption_date,
                     t.user_id,
                     u.full_name,
                     u.email,
                     LENGTH(u.full_name) as name_length,
                     LOWER(u.email) as email_lower
-                FROM transactions t, users u 
-                WHERE t.user_id = u.user_id 
+                FROM transactions t, users u
+                WHERE t.user_id = u.user_id
                     AND t.status = 'completed'
                 ORDER BY t.adoption_date DESC, LENGTH(u.full_name) DESC
                 LIMIT 25
                 """
-                
+
                 logger.info("Executing adoption list query with user join")
                 start_time = time.time()
                 cursor.execute(slow_query)
                 rows = cursor.fetchall()
                 query_duration = time.time() - start_time
-                
-                logger.info(f"Adoption list query completed in {query_duration:.2f}s, returned {len(rows)} rows")
+
+                logger.info(
+                    f"Adoption list query completed in {query_duration:.2f}s, returned {len(rows)} rows",
+                )
 
                 return [
                     {
@@ -198,7 +200,7 @@ class PetAdoptionsService:
                         "user_name": row[4],
                         "user_email": row[5],
                         "name_length": row[6],
-                        "email_lower": row[7]
+                        "email_lower": row[7],
                     }
                     for row in rows
                 ]
