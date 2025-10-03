@@ -42,4 +42,22 @@ namespace PetSite.ViewModels
         public string EntityId { get; set; }
     }
 
+    public class AdoptedPet
+    {
+        public string adoptiondate { get; set; }
+        public string availability { get; set; }
+        public string cuteness_rate { get; set; }
+        public string email_lower { get; set; }
+        public int name_length { get; set; }
+        public string petcolor { get; set; }
+        public string petid { get; set; }
+        public string pettype { get; set; }
+        public string peturl { get; set; }
+        public string price { get; set; }
+        public string transactionid { get; set; }
+        public string user_email { get; set; }
+        public string user_id { get; set; }
+        public string user_name { get; set; }
+    }
+
 }
