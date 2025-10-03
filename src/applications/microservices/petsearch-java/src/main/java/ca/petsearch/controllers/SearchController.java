@@ -68,11 +68,10 @@ public class SearchController {
 
         // Initialize configurable parameter names from environment variables
         String paramPrefix = getRequiredEnvironmentVariable("PETSEARCH_PARAM_PREFIX");
-        String imagesCdnUrlName = getRequiredEnvironmentVariable("PETSEARCH_IMAGES_CDN_URL");
         String s3BucketName = getRequiredEnvironmentVariable("PETSEARCH_S3_BUCKET_NAME");
         String dynamodbTableName = getRequiredEnvironmentVariable("PETSEARCH_DYNAMODB_TABLE_NAME");
 
-        this.imagesCdnUrlParam = paramPrefix + "/" + imagesCdnUrlName;
+        this.imagesCdnUrlParam = "/petstore/imagescdnurl";
         this.s3BucketParam = paramPrefix + "/" + s3BucketName;
         this.dynamodbTableParam = paramPrefix + "/" + dynamodbTableName;
 

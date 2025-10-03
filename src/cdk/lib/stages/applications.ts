@@ -361,7 +361,6 @@ export class MicroservicesStack extends Stack {
             if (name == LambdaFunctionNames.TrafficGenerator) {
                 new TrafficGeneratorFunction(this, name, {
                     ...lambdafunction,
-                    trafficCanary: trafficCanary.canary,
                 });
             }
             if (name == LambdaFunctionNames.PetfoodCleanupProcessor) {
