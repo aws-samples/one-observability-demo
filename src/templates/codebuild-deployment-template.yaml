@@ -495,7 +495,7 @@ Resources:
                 - curl -o ./config.env "$CONFIG_FILE_URL"
                 - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
-                - ./${WORKING_FOLDER}/scripts/validate-account.sh
+                - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env
                 # Append additional environment variables to .env file
                 - |
                   cat >> ${WORKING_FOLDER}/.env << EOF
