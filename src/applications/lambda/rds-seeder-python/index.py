@@ -143,10 +143,16 @@ def create_tables(connection):
             user_id VARCHAR(10) NOT NULL,
             transaction_id VARCHAR(50) NOT NULL,
             adoption_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            adopter_name VARCHAR(255),
-            adopter_email VARCHAR(255),
             status VARCHAR(20) DEFAULT 'completed',
             notes TEXT
+        );
+        -- Create users table
+        CREATE TABLE IF NOT EXISTS users (
+            user_id VARCHAR(10) PRIMARY KEY,
+            full_name VARCHAR(255),
+            email VARCHAR(255) NOT NULL,
+            address VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
     """
 
