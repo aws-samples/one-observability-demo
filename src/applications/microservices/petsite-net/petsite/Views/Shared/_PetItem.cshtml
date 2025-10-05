@@ -34,16 +34,13 @@
 @if (showTakeMeHomeButton)
 {
     <form asp-controller="adoption" asp-action="takemehome" method="post">
-        @if (Model.availability == "yes")
+        @if (Model.availability.ToLower() == "yes")
         {
-            <br />
-            <input class="pet-button" type="submit" value="Take me home" />
+            <input class="pet-button" type="submit" value="Take me home" style="margin-top: 8px; background: linear-gradient(135deg, #7abaff 0%, #2d7f83 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'" />
         }
         else
         {
-            <br />
-            <br />
-            <span style="color: red; font-weight: bold;">Unavailable</span>
+            <span style="color: red; font-weight: bold; margin-top: 8px; display: inline-block;">Unavailable</span>
         }
 
         <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
