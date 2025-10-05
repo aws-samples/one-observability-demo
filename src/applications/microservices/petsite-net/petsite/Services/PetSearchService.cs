@@ -96,7 +96,7 @@ namespace PetSite.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Exception occurred while fetching pet details.");
-                throw ex;
+                throw;
             }
         }
     }
