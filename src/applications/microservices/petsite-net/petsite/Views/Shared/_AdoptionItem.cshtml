@@ -16,7 +16,7 @@
     <span>Adoption Id: @Model.transactionid</span>
 </div> -->
 <div class="pet-list-item adoption-info" style="margin-top: 4px; padding: 6px; background: rgba(240, 248, 255, 0.8); border-radius: 4px;" data-adoption-date="@Model.adoptiondate">
-    <span>Adopted by <strong style="color: #2c5aa0;">@(Model.user_name ?? "John Doe")</strong> on <strong style="color: #2c5aa0;" class="adoption-date">Loading...</strong> at <strong style="color: #2c5aa0;" class="adoption-time">Loading...</strong></span>
+    <span>By <strong style="background: linear-gradient(135deg, #7abaff 0%, #2d7f83 100%); color: white; padding: 4px 8px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-weight: 600; margin-right: 4px;">@(Model.user_name ?? "John Doe")</strong> on <strong style="background: rgba(44, 90, 160, 0.15); color: #2c5aa0; padding: 3px 6px; border-radius: 4px; font-weight: 600; margin: 0 2px;" class="adoption-date">Loading...</strong> at <strong style="background: rgba(44, 90, 160, 0.15); color: #2c5aa0; padding: 3px 6px; border-radius: 4px; font-weight: 600; margin-left: 2px;" class="adoption-time">Loading...</strong></span>
 </div>
 
 <script>
