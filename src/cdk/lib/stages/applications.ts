@@ -26,6 +26,7 @@ import { WorkshopAssets } from '../constructs/assets';
 import { EventBusResources } from '../constructs/eventbus';
 import { QueueResources } from '../constructs/queue';
 import { PetFoodECSService } from '../microservices/petfood';
+import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 import { CanaryNames, WorkshopCanaryProperties } from '../constructs/canary';
 import { TrafficGeneratorFunction } from '../serverless/functions/traffic-generator/traffic-generator';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
@@ -315,6 +316,18 @@ export class MicroservicesStack extends Stack {
                 }
             }
         }
+
+        // Create PetFood Agent (Bedrock AgentCore)
+        new PetFoodAgentConstruct(this, 'PetFoodAgent', {
+            searchApiUrl: imports.dynamodbExports.table
+                ? 'http://petsearch-api/api/search'
+                : 'https://api.example.com/search',
+            petFoodApiUrl: imports.dynamodbExports.petFoodsTable
+                ? 'http://petfood-api/api/foods'
+                : 'https://api.example.com/foods',
+            parameterStorePrefix: PARAMETER_STORE_PREFIX,
+            ecrRepositoryUri: `${imports.baseURI}/petfoodagent-strands-py:latest`,
+        });
     }
 
     private createCanariesAndLambdas(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
