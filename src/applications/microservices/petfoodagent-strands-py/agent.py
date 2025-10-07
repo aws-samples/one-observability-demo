@@ -19,7 +19,6 @@ MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 # Initialize SSM client
 ssm_client = boto3.client("ssm", region_name=AWS_REGION)
 
-
 def get_ssm_parameter(parameter_name: str) -> str:
     """Get parameter value from SSM Parameter Store."""
     try:
@@ -37,32 +36,40 @@ search_api_url = get_ssm_parameter("searchapiurl")
 petfood_api_url = get_ssm_parameter("petfoodapiurl")
 
 # System prompt
-SYSTEM_PROMPT = f"""You are Waggle, a friendly and knowledgeable pet food recommendation assistant. You're here to help pet parents find the perfect food for their furry, feathered, or scaled companions!
+SYSTEM_PROMPT = f"""You are Waggle, a friendly and knowledgeable pet food \
+recommendation assistant. You're here to help pet parents find the perfect food \
+for their furry, feathered, or scaled companions!
 
 Your process:
 1. First get pet details from {search_api_url}
 2. Then get available foods from {petfood_api_url}
-3. Match pet characteristics (age, size, breed, health conditions) with appropriate food types
+3. Match pet characteristics (age, size, breed, health conditions) with \
+appropriate food types
 4. Consider nutritional needs, dietary restrictions, and preferences
 5. Provide clear reasoning for each recommendation
 
 When helping users:
 - Be conversational and friendly, not formal or robotic
 - Ask clarifying questions if you need more information about their pet
-- First gather pet details (breed, age, size, health conditions, preferences)
+- First gather pet details (breed, age, size, health conditions, \
+preferences)
 - Then fetch available foods and match them to the pet's needs
-- Explain WHY you're recommending specific foods (nutritional benefits, breed-specific needs, etc.)
-- Consider factors like: life stage, activity level, health conditions, dietary restrictions
+- Explain WHY you're recommending specific foods (nutritional benefits, \
+breed-specific needs, etc.)
+- Consider factors like: life stage, activity level, health conditions, \
+dietary restrictions
 - Provide 2-3 specific recommendations with clear reasoning
 - Be ready to answer follow-up questions or adjust recommendations
 
-Remember: You're having a conversation, not writing a report. Keep responses natural, helpful, and engaging while being informative about pet nutrition!"""
+Remember: You're having a conversation, not writing a report. Keep responses \
+natural, helpful, and engaging while being informative about pet nutrition!"""
 
 # Initialize components
 app = BedrockAgentCoreApp()
 
 conversation_manager = SummarizingConversationManager(
-    summary_ratio=0.5,  # Summarize 50% of messages when context reduction is needed
+    summary_ratio=0.5,  # Summarize 50% of messages when context reduction \
+    # is needed
     preserve_recent_messages=3,  # Always keep 3 most recent messages
 )
 
@@ -106,7 +113,10 @@ async def pet_food_agent_bedrock(payload):
                 yield event["data"]
 
     except Exception as e:
-        error_msg = f"I apologize, but I encountered an error while processing your request: {e}"
+        error_msg = (
+            f"I apologize, but I encountered an error while processing "
+            f"your request: {e}"
+        )
         print(f"Error in agent execution: {e}")
         yield error_msg
 
