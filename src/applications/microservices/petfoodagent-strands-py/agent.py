@@ -19,6 +19,7 @@ MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 # Initialize SSM client
 ssm_client = boto3.client("ssm", region_name=AWS_REGION)
 
+
 def get_ssm_parameter(parameter_name: str) -> str:
     """Get parameter value from SSM Parameter Store."""
     try:
