@@ -39,8 +39,6 @@ import java.util.stream.Collectors;
 
 @RestController
 public class SearchController {
-    public static final String BUCKET_NAME = "/petstore/s3bucketname";
-    public static final String DYNAMODB_TABLENAME = "/petstore/dynamodbtablename";
     private final RandomNumberGenerator randomGenerator;
 
     // Configurable parameter names via environment variables
@@ -70,8 +68,9 @@ public class SearchController {
         String paramPrefix = getRequiredEnvironmentVariable("PETSEARCH_PARAM_PREFIX");
         String s3BucketName = getRequiredEnvironmentVariable("PETSEARCH_S3_BUCKET_NAME");
         String dynamodbTableName = getRequiredEnvironmentVariable("PETSEARCH_DYNAMODB_TABLE_NAME");
+        String imagesCdnUrl = getRequiredEnvironmentVariable("PETSEARCH_IMAGES_CDN_URL");
 
-        this.imagesCdnUrlParam = "/petstore/imagescdnurl";
+        this.imagesCdnUrlParam = paramPrefix + "/" + imagesCdnUrl;
         this.s3BucketParam = paramPrefix + "/" + s3BucketName;
         this.dynamodbTableParam = paramPrefix + "/" + dynamodbTableName;
 

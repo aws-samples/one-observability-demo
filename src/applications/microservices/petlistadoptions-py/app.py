@@ -93,25 +93,32 @@ class PetAdoptionsService:
     """Main service class following Python best practices"""
 
     def __init__(self):
-        self.pet_search_url = os.getenv("APP_PET_SEARCH_URL")
-        self.rds_secret_arn = os.getenv("APP_RDS_SECRET_ARN")
-
-        # If not set via env vars, try to get from Parameter Store
-        if not self.pet_search_url or not self.rds_secret_arn:
-            self._fetch_from_parameter_store()
+        self._fetch_from_parameter_store()
 
     def _fetch_from_parameter_store(self):
         """Fetch configuration from AWS Parameter Store"""
         try:
             ssm = boto3.client("ssm")
+            prefix = os.getenv("PETSTORE_PARAM_PREFIX")
+            if prefix is None:
+                raise Exception("PETSTORE_PARAM_PREFIX environment variable not set")
+
+            rdsSecret = os.getenv("RDS_SECRET_ARN_NAME")
+            if rdsSecret is None:
+                raise Exception("RDS_SECRET_ARN_NAME environment variable not set")
+
+            searchApiUrl = os.getenv("SEARCH_API_URL_NAME")
+            if searchApiUrl is None:
+                raise Exception("SEARCH_API_URL_NAME environment variable not set")
+
             response = ssm.get_parameters(
-                Names=["/petstore/rdssecretarn", "/petstore/searchapiurl"],
+                Names=[f"/{prefix}/{rdsSecret}", f"/{prefix}/{searchApiUrl}"],
             )
 
             for param in response["Parameters"]:
-                if param["Name"] == "/petstore/rdssecretarn":
+                if param["Name"] == f"/{prefix}/{rdsSecret}":
                     self.rds_secret_arn = param["Value"]
-                elif param["Name"] == "/petstore/searchapiurl":
+                elif param["Name"] == f"/{prefix}/{searchApiUrl}":
                     self.pet_search_url = param["Value"]
 
         except Exception as e:

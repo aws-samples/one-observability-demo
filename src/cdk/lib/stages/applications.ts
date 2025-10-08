@@ -36,6 +36,7 @@ import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood
 import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
 import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
+import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -332,14 +333,14 @@ export class MicroservicesStack extends Stack {
                 trafficCanary = new TrafficGeneratorCanary(this, name, {
                     ...canaryProperties,
                     artifactsBucket: canaryArtifactBucket,
-                    urlParameterName: `${PARAMETER_STORE_PREFIX}/petsiteurl`,
+                    urlParameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
                 });
             }
             if (name == CanaryNames.HouseKeeping) {
                 new HouseKeepingCanary(this, name, {
                     ...canaryProperties,
                     artifactsBucket: canaryArtifactBucket,
-                    urlParameterName: `${PARAMETER_STORE_PREFIX}/petsiteurl`,
+                    urlParameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
                 });
             }
         }
@@ -383,7 +384,7 @@ export class MicroservicesStack extends Stack {
                 new UserCreatorFunction(this, name, {
                     ...lambdafunction,
                     databaseSecret: imports.rdsExports.adminSecret,
-                    secretParameterName: '/petstore/rdssecretarn',
+                    secretParameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME}`,
                     sqsQueue: imports.queueExports.queue,
                     vpc: imports.vpcExports,
                     vpcSubnets: {

@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"petadoptions/payforadoption"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -27,59 +28,74 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 	}
 
 	cfg := payforadoption.Config{
-		UpdateAdoptionURL: viper.GetString("UPDATE_ADOPTION_URL"),
-		RDSSecretArn:      viper.GetString("RDS_SECRET_ARN"),
-		SQSQueueURL:       viper.GetString("SQS_QUEUE_URL"),
-		AWSRegion:         viper.GetString("AWS_REGION"),
-		AWSCfg:            awsCfg,
+		AWSRegion: viper.GetString("AWS_REGION"),
+		AWSCfg:    awsCfg,
 	}
 
-	if cfg.UpdateAdoptionURL == "" || cfg.RDSSecretArn == "" || cfg.SQSQueueURL == "" {
-		return fetchConfigFromParameterStore(ctx, cfg)
-	}
-
-	return cfg, nil
+	return fetchConfigFromParameterStore(ctx, cfg)
 }
 
 func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config) (payforadoption.Config, error) {
 	svc := ssm.NewFromConfig(cfg.AWSCfg)
 
+	envVars := map[string]string{
+		"PETSTORE_PARAM_PREFIX":                    "",
+		"UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME": "",
+		"RDS_SECRET_ARN_NAME":                      "",
+		"S3_BUCKET_PARAMETER_NAME":                 "",
+		"DYNAMODB_TABLE_PARAMETER_NAME":            "",
+		"SQS_QUEUE_URL_PARAMETER_NAME":             "",
+	}
+
+	for key := range envVars {
+		if !viper.IsSet(key) {
+			return cfg, fmt.Errorf("%s not set", key)
+		}
+		envVars[key] = viper.GetString(key)
+	}
+
+	prefix := envVars["PETSTORE_PARAM_PREFIX"]
+
 	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
 		Names: []string{
-			"/petstore/updateadoptionstatusurl",
-			"/petstore/rdssecretarn",
-			"/petstore/s3bucketname",
-			"/petstore/dynamodbtablename",
-			"/petstore/queueurl",
+			fmt.Sprintf("/%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"]),
+			fmt.Sprintf("/%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"]),
+			fmt.Sprintf("/%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"]),
+			fmt.Sprintf("/%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"]),
+			fmt.Sprintf("/%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
 		},
 	})
-
-	newCfg := payforadoption.Config{}
-	newCfg.AWSCfg = cfg.AWSCfg
-	newCfg.AWSRegion = cfg.AWSCfg.Region
-
 	if err != nil {
-		return newCfg, err
+		return cfg, err
 	}
 
+	newCfg := payforadoption.Config{
+		AWSCfg:    cfg.AWSCfg,
+		AWSRegion: cfg.AWSCfg.Region,
+	}
+
+	paramMap := make(map[string]*string)
 	for _, p := range res.Parameters {
-		pValue := aws.ToString(p.Value)
-
-		switch aws.ToString(p.Name) {
-		case "/petstore/rdssecretarn":
-			newCfg.RDSSecretArn = pValue //pragma: allowlist secret
-		case "/petstore/updateadoptionstatusurl":
-			newCfg.UpdateAdoptionURL = pValue
-		case "/petstore/s3bucketname":
-			newCfg.S3BucketName = pValue
-		case "/petstore/dynamodbtablename":
-			newCfg.DynamoDBTable = pValue
-		case "/petstore/queueurl":
-			newCfg.SQSQueueURL = pValue
-		}
+		paramMap[aws.ToString(p.Name)] = p.Value
 	}
 
-	return newCfg, err
+	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"])]; ok {
+		newCfg.RDSSecretArn = aws.ToString(val) //pragma: allowlist secret
+	}
+	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"])]; ok {
+		newCfg.UpdateAdoptionURL = aws.ToString(val)
+	}
+	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"])]; ok {
+		newCfg.S3BucketName = aws.ToString(val)
+	}
+	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"])]; ok {
+		newCfg.DynamoDBTable = aws.ToString(val)
+	}
+	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"])]; ok {
+		newCfg.SQSQueueURL = aws.ToString(val)
+	}
+
+	return newCfg, nil
 }
 
 // Call aws secrets manager and return parsed sql server query str
