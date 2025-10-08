@@ -75,6 +75,10 @@ public class WebConfig implements WebMvcConfigurer {
                 .build();
     }
 
+    private <Subclass extends AwsClientBuilder<Subclass, ?>> Subclass withLocalEndpoint(Subclass builder) {
+        return endpoint.isEmpty() ? builder : builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region));
+    }
+
     private void resolveEndpoints(AWSSimpleSystemsManagement ssmClient) {
         if (!ddbEndpoint.isEmpty() || !s3Endpoint.isEmpty()) return;
 
