@@ -34,7 +34,7 @@ describe('Traffic Generator Lambda', () => {
     });
 
     beforeEach(() => {
-        process.env.PETSITE_URL = 'https://test-petsite.com';
+        process.env.PETSITE_URL_PARAMETER_NAME = 'https://test-petsite.com';
         process.env.CONCURRENT_USERS = '5'; // Use smaller number for faster tests
         jest.clearAllMocks();
         mockSend.mockResolvedValue({
@@ -91,7 +91,7 @@ describe('Traffic Generator Lambda', () => {
     });
 
     test('should throw error when no petsite URL is available', async () => {
-        delete process.env.PETSITE_URL;
+        delete process.env.PETSITE_URL_PARAMETER_NAME;
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
