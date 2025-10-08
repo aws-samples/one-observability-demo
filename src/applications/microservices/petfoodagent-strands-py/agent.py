@@ -10,14 +10,13 @@ from strands.agent.conversation_manager import SummarizingConversationManager
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 # Configuration
-AWS_REGION = (
-    os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
-)
-PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_PREFIX", "/petstore")
+PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_PREFIX")
+if not PARAMETER_STORE_PREFIX:
+    raise RuntimeError("Required environment variable PARAMETER_STORE_PREFIX not set")
 MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
 # Initialize SSM client
-ssm_client = boto3.client("ssm", region_name=AWS_REGION)
+ssm_client = boto3.client("ssm")
 
 
 def get_ssm_parameter(parameter_name: str) -> str:
@@ -33,8 +32,19 @@ def get_ssm_parameter(parameter_name: str) -> str:
 
 
 # Fetch API URLs from Parameter Store
-search_api_url = get_ssm_parameter("searchapiurl")
-petfood_api_url = get_ssm_parameter("petfoodapiurl")
+search_api_url_parameter_name = os.environ.get("SEARCH_API_URL_PARAMETER_NAME")
+if not search_api_url_parameter_name:
+    raise RuntimeError(
+        "Required environment variable SEARCH_API_URL_PARAMETER_NAME not set",
+    )
+petfood_api_url_parameter_name = os.environ.get("PETFOOD_API_URL_PARAMETER_NAME")
+if not petfood_api_url_parameter_name:
+    raise RuntimeError(
+        "Required environment variable PETFOOD_API_URL_PARAMETER_NAME not set",
+    )
+
+search_api_url = get_ssm_parameter(search_api_url_parameter_name)
+petfood_api_url = get_ssm_parameter(petfood_api_url_parameter_name)
 
 # System prompt
 SYSTEM_PROMPT = f"""You are Waggle, a friendly and knowledgeable pet food \
@@ -76,7 +86,6 @@ conversation_manager = SummarizingConversationManager(
 
 bedrock_model = BedrockModel(
     model_id=MODEL_ID,
-    region_name=AWS_REGION,
 )
 
 agent = Agent(

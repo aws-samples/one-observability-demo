@@ -13,7 +13,9 @@ exports.handler = async (event) => {
 
     const startTime = Date.now();
     const concurrentUsers = Number.parseInt(process.env.CONCURRENT_USERS || '50');
-    const petsiteUrlParameterName = process.env.PETSITE_URL_PARAMETER_NAME || '/petstore/petsiteurl';
+    const petsiteUrlParameterName = process.env.PETSITE_URL_PARAMETER_NAME;
+
+    if (!petsiteUrlParameterName) throw new Error('Petsite URL parameter name not set in environment variables');
 
     let petsiteBaseUrl;
 
@@ -34,7 +36,7 @@ exports.handler = async (event) => {
     }
 
     if (!petsiteBaseUrl) {
-        throw new Error('Petsite URL not found in environment variables or SSM Parameter Store');
+        throw new Error('Petsite URL parameter name not set in environment variables');
     }
 
     console.log(`Generating traffic for ${concurrentUsers} concurrent users to base URL: ${petsiteBaseUrl}`);
