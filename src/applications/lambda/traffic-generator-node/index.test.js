@@ -34,12 +34,12 @@ describe('Traffic Generator Lambda', () => {
     });
 
     beforeEach(() => {
-        process.env.PETSITE_URL = 'https://test-petsite.com';
+        process.env.PETSITE_URL_PARAMETER_NAME = 'http://localhost';
         process.env.CONCURRENT_USERS = '5'; // Use smaller number for faster tests
         jest.clearAllMocks();
         mockSend.mockResolvedValue({
             Parameter: {
-                Value: 'https://test-petsite.com',
+                Value: 'http://localhost',
             },
         });
     });
@@ -87,18 +87,14 @@ describe('Traffic Generator Lambda', () => {
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
-        await expect(handler(event)).rejects.toThrow(
-            'Petsite URL not found in environment variables or SSM Parameter Store',
-        );
+        await expect(handler(event)).rejects.toThrow('Petsite URL parameter name not set in environment variables');
     });
 
     test('should throw error when no petsite URL is available', async () => {
-        delete process.env.PETSITE_URL;
+        delete process.env.PETSITE_URL_PARAMETER_NAME;
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
-        await expect(handler(event)).rejects.toThrow(
-            'Petsite URL not found in environment variables or SSM Parameter Store',
-        );
+        await expect(handler(event)).rejects.toThrow('Petsite URL parameter name not set in environment variables');
     });
 });

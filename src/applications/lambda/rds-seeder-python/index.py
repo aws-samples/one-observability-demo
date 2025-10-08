@@ -131,13 +131,17 @@ def create_database_connection(credentials):
 
 def create_tables(connection):
     """
-    Create database tables if they don't exist
+    Drop and recreate database tables
     """
-    logger.info("Creating database tables...")
+    logger.info("Dropping and creating database tables...")
 
     create_tables_sql = """
+        -- Drop tables if they exist
+        DROP TABLE IF EXISTS transactions CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
+
         -- Create transactions table for tracking adoptions
-        CREATE TABLE IF NOT EXISTS transactions (
+        CREATE TABLE transactions (
             id SERIAL PRIMARY KEY,
             pet_id VARCHAR(10) NOT NULL,
             user_id VARCHAR(10) NOT NULL,
@@ -147,7 +151,7 @@ def create_tables(connection):
             notes TEXT
         );
         -- Create users table
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
             user_id VARCHAR(10) PRIMARY KEY,
             full_name VARCHAR(255),
             email VARCHAR(255) NOT NULL,

@@ -215,7 +215,9 @@ public class SearchController {
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "pet_color", defaultValue = "", required = false) String petColorAlias,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId,
-            @RequestParam(name = "pet_id", defaultValue = "", required = false) String petIdAlias
+            @RequestParam(name = "pet_id", defaultValue = "", required = false) String petIdAlias,
+            @RequestParam(name = "userId", defaultValue = "", required = false) String userId,
+            @RequestParam(name = "user_id", defaultValue = "", required = false) String userIdAlias
     ) throws InterruptedException {
 
         // Create SearchQuery object with parameter resolution (similar to petfood Rust serde aliases)
@@ -239,6 +241,8 @@ public class SearchController {
             span.setAttribute("search.pettype", validatedPetType);
             span.setAttribute("search.petcolor", normalizedPetColor);
             span.setAttribute("search.petid", normalizedPetId);
+            span.setAttribute("search.userid", userId);
+            span.setAttribute("search.userid_alias", userIdAlias);
 
             List<Pet> result = ddbClient.scan(
                     buildScanRequest(validatedPetType, normalizedPetColor, normalizedPetId))

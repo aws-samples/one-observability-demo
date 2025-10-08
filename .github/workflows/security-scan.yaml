@@ -20,7 +20,7 @@ jobs:
             pull-requests: write # Required for writing comments with scan results to pull requests
             #security-events: write # Required for collection of SARIF code scanning results for GitHub Advanced Security checks
         with:
-            ash-version: v3.0.0-beta
+            ash-version: v3.1.2
             repository-owner: ${{ github.repository_owner }}
             ash-args: '--inspect'
             fail-on-findings: false

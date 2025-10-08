@@ -20,7 +20,16 @@ export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
 
 export class ListAdoptionsService extends EcsService {
     constructor(scope: Construct, id: string, properties: ListAdoptionsServiceProperties) {
-        super(scope, id, properties);
+        const environmentVariables = {
+            ...properties.additionalEnvironment,
+            PETSTORE_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
+            RDS_SECRET_ARN_NAME: SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME,
+            SEARCH_API_URL_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+        };
+        super(scope, id, {
+            ...properties,
+            additionalEnvironment: environmentVariables,
+        });
 
         new ApplicationSignalsIntegration(this, 'petlist-integration', {
             taskDefinition: this.taskDefinition,

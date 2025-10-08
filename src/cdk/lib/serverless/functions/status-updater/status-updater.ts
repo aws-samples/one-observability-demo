@@ -26,6 +26,7 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
 import { Utilities } from '../../../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
+import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
 
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
     table: ITable;
@@ -153,7 +154,7 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                 PARAMETER_STORE_PREFIX,
                 new Map(
                     Object.entries({
-                        updateadoptionstatusurl: this.api.url,
+                        [SSM_PARAMETER_NAMES.UPDATE_ADOPTION_STATUS_URL]: this.api.url,
                     }),
                 ),
             );

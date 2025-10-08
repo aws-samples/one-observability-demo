@@ -1,6 +1,12 @@
 #!/bin/bash
 
-ENV_FILE=".env"
+if [[ -z "$1" ]]; then
+    echo "Error: .env file location is required"
+    echo "Usage: $0 <path-to-.env-file>"
+    exit 1
+fi
+
+ENV_FILE="$1"
 AUTO_TRANSACTION_SEARCH_CONFIGURED=""
 
 # Function to read existing .env file
@@ -29,7 +35,19 @@ write_env_file() {
 # Validation function for AUTO_TRANSACTION_SEARCH_CONFIGURED
 validate_auto_transaction_search() {
     local result
-    result=$(aws xray get-trace-segment-destination --query 'Destination' --output text 2>/dev/null)
+    local error_output
+
+    error_output=$(mktemp)
+    result=$(aws xray get-trace-segment-destination --query 'Destination' --output text 2>"$error_output")
+    local exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+        echo "Error: AWS CLI command failed" >&2
+        cat "$error_output" >&2
+        rm -f "$error_output"
+        exit 1
+    fi
+    rm -f "$error_output"
 
     if [[ "$result" == "CloudWatchLogs" ]]; then
         AUTO_TRANSACTION_SEARCH_CONFIGURED="true"

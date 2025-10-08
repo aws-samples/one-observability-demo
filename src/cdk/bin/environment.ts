@@ -41,6 +41,8 @@ export enum HostType {
     ECS = 'ECS',
     /** Amazon Elastic Kubernetes Service */
     EKS = 'EKS',
+    /** Only build the container without deploying the app */
+    None = 'None',
 }
 
 /**
@@ -151,8 +153,23 @@ export const PETFOOD_RS = {
     disableService: false,
 };
 
+export const PETFOODAGENT_STRANDS_PY = {
+    name: 'petfoodagent-strands-py',
+    dockerFilePath: 'src/applications/microservices/petfoodagent-strands-py',
+    hostType: HostType.None, // Note: This is for container building only, actual deployment is via Bedrock AgentCore
+    computeType: ComputeType.Fargate,
+    disableService: true, // Disable ECS service since it runs on Bedrock AgentCore
+};
+
 /** Complete list of all microservice applications */
-export const APPLICATION_LIST = [PAYFORADOPTION_GO, PETLISTADOPTIONS_PY, PETSEARCH_JAVA, PETSITE_NET, PETFOOD_RS];
+export const APPLICATION_LIST = [
+    PAYFORADOPTION_GO,
+    PETLISTADOPTIONS_PY,
+    PETSEARCH_JAVA,
+    PETSITE_NET,
+    PETFOOD_RS,
+    PETFOODAGENT_STRANDS_PY,
+];
 
 /** Map of microservice names to their deployment configurations */
 export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPlacement>([
@@ -161,6 +178,7 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
     [PETSITE_NET.name, PETSITE_NET],
     [PETFOOD_RS.name, PETFOOD_RS],
+    [PETFOODAGENT_STRANDS_PY.name, PETFOODAGENT_STRANDS_PY],
 ]);
 
 /** Paths to pet image assets for seeding the application */

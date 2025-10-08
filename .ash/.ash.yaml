@@ -143,13 +143,14 @@ global_settings:
           reason: 'Function is executed only once, no need for concurrency configurations'
 
 fail_on_findings: true
-ash_plugin_modules: []
+ash_plugin_modules:
+    - automated_security_helper.plugin_modules.ash_trivy_plugins
 external_reports_to_include: []
 build: null
 converters:
     archive:
         name: archive
-        enabled: true
+        enabled: false
         options: {}
     jupyter:
         name: jupyter
@@ -166,13 +167,15 @@ scanners:
             config_file: null
             confidence_level: all
             ignore_nosec: false
-            excluded_paths: []
+            excluded_paths:
+                - path: src/cdk/cdk.out
+                  reason: 'CDK Assets are already scanned'
             additional_formats: []
             tool_version: '>=1.7.0,<2.0.0'
             install_timeout: 300
     cdk-nag:
         name: cdk-nag
-        enabled: true
+        enabled: false
         options:
             severity_threshold: null
             nag_packs:
@@ -192,7 +195,9 @@ scanners:
         options:
             severity_threshold: null
             config_file: null
-            skip_path: []
+            skip_path:
+                - path: src/cdk/cdk.out
+                  reason: 'CDK Assets are already scanned with CDK_NAG'
             additional_formats:
                 - cyclonedx_json
             offline: false
@@ -265,6 +270,14 @@ scanners:
             exclude: []
             additional_outputs:
                 - syft-table
+    trivy-repo:
+        enabled: true
+        options:
+            scanners: ['vuln', 'misconfig', 'secret', 'license']
+            severity: 'MEDIUM'
+            ignore_unfixed: false
+            license_full: false
+            disable_telemetry: true
 reporters:
     csv:
         name: csv
