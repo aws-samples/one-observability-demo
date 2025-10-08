@@ -36,7 +36,7 @@ exports.handler = async (event) => {
     }
 
     if (!petsiteBaseUrl) {
-        throw new Error('Petsite URL not found in environment variables or SSM Parameter Store');
+        throw new Error('Petsite URL parameter name not set in environment variables');
     }
 
     console.log(`Generating traffic for ${concurrentUsers} concurrent users to base URL: ${petsiteBaseUrl}`);

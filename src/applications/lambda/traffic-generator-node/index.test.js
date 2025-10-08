@@ -34,12 +34,12 @@ describe('Traffic Generator Lambda', () => {
     });
 
     beforeEach(() => {
-        process.env.PETSITE_URL_PARAMETER_NAME = 'https://test-petsite.com';
+        process.env.PETSITE_URL_PARAMETER_NAME = 'http://localhost';
         process.env.CONCURRENT_USERS = '5'; // Use smaller number for faster tests
         jest.clearAllMocks();
         mockSend.mockResolvedValue({
             Parameter: {
-                Value: 'https://test-petsite.com',
+                Value: 'http://localhost',
             },
         });
     });
