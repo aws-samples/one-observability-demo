@@ -64,6 +64,10 @@ pub struct DatabaseConfig {
     // SSM parameter prefix for this deployment
     #[serde(default = "default_param_prefix")]
     pub param_prefix: String,
+    #[serde(default)]
+    pub ddb_endpoint: String,
+    #[serde(default)]
+    pub s3_endpoint: String,
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +151,16 @@ impl Config {
 
         println!("AWS configuration loaded successfully");
 
-        let dynamodb_client = DynamoDbClient::new(&aws_config);
+        let dynamodb_client = if !database.ddb_endpoint.is_empty() {
+            println!("Using custom DynamoDB endpoint: {}", database.ddb_endpoint);
+            DynamoDbClient::from_conf(
+                aws_sdk_dynamodb::config::Builder::from(&aws_config)
+                    .endpoint_url(&database.ddb_endpoint)
+                    .build(),
+            )
+        } else {
+            DynamoDbClient::new(&aws_config)
+        };
         let eventbridge_client = EventBridgeClient::new(&aws_config);
         let ssm_client = SsmClient::new(&aws_config);
 
@@ -185,9 +198,27 @@ impl Config {
             )
             .await;
 
+        // Resolve DynamoDB endpoint
+        database.ddb_endpoint = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.param_prefix,
+                "DDB_INTERFACE_ENDPOINT_PARAMETER_NAME",
+            )
+            .await;
+
+        // Resolve S3 endpoint
+        database.s3_endpoint = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.param_prefix,
+                "S3_INTERFACE_ENDPOINT_PARAMETER_NAME",
+            )
+            .await;
+
         println!(
-            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
-            database.foods_table_name, database.carts_table_name, database.images_cdn_url
+            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}, ddb_endpoint={}, s3_endpoint={}",
+            database.foods_table_name, database.carts_table_name, database.images_cdn_url,
+            if database.ddb_endpoint.is_empty() { "default" } else { &database.ddb_endpoint },
+            if database.s3_endpoint.is_empty() { "default" } else { &database.s3_endpoint }
         );
 
         let aws = AwsConfig {

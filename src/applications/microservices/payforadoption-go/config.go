@@ -45,6 +45,8 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 		"S3_BUCKET_PARAMETER_NAME":                   "",
 		"DYNAMODB_TABLE_PARAMETER_NAME":              "",
 		"SQS_QUEUE_URL_PARAMETER_NAME":               "",
+		"DDB_INTERFACE_ENDPOINT_PARAMETER_NAME":      "",
+		"S3_INTERFACE_ENDPOINT_PARAMETER_NAME":       "",
 	}
 
 	for key := range envVars {
@@ -63,6 +65,8 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 			fmt.Sprintf("%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"]),
 			fmt.Sprintf("%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"]),
 			fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
+			fmt.Sprintf("%s/%s", prefix, envVars["DDB_INTERFACE_ENDPOINT_PARAMETER_NAME"]),
+			fmt.Sprintf("%s/%s", prefix, envVars["S3_INTERFACE_ENDPOINT_PARAMETER_NAME"]),
 		},
 	})
 	if err != nil {
@@ -93,6 +97,12 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 	}
 	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"])]; ok {
 		newCfg.SQSQueueURL = aws.ToString(val)
+	}
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["DDB_INTERFACE_ENDPOINT_PARAMETER_NAME"])]; ok {
+		newCfg.DDBInterfaceEndpoint = aws.ToString((val))
+	}
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["S3_INTERFACE_ENDPOINT_PARAMETER_NAME"])]; ok {
+		newCfg.S3InterfaceEndpoint = aws.ToString((val))
 	}
 
 	return newCfg, nil

@@ -18,7 +18,10 @@ import {
     VPC_ENDPOINT_SECRETSMANAGER_ID_EXPORT_NAME,
     VPC_ENDPOINT_CLOUDWATCH_MONITORING_ID_EXPORT_NAME,
     VPC_ENDPOINT_CLOUDWATCH_LOGS_ID_EXPORT_NAME,
+    SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
+import { Utilities } from '../utils';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 export interface VpcEndpointsProperties {
     vpc: IVpc;
@@ -126,6 +129,7 @@ export class VpcEndpoints extends Construct {
         });
 
         this.createOutputs();
+        this.createSsmParameters();
     }
 
     private createOutputs() {
@@ -188,6 +192,40 @@ export class VpcEndpoints extends Construct {
             value: this.cloudWatchLogsEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_CLOUDWATCH_LOGS_ID_EXPORT_NAME,
         });
+    }
+
+    /**
+     * Creates SSM parameters for VPC Endpoints that don't support private DNS
+     */
+    private createSsmParameters(): void {
+        if (this.dynamoDbEndpoint) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        [SSM_PARAMETER_NAMES.DDB_INTERFACE_ENDPOINT_NAME]: Fn.select(
+                            1,
+                            Fn.split(':', Fn.select(1, this.dynamoDbEndpoint.vpcEndpointDnsEntries)),
+                        ),
+                    }),
+                ),
+            );
+        }
+        if (this.s3Endpoint) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        [SSM_PARAMETER_NAMES.S3_INTERFACE_ENDPOINT_NAME]: Fn.select(
+                            1,
+                            Fn.split(':', Fn.select(1, this.s3Endpoint.vpcEndpointDnsEntries)),
+                        ),
+                    }),
+                ),
+            );
+        }
     }
 
     /**

@@ -142,4 +142,8 @@ export const SSM_PARAMETER_NAMES = {
     // PetFood Agent parameters
 
     PETFOOD_AGENT_RUNTIME_ARN: 'petfoodagent-runtime-arn',
+
+    // VPC Interface Endpoints
+    DDB_INTERFACE_ENDPOINT_NAME: 'ddbvpce',
+    S3_INTERFACE_ENDPOINT_NAME: 's3vpce',
 } as const;
