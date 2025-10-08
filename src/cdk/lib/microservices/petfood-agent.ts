@@ -58,7 +58,7 @@ export class PetFoodAgentConstruct extends Construct {
         this.agentRuntime = new CfnRuntime(this, 'PetFoodAgent', {
             agentRuntimeArtifact: {
                 containerConfiguration: {
-                    containerUri: properties.ecrRepositoryUri,
+                    containerUri: `${properties.ecrRepositoryUri}:latest`,
                 },
             },
             agentRuntimeName: 'PetFoodAgent',
@@ -67,13 +67,19 @@ export class PetFoodAgentConstruct extends Construct {
             },
             roleArn: agentRuntimeRole.roleArn,
             description: 'Petfood Agent based on AgentCore',
-            environmentVariables: {},
+            environmentVariables: {
+                OTEL_PYTHON_EXCLUDED_URLS: '/ping',
+                PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
+                AWS_REGION: Stack.of(this).region,
+                SEARCH_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+                PETFOOD_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.FOOD_API_URL,
+            },
             protocolConfiguration: 'HTTP',
         });
 
-        this.agentRuntime.addOverride('Properties.NetworkConfiguration.VpcConfiguration', {
-            SecurityGroupIds: [properties.securityGroup.securityGroupId],
-            SubnetIds: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
+        this.agentRuntime.addOverride('Properties.NetworkConfiguration.NetworkModeConfig', {
+            SecurityGroups: [properties.securityGroup.securityGroupId],
+            Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
         });
 
         // Apply NAG suppressions

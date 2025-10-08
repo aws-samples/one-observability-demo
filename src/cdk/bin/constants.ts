@@ -142,6 +142,4 @@ export const SSM_PARAMETER_NAMES = {
     // PetFood Agent parameters
 
     PETFOOD_AGENT_RUNTIME_ARN: 'petfoodagent-runtime-arn',
-    PETFOOD_AGENT_RUNTIME_ID: 'petfoodagent-runtime-id',
-    PETFOOD_AGENT_ECR_URI: 'petfoodagent-ecr-uri',
 } as const;
