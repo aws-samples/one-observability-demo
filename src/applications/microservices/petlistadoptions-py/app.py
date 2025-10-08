@@ -110,8 +110,8 @@ class PetAdoptionsService:
     """Main service class following Python best practices"""
 
     def __init__(self):
-        self.rds_secret_arn: Optional[str] = None
-        self.pet_search_url: Optional[str] = None
+        self.rds_secret_arn: None
+        self.pet_search_url: None
         self._fetch_from_parameter_store()
 
     def _fetch_from_parameter_store(self):
