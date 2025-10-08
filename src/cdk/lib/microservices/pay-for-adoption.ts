@@ -23,7 +23,19 @@ export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
 
 export class PayForAdoptionService extends EcsService {
     constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
-        super(scope, id, properties);
+        const environmentVariables = {
+            ...properties.additionalEnvironment,
+            PETSTORE_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
+            UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.UPDATE_ADOPTION_STATUS_URL,
+            RDS_SECRET_ARN_NAME: SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME,
+            S3_BUCKET_PARAMETER_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
+            DYNAMODB_TABLE_PARAMETER_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
+            SQS_QUEUE_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SQS_QUEUE_URL,
+        };
+        super(scope, id, {
+            ...properties,
+            additionalEnvironment: environmentVariables,
+        });
 
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',

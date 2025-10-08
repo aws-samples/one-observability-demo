@@ -13,7 +13,9 @@ exports.handler = async (event) => {
 
     const startTime = Date.now();
     const concurrentUsers = Number.parseInt(process.env.CONCURRENT_USERS || '50');
-    const petsiteUrlParameterName = process.env.PETSITE_URL_PARAMETER_NAME || '/petstore/petsiteurl';
+    const petsiteUrlParameterName = process.env.PETSITE_URL_PARAMETER_NAME;
+
+    if (!petsiteUrlParameterName) throw new Error('Petsite URL parameter name not set in environment variables');
 
     let petsiteBaseUrl;
 

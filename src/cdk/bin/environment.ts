@@ -41,6 +41,8 @@ export enum HostType {
     ECS = 'ECS',
     /** Amazon Elastic Kubernetes Service */
     EKS = 'EKS',
+    /** Only build the container without deploying the app */
+    None = 'None',
 }
 
 /**

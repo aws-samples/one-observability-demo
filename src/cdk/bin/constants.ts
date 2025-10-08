@@ -103,6 +103,7 @@ export const SSM_PARAMETER_NAMES = {
     PAYMENT_API_URL: 'paymentapiurl',
     PAY_FOR_ADOPTION_METRICS_URL: 'payforadoptionmetricsurl',
     CLEANUP_ADOPTIONS_URL: 'cleanupadoptionsurl',
+    UPDATE_ADOPTION_STATUS_URL: 'updateadoptionstatusurl',
 
     // PetFood parameters
     FOOD_API_URL: 'petfoodapiurl',
