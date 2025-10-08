@@ -15,6 +15,7 @@ import {
     PETFOOD_RS,
     HostType,
     ComputeType,
+    PETFOODAGENT_STRANDS_PY,
 } from '../../bin/environment';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Stack } from 'aws-cdk-lib';
@@ -25,6 +26,7 @@ export const MicroservicesNames = {
     PetSearch: PETSEARCH_JAVA.name,
     PetSite: PETSITE_NET.name,
     PetFood: PETFOOD_RS.name,
+    PetFoodAgent: PETFOODAGENT_STRANDS_PY.name,
 } as const;
 
 export interface MicroserviceProperties {

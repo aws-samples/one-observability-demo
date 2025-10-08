@@ -37,6 +37,7 @@ import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/i
 import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -314,6 +315,14 @@ export class MicroservicesStack extends Stack {
                 if (svc) {
                     this.microservices.set(name, svc);
                 }
+            }
+
+            if (name == MicroservicesNames.PetFoodAgent) {
+                new PetFoodAgentConstruct(this, 'PetFoodAgent', {
+                    ecrRepositoryUri: `${imports.baseURI}/${name}`,
+                    vpc: imports.vpcExports,
+                    securityGroup: imports.ecsExports.securityGroup,
+                });
             }
         }
     }

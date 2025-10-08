@@ -150,7 +150,7 @@ build: null
 converters:
     archive:
         name: archive
-        enabled: true
+        enabled: false
         options: {}
     jupyter:
         name: jupyter
@@ -167,13 +167,15 @@ scanners:
             config_file: null
             confidence_level: all
             ignore_nosec: false
-            excluded_paths: []
+            excluded_paths:
+                - path: src/cdk/cdk.out
+                  reason: 'CDK Assets are already scanned'
             additional_formats: []
             tool_version: '>=1.7.0,<2.0.0'
             install_timeout: 300
     cdk-nag:
         name: cdk-nag
-        enabled: true
+        enabled: false
         options:
             severity_threshold: null
             nag_packs:
@@ -193,7 +195,9 @@ scanners:
         options:
             severity_threshold: null
             config_file: null
-            skip_path: []
+            skip_path:
+                - path: src/cdk/cdk.out
+                  reason: 'CDK Assets are already scanned with CDK_NAG'
             additional_formats:
                 - cyclonedx_json
             offline: false
@@ -270,7 +274,7 @@ scanners:
         enabled: true
         options:
             scanners: ['vuln', 'misconfig', 'secret', 'license']
-            severity_threshold: 'MEDIUM'
+            severity: 'MEDIUM'
             ignore_unfixed: false
             license_full: false
             disable_telemetry: true

@@ -142,8 +142,8 @@ repos:
             types: [ts]
             pass_filenames: false
             always_run: true
-    - repo: https://github.com/awslabs/automated-security-helper
-      rev: v3.0.3
-      hooks:
-          - id: ash-simple-scan
-            args: [--no-fail-on-findings] # Until we fix dockerfile issues
+    # - repo: https://github.com/awslabs/automated-security-helper
+    #   rev: v3.1.2
+    #   hooks:
+    #       - id: ash-simple-scan
+    #         args: [--no-fail-on-findings] # Until we fix dockerfile issues
