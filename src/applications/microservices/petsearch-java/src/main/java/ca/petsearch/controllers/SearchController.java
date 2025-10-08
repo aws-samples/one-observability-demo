@@ -90,6 +90,7 @@ public class SearchController {
     }
 
     private String getKey(String petType, String petId) {
+        logger.debug("Generating S3 key for petType: '{}', petId: '{}'", petType, petId);
 
         String folderName;
 
@@ -105,26 +106,36 @@ public class SearchController {
                 break;
         }
 
-        return String.format("%s/%s.jpg", folderName, petId);
-
+        String key = String.format("%s/%s.jpg", folderName, petId);
+        logger.debug("Generated S3 key '{}' for petType '{}', petId '{}'", key, petType, petId);
+        return key;
     }
 
     private String getPetUrl(String petType, String image) {
         Span span = tracer.spanBuilder("Get Pet URL").startSpan();
 
         try (Scope scope = span.makeCurrent()) {
+            logger.debug("Building pet URL for petType: '{}', image: '{}'", petType, image);
+
             // CloudFront now serves the images directly - no need for pre-signed URLs
             String imagesCdnUrl = getSSMParameter(imagesCdnUrlParam);
             String key = getKey(petType, image);
 
             String cloudFrontUrl = String.format("%s/%s", imagesCdnUrl, key);
-            logger.info("Using CloudFront URL: {}", cloudFrontUrl);
+            logger.info("Generated CloudFront URL for petType '{}', image '{}': {}", petType, image, cloudFrontUrl);
+
+            span.setAttribute("pet.url.petType", petType);
+            span.setAttribute("pet.url.image", image);
+            span.setAttribute("pet.url.key", key);
+            span.setAttribute("pet.url.cloudFrontUrl", cloudFrontUrl);
 
             return cloudFrontUrl;
 
         } catch (Exception e) {
-            logger.error("Error while building CloudFront URL", e);
+            logger.error("Error while building CloudFront URL for petType '{}', image '{}'", petType, image, e);
             span.recordException(e);
+            span.setAttribute("error.petType", petType);
+            span.setAttribute("error.image", image);
             throw (e);
         } finally {
             span.end();
@@ -196,6 +207,9 @@ public class SearchController {
         String price = item.get("price").getS();
         String petUrl = getPetUrl(petType, item.get("image").getS());
 
+        logger.debug("Mapping DynamoDB item to Pet object - petId: '{}', petType: '{}', petColor: '{}', availability: '{}', cutenessRate: '{}', price: '{}'",
+                    petId, petType, petColor, availability, cutenessRate, price);
+
         Pet currentPet = new Pet(petId, availability, cutenessRate, petColor, petType, price, petUrl);
         return currentPet;
     }
@@ -222,8 +236,19 @@ public class SearchController {
             @RequestParam(name = "petcolor", defaultValue = "", required = false) String petColor,
             @RequestParam(name = "pet_color", defaultValue = "", required = false) String petColorAlias,
             @RequestParam(name = "petid", defaultValue = "", required = false) String petId,
-            @RequestParam(name = "pet_id", defaultValue = "", required = false) String petIdAlias)
+            @RequestParam(name = "pet_id", defaultValue = "", required = false) String petIdAlias,
+            @RequestParam(name = "userId", defaultValue = "", required = false) String userId,
+            @RequestParam(name = "user_id", defaultValue = "", required = false) String userIdAlias)
             throws InterruptedException {
+
+        // Resolve userId parameter (primary takes precedence over alias)
+        String resolvedUserId = !SearchQuery.isEmptyParameter(userId) ? userId : userIdAlias;
+
+        // Log all input parameters for comprehensive tracing
+        logger.info("Search request received - userId: '{}', petType: '{}', petTypeAlias: '{}', petColor: '{}', petColorAlias: '{}', petId: '{}', petIdAlias: '{}', userIdAlias: '{}'",
+                   resolvedUserId, petType, petTypeAlias, petColor, petColorAlias, petId, petIdAlias, userIdAlias);
+        logger.info("Search parameters resolved - userId: '{}', resolved petType: '{}', resolved petColor: '{}', resolved petId: '{}'",
+                   resolvedUserId, petType, petColor, petId);
 
         // Create SearchQuery object with parameter resolution (similar to petfood Rust serde aliases)
         SearchQuery query = createSearchQuery(petType, petTypeAlias, petColor, petColorAlias, petId, petIdAlias);
@@ -235,11 +260,16 @@ public class SearchController {
         String normalizedPetColor = query.getNormalizedPetColor();
         String normalizedPetId = query.getNormalizedPetId();
 
+        // Log validated search parameters
+        logger.info("Search query validated - userId: '{}', validatedPetType: '{}', normalizedPetColor: '{}', normalizedPetId: '{}'",
+                   resolvedUserId, validatedPetType, normalizedPetColor, normalizedPetId);
+
         // return 404 error with custom message for invalid pet type
         if (!SearchQuery.isEmptyParameter(validatedPetType) &&
             !validatedPetType.equals("puppy") && !validatedPetType.equals("kitten") && !validatedPetType.equals("bunny")) {
-            logger.warn("{} pet type requested - returning 404 error", validatedPetType);
+            logger.warn("Invalid pet type requested by userId '{}' - petType: '{}', returning 404 error", resolvedUserId, validatedPetType);
             span.setAttribute("error", true);
+            span.setAttribute("error.userId", resolvedUserId);
             String errorMsg = validatedPetType + " pet type not found";
             span.setAttribute("error.message", errorMsg);
             span.end();
@@ -253,8 +283,10 @@ public class SearchController {
 
         // This line is intentional. Delays searches
         if (!SearchQuery.isEmptyParameter(validatedPetType) && validatedPetType.equals("bunny")) {
-            logger.debug("Delaying the response on purpose, to show on traces as an issue");
+            logger.info("Intentional delay triggered for userId '{}' searching for bunny pets", resolvedUserId);
+            logger.debug("Delaying the response on purpose, to show on traces as an issue - userId: '{}'", resolvedUserId);
             TimeUnit.MILLISECONDS.sleep(3000);
+            logger.info("Delay completed for userId '{}' bunny search", resolvedUserId);
         }
 
         try (Scope scope = span.makeCurrent()) {
@@ -262,17 +294,45 @@ public class SearchController {
             span.setAttribute("search.pettype", validatedPetType);
             span.setAttribute("search.petcolor", normalizedPetColor);
             span.setAttribute("search.petid", normalizedPetId);
+            span.setAttribute("search.userid", resolvedUserId);
+
+            // Log all input parameters for comprehensive tracing
+            span.setAttribute("search.input.pettype", petType);
+            span.setAttribute("search.input.pettype_alias", petTypeAlias);
+            span.setAttribute("search.input.petcolor", petColor);
+            span.setAttribute("search.input.petcolor_alias", petColorAlias);
+            span.setAttribute("search.input.petid", petId);
+            span.setAttribute("search.input.petid_alias", petIdAlias);
+            span.setAttribute("search.input.userid", userId);
+            span.setAttribute("search.input.userid_alias", userIdAlias);
+
+            logger.info("Starting DynamoDB scan for userId '{}' with parameters - petType: '{}', petColor: '{}', petId: '{}'",
+                       resolvedUserId, validatedPetType, normalizedPetColor, normalizedPetId);
 
             List<Pet> result = ddbClient.scan(
                     buildScanRequest(validatedPetType, normalizedPetColor, normalizedPetId))
                     .getItems().stream().map(this::mapToPet)
                     .collect(Collectors.toList());
+
+            logger.info("DynamoDB scan completed for userId '{}' - found {} pets matching criteria", resolvedUserId, result.size());
+
+            // Log details of each pet found
+            for (int i = 0; i < result.size(); i++) {
+                Pet pet = result.get(i);
+                logger.info("Pet {} for userId '{}': petId='{}', petType='{}', petColor='{}', availability='{}', cutenessRate='{}', price='{}'",
+                           i+1, resolvedUserId, pet.getPetid(), pet.getPettype(), pet.getPetcolor(),
+                           pet.getAvailability(), pet.getCuteness_rate(), pet.getPrice());
+            }
+
             metricEmitter.emitPetsReturnedMetric(result.size());
+            logger.info("Search completed successfully for userId '{}' - returning {} pets", resolvedUserId, result.size());
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {
             span.recordException(e);
-            logger.error("Error while searching, building the resulting body", e);
+            span.setAttribute("error.userId", resolvedUserId);
+            logger.error("Error while searching for userId '{}' with parameters - petType: '{}', petColor: '{}', petId: '{}'",
+                        resolvedUserId, validatedPetType, normalizedPetColor, normalizedPetId, e);
             throw e;
         } finally {
             span.end();
