@@ -166,7 +166,8 @@ class PetAdoptionsService:
                     self.rds_secret_arn,
                 )  # pragma: allowlist secret
                 span.set_attribute(
-                    "db.is_local", self.rds_secret_arn == "local-secret",
+                    "db.is_local",
+                    self.rds_secret_arn == "local-secret",
                 )  # pragma: allowlist secret
 
                 # Check if this is a local test setup
