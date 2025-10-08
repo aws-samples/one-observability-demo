@@ -138,7 +138,8 @@ class PetAdoptionsService:
                     if param["Name"] == "/petstore/rdssecretarn":
                         self.rds_secret_arn = param["Value"]
                         span.set_attribute(
-                            "config.rds_secret_arn", param["Value"],
+                            "config.rds_secret_arn",
+                            param["Value"],
                         )  # pragma: allowlist secret
                     elif param["Name"] == "/petstore/searchapiurl":
                         self.pet_search_url = param["Value"]
@@ -161,9 +162,12 @@ class PetAdoptionsService:
         with tracer.start_as_current_span("get_database_connection_string") as span:
             try:
                 span.set_attribute(
-                    "db.secret_arn", self.rds_secret_arn,
+                    "db.secret_arn",
+                    self.rds_secret_arn,
                 )  # pragma: allowlist secret
-                span.set_attribute("db.is_local", self.rds_secret_arn == "local-secret")
+                span.set_attribute(
+                    "db.is_local", self.rds_secret_arn == "local-secret",
+                )  # pragma: allowlist secret
 
                 # Check if this is a local test setup
                 if self.rds_secret_arn == "local-secret":  # pragma: allowlist secret
@@ -183,7 +187,8 @@ class PetAdoptionsService:
                         response["SecretString"],
                     )  # pragma: allowlist secret
                     span.set_attribute(
-                        "db.source", "aws_secrets_manager",
+                        "db.source",
+                        "aws_secrets_manager",
                     )  # pragma: allowlist secret
 
                 # Build connection string for psycopg2
