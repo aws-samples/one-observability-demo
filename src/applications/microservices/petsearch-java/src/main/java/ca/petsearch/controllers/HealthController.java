@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class HealthController {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(HealthController.class);
-    
+
     @GetMapping("/health/status")
     public String status(){
         logger.info("Health check endpoint accessed - service is alive");
