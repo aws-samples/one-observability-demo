@@ -87,9 +87,7 @@ describe('Traffic Generator Lambda', () => {
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
-        await expect(handler(event)).rejects.toThrow(
-            'Petsite URL not found in environment variables or SSM Parameter Store',
-        );
+        await expect(handler(event)).rejects.toThrow('Petsite URL parameter name not set in environment variables');
     });
 
     test('should throw error when no petsite URL is available', async () => {
@@ -97,8 +95,6 @@ describe('Traffic Generator Lambda', () => {
         mockSend.mockRejectedValue(new Error('SSM access denied'));
         const event = {};
 
-        await expect(handler(event)).rejects.toThrow(
-            'Petsite URL not found in environment variables or SSM Parameter Store',
-        );
+        await expect(handler(event)).rejects.toThrow('Petsite URL parameter name not set in environment variables');
     });
 });
