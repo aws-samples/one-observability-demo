@@ -110,6 +110,8 @@ class PetAdoptionsService:
     """Main service class following Python best practices"""
 
     def __init__(self):
+        self.rds_secret_arn: Optional[str] = None
+        self.pet_search_url: Optional[str] = None
         self._fetch_from_parameter_store()
 
     def _fetch_from_parameter_store(self):
@@ -132,17 +134,17 @@ class PetAdoptionsService:
                     raise Exception("SEARCH_API_URL_NAME environment variable not set")
 
                 response = ssm.get_parameters(
-                    Names=[f"/{prefix}/{rdsSecret}", f"/{prefix}/{searchApiUrl}"],
+                    Names=[f"{prefix}/{rdsSecret}", f"{prefix}/{searchApiUrl}"],
                 )
 
                 for param in response["Parameters"]:
-                    if param["Name"] == f"/{prefix}/{rdsSecret}":
+                    if param["Name"] == f"{prefix}/{rdsSecret}":
                         self.rds_secret_arn = param["Value"]
                         span.set_attribute(
                             "config.rds_secret_arn",
                             param["Value"],
                         )  # pragma: allowlist secret
-                    elif param["Name"] == f"/{prefix}/{searchApiUrl}":
+                    elif param["Name"] == f"{prefix}/{searchApiUrl}":
                         self.pet_search_url = param["Value"]
                         span.set_attribute("config.pet_search_url", param["Value"])
 
@@ -157,6 +159,7 @@ class PetAdoptionsService:
                 span.set_attribute("config.success", False)
                 span.set_attribute("config.error", str(e))
                 logger.error(f"Failed to fetch from Parameter Store: {e}")
+                exit(1)
 
     def _get_database_connection_string(self) -> str:
         """Get database connection string from AWS Secrets Manager"""  # pragma: allowlist secret  # noqa: E501
