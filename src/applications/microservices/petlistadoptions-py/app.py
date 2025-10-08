@@ -114,38 +114,35 @@ class PetAdoptionsService:
 
     def _fetch_from_parameter_store(self):
         """Fetch configuration from AWS Parameter Store"""
-        try:
-            ssm = boto3.client("ssm")
-            prefix = os.getenv("PETSTORE_PARAM_PREFIX")
-            if prefix is None:
-                raise Exception("PETSTORE_PARAM_PREFIX environment variable not set")
+        with tracer.start_as_current_span("fetch_from_parameter_store") as span:
+            try:
+                ssm = boto3.client("ssm")
+                prefix = os.getenv("PETSTORE_PARAM_PREFIX")
+                if prefix is None:
+                    raise Exception(
+                        "PETSTORE_PARAM_PREFIX environment variable not set",
+                    )
 
-            rdsSecret = os.getenv("RDS_SECRET_ARN_NAME")
-            if rdsSecret is None:
-                raise Exception("RDS_SECRET_ARN_NAME environment variable not set")
+                rdsSecret = os.getenv("RDS_SECRET_ARN_NAME")
+                if rdsSecret is None:
+                    raise Exception("RDS_SECRET_ARN_NAME environment variable not set")
 
-            searchApiUrl = os.getenv("SEARCH_API_URL_NAME")
-            if searchApiUrl is None:
-                raise Exception("SEARCH_API_URL_NAME environment variable not set")
+                searchApiUrl = os.getenv("SEARCH_API_URL_NAME")
+                if searchApiUrl is None:
+                    raise Exception("SEARCH_API_URL_NAME environment variable not set")
 
-            response = ssm.get_parameters(
-                Names=[f"/{prefix}/{rdsSecret}", f"/{prefix}/{searchApiUrl}"],
-            )
-
-            for param in response["Parameters"]:
-                if param["Name"] == f"/{prefix}/{rdsSecret}":
-                    self.rds_secret_arn = param["Value"]
-                elif param["Name"] == f"/{prefix}/{searchApiUrl}":
-                    self.pet_search_url = param["Value"]
+                response = ssm.get_parameters(
+                    Names=[f"/{prefix}/{rdsSecret}", f"/{prefix}/{searchApiUrl}"],
+                )
 
                 for param in response["Parameters"]:
-                    if param["Name"] == "/petstore/rdssecretarn":
+                    if param["Name"] == f"/{prefix}/{rdsSecret}":
                         self.rds_secret_arn = param["Value"]
                         span.set_attribute(
                             "config.rds_secret_arn",
                             param["Value"],
                         )  # pragma: allowlist secret
-                    elif param["Name"] == "/petstore/searchapiurl":
+                    elif param["Name"] == f"/{prefix}/{searchApiUrl}":
                         self.pet_search_url = param["Value"]
                         span.set_attribute("config.pet_search_url", param["Value"])
 
