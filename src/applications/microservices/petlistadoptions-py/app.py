@@ -23,10 +23,11 @@ from pydantic import BaseModel
 
 # OpenTelemetry imports
 from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
+# Note: Instrumentation imports removed - Application Signals handles auto-instrumentation
+# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+# from opentelemetry.instrumentation.requests import RequestsInstrumentor
+# from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 # from opentelemetry.instrumentation.boto3sqs import Boto3SqsInstrumentor
 
 # Configure logging
@@ -79,10 +80,13 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Instrument OpenTelemetry
-FastAPIInstrumentor.instrument_app(app)
-RequestsInstrumentor().instrument()
-Psycopg2Instrumentor().instrument()
+# Note: Manual instrumentation is commented out to avoid conflicts with Application Signals auto-instrumentation
+# Application Signals (configured in CDK) will automatically instrument FastAPI, requests, and psycopg2
+# The tracer obtained via trace.get_tracer() will work with auto-instrumentation for custom spans
+#
+# FastAPIInstrumentor.instrument_app(app)
+# RequestsInstrumentor().instrument()
+# Psycopg2Instrumentor().instrument()
 # Boto3SqsInstrumentor().instrument()
 
 
