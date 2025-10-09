@@ -31,9 +31,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${cloud.aws.region.static:#{null}}")
     private String region = "";
 
-    private String ddbEndpoint = "";
-    private String s3Endpoint = "";
-
     @Bean
     public RandomNumberGenerator randomNumberGenerator() {
         return new PseudoRandomNumberGenerator();
@@ -50,22 +47,18 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public AmazonS3 amazonS3(AWSSimpleSystemsManagement ssmClient) {
-        resolveEndpoints(ssmClient);
-        String s3Ep = s3Endpoint.isEmpty() ? endpoint : s3Endpoint;
-        return s3Ep.isEmpty() ? AmazonS3ClientBuilder.standard().build() :
+    public AmazonS3 amazonS3() {
+        return endpoint.isEmpty() ? AmazonS3ClientBuilder.standard().build() :
                 AmazonS3ClientBuilder.standard()
-                        .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(s3Ep, region))
+                        .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))
                         .build();
     }
 
     @Bean
-    public AmazonDynamoDB amazonDynamoDB(AWSSimpleSystemsManagement ssmClient) {
-        resolveEndpoints(ssmClient);
-        String ddbEp = ddbEndpoint.isEmpty() ? endpoint : ddbEndpoint;
-        return ddbEp.isEmpty() ? AmazonDynamoDBClientBuilder.standard().build() :
+    public AmazonDynamoDB amazonDynamoDB() {
+        return endpoint.isEmpty() ? AmazonDynamoDBClientBuilder.standard().build() :
                 AmazonDynamoDBClientBuilder.standard()
-                        .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(ddbEp, region))
+                        .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region))
                         .build();
     }
 
@@ -77,33 +70,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     private <Subclass extends AwsClientBuilder<Subclass, ?>> Subclass withLocalEndpoint(Subclass builder) {
         return endpoint.isEmpty() ? builder : builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, region));
-    }
-
-    private void resolveEndpoints(AWSSimpleSystemsManagement ssmClient) {
-        if (!ddbEndpoint.isEmpty() || !s3Endpoint.isEmpty()) return;
-
-        String paramPrefix = System.getenv("PETSEARCH_PARAM_PREFIX");
-        String ddbParam = System.getenv("DDB_INTERFACE_ENDPOINT_PARAMETER_NAME");
-        String s3Param = System.getenv("S3_INTERFACE_ENDPOINT_PARAMETER_NAME");
-
-        if (paramPrefix != null && !paramPrefix.isEmpty()) {
-            if (ddbParam != null && !ddbParam.isEmpty()) {
-                try {
-                    ddbEndpoint = ssmClient.getParameter(new com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest()
-                            .withName(paramPrefix + "/" + ddbParam)).getParameter().getValue();
-                } catch (Exception e) {
-                    // Endpoint not configured, use default
-                }
-            }
-            if (s3Param != null && !s3Param.isEmpty()) {
-                try {
-                    s3Endpoint = ssmClient.getParameter(new com.amazonaws.services.simplesystemsmanagement.model.GetParameterRequest()
-                            .withName(paramPrefix + "/" + s3Param)).getParameter().getValue();
-                } catch (Exception e) {
-                    // Endpoint not configured, use default
-                }
-            }
-        }
     }
 
     @Bean

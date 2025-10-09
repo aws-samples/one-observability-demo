@@ -32,10 +32,10 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 		AWSCfg:    awsCfg,
 	}
 
-	return fetchConfigFromParameterStore(ctx, cfg)
+	return fetchConfigFromParameterStore(ctx, cfg, logger)
 }
 
-func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config) (payforadoption.Config, error) {
+func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config, logger log.Logger) (payforadoption.Config, error) {
 	svc := ssm.NewFromConfig(cfg.AWSCfg)
 
 	envVars := map[string]string{
@@ -45,8 +45,6 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 		"S3_BUCKET_PARAMETER_NAME":                   "",
 		"DYNAMODB_TABLE_PARAMETER_NAME":              "",
 		"SQS_QUEUE_URL_PARAMETER_NAME":               "",
-		"DDB_INTERFACE_ENDPOINT_PARAMETER_NAME":      "",
-		"S3_INTERFACE_ENDPOINT_PARAMETER_NAME":       "",
 	}
 
 	for key := range envVars {
@@ -58,18 +56,21 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 
 	prefix := envVars["PETSTORE_PARAM_PREFIX"]
 
+	paramNames := []string{
+		fmt.Sprintf("%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"]),
+		fmt.Sprintf("%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"]),
+		fmt.Sprintf("%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"]),
+		fmt.Sprintf("%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"]),
+		fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
+	}
+
+	level.Info(logger).Log("msg", "fetching SSM parameters", "names", fmt.Sprintf("%v", paramNames))
+
 	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
-		Names: []string{
-			fmt.Sprintf("%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["DDB_INTERFACE_ENDPOINT_PARAMETER_NAME"]),
-			fmt.Sprintf("%s/%s", prefix, envVars["S3_INTERFACE_ENDPOINT_PARAMETER_NAME"]),
-		},
+		Names: paramNames,
 	})
 	if err != nil {
+		level.Error(logger).Log("msg", "failed to fetch SSM parameters", "names", fmt.Sprintf("%v", paramNames), "error", err)
 		return cfg, err
 	}
 
@@ -97,12 +98,6 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 	}
 	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"])]; ok {
 		newCfg.SQSQueueURL = aws.ToString(val)
-	}
-	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["DDB_INTERFACE_ENDPOINT_PARAMETER_NAME"])]; ok {
-		newCfg.DDBInterfaceEndpoint = aws.ToString((val))
-	}
-	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["S3_INTERFACE_ENDPOINT_PARAMETER_NAME"])]; ok {
-		newCfg.S3InterfaceEndpoint = aws.ToString((val))
 	}
 
 	return newCfg, nil

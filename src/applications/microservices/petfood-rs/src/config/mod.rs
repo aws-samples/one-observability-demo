@@ -198,27 +198,14 @@ impl Config {
             )
             .await;
 
-        // Resolve DynamoDB endpoint
-        database.ddb_endpoint = parameter_store
-            .resolve_parameter_with_prefix(
-                &database.param_prefix,
-                "DDB_INTERFACE_ENDPOINT_PARAMETER_NAME",
-            )
-            .await;
-
-        // Resolve S3 endpoint
-        database.s3_endpoint = parameter_store
-            .resolve_parameter_with_prefix(
-                &database.param_prefix,
-                "S3_INTERFACE_ENDPOINT_PARAMETER_NAME",
-            )
-            .await;
+        // Gateway VPC endpoints work transparently via route tables
+        // No custom endpoint configuration needed
+        database.ddb_endpoint = String::new();
+        database.s3_endpoint = String::new();
 
         println!(
-            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}, ddb_endpoint={}, s3_endpoint={}",
-            database.foods_table_name, database.carts_table_name, database.images_cdn_url,
-            if database.ddb_endpoint.is_empty() { "default" } else { &database.ddb_endpoint },
-            if database.s3_endpoint.is_empty() { "default" } else { &database.s3_endpoint }
+            "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
+            database.foods_table_name, database.carts_table_name, database.images_cdn_url
         );
 
         let aws = AwsConfig {
