@@ -49,9 +49,9 @@ def init_telemetry():
         "deployment.environment": "ecs:PetsiteECS-cluster"
     })
     
-    # Create OTLP exporter (CloudWatch Agent listens on localhost:4317)
+    # Create OTLP exporter (CloudWatch Agent listens on localhost:4316/v1/traces)
     otlp_exporter = OTLPSpanExporter(
-        endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'localhost:4317'),
+        endpoint=os.getenv('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'http://localhost:4316/v1/traces'),
         insecure=True
     )
     
