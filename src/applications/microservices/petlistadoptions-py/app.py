@@ -49,9 +49,15 @@ def init_telemetry():
         "deployment.environment": "ecs:PetsiteECS-cluster"
     })
     
-    # Create OTLP exporter (CloudWatch Agent listens on localhost:4316/v1/traces)
+    # Create OTLP exporter (CloudWatch Agent listens on localhost:4316 for gRPC)
+    # For gRPC exporter, use host:port format (not HTTP URL)
+    otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'http://localhost:4316/v1/traces')
+    # Extract just host:port for gRPC (remove http:// and path)
+    if otlp_endpoint.startswith('http://'):
+        otlp_endpoint = otlp_endpoint.replace('http://', '').split('/')[0]
+    
     otlp_exporter = OTLPSpanExporter(
-        endpoint=os.getenv('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'http://localhost:4316/v1/traces'),
+        endpoint=otlp_endpoint,
         insecure=True
     )
     
