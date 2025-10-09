@@ -21,12 +21,58 @@ from prometheus_client import generate_latest
 from prometheus_client import Histogram
 from pydantic import BaseModel
 
-# OpenTelemetry - only importing what Application Signals doesn't auto-instrument
+# OpenTelemetry manual instrumentation
+from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.propagate import set_global_textmap
+from opentelemetry.propagators.aws.aws_xray_propagator import AwsXRayPropagator
+from opentelemetry.sdk.extension.aws.trace import AwsXRayIdGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize OpenTelemetry
+def init_telemetry():
+    # Get service name from environment or use default
+    service_name = os.getenv('OTEL_SERVICE_NAME', 'petlistadoptions-api-py')
+    
+    # Set up resource with service name
+    resource = Resource.create({
+        "service.name": service_name,
+        "deployment.environment": "ecs:PetsiteECS-cluster"
+    })
+    
+    # Create OTLP exporter (CloudWatch Agent listens on localhost:4317)
+    otlp_exporter = OTLPSpanExporter(
+        endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'localhost:4317'),
+        insecure=True
+    )
+    
+    # Set up tracer provider with X-Ray ID generator
+    tracer_provider = TracerProvider(
+        resource=resource,
+        id_generator=AwsXRayIdGenerator()
+    )
+    tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+    
+    # Set global tracer provider and propagator
+    trace.set_tracer_provider(tracer_provider)
+    set_global_textmap(AwsXRayPropagator())
+    
+    logger.info(f"OpenTelemetry initialized for service: {service_name}")
+
+# Initialize telemetry
+init_telemetry()
+
+# Get tracer for custom spans
+tracer = trace.get_tracer(__name__)
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
@@ -71,9 +117,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Instrument FastAPI for HTTP request tracing
-# Application Signals auto-instruments requests and psycopg2, but FastAPI needs explicit instrumentation
+# Instrument all libraries for tracing
 FastAPIInstrumentor.instrument_app(app)
+RequestsInstrumentor().instrument()
+Psycopg2Instrumentor().instrument()
 
 
 class DatabaseConfig:

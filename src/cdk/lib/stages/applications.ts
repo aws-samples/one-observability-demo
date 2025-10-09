@@ -202,6 +202,7 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
+                        enableCloudWatchAgent: true,
                         additionalEnvironment: {
                             OTEL_RESOURCE_ATTRIBUTES:
                                 'service.name=petlistadoptions-api-py,deployment.environment=ecs:PetsiteECS-cluster',

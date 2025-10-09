@@ -1,0 +1,44 @@
+{
+  "httpRequest": {
+    "method": "GET",
+    "path": "/api/search"
+  },
+  "httpResponse": {
+    "statusCode": 200,
+    "headers": {
+      "Content-Type": ["application/json"]
+    },
+    "body": {
+      "type": "JSON",
+      "json": [
+        {
+          "petid": "pet1",
+          "pettype": "puppy",
+          "petcolor": "brown",
+          "availability": "available",
+          "cuteness_rate": "9",
+          "price": "150.00",
+          "peturl": "https://example.com/pet1.jpg"
+        },
+        {
+          "petid": "pet2",
+          "pettype": "kitten",
+          "petcolor": "black",
+          "availability": "available",
+          "cuteness_rate": "8",
+          "price": "120.00",
+          "peturl": "https://example.com/pet2.jpg"
+        },
+        {
+          "petid": "pet3",
+          "pettype": "bunny",
+          "petcolor": "white",
+          "availability": "available",
+          "cuteness_rate": "7",
+          "price": "80.00",
+          "peturl": "https://example.com/pet3.jpg"
+        }
+      ]
+    }
+  }
+}

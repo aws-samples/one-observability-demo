@@ -31,19 +31,21 @@ export class ListAdoptionsService extends EcsService {
             additionalEnvironment: environmentVariables,
         });
 
-        new ApplicationSignalsIntegration(this, 'petlist-integration', {
-            taskDefinition: this.taskDefinition,
-            instrumentation: {
-                sdkVersion: PythonInstrumentationVersion.V0_9_0,
-            },
-            serviceName: 'petlistadoptions-api-py',
-            cloudWatchAgentSidecar: {
-                containerName: 'ecs-cwagent',
-                enableLogging: true,
-                cpu: 256,
-                memoryLimitMiB: 512,
-            },
-        });
+        // Application Signals auto-instrumentation for Python does not properly instrument FastAPI HTTP requests
+        // Using manual instrumentation instead (like payforadoption-go service)
+        // new ApplicationSignalsIntegration(this, 'petlist-integration', {
+        //     taskDefinition: this.taskDefinition,
+        //     instrumentation: {
+        //         sdkVersion: PythonInstrumentationVersion.V0_9_0,
+        //     },
+        //     serviceName: 'petlistadoptions-api-py',
+        //     cloudWatchAgentSidecar: {
+        //         containerName: 'ecs-cwagent',
+        //         enableLogging: true,
+        //         cpu: 256,
+        //         memoryLimitMiB: 512,
+        //     },
+        // });
 
         NagSuppressions.addResourceSuppressions(
             this.taskDefinition,

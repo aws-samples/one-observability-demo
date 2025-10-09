@@ -34,9 +34,13 @@ uvicorn==0.35.0
 uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1
-# FastAPI instrumentation needed for Application Signals HTTP metrics
-# Application Signals auto-instruments other libraries (requests, psycopg2)
-# SDK is needed for instrumentation to work, but exporter is provided by Application Signals
+# Manual OpenTelemetry instrumentation (Application Signals auto-instrumentation doesn't work for Python FastAPI)
+# Following the same pattern as payforadoption-go service
 opentelemetry-api==1.24.0
 opentelemetry-sdk==1.24.0
 opentelemetry-instrumentation-fastapi==0.45b0
+opentelemetry-instrumentation-requests==0.45b0
+opentelemetry-instrumentation-psycopg2==0.45b0
+opentelemetry-exporter-otlp==1.24.0
+opentelemetry-propagator-aws-xray==1.0.1
+opentelemetry-sdk-extension-aws==2.0.2
