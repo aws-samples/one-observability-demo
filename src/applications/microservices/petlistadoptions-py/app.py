@@ -21,6 +21,9 @@ from prometheus_client import generate_latest
 from prometheus_client import Histogram
 from pydantic import BaseModel
 
+# OpenTelemetry - only importing what Application Signals doesn't auto-instrument
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -67,6 +70,10 @@ app = FastAPI(
     description="Service for listing pet adoptions with enrichment from pet search",
     version="1.0.0",
 )
+
+# Instrument FastAPI for HTTP request tracing
+# Application Signals auto-instruments requests and psycopg2, but FastAPI needs explicit instrumentation
+FastAPIInstrumentor.instrument_app(app)
 
 
 class DatabaseConfig:
