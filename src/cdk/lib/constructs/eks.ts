@@ -24,6 +24,10 @@ import {
     NodegroupAmiType,
     AlbControllerVersion,
     CfnNodegroup,
+    AccessEntry,
+    AccessPolicy,
+    AccessEntryType,
+    AccessScopeType,
 } from 'aws-cdk-lib/aws-eks';
 import { KubectlV33Layer } from '@aws-cdk/lambda-layer-kubectl-v33';
 import { ManagedPolicy, Role, ServicePrincipal, OpenIdConnectProvider } from 'aws-cdk-lib/aws-iam';
@@ -37,7 +41,7 @@ import {
     EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
     EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
 } from '../../bin/constants';
-import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON } from '../../bin/environment';
+import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON, EKS_CLUSTER_ACCESS_ROLE_NAME } from '../../bin/environment';
 
 export interface EksProperties {
     vpc: IVpc;
@@ -77,6 +81,20 @@ export class WorkshopEks extends Construct {
             ],
             clusterName: `${id}-cluster`,
         });
+
+        if (EKS_CLUSTER_ACCESS_ROLE_NAME) {
+            const role = Role.fromRoleName(this, 'AdminRole', EKS_CLUSTER_ACCESS_ROLE_NAME);
+            new AccessEntry(this, 'AdminAccessEntry', {
+                cluster: this.cluster,
+                principal: role.roleArn,
+                accessEntryType: AccessEntryType.STANDARD,
+                accessPolicies: [
+                    AccessPolicy.fromAccessPolicyName('AmazonEKSClusterAdminPolicy', {
+                        accessScopeType: AccessScopeType.CLUSTER,
+                    }),
+                ],
+            });
+        }
 
         this.setupAddons();
         this.setupSuppressions();
