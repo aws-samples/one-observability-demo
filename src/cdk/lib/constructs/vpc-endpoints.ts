@@ -3,7 +3,15 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { Construct } from 'constructs';
-import { IVpc, InterfaceVpcEndpoint, InterfaceVpcEndpointAwsService, IInterfaceVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
+import {
+    IVpc,
+    InterfaceVpcEndpoint,
+    InterfaceVpcEndpointAwsService,
+    IInterfaceVpcEndpoint,
+    GatewayVpcEndpoint,
+    GatewayVpcEndpointAwsService,
+    IGatewayVpcEndpoint,
+} from 'aws-cdk-lib/aws-ec2';
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import {
     VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME,
@@ -26,11 +34,11 @@ export interface VpcEndpointsProperties {
 
 export class VpcEndpoints extends Construct {
     public readonly apiGatewayEndpoint: InterfaceVpcEndpoint;
-    public readonly dynamoDbEndpoint: InterfaceVpcEndpoint;
+    public readonly dynamoDbEndpoint: GatewayVpcEndpoint;
     public readonly lambdaEndpoint: InterfaceVpcEndpoint;
     public readonly serviceDiscoveryEndpoint: InterfaceVpcEndpoint;
     public readonly dataServiceDiscoveryEndpoint: InterfaceVpcEndpoint;
-    public readonly s3Endpoint: InterfaceVpcEndpoint;
+    public readonly s3Endpoint: GatewayVpcEndpoint;
     public readonly ssmEndpoint: InterfaceVpcEndpoint;
     public readonly ec2MessagesEndpoint: InterfaceVpcEndpoint;
     public readonly ssmMessagesEndpoint: InterfaceVpcEndpoint;
@@ -48,11 +56,9 @@ export class VpcEndpoints extends Construct {
             privateDnsEnabled: true,
         });
 
-        this.dynamoDbEndpoint = new InterfaceVpcEndpoint(this, 'DynamoDbEndpoint', {
+        this.dynamoDbEndpoint = new GatewayVpcEndpoint(this, 'DynamoDbEndpoint', {
             vpc: properties.vpc,
-            service: InterfaceVpcEndpointAwsService.DYNAMODB,
-            subnets: { subnets: properties.vpc.privateSubnets },
-            privateDnsEnabled: false, // Not Supported by DynamoDB
+            service: GatewayVpcEndpointAwsService.DYNAMODB,
         });
 
         this.lambdaEndpoint = new InterfaceVpcEndpoint(this, 'LambdaEndpoint', {
@@ -76,11 +82,9 @@ export class VpcEndpoints extends Construct {
             privateDnsEnabled: true,
         });
 
-        this.s3Endpoint = new InterfaceVpcEndpoint(this, 'S3Endpoint', {
+        this.s3Endpoint = new GatewayVpcEndpoint(this, 'S3Endpoint', {
             vpc: properties.vpc,
-            service: InterfaceVpcEndpointAwsService.S3,
-            subnets: { subnets: properties.vpc.privateSubnets },
-            privateDnsEnabled: false, // Requires a Gateway
+            service: GatewayVpcEndpointAwsService.S3,
         });
 
         this.ssmEndpoint = new InterfaceVpcEndpoint(this, 'SSMEndpoint', {
@@ -126,6 +130,7 @@ export class VpcEndpoints extends Construct {
         });
 
         this.createOutputs();
+        this.createSsmParameters();
     }
 
     private createOutputs() {
@@ -191,6 +196,14 @@ export class VpcEndpoints extends Construct {
     }
 
     /**
+     * Creates SSM parameters for VPC Endpoints that don't support private DNS
+     */
+    private createSsmParameters(): void {
+        // Gateway endpoints don't require custom endpoint configuration
+        // Traffic is automatically routed through the gateway endpoint via route tables
+    }
+
+    /**
      * Imports VPC endpoints from CloudFormation exports
      * @param scope - The construct scope where the endpoints will be imported
      * @param id - The construct identifier for the imported endpoints
@@ -215,10 +228,11 @@ export class VpcEndpoints extends Construct {
                 vpcEndpointId: apiGatewayEndpointId,
                 port: 443,
             }) as IInterfaceVpcEndpoint,
-            dynamoDbEndpoint: InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(scope, `${id}-DynamoDb`, {
-                vpcEndpointId: dynamoDatabaseEndpointId,
-                port: 443,
-            }) as IInterfaceVpcEndpoint,
+            dynamoDbEndpoint: GatewayVpcEndpoint.fromGatewayVpcEndpointId(
+                scope,
+                `${id}-DynamoDb`,
+                dynamoDatabaseEndpointId,
+            ) as IGatewayVpcEndpoint,
             lambdaEndpoint: InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(scope, `${id}-Lambda`, {
                 vpcEndpointId: lambdaEndpointId,
                 port: 443,
@@ -239,10 +253,11 @@ export class VpcEndpoints extends Construct {
                     port: 443,
                 },
             ) as IInterfaceVpcEndpoint,
-            s3Endpoint: InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(scope, `${id}-S3`, {
-                vpcEndpointId: s3EndpointId,
-                port: 443,
-            }) as IInterfaceVpcEndpoint,
+            s3Endpoint: GatewayVpcEndpoint.fromGatewayVpcEndpointId(
+                scope,
+                `${id}-S3`,
+                s3EndpointId,
+            ) as IGatewayVpcEndpoint,
             ssmEndpoint: InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(scope, `${id}-SSM`, {
                 vpcEndpointId: ssmEndpointId,
                 port: 443,
