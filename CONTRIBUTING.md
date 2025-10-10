@@ -154,6 +154,7 @@ The script validates your environment and prepares the repository for deployment
    - `BRANCH_NAME`: Your git branch name
    - `AWS_ACCOUNT_ID`: Your AWS account ID
    - `AWS_REGION`: Your target AWS region
+   - `EKS_CLUSTER_ACCESS_ROLE_NAME`: Name of the role that will receive ClusterAdmin access on the EKS Cluster (optional)
 
 **Usage:**
 ```bash
