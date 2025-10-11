@@ -95,7 +95,7 @@ export const CORE_PROPERTIES = {
     /** Whether to create a new VPC or use existing one */
     createVpc: process.env.CREATE_VPC == 'false' || true,
     /** CIDR range for the VPC */
-    vpcCider: process.env.VPC_CIDR || '10.0.0.0/16',
+    vpcCidr: process.env.VPC_CIDR || '10.0.0.0/16',
     /** Existing VPC ID to use instead of creating new one */
     vpcId: process.env.VPC_ID || undefined,
     /** Create CloudTrail and Cloudwatch logs for events */
