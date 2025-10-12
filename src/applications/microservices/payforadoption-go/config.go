@@ -39,12 +39,12 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 	svc := ssm.NewFromConfig(cfg.AWSCfg)
 
 	envVars := map[string]string{
-		"PETSTORE_PARAM_PREFIX":                    "",
+		"PETSTORE_PARAM_PREFIX":                      "",
 		"UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME": "",
-		"RDS_SECRET_ARN_NAME":                      "",
-		"S3_BUCKET_PARAMETER_NAME":                 "",
-		"DYNAMODB_TABLE_PARAMETER_NAME":            "",
-		"SQS_QUEUE_URL_PARAMETER_NAME":             "",
+		"RDS_SECRET_ARN_NAME":                        "",
+		"S3_BUCKET_PARAMETER_NAME":                   "",
+		"DYNAMODB_TABLE_PARAMETER_NAME":              "",
+		"SQS_QUEUE_URL_PARAMETER_NAME":               "",
 	}
 
 	for key := range envVars {
@@ -84,19 +84,19 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 		paramMap[aws.ToString(p.Name)] = p.Value
 	}
 
-	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"])]; ok {
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["RDS_SECRET_ARN_NAME"])]; ok {
 		newCfg.RDSSecretArn = aws.ToString(val) //pragma: allowlist secret
 	}
-	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"])]; ok {
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["UPDATE_ADOPTIONS_STATUS_URL_PARAMETER_NAME"])]; ok {
 		newCfg.UpdateAdoptionURL = aws.ToString(val)
 	}
-	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"])]; ok {
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["S3_BUCKET_PARAMETER_NAME"])]; ok {
 		newCfg.S3BucketName = aws.ToString(val)
 	}
-	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"])]; ok {
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["DYNAMODB_TABLE_PARAMETER_NAME"])]; ok {
 		newCfg.DynamoDBTable = aws.ToString(val)
 	}
-	if val, ok := paramMap[fmt.Sprintf("/%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"])]; ok {
+	if val, ok := paramMap[fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"])]; ok {
 		newCfg.SQSQueueURL = aws.ToString(val)
 	}
 
