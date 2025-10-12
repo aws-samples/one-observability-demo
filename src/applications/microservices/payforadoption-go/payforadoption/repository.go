@@ -40,14 +40,16 @@ type Repository interface {
 }
 
 type Config struct {
-	UpdateAdoptionURL string
-	RDSSecretArn      string
-	S3BucketName      string
-	DynamoDBTable     string
-	SQSQueueURL       string
-	AWSRegion         string
-	Tracer            trace.Tracer
-	AWSCfg            aws.Config
+	UpdateAdoptionURL    string
+	RDSSecretArn         string
+	S3BucketName         string
+	DynamoDBTable        string
+	SQSQueueURL          string
+	AWSRegion            string
+	Tracer               trace.Tracer
+	AWSCfg               aws.Config
+	DDBInterfaceEndpoint string
+	S3InterfaceEndpoint  string
 }
 
 var RepoErr = errors.New("unable to handle Repo Request")
@@ -275,7 +277,14 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 		return err
 	}
 
-	db := dynamo.New(r.cfg.AWSCfg)
+	var awsCfg aws.Config
+	if r.cfg.DDBInterfaceEndpoint != "" {
+		awsCfg = r.cfg.AWSCfg.Copy()
+		awsCfg.BaseEndpoint = aws.String(r.cfg.DDBInterfaceEndpoint)
+	} else {
+		awsCfg = r.cfg.AWSCfg
+	}
+	db := dynamo.New(awsCfg)
 	table := db.Table(r.cfg.DynamoDBTable)
 
 	bw := table.Batch().Write()

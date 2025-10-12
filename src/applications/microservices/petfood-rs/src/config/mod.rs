@@ -64,6 +64,10 @@ pub struct DatabaseConfig {
     // SSM parameter prefix for this deployment
     #[serde(default = "default_param_prefix")]
     pub param_prefix: String,
+    #[serde(default)]
+    pub ddb_endpoint: String,
+    #[serde(default)]
+    pub s3_endpoint: String,
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +151,16 @@ impl Config {
 
         println!("AWS configuration loaded successfully");
 
-        let dynamodb_client = DynamoDbClient::new(&aws_config);
+        let dynamodb_client = if !database.ddb_endpoint.is_empty() {
+            println!("Using custom DynamoDB endpoint: {}", database.ddb_endpoint);
+            DynamoDbClient::from_conf(
+                aws_sdk_dynamodb::config::Builder::from(&aws_config)
+                    .endpoint_url(&database.ddb_endpoint)
+                    .build(),
+            )
+        } else {
+            DynamoDbClient::new(&aws_config)
+        };
         let eventbridge_client = EventBridgeClient::new(&aws_config);
         let ssm_client = SsmClient::new(&aws_config);
 
@@ -184,6 +197,11 @@ impl Config {
                 "PETFOOD_IMAGES_CDN_URL", // Env var (value becomes SSM param name)
             )
             .await;
+
+        // Gateway VPC endpoints work transparently via route tables
+        // No custom endpoint configuration needed
+        database.ddb_endpoint = String::new();
+        database.s3_endpoint = String::new();
 
         println!(
             "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
