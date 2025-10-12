@@ -31,21 +31,11 @@ export class ListAdoptionsService extends EcsService {
             additionalEnvironment: environmentVariables,
         });
 
-        // Application Signals auto-instrumentation for Python does not properly instrument FastAPI HTTP requests
-        // Using manual instrumentation instead (like payforadoption-go service)
-        // new ApplicationSignalsIntegration(this, 'petlist-integration', {
-        //     taskDefinition: this.taskDefinition,
-        //     instrumentation: {
-        //         sdkVersion: PythonInstrumentationVersion.V0_9_0,
-        //     },
-        //     serviceName: 'petlistadoptions-api-py',
-        //     cloudWatchAgentSidecar: {
-        //         containerName: 'ecs-cwagent',
-        //         enableLogging: true,
-        //         cpu: 256,
-        //         memoryLimitMiB: 512,
-        //     },
-        // });
+        // Application Signals with manual instrumentation
+        // For ECS custom setup, we manually instrument the app and use CloudWatch agent sidecar
+        // as per AWS documentation: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals-Enable-ECSMain.html
+        // ApplicationSignalsIntegration auto-instrumentation doesn't work properly with FastAPI
+        // Using enableCloudWatchAgent in applications.ts instead to add the sidecar manually
 
         NagSuppressions.addResourceSuppressions(
             this.taskDefinition,

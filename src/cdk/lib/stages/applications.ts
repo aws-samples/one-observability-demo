@@ -204,8 +204,21 @@ export class MicroservicesStack extends Stack {
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
                         additionalEnvironment: {
+                            PYTHONPATH:
+                                '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
                             OTEL_RESOURCE_ATTRIBUTES:
                                 'service.name=petlistadoptions-api-py,deployment.environment=ecs:PetsiteECS-cluster',
+                            OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
+                            OTEL_METRICS_EXPORTER: 'none',
+                            OTEL_LOGS_EXPORTER: 'none',
+                            OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+                            OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT: 'http://localhost:4316/v1/metrics',
+                            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: 'http://localhost:4316/v1/traces',
+                            OTEL_TRACES_SAMPLER: 'xray',
+                            OTEL_TRACES_SAMPLER_ARG: 'endpoint=http://localhost:2000',
+                            OTEL_PROPAGATORS: 'xray',
+                            OTEL_PYTHON_CONFIGURATOR: 'aws_configurator',
+                            OTEL_PYTHON_DISTRO: 'aws_distro',
                         },
                     });
                 } else {

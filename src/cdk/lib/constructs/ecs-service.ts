@@ -8,6 +8,7 @@ import { ComputeType } from '../../bin/environment';
 import {
     AwsLogDriver,
     ContainerDefinition,
+    ContainerDependencyCondition,
     ContainerImage,
     Ec2TaskDefinition,
     FargateTaskDefinition,
@@ -200,6 +201,15 @@ export abstract class EcsService extends Microservice {
 
         // Add CloudWatch agent sidecar if explicitly enabled
         if (properties.enableCloudWatchAgent) {
+            // Add volume for Python auto-instrumentation
+            taskDefinition.addVolume({
+                name: 'opentelemetry-auto-instrumentation-python',
+            });
+
+            // Add ADOT Python init container
+            this.addAdotPythonInitContainer(taskDefinition, container);
+            
+            // Add CloudWatch agent sidecar
             this.addCloudWatchAgentSidecar(taskDefinition, properties);
         }
 
@@ -523,12 +533,48 @@ export abstract class EcsService extends Microservice {
         }
     }
 
+    private addAdotPythonInitContainer(taskDefinition: TaskDefinition, mainContainer: ContainerDefinition): void {
+        // Add ADOT Python auto-instrumentation init container
+        const initContainer = taskDefinition.addContainer('init', {
+            image: ContainerImage.fromRegistry(
+                'public.ecr.aws/aws-observability/adot-autoinstrumentation-python:v0.12.1',
+            ),
+            essential: false,
+            command: ['cp', '-a', '/autoinstrumentation/.', '/otel-auto-instrumentation-python'],
+        });
+
+        // Mount the volume in init container
+        initContainer.addMountPoints({
+            sourceVolume: 'opentelemetry-auto-instrumentation-python',
+            containerPath: '/otel-auto-instrumentation-python',
+            readOnly: false,
+        });
+
+        // Mount the volume in main container
+        mainContainer.addMountPoints({
+            sourceVolume: 'opentelemetry-auto-instrumentation-python',
+            containerPath: '/otel-auto-instrumentation-python',
+            readOnly: false,
+        });
+
+        // Add container dependency
+        mainContainer.addContainerDependencies({
+            container: initContainer,
+            condition: ContainerDependencyCondition.SUCCESS,
+        });
+    }
+
     private addCloudWatchAgentSidecar(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
-        // CloudWatch agent configuration for application signals
+        // CloudWatch agent configuration for Application Signals
         const cloudWatchConfig = {
             traces: {
                 traces_collected: {
-                    otlp: {},
+                    application_signals: {},
+                },
+            },
+            logs: {
+                metrics_collected: {
+                    application_signals: {},
                 },
             },
         };
@@ -538,7 +584,7 @@ export abstract class EcsService extends Microservice {
             image: ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
             memoryLimitMiB: 256,
             cpu: 128,
-            essential: false,
+            essential: true,
             logging: new AwsLogDriver({
                 streamPrefix: 'cloudwatch-agent',
                 logGroup: new LogGroup(this, 'cloudwatch-agent-log-group', {
