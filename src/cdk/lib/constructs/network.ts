@@ -19,7 +19,7 @@ import {
     CfnResolverQueryLoggingConfig,
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
-import { Annotations, CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { VpcEndpoints } from './vpc-endpoints';
 import { ENABLE_PET_FOOD_AGENT, MAX_AVAILABILITY_ZONES } from '../../bin/environment';
 import {
@@ -82,7 +82,7 @@ export class WorkshopNetwork extends Construct {
             ipAddresses: IpAddresses.cidr(properties.cidrRange),
             natGateways: 1,
             maxAzs: ENABLE_PET_FOOD_AGENT ? undefined : MAX_AVAILABILITY_ZONES,
-            availabilityZones: ENABLE_PET_FOOD_AGENT ? getRegionAz(scope, Stack.of(this).region) : undefined,
+            availabilityZones: ENABLE_PET_FOOD_AGENT ? getRegionAz(Stack.of(this).region) : undefined,
             subnetConfiguration: [
                 {
                     name: 'Public',
@@ -340,13 +340,8 @@ export class WorkshopNetwork extends Construct {
     }
 }
 
-function getRegionAz(scope: Construct, region: string): string[] | undefined {
-    if (!region || region.includes('${Token[')) {
-        Annotations.of(scope).addWarning(
-            'Region is not resolved yet. Please ensure the region is resolved before using this function.',
-        );
-        return undefined;
-    }
+function getRegionAz(region: string): string[] | undefined {
+    if (!region || region.includes('${Token[')) return undefined;
     const regionAzMap: Record<string, string[]> = {
         'us-west-2': ['usw2-az1', 'usw2-az2', 'usw2-az3'],
         'us-east-1': ['use1-az1', 'use1-az2', 'use1-az4'],
@@ -356,5 +351,6 @@ function getRegionAz(scope: Construct, region: string): string[] | undefined {
     if (!regionAzMap[region]) {
         throw new Error(`Agent Core is not supported in region: ${region}`);
     }
-    return regionAzMap[region];
+    const azIds = regionAzMap[region];
+    return azIds.map((_, index) => Fn.select(index, Fn.getAzs(region)));
 }

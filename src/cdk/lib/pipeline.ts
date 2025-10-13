@@ -193,7 +193,7 @@ export class CDKPipeline extends Stack {
             sequence: (stageSequence++).toString(),
         };
         const coreProperties = properties.coreStageProperties
-            ? { ...properties.coreStageProperties, tags: coreStageTags }
+            ? { ...properties.coreStageProperties, tags: coreStageTags, env: properties.env }
             : { tags: coreStageTags };
 
         const coreStage = new CoreStage(this, 'Core', coreProperties);
