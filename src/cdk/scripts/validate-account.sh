@@ -44,11 +44,12 @@ write_env_file() {
 
 # Validation function for AUTO_TRANSACTION_SEARCH_CONFIGURED
 validate_auto_transaction_search() {
+    local region="${AWS_REGION:-$AWS_DEFAULT_REGION}"
     local result
     local error_output
 
     error_output=$(mktemp)
-    result=$(aws xray get-trace-segment-destination --query 'Destination' --output text 2>"$error_output")
+    result=$(aws xray get-trace-segment-destination --region "$region" --query 'Destination' --output text 2>"$error_output")
     local exit_code=$?
 
     if [[ $exit_code -ne 0 ]]; then
@@ -68,12 +69,13 @@ validate_auto_transaction_search() {
 
 # Function to retrieve and map availability zones
 retrieve_availability_zones() {
-    if [[ "$ENABLE_PET_FOOD_AGENT" == "true" && -n "$AWS_REGION" ]]; then
+    local region="${AWS_REGION:-$AWS_DEFAULT_REGION}"
+    if [[ "$ENABLE_PET_FOOD_AGENT" == "true" && -n "$region" ]]; then
         local az_data
         local error_output
 
         error_output=$(mktemp)
-        az_data=$(aws ec2 describe-availability-zones --region "$AWS_REGION" --query "AvailabilityZones[].{ZoneName:ZoneName,ZoneId:ZoneId}" --output json 2>"$error_output")
+        az_data=$(aws ec2 describe-availability-zones --region "$region" --query "AvailabilityZones[].{ZoneName:ZoneName,ZoneId:ZoneId}" --output json 2>"$error_output")
         local exit_code=$?
 
         if [[ $exit_code -ne 0 ]]; then
@@ -85,7 +87,7 @@ retrieve_availability_zones() {
         rm -f "$error_output"
 
         local region_az_map
-        case "$AWS_REGION" in
+        case "$region" in
             us-west-2)
                 region_az_map="usw2-az1,usw2-az2,usw2-az3"
                 ;;
@@ -99,7 +101,7 @@ retrieve_availability_zones() {
                 region_az_map="apse2-az1,apse2-az2,apse2-az3"
                 ;;
             *)
-                echo "Error: Agent Core is not supported in region: $AWS_REGION" >&2
+                echo "Error: Agent Core is not supported in region: $region" >&2
                 exit 1
                 ;;
         esac
