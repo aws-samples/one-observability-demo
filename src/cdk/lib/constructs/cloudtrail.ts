@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
+import { Trail, InsightType, CfnEventDataStore, CfnTrail } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { Names, RemovalPolicy, Duration } from 'aws-cdk-lib';
@@ -32,6 +32,10 @@ export interface WorkshopCloudTrailProperties {
     includeLambdaEvents?: boolean;
     /** CloudWatch log retention period in days */
     logRetentionDays?: RetentionDays;
+    /** Whether to enable anomaly detection for the trail */
+    enableAnomalyDetection?: boolean;
+    /** Whether to enable network events for the trail */
+    includeNetworkEvents?: boolean;
 }
 
 /**
@@ -97,16 +101,71 @@ export class WorkshopCloudTrail extends Construct {
             isMultiRegionTrail: false,
             enableFileValidation: true,
             sendToCloudWatchLogs: true,
-            insightTypes: [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE],
+            insightTypes: properties.enableAnomalyDetection
+                ? [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE]
+                : undefined,
             bucket: trailBucket,
         });
 
-        if (properties.includeS3DataEvents) {
-            this.trail.logAllS3DataEvents();
-        }
+        if (properties.includeNetworkEvents) {
+            const advancedSelectors: CfnEventDataStore.AdvancedEventSelectorProperty[] = [];
+            if (properties.includeS3DataEvents) {
+                advancedSelectors.push({
+                    fieldSelectors: [
+                        {
+                            field: 'eventCategory',
+                            equalTo: ['Data'],
+                        },
+                        {
+                            field: 'resources.type',
+                            equalTo: ['AWS::S3::Object'],
+                        },
+                    ],
+                });
+            }
+            if (properties.includeLambdaEvents) {
+                advancedSelectors.push({
+                    fieldSelectors: [
+                        {
+                            field: 'eventCategory',
+                            equalTo: ['Data'],
+                        },
+                        {
+                            field: 'resources.type',
+                            equalTo: ['AWS::Lambda::Function'],
+                        },
+                    ],
+                });
+            }
+            if (properties.includeNetworkEvents) {
+                advancedSelectors.push({
+                    fieldSelectors: [
+                        {
+                            field: 'eventCategory',
+                            equalTo: ['NetworkActivity'],
+                        },
+                    ],
+                });
+            }
 
-        if (properties.includeLambdaEvents) {
-            this.trail.logAllLambdaDataEvents();
+            const cfnTrail = this.trail.node.defaultChild as CfnTrail;
+            if (cfnTrail) {
+                cfnTrail.addOverride('AdvancedEventSelectors', [
+                    {
+                        Name: 'AdvancedSelectors',
+                        FieldSelectors: advancedSelectors,
+                    },
+                ]);
+            }
+        } else {
+            // Using advanced selectors disables any Basic Event Selectors
+            if (properties.includeS3DataEvents) {
+                this.trail.logAllS3DataEvents();
+            }
+
+            if (properties.includeLambdaEvents) {
+                this.trail.logAllLambdaDataEvents();
+            }
         }
 
         NagSuppressions.addResourceSuppressions(
