@@ -132,6 +132,8 @@ main() {
     if [[ -n "$AVAILABILITY_ZONES" ]]; then
         echo "AVAILABILITY_ZONES=$AVAILABILITY_ZONES"
     fi
+    echo "Contents of $ENV_FILE after script:"
+    cat "$ENV_FILE"
 }
 
 main "$@"
