@@ -14,12 +14,16 @@ AVAILABILITY_ZONES=""
 
 # Function to read existing .env file
 read_env_file() {
+    echo "DEBUG: Reading from $ENV_FILE" >&2
     if [[ -f "$ENV_FILE" ]]; then
+        echo "DEBUG: File exists, contents:" >&2
+        cat "$ENV_FILE" >&2
         while IFS='=' read -r key value; do
             [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
             value="${value%\"}"
             value="${value#\"}"
             value="$(echo "$value" | xargs)"
+            echo "DEBUG: Read key='$key' value='$value'" >&2
             if [[ "$key" == "AUTO_TRANSACTION_SEARCH_CONFIGURED" ]]; then
                 AUTO_TRANSACTION_SEARCH_CONFIGURED="$value"
             elif [[ "$key" == "ENABLE_PET_FOOD_AGENT" ]]; then
@@ -28,6 +32,8 @@ read_env_file() {
                 AWS_REGION="$value"
             fi
         done < "$ENV_FILE"
+    else
+        echo "DEBUG: File does not exist" >&2
     fi
 }
 
