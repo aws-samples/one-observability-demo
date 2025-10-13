@@ -23,6 +23,7 @@ Metadata:
           - pWorkingFolder
           - pApplicationName
           - pDisableCleanup
+          - pCDKStackName
       - Label:
           default: User Defined Tags
         Parameters:
