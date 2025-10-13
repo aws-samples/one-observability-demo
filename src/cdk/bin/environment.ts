@@ -306,3 +306,4 @@ export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_S
 export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
 export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT || true;
 export const ENABLE_NETWORKING_TRAIL = process.env.ENABLE_NETWORKING_TRAIL == 'true' || false;
+export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;

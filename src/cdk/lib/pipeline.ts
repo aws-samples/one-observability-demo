@@ -193,7 +193,7 @@ export class CDKPipeline extends Stack {
             sequence: (stageSequence++).toString(),
         };
         const coreProperties = properties.coreStageProperties
-            ? { ...properties.coreStageProperties, tags: coreStageTags }
+            ? { ...properties.coreStageProperties, tags: coreStageTags, env: properties.env }
             : { tags: coreStageTags };
 
         const coreStage = new CoreStage(this, 'Core', coreProperties);
@@ -281,6 +281,7 @@ export class CDKPipeline extends Stack {
                             'cloudformation:ListResources',
                             'ec2:DescribeManagedPrefixLists',
                             'ec2:GetManagedPrefixListEntries',
+                            'ec2:DescribeAvailabilityZones',
                         ],
                         resources: ['*'],
                     }),
