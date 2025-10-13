@@ -304,3 +304,4 @@ export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARD
 
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
 export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
+export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT || true;

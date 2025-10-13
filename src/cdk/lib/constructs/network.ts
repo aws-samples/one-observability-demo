@@ -19,9 +19,9 @@ import {
     CfnResolverQueryLoggingConfig,
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
-import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import { Annotations, CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { VpcEndpoints } from './vpc-endpoints';
-import { MAX_AVAILABILITY_ZONES } from '../../bin/environment';
+import { ENABLE_PET_FOOD_AGENT, MAX_AVAILABILITY_ZONES } from '../../bin/environment';
 import {
     VPC_AVAILABILITY_ZONES_EXPORT_NAME,
     VPC_CIDR_EXPORT_NAME,
@@ -81,7 +81,8 @@ export class WorkshopNetwork extends Construct {
         this.vpc = new Vpc(this, 'VPC-' + properties.name, {
             ipAddresses: IpAddresses.cidr(properties.cidrRange),
             natGateways: 1,
-            maxAzs: MAX_AVAILABILITY_ZONES,
+            maxAzs: ENABLE_PET_FOOD_AGENT ? undefined : MAX_AVAILABILITY_ZONES,
+            availabilityZones: ENABLE_PET_FOOD_AGENT ? getRegionAz(scope, Stack.of(this).region) : undefined,
             subnetConfiguration: [
                 {
                     name: 'Public',
@@ -337,4 +338,23 @@ export class WorkshopNetwork extends Construct {
             namespaceArn: namespaceArn,
         });
     }
+}
+
+function getRegionAz(scope: Construct, region: string): string[] | undefined {
+    if (!region || region.includes('${Token[')) {
+        Annotations.of(scope).addWarning(
+            'Region is not resolved yet. Please ensure the region is resolved before using this function.',
+        );
+        return undefined;
+    }
+    const regionAzMap: Record<string, string[]> = {
+        'us-west-2': ['usw2-az1', 'usw2-az2', 'usw2-az3'],
+        'us-east-1': ['use1-az1', 'use1-az2', 'use1-az4'],
+        'eu-central-1': ['euc1-az1', 'euc1-az2', 'euc1-az3'],
+        'ap-southeast-2': ['apse2-az1', 'apse2-az2', 'apse2-az3'],
+    };
+    if (!regionAzMap[region]) {
+        throw new Error(`Agent Core is not supported in region: ${region}`);
+    }
+    return regionAzMap[region];
 }
