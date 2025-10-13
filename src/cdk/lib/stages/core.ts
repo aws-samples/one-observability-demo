@@ -139,6 +139,7 @@ export class CoreStack extends Stack {
                 includeS3DataEvents: true,
                 includeLambdaEvents: true,
                 includeNetworkEvents: ENABLE_NETWORKING_TRAIL,
+                enableAnomalyDetection: true,
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
             });
         }
