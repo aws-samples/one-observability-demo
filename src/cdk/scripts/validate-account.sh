@@ -19,6 +19,7 @@ read_env_file() {
             [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
             value="${value%\"}"
             value="${value#\"}"
+            value="$(echo "$value" | xargs)"
             if [[ "$key" == "AUTO_TRANSACTION_SEARCH_CONFIGURED" ]]; then
                 AUTO_TRANSACTION_SEARCH_CONFIGURED="$value"
             elif [[ "$key" == "ENABLE_PET_FOOD_AGENT" ]]; then
@@ -70,7 +71,9 @@ validate_auto_transaction_search() {
 # Function to retrieve and map availability zones
 retrieve_availability_zones() {
     local region="${AWS_REGION:-$AWS_DEFAULT_REGION}"
+    echo "DEBUG: ENABLE_PET_FOOD_AGENT='$ENABLE_PET_FOOD_AGENT' region='$region'" >&2
     if [[ "$ENABLE_PET_FOOD_AGENT" == "true" && -n "$region" ]]; then
+        echo "DEBUG: Retrieving availability zones for region $region" >&2
         local az_data
         local error_output
 
@@ -117,6 +120,9 @@ retrieve_availability_zones() {
         done
 
         AVAILABILITY_ZONES=$(IFS=','; echo "${mapped_zones[*]}")
+        echo "DEBUG: AVAILABILITY_ZONES='$AVAILABILITY_ZONES'" >&2
+    else
+        echo "DEBUG: Skipping AZ retrieval - condition not met" >&2
     fi
 }
 
