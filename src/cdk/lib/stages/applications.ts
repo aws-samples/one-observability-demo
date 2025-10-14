@@ -9,7 +9,13 @@ import { Utilities } from '../utils/utilities';
 import { WorkshopNetwork } from '../constructs/network';
 import { WorkshopEcs } from '../constructs/ecs';
 import { Microservice, MicroservicesNames } from '../constructs/microservice';
-import { ComputeType, ENABLE_PET_FOOD_AGENT, HostType, PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import {
+    ComputeType,
+    CUSTOM_ENABLE_WAF,
+    ENABLE_PET_FOOD_AGENT,
+    HostType,
+    PARAMETER_STORE_PREFIX,
+} from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
@@ -38,6 +44,8 @@ import { UserCreatorFunction } from '../serverless/functions/user-creator/user-c
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
+import { GlobalWaf, RegionalWaf } from '../constructs/waf';
+import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -59,6 +67,8 @@ interface ImportedResources {
     eventBusExports: any;
     queueExports: any;
     baseURI: string;
+    regionalAclArn?: string;
+    globalAclArn?: string;
 }
 
 export interface MicroserviceApplicationsProperties extends StackProps {
@@ -114,6 +124,8 @@ export class MicroservicesStack extends Stack {
         const eventBusExports = EventBusResources.importFromExports(this, 'EventBusResources');
         const queueExports = QueueResources.importFromExports(this, 'QueueResources');
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
+        const regionalAclArn = CUSTOM_ENABLE_WAF ? RegionalWaf.regionalAclArnFromExports() : undefined;
+        const globalAclArn = CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined;
 
         return {
             vpcExports,
@@ -128,6 +140,8 @@ export class MicroservicesStack extends Stack {
             eventBusExports,
             queueExports,
             baseURI,
+            regionalAclArn,
+            globalAclId: globalAclArn,
         };
     }
 
@@ -180,6 +194,12 @@ export class MicroservicesStack extends Stack {
                 }
                 if (svc) {
                     this.microservices.set(name, svc);
+                    if (imports.regionalAclArn && svc.loadBalancedService?.loadBalancer.loadBalancerArn) {
+                        new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                            resourceArn: svc.loadBalancedService?.loadBalancer.loadBalancerArn,
+                            webAclArn: imports.regionalAclArn,
+                        });
+                    }
                 }
             }
             if (name == MicroservicesNames.PetListAdoptions) {
@@ -212,6 +232,12 @@ export class MicroservicesStack extends Stack {
                 }
                 if (svc) {
                     this.microservices.set(name, svc);
+                    if (imports.regionalAclArn && svc.loadBalancedService?.loadBalancer.loadBalancerArn) {
+                        new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                            resourceArn: svc.loadBalancedService?.loadBalancer.loadBalancerArn,
+                            webAclArn: imports.regionalAclArn,
+                        });
+                    }
                 }
             }
             if (name == MicroservicesNames.PetSearch) {
@@ -247,6 +273,12 @@ export class MicroservicesStack extends Stack {
                 }
                 if (svc) {
                     this.microservices.set(name, svc);
+                    if (imports.regionalAclArn && svc.loadBalancedService?.loadBalancer.loadBalancerArn) {
+                        new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                            resourceArn: svc.loadBalancedService?.loadBalancer.loadBalancerArn,
+                            webAclArn: imports.regionalAclArn,
+                        });
+                    }
                 }
             }
             if (name == MicroservicesNames.PetFood) {
@@ -290,6 +322,12 @@ export class MicroservicesStack extends Stack {
                 }
                 if (svc) {
                     this.microservices.set(name, svc);
+                    if (imports.regionalAclArn && svc.loadBalancedService?.loadBalancer.loadBalancerArn) {
+                        new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                            resourceArn: svc.loadBalancedService?.loadBalancer.loadBalancerArn,
+                            webAclArn: imports.regionalAclArn,
+                        });
+                    }
                 }
             }
             if (name == MicroservicesNames.PetSite) {
@@ -314,6 +352,15 @@ export class MicroservicesStack extends Stack {
                 }
                 if (svc) {
                     this.microservices.set(name, svc);
+                    if (imports.regionalAclArn && svc.loadBalancer.loadBalancerArn) {
+                        new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                            resourceArn: svc.loadBalancer.loadBalancerArn,
+                            webAclArn: imports.regionalAclArn,
+                        });
+                    }
+                    if (imports.globalAclArn && svc.distribution) {
+                        svc.distribution.attachWebAclId(imports.globalAclArn);
+                    }
                 }
             }
 
@@ -362,11 +409,18 @@ export class MicroservicesStack extends Stack {
             const lambdafunction = properties.lambdaFunctions.get(name) as WorkshopLambdaFunctionProperties;
 
             if (name == LambdaFunctionNames.StatusUpdater) {
-                new StatusUpdatedService(this, name, {
+                const svc = new StatusUpdatedService(this, name, {
                     ...lambdafunction,
                     table: imports.dynamodbExports.table,
                     vpcEndpoint: imports.vpcEndpoints.apiGatewayEndpoint,
                 });
+
+                if (imports.regionalAclArn && svc.api.deploymentStage.stageArn) {
+                    new CfnWebACLAssociation(this, `${name}-regional-waf`, {
+                        resourceArn: svc.api.deploymentStage.stageArn,
+                        webAclArn: imports.regionalAclArn,
+                    });
+                }
             }
             if (name == LambdaFunctionNames.TrafficGenerator) {
                 new TrafficGeneratorFunction(this, name, {

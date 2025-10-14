@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Annotations, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
@@ -23,7 +23,8 @@ import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { EventBusResources, EventBusResourcesProperties } from '../constructs/eventbus';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
-import { CUSTOM_ENABLE_NETWORKING_TRAIL } from '../../bin/environment';
+import { CUSTOM_ENABLE_NETWORKING_TRAIL, CUSTOM_ENABLE_WAF } from '../../bin/environment';
+import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 
 /**
  * Configuration properties for the CoreStage.
@@ -70,6 +71,19 @@ export class CoreStage extends Stage {
         super(scope, id);
 
         this.coreStack = new CoreStack(this, `Stack`, properties);
+        if (CUSTOM_ENABLE_WAF && properties.env?.region != 'us-east-1') {
+            // A Separate stage is needed if the region is NOT us-east-1
+            const globalWafStack = new Stack(this, 'GlobalWafStack', {
+                env: {
+                    region: 'us-east-1',
+                    account: properties.env?.account,
+                },
+            });
+            new GlobalWaf(globalWafStack, 'GlobalWaf');
+            if (properties.tags) {
+                Utilities.TagConstruct(globalWafStack, properties.tags);
+            }
+        }
         if (properties.tags) {
             Utilities.TagConstruct(this.coreStack, properties.tags);
         }
@@ -142,6 +156,17 @@ export class CoreStack extends Stack {
                 enableAnomalyDetection: true,
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
             });
+        }
+
+        if (CUSTOM_ENABLE_WAF) {
+            new RegionalWaf(this, 'RegionalWaf');
+            if (properties.env?.region == 'us-east-1') {
+                new GlobalWaf(this, 'GlobalWaf');
+            } else {
+                Annotations.of(this).addInfo(
+                    'Global WAF is not deployed in this region. Deploying to us-east-1 instead.',
+                );
+            }
         }
     }
 }

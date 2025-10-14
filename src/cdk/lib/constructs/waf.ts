@@ -39,6 +39,9 @@ export class RegionalWaf extends Construct {
                             vendorName: 'AWS',
                         },
                     },
+                    overrideAction: {
+                        none: {},
+                    },
                     visibilityConfig: {
                         cloudWatchMetricsEnabled: true,
                         metricName: 'ManagedDefaultRules',
@@ -98,6 +101,9 @@ export class GlobalWaf extends Construct {
                             name: 'AWSManagedRulesCommonRuleSet',
                             vendorName: 'AWS',
                         },
+                    },
+                    overrideAction: {
+                        none: {},
                     },
                     visibilityConfig: {
                         cloudWatchMetricsEnabled: true,

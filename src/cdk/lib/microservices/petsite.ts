@@ -272,6 +272,7 @@ export class PetSite extends EKSDeployment {
     createOutputs(): void {
         new CfnOutput(this, 'PetSiteUrl', {
             value: `https://${this.distribution.distributionDomainName}`,
+            exportName: 'PetSiteUrl',
         });
 
         if (this.loadBalancer) {
