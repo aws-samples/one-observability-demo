@@ -18,13 +18,7 @@
                     <div class="online-status"></div>
                 </div>
                 <div id="chat-messages" class="chat-messages">
-                    <div class="message bot-message animate-in">
-                        <div class="sender-name">Waggle</div>
-                        <div class="message-bubble">
-                            Hello! I'm Waggle AI, your pet care assistant. I can give food recommendations for your pet. Ask away! 🐾
-                            <div class="timestamp"></div>
-                        </div>
-                    </div>
+                    <!-- Initial message will be added by JavaScript -->
                 </div>
 
                 <div class="chat-input-container">
@@ -107,13 +101,55 @@
     }
 
     .message-bubble {
-        max-width: 70%;
-        padding: 12px 18px;
+        max-width: 85%;
+        padding: 15px 20px;
         border-radius: 15px;
-        font-size: 16px;
-        line-height: 1.5;
+        font-size: 15px;
+        line-height: 1.6;
         position: relative;
         font-weight: 400;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+
+    .message-bubble h3, .message-bubble h4, .message-bubble h5 {
+        margin: 15px 0 8px 0 !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+    }
+
+    .message-bubble h3 {
+        font-size: 20px !important;
+        color: #2d7f83 !important;
+    }
+
+    .message-bubble h4 {
+        font-size: 18px !important;
+        color: #2d7f83 !important;
+    }
+
+    .message-bubble h5 {
+        font-size: 16px !important;
+        color: #2d7f83 !important;
+    }
+
+    .message-bubble strong {
+        font-weight: 600 !important;
+        color: #2d7f83 !important;
+    }
+
+    .message-bubble em {
+        font-style: italic !important;
+        color: #555 !important;
+    }
+
+    .message-bubble br {
+        line-height: 1.8;
+    }
+
+    .message-bubble div[style*="margin-left: 15px"] {
+        line-height: 1.5;
+        margin-bottom: 5px;
     }
 
     .timestamp {
@@ -149,6 +185,20 @@
         color: #333333;
         border: 1px solid #e9ecef;
         border-bottom-left-radius: 5px;
+        text-align: left;
+    }
+
+    .bot-message .message-bubble p {
+        margin: 8px 0;
+    }
+
+    .bot-message .message-bubble ul, .bot-message .message-bubble ol {
+        margin: 8px 0;
+        padding-left: 20px;
+    }
+
+    .bot-message .message-bubble li {
+        margin: 3px 0;
     }
 
     .chat-input-container {
@@ -253,6 +303,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const userId = '@ViewBag.UserId';
     let sessionId = null;
 
+    function formatMessage(message) {
+        // Convert newlines to <br> tags
+        let formatted = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+        
+        // Convert markdown-style formatting
+        formatted = formatted
+            // Headers (### Header, ## Header, # Header) - improved to handle emojis and special characters
+            .replace(/^### (.*)$/gm, '<h5 style="color: #2d7f83; margin: 15px 0 8px 0; font-weight: 600; font-size: 16px;">$1</h5>')
+            .replace(/^## (.*)$/gm, '<h4 style="color: #2d7f83; margin: 15px 0 8px 0; font-weight: 600; font-size: 18px;">$1</h4>')
+            .replace(/^# (.*)$/gm, '<h3 style="color: #2d7f83; margin: 15px 0 10px 0; font-weight: 600; font-size: 20px;">$1</h3>')
+            // Bold text (**text**) - improved to handle multiline and special characters
+            .replace(/\*\*(.*?)\*\*/gs, '<strong style="color: #2d7f83; font-weight: 600;">$1</strong>')
+            // Italic text (*text*) - improved
+            .replace(/\*([^*\n]+)\*/g, '<em style="color: #555;">$1</em>')
+            // Numbered lists (1. item, 2. item) - improved
+            .replace(/^(\d+)\. (.*)$/gm, '<div style="margin-left: 15px; margin-bottom: 5px; font-weight: 500;"><span style="color: #2d7f83; font-weight: 600;">$1.</span> $2</div>')
+            // Bullet points (- item) - improved
+            .replace(/^- (.*)$/gm, '<div style="margin-left: 15px; margin-bottom: 3px;">• $1</div>')
+            // Price formatting ($XX.XX and $XX)
+            .replace(/\$(\d+(?:\.\d{2})?)/g, '<span style="color: #dc7406; font-weight: 600;">$$1</span>')
+            // Preserve multiple spaces and indentation
+            .replace(/  /g, '&nbsp;&nbsp;')
+            // Add spacing after periods for better readability (but not after abbreviations)
+            .replace(/\. ([A-Z][a-z])/g, '. <br><br>$1');
+        
+        return formatted;
+    }
+
     function addMessage(message, isUser = false) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user-message animate-in-user' : 'bot-message animate-in'}`;
@@ -263,7 +341,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'message-bubble';
-        bubbleDiv.textContent = message;
+        
+        if (isUser) {
+            // For user messages, keep as plain text
+            bubbleDiv.textContent = message;
+        } else {
+            // For bot messages, apply formatting
+            bubbleDiv.innerHTML = formatMessage(message);
+        }
 
         const timestampDiv = document.createElement('div');
         timestampDiv.className = 'timestamp';
@@ -328,7 +413,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     messageInput.focus();
 
-    // Set timestamp for initial message
-    document.querySelector('.timestamp').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    // Add initial welcome message
+    const welcomeMessage = "Hello! I'm **Waggle AI**, your pet care assistant. I can give food recommendations for your pet. Ask away! 🐾";
+    addMessage(welcomeMessage, false);
 });
 </script>

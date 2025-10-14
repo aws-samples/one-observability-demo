@@ -38,6 +38,7 @@ namespace PetSite
 
             // Configure AWS Services - using default credential chain for Pod Identity
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
+            services.AddAWSService<Amazon.BedrockAgentCore.IAmazonBedrockAgentCore>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
