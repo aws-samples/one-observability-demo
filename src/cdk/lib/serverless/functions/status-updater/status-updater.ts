@@ -14,12 +14,7 @@ import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal }
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
-import {
-    EndpointType,
-    LambdaRestApi,
-    LogGroupLogDestination,
-    MethodLoggingLevel,
-} from 'aws-cdk-lib/aws-apigateway';
+import { EndpointType, LambdaRestApi, LogGroupLogDestination, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
