@@ -23,6 +23,7 @@ Metadata:
           - pWorkingFolder
           - pApplicationName
           - pDisableCleanup
+          - pCDKStackName
       - Label:
           default: User Defined Tags
         Parameters:
@@ -174,6 +175,11 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Value. This
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
+
+  pCDKStackName:
+    Type: String
+    Description: CDK stack name to retrieve outputs from
+    Default: Microservices-Microservice
 
 
 
@@ -426,6 +432,65 @@ Resources:
       Handle: !Ref rCDKDeploymentWaitConditionHandle
       Timeout: 3600
       Count: 1
+
+  rCDKOutputRetrieverRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudFormationReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: '*'
+
+  rCDKOutputRetrieverFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCDKOutputRetrieverRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+              try:
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+
+                  stack_name = event['ResourceProperties']['StackName']
+                  cf = boto3.client('cloudformation')
+                  response = cf.describe_stacks(StackName=stack_name)
+
+                  if not response['Stacks']:
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
+                      return
+
+                  outputs = {o['OutputKey']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', [])}
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  rCDKOutputs:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: rCDKDeploymentWaitCondition
+    Properties:
+      ServiceToken: !GetAtt rCDKOutputRetrieverFunction.Arn
+      StackName: !Ref pCDKStackName
 
   # Create CodeBuild project to orchestrate CDK deployment
   rCDKDeploymentProject:
@@ -1521,3 +1586,7 @@ Outputs:
       Branch: ${pBranchName}'
     Export:
       Name: !Sub ${AWS::StackName}-RepositoryInfo
+
+  oPetSiteUrl:
+    Description: PetSite URL from CDK stack
+    Value: !GetAtt rCDKOutputs.PetSiteUrl

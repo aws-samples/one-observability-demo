@@ -9,7 +9,7 @@ import { Utilities } from '../utils/utilities';
 import { WorkshopNetwork } from '../constructs/network';
 import { WorkshopEcs } from '../constructs/ecs';
 import { Microservice, MicroservicesNames } from '../constructs/microservice';
-import { ComputeType, HostType, PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { ComputeType, ENABLE_PET_FOOD_AGENT, HostType, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
@@ -317,7 +317,7 @@ export class MicroservicesStack extends Stack {
                 }
             }
 
-            if (name == MicroservicesNames.PetFoodAgent) {
+            if (name == MicroservicesNames.PetFoodAgent && ENABLE_PET_FOOD_AGENT) {
                 new PetFoodAgentConstruct(this, 'PetFoodAgent', {
                     ecrRepositoryUri: `${imports.baseURI}/${name}`,
                     vpc: imports.vpcExports,

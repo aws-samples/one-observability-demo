@@ -32,7 +32,7 @@ import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 
 export class PetSite extends EKSDeployment {
     public readonly loadBalancer: ApplicationLoadBalancer;
@@ -270,6 +270,10 @@ export class PetSite extends EKSDeployment {
         );
     }
     createOutputs(): void {
+        new CfnOutput(this, 'PetSiteUrl', {
+            value: `https://${this.distribution.distributionDomainName}`,
+        });
+
         if (this.loadBalancer) {
             Utilities.createSsmParameters(
                 this,

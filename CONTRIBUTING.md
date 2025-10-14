@@ -154,6 +154,8 @@ The script validates your environment and prepares the repository for deployment
    - `BRANCH_NAME`: Your git branch name
    - `AWS_ACCOUNT_ID`: Your AWS account ID
    - `AWS_REGION`: Your target AWS region
+   - `EKS_CLUSTER_ACCESS_ROLE_NAME`: Name of the role that will receive ClusterAdmin access on the EKS Cluster (optional)
+   - `ENABLE_PET_FOOD_AGENT`: Set to `true` to enable AgentCore deployment (optional)
 
 **Usage:**
 ```bash
@@ -166,6 +168,24 @@ The script will:
 - Verify the repository archive exists in S3 (upload if needed)
 
 **After running the deploy check script, you can then deploy the local stack using CDK commands.**
+
+### Account Validation Script
+
+The `src/cdk/scripts/validate-account.sh` script validates account-specific configurations and sets environment variables.
+
+**Usage:**
+```bash
+./src/cdk/scripts/validate-account.sh src/cdk/.env
+```
+
+The script will:
+- Check if X-Ray transaction search is configured for CloudWatch Logs
+- When `ENABLE_PET_FOOD_AGENT=true`, retrieve and map availability zones for AgentCore deployment
+- Update the `.env` file with:
+  - `AUTO_TRANSACTION_SEARCH_CONFIGURED`: Whether X-Ray is configured
+  - `AVAILABILITY_ZONES`: Comma-separated list of AZ names (when AgentCore is enabled)
+
+**Note:** This script is automatically called by `deploy-check.sh` but can be run independently.
 
 ### Application Redeployment Script
 

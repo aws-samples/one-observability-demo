@@ -23,6 +23,7 @@ import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { EventBusResources, EventBusResourcesProperties } from '../constructs/eventbus';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
+import { ENABLE_NETWORKING_TRAIL } from '../../bin/environment';
 
 /**
  * Configuration properties for the CoreStage.
@@ -136,6 +137,9 @@ export class CoreStack extends Stack {
             new WorkshopCloudTrail(this, 'cloudtrail', {
                 name: 'workshop-trail',
                 includeS3DataEvents: true,
+                includeLambdaEvents: true,
+                includeNetworkEvents: ENABLE_NETWORKING_TRAIL,
+                enableAnomalyDetection: true,
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
             });
         }

@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { Trail, InsightType } from 'aws-cdk-lib/aws-cloudtrail';
+import { Trail, InsightType, CfnEventDataStore, CfnTrail } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { Names, RemovalPolicy, Duration } from 'aws-cdk-lib';
@@ -32,6 +32,10 @@ export interface WorkshopCloudTrailProperties {
     includeLambdaEvents?: boolean;
     /** CloudWatch log retention period in days */
     logRetentionDays?: RetentionDays;
+    /** Whether to enable anomaly detection for the trail */
+    enableAnomalyDetection?: boolean;
+    /** Whether to enable network events for the trail */
+    includeNetworkEvents?: boolean;
 }
 
 /**
@@ -97,16 +101,112 @@ export class WorkshopCloudTrail extends Construct {
             isMultiRegionTrail: false,
             enableFileValidation: true,
             sendToCloudWatchLogs: true,
-            insightTypes: [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE],
+            insightTypes: properties.enableAnomalyDetection
+                ? [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE]
+                : undefined,
             bucket: trailBucket,
         });
 
-        if (properties.includeS3DataEvents) {
-            this.trail.logAllS3DataEvents();
-        }
+        if (properties.includeNetworkEvents) {
+            const advancedSelectors: CfnEventDataStore.AdvancedEventSelectorProperty[] = [];
+            if (properties.includeS3DataEvents) {
+                advancedSelectors.push({
+                    fieldSelectors: [
+                        {
+                            field: 'eventCategory',
+                            equalTo: ['Data'],
+                        },
+                        {
+                            field: 'resources.type',
+                            equalTo: ['AWS::S3::Object'],
+                        },
+                    ],
+                    name: 'S3 Data Events',
+                });
+            }
+            if (properties.includeLambdaEvents) {
+                advancedSelectors.push({
+                    fieldSelectors: [
+                        {
+                            field: 'eventCategory',
+                            equalTo: ['Data'],
+                        },
+                        {
+                            field: 'resources.type',
+                            equalTo: ['AWS::Lambda::Function'],
+                        },
+                    ],
+                    name: 'Lambda Data Events',
+                });
+            }
+            if (properties.includeNetworkEvents) {
+                advancedSelectors.push(
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['dynamodb.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (DynamoDB)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['ecs.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (ECS)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['elasticloadbalancing.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (ELB)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['secretsmanager.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (Secrets Manager)',
+                    },
+                );
+            }
 
-        if (properties.includeLambdaEvents) {
-            this.trail.logAllLambdaDataEvents();
+            const cfnTrail = this.trail.node.defaultChild as CfnTrail;
+            cfnTrail.advancedEventSelectors = advancedSelectors;
+        } else {
+            // Using advanced selectors disables any Basic Event Selectors
+            if (properties.includeS3DataEvents) {
+                this.trail.logAllS3DataEvents();
+            }
+
+            if (properties.includeLambdaEvents) {
+                this.trail.logAllLambdaDataEvents();
+            }
         }
 
         NagSuppressions.addResourceSuppressions(
