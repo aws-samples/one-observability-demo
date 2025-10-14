@@ -19,7 +19,6 @@ import {
     LambdaRestApi,
     LogGroupLogDestination,
     MethodLoggingLevel,
-    RequestAuthorizer,
 } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
@@ -46,12 +45,7 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
             removalPolicy: RemovalPolicy.DESTROY,
         });
 
-        const authorizer = new RequestAuthorizer(this, `${properties.name}-authorizer`, {
-            handler: this.function,
-            identitySources: ['method.request.header.Authorization'],
-            resultsCacheTtl: undefined,
-            authorizerName: `${properties.name}-authorizer`,
-        });
+        // Removed custom authorizer - API is private and VPC-restricted, no additional auth needed
 
         this.api = new LambdaRestApi(this, `${properties.name}-api`, {
             handler: this.function,
@@ -84,7 +78,6 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
             },
             defaultMethodOptions: {
                 methodResponses: [],
-                authorizer: authorizer,
             },
         });
 
