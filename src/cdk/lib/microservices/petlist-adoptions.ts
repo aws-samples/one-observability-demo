@@ -11,7 +11,6 @@ import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { ApplicationSignalsIntegration, PythonInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
 
 export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
