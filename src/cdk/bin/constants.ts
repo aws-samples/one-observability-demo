@@ -93,6 +93,10 @@ export const ASSETS_BUCKET_ARN_EXPORT_NAME = 'WorkshopAssetsBucketArn';
 export const EVENTBUS_ARN_EXPORT_NAME = 'WorkshopEventBusArn';
 export const EVENTBUS_NAME_EXPORT_NAME = 'WorkshopEventBusName';
 
+// WAFv2 Export Names
+export const WAFV2_REGIONAL_ACL_ARN_EXPORT_NAME = 'RegionalACLExportName';
+export const WAFV2_GLOABL_ACL_ARN_EXPORT_NAME = 'GlobalACLExportName';
+
 // SSM Parameter Names - Used across microservices
 export const SSM_PARAMETER_NAMES = {
     // PetSite parameters
