@@ -316,6 +316,14 @@ export class MicroservicesStack extends Stack {
                     this.microservices.set(name, svc);
                 }
             }
+
+            if (name == MicroservicesNames.PetFoodAgent) {
+                new PetFoodAgentConstruct(this, 'PetFoodAgent', {
+                    ecrRepositoryUri: `${imports.baseURI}/${name}`,
+                    vpc: imports.vpcExports,
+                    securityGroup: imports.ecsExports.securityGroup,
+                });
+            }
         }
     }
 
