@@ -208,7 +208,7 @@ export abstract class EcsService extends Microservice {
 
             // Add ADOT Python init container
             this.addAdotPythonInitContainer(taskDefinition, container);
-            
+
             // Add CloudWatch agent sidecar
             this.addCloudWatchAgentSidecar(taskDefinition, properties);
         }
