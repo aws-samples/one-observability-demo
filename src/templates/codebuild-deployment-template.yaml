@@ -1076,11 +1076,6 @@ Resources:
                   }
                 }
               },
-              "Next": "DeleteCDKToolkitStack"
-            },
-            "NoStacksToClean": {
-              "Type": "Pass",
-              "Result": "No tagged stacks found to clean up",
               "Next": "CleanupCDKStagingBucket"
             },
             "CleanupCDKStagingBucket": {
