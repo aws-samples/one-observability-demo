@@ -149,7 +149,7 @@ export class CDKPipeline extends Stack {
                 'npm ci',
                 'npm run build',
                 'echo ----------------------------',
-                'echo "Working with configuration:',
+                'echo "Working with configuration:"',
                 'cat .env',
                 'echo ----------------------------',
                 'cdk synth --all',
