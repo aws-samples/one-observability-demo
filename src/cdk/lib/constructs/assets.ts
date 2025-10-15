@@ -67,7 +67,7 @@ export class WorkshopAssets extends Construct {
 
         this.bucket = new Bucket(this, 'petadoptionBucket', {
             publicReadAccess: false,
-            autoDeleteObjects: true,
+            autoDeleteObjects: false,
             removalPolicy: RemovalPolicy.RETAIN,
             enforceSSL: true,
             lifecycleRules: [
