@@ -144,7 +144,16 @@ export class CDKPipeline extends Stack {
             primaryOutputDirectory: `${properties.workingFolder}/cdk.out`,
             installCommands: ['npm i -g aws-cdk'],
             // Using globally installed CDK due to this issue https://github.com/aws/aws-cdk/issues/28519
-            commands: [`cd ${properties.workingFolder}`, 'npm ci', 'npm run build', 'cdk synth --all'],
+            commands: [
+                `cd ${properties.workingFolder}`,
+                'npm ci',
+                'npm run build',
+                'echo ----------------------------',
+                'echo "Working with configuration:',
+                'cat .env',
+                'echo ----------------------------',
+                'cdk synth --all',
+            ],
             buildEnvironment: {
                 buildImage: LinuxBuildImage.STANDARD_7_0,
             },

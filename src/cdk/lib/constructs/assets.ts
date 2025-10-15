@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy, Stack, CfnOutput, Fn } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, CfnOutput, Fn, Duration } from 'aws-cdk-lib';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
@@ -16,7 +16,7 @@ import {
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import {
     ASSETS_BUCKET_NAME_EXPORT_NAME,
     ASSETS_BUCKET_ARN_EXPORT_NAME,
@@ -70,6 +70,13 @@ export class WorkshopAssets extends Construct {
             autoDeleteObjects: true,
             removalPolicy: RemovalPolicy.DESTROY,
             enforceSSL: true,
+            lifecycleRules: [
+                {
+                    enabled: true,
+                    expiration: Duration.days(DEFAULT_RETENTION_DAYS),
+                    id: 'ExpireAfterOneWeek',
+                },
+            ],
         });
 
         NagSuppressions.addResourceSuppressions(this.bucket, [

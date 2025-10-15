@@ -28,7 +28,7 @@ import {
 import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
@@ -81,12 +81,18 @@ export class PetSite extends EKSDeployment {
             open: false,
         });
 
-        // TODO: Autodelete is not working for this bucket
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
             removalPolicy: RemovalPolicy.DESTROY,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
-            autoDeleteObjects: true,
+            autoDeleteObjects: false, // TODO: Autodelete is not working for this bucket
+            lifecycleRules: [
+                {
+                    enabled: true,
+                    expiration: Duration.days(DEFAULT_RETENTION_DAYS),
+                    id: 'ExpireAfterOneWeek',
+                },
+            ],
         });
 
         this.distribution = new Distribution(this, 'Distribution', {

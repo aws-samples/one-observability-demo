@@ -82,6 +82,7 @@ export class PetFoodAgentConstruct extends Construct {
             Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
         });
 
+        this.createOutputs(PARAMETER_STORE_PREFIX);
         // Apply NAG suppressions
 
         NagSuppressions.addResourceSuppressions(
