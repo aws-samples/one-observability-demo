@@ -23,7 +23,7 @@ import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { EventBusResources, EventBusResourcesProperties } from '../constructs/eventbus';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
-import { CUSTOM_ENABLE_NETWORKING_TRAIL, CUSTOM_ENABLE_WAF } from '../../bin/environment';
+import { CUSTOM_ENABLE_NETWORKING_TRAIL, CUSTOM_ENABLE_WAF, DEFAULT_RETENTION_DAYS } from '../../bin/environment';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 
 /**
@@ -79,7 +79,9 @@ export class CoreStage extends Stage {
                     account: properties.env?.account,
                 },
             });
-            new GlobalWaf(globalWafStack, 'GlobalWaf');
+            new GlobalWaf(globalWafStack, 'GlobalWaf', {
+                logRetention: DEFAULT_RETENTION_DAYS,
+            });
             if (properties.tags) {
                 Utilities.TagConstruct(globalWafStack, properties.tags);
             }
@@ -159,9 +161,13 @@ export class CoreStack extends Stack {
         }
 
         if (CUSTOM_ENABLE_WAF) {
-            new RegionalWaf(this, 'RegionalWaf');
+            new RegionalWaf(this, 'RegionalWaf', {
+                logRetention: DEFAULT_RETENTION_DAYS,
+            });
             if (properties.env?.region == 'us-east-1') {
-                new GlobalWaf(this, 'GlobalWaf');
+                new GlobalWaf(this, 'GlobalWaf', {
+                    logRetention: DEFAULT_RETENTION_DAYS,
+                });
             } else {
                 Annotations.of(this).addInfo(
                     'Global WAF is not deployed in this region. Deploying to us-east-1 instead.',

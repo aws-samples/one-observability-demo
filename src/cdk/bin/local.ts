@@ -28,6 +28,7 @@ import {
     CANARY_FUNCTIONS,
     CORE_PROPERTIES,
     CUSTOM_ENABLE_WAF,
+    DEFAULT_RETENTION_DAYS,
     LAMBDA_FUNCTIONS,
     MICROSERVICES_PLACEMENT,
     PET_IMAGES,
@@ -65,7 +66,9 @@ if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
             account: process.env.AWS_ACCOUNT_ID,
         },
     });
-    new GlobalWaf(globalWafStack, 'GlobalWaf');
+    new GlobalWaf(globalWafStack, 'GlobalWaf', {
+        logRetention: DEFAULT_RETENTION_DAYS,
+    });
     if (TAGS) {
         Utilities.TagConstruct(globalWafStack, TAGS);
     }
