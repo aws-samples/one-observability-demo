@@ -102,6 +102,10 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                     id: 'AwsSolutions-COG4',
                     reason: 'Private API. Authentication is not required for now as the private zone is considered trusted',
                 },
+                {
+                    id: 'AwsSolutions-APIG4',
+                    reason: 'Private API. Authentication is not required for now as the private zone is considered trusted',
+                },
             ],
             true,
         );

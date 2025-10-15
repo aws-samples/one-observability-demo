@@ -141,7 +141,7 @@ export class MicroservicesStack extends Stack {
             queueExports,
             baseURI,
             regionalAclArn,
-            globalAclId: globalAclArn,
+            globalAclArn,
         };
     }
 
@@ -359,6 +359,7 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         listenerPort: 80,
                         healthCheck: '/health/status',
+                        globalWebACLArn: CUSTOM_ENABLE_WAF ? imports.globalAclArn : undefined,
                     });
                     svc.node.addDependency(albEKSCheck);
                 } else {
@@ -371,9 +372,6 @@ export class MicroservicesStack extends Stack {
                             resourceArn: svc.loadBalancer.loadBalancerArn,
                             webAclArn: imports.regionalAclArn,
                         });
-                    }
-                    if (imports.globalAclArn && svc.distribution) {
-                        svc.distribution.attachWebAclId(imports.globalAclArn);
                     }
                 }
             }

@@ -34,11 +34,15 @@ import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 
+export interface PetSetProperties extends EKSDeploymentProperties {
+    globalWebACLArn?: string;
+}
+
 export class PetSite extends EKSDeployment {
     public readonly loadBalancer: ApplicationLoadBalancer;
     public readonly targetGroup: ApplicationTargetGroup;
     public readonly distribution: Distribution;
-    constructor(scope: Construct, id: string, properties: EKSDeploymentProperties) {
+    constructor(scope: Construct, id: string, properties: PetSetProperties) {
         super(scope, id, properties);
         this.loadBalancer = new ApplicationLoadBalancer(scope, 'loadBalancer', {
             vpc: properties.vpc!,
@@ -110,6 +114,7 @@ export class PetSite extends EKSDeployment {
                 },
             ],
             enableIpv6: false,
+            webAclId: properties.globalWebACLArn,
         });
 
         // Allow load balancer to reach EKS nodes

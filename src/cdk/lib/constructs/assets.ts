@@ -34,6 +34,7 @@ export interface AssetsProperties {
      * @optional
      */
     seedPaths?: string[];
+    globalWebACLArn?: string;
 }
 
 /**
@@ -118,7 +119,7 @@ export class WorkshopAssets extends Construct {
         }
 
         // Create CloudFront distribution for optimized image delivery
-        this.createCloudFrontDistribution();
+        this.createCloudFrontDistribution(properties);
 
         // Create CloudFormation outputs for Assets resources
         this.createAssetsOutputs();
@@ -127,7 +128,7 @@ export class WorkshopAssets extends Construct {
     /**
      * Creates CloudFront distribution for optimized asset delivery
      */
-    private createCloudFrontDistribution(): void {
+    private createCloudFrontDistribution(properties?: AssetsProperties): void {
         // Create Origin Access Identity for secure S3 access
         const originAccessIdentity = new OriginAccessIdentity(this, 'AssetsOAI', {
             comment: 'OAI for Pet Store Assets',
@@ -149,6 +150,7 @@ export class WorkshopAssets extends Construct {
             comment: 'Pet Store Assets CDN',
             enableIpv6: true,
             priceClass: PriceClass.PRICE_CLASS_ALL,
+            webAclId: properties?.globalWebACLArn,
         });
 
         // Add CDK-nag suppressions for CloudFront

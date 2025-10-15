@@ -29,6 +29,8 @@ import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
+import { CUSTOM_ENABLE_WAF } from '../bin/environment';
+import { GlobalWaf } from './constructs/waf';
 
 /**
  * Properties for configuring the CDK Pipeline stack.
@@ -221,6 +223,7 @@ export class CDKPipeline extends Stack {
         const storageStage = new StorageStage(this, 'Storage', {
             assetsProperties: {
                 seedPaths: properties.petImagesPaths,
+                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
             },
             auroraDatabaseProperties: {
                 engineVersion: properties.postgresEngineVersion,
