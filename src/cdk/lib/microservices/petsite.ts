@@ -82,7 +82,7 @@ export class PetSite extends EKSDeployment {
         });
 
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
-            removalPolicy: RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
             autoDeleteObjects: false, // TODO: Autodelete is not working for this bucket
