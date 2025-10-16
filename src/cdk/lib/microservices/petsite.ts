@@ -8,7 +8,7 @@ import { Microservice, MicroserviceProperties } from '../constructs/microservice
 import { readFileSync } from 'node:fs';
 import * as yaml from 'yaml';
 import * as nunjucks from 'nunjucks';
-import { ManagedPolicy, Policy, PolicyDocument, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Policy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { CfnPodIdentityAssociation } from 'aws-cdk-lib/aws-eks';
 import {
     ApplicationLoadBalancer,
@@ -32,7 +32,7 @@ import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/enviro
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
-import { CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 
 export interface PetSetProperties extends EKSDeploymentProperties {
     globalWebACLArn?: string;
@@ -247,7 +247,15 @@ export class PetSite extends EKSDeployment {
         const servicePolicy = new Policy(this, 'PetSitePolicy', {
             policyName: 'PetSiteAccessPolicy',
             document: new PolicyDocument({
-                statements: [Microservice.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
+                statements: [
+                    Microservice.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
+                    new PolicyStatement({
+                        actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+                        resources: [
+                            `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:runtime/PetFoodAgent*`,
+                        ],
+                    }),
+                ],
             }),
             roles: [this.serviceAccountRole],
         });

@@ -16,7 +16,7 @@ namespace PetSite.Controllers
         private readonly IConfiguration _configuration;
 
 
-        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory,IConfiguration configuration)
+        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
@@ -42,10 +42,7 @@ namespace PetSite.Controllers
 
                 using var httpClient = _httpClientFactory.CreateClient();
 
-                // TEMP - Remove this once the Parameter name is available via CDK
-                var waggleApiUrl = _configuration.GetValue<string>("waggleapiurl");
-
-                //var waggleApiUrl = ParameterNames.GetParameterValue(ParameterNames.WAGGLE_API_URL, _configuration);
+                var waggleApiUrl = ParameterNames.GetParameterValue(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _configuration);
 
                 var payload = new
                 {

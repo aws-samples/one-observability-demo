@@ -380,7 +380,7 @@ export class MicroservicesStack extends Stack {
                 new PetFoodAgentConstruct(this, 'PetFoodAgent', {
                     ecrRepositoryUri: `${imports.baseURI}/${name}`,
                     vpc: imports.vpcExports,
-                    securityGroup: imports.ecsExports.securityGroup,
+                    securityGroups: [imports.ecsExports.securityGroup, imports.eksExports.securityGroup],
                 });
             }
         }
