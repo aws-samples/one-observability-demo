@@ -168,6 +168,10 @@ export class PetSite extends EKSDeployment {
                     id: 'AwsSolutions-S1',
                     reason: 'Cloudfront access log bucket',
                 },
+                {
+                    id: 'Workshop-S3-1',
+                    reason: 'Auto-delete is failing for cloudfront buckets',
+                },
             ],
             true,
         );

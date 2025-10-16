@@ -84,6 +84,10 @@ export class WorkshopAssets extends Construct {
                 id: 'AwsSolutions-S1',
                 reason: 'Bucket does not need server access logs',
             },
+            {
+                id: 'Workshop-S3-1',
+                reason: 'Auto-delete is failing for cloudfront buckets',
+            },
         ]);
 
         if (properties?.seedPaths) {
