@@ -16,7 +16,6 @@ import (
 
 	"petadoptions/payforadoption"
 
-	"github.com/XSAM/otelsql"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
@@ -121,17 +120,9 @@ func main() {
 	var db *sql.DB
 	{
 		var err error
-		var connStr string
 
-		connStr, err = getRDSConnectionString(ctx, cfg)
-		if err != nil {
-			level.Error(logger).Log("exit", err)
-			os.Exit(-1)
-		}
-
-		db, err = otelsql.Open("postgres", connStr, otelsql.WithAttributes(
-			semconv.DBSystemKey.String("postgres"),
-		))
+		// Use enhanced database connection with Aurora correlation attributes
+		db, err = createInstrumentedDB(ctx, cfg)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
@@ -142,7 +133,12 @@ func main() {
 
 	var s payforadoption.Service
 	{
-		repo := payforadoption.NewRepository(db, cfg, logger)
+		// Use enhanced repository with Aurora correlation support
+		repo, err := createEnhancedRepository(ctx, db, cfg, logger)
+		if err != nil {
+			level.Error(logger).Log("exit", err)
+			os.Exit(-1)
+		}
 		s = payforadoption.NewService(logger, repo, tracer)
 		s = payforadoption.NewInstrumenting(logger, s)
 	}
