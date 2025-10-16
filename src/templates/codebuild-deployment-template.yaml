@@ -490,7 +490,7 @@ Resources:
                       cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
                       return
 
-                  outputs = {o['OutputKey']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', [])}
+                  outputs = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
