@@ -36,40 +36,11 @@ func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.
 	// Format: engine|host|port for CloudWatch Application Signals correlation
 	resourceIdentifier := fmt.Sprintf("postgres|%s|%d", dbConfig.Host, dbConfig.Port)
 
-	// Create enhanced attributes for Aurora cluster correlation
-	attributes := []otelsql.Option{
-		// Standard database attributes
-		otelsql.WithAttributes(
-			semconv.DBSystemKey.String("postgres"),
-			semconv.DBNamespaceKey.String(dbConfig.Dbname),
-			attribute.String("db.user", dbConfig.Username),
-			semconv.ServerAddressKey.String(dbConfig.Host),
-			semconv.ServerPortKey.Int(dbConfig.Port),
-			// Add database connection string for correlation (sanitized)
-			attribute.String("db.connection_string", "localhost/postgres"),
-		),
-		// Add custom attributes for remote resource correlation
-		otelsql.WithAttributes(
-			attribute.String("aws.remote.resource.identifier", resourceIdentifier),
-			attribute.String("aws.remote.resource.type", "DB::Connection"),
-			attribute.String("remote.db.user", dbConfig.Username),
-			attribute.String("remote.resource.cfn.primary.identifier", resourceIdentifier),
-		),
-	}
-
-	// Add Aurora-specific attributes if we can detect it's Aurora
-	if isAuroraCluster(dbConfig.Host) {
-		attributes = append(attributes, otelsql.WithAttributes(
-			// These attributes help CloudWatch Application Signals correlate with Aurora
-			semconv.CloudProviderKey.String("aws"),
-			semconv.CloudPlatformKey.String("aws_rds"),
-			semconv.CloudRegionKey.String(cfg.AWSRegion),
-			attribute.String("aws.rds.cluster.identifier", extractClusterIdentifier(dbConfig.Host)),
-		))
-	}
-
-	// Create instrumented database connection with enhanced tracing
-	db, err := otelsql.Open("postgres", connStr, attributes...)
+	// Use the original simple approach to preserve service detection
+	// Only add the basic database system attribute
+	db, err := otelsql.Open("postgres", connStr, otelsql.WithAttributes(
+		semconv.DBSystemKey.String("postgres"),
+	))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open instrumented database: %w", err)
 	}

@@ -39,10 +39,15 @@ func (w *AuroraCorrelationWrapper) ExecContext(ctx context.Context, query string
 	if span.IsRecording() {
 		// Add the missing attributes for Aurora correlation
 		span.SetAttributes(
+			// Keep the service name as postgres for proper detection
+			attribute.String("aws.remote.service", "postgres"),
 			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
 			attribute.String("aws.remote.resource.type", "DB::Connection"),
 			attribute.String("remote.db.user", w.dbUser),
 			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
+			// Add database connection string for correlation (sanitized)
+			attribute.String("db.connection_string", "localhost/postgres"),
+			attribute.String("db.system", "postgres"),
 		)
 	}
 
@@ -55,10 +60,15 @@ func (w *AuroraCorrelationWrapper) QueryContext(ctx context.Context, query strin
 	if span.IsRecording() {
 		// Add the missing attributes for Aurora correlation
 		span.SetAttributes(
+			// Keep the service name as postgres for proper detection
+			attribute.String("aws.remote.service", "postgres"),
 			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
 			attribute.String("aws.remote.resource.type", "DB::Connection"),
 			attribute.String("remote.db.user", w.dbUser),
 			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
+			// Add database connection string for correlation (sanitized)
+			attribute.String("db.connection_string", "localhost/postgres"),
+			attribute.String("db.system", "postgres"),
 		)
 	}
 
@@ -71,10 +81,15 @@ func (w *AuroraCorrelationWrapper) QueryRowContext(ctx context.Context, query st
 	if span.IsRecording() {
 		// Add the missing attributes for Aurora correlation
 		span.SetAttributes(
+			// Keep the service name as postgres for proper detection
+			attribute.String("aws.remote.service", "postgres"),
 			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
 			attribute.String("aws.remote.resource.type", "DB::Connection"),
 			attribute.String("remote.db.user", w.dbUser),
 			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
+			// Add database connection string for correlation (sanitized)
+			attribute.String("db.connection_string", "localhost/postgres"),
+			attribute.String("db.system", "postgres"),
 		)
 	}
 
