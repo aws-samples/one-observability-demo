@@ -20,7 +20,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-// Enhanced database connection with proper Aurora correlation attributes
+// Enhanced database connection with proper Aurora correlation attributes and SQL operation tracking
 func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.DB, error) {
 	// Get database configuration from secrets manager
 	dbService := payforadoption.NewDatabaseConfigService(cfg)
@@ -36,11 +36,15 @@ func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.
 	// Format: engine|host|port for CloudWatch Application Signals correlation
 	resourceIdentifier := fmt.Sprintf("postgres|%s|%d", dbConfig.Host, dbConfig.Port)
 
-	// Use the original simple approach to preserve service detection
-	// Only add the basic database system attribute
-	db, err := otelsql.Open("postgres", connStr, otelsql.WithAttributes(
-		semconv.DBSystemKey.String("postgres"),
-	))
+	// Create instrumented database with enhanced options to preserve SQL operation information
+	db, err := otelsql.Open("postgres", connStr,
+		// Basic database system attribute for service detection
+		otelsql.WithAttributes(
+			semconv.DBSystemKey.String("postgres"),
+		),
+		// Enable SQL commenter to preserve query information
+		otelsql.WithSQLCommenter(true),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open instrumented database: %w", err)
 	}

@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"petadoptions/payforadoption"
 
@@ -34,8 +35,11 @@ func NewSQLSpanProcessor(resourceIdentifier, dbUser, host string) *SQLSpanProces
 func (p *SQLSpanProcessor) OnStart(parent context.Context, s trace.ReadWriteSpan) {
 	spanName := s.Name()
 
-	// Target specific SQL spans that need Aurora correlation
-	if p.isSQLSpan(spanName) {
+	// Target database spans (looking for "postgres" spans from otelsql)
+	if p.isDatabaseSpan(spanName, s) {
+		// Extract SQL operation from existing attributes
+		sqlOperation := p.extractSQLOperationFromSpan(s)
+
 		// Add Aurora correlation attributes to the SQL span
 		s.SetAttributes(
 			// Ensure the service name is preserved
@@ -43,20 +47,48 @@ func (p *SQLSpanProcessor) OnStart(parent context.Context, s trace.ReadWriteSpan
 			// Add Aurora correlation attributes
 			attribute.String("aws.remote.resource.identifier", p.resourceIdentifier),
 			attribute.String("aws.remote.resource.type", "DB::Connection"),
+			attribute.String("aws.remote.operation", sqlOperation), // Set the actual SQL operation
 			attribute.String("remote.db.user", p.dbUser),
 			attribute.String("remote.resource.cfn.primary.identifier", p.resourceIdentifier),
 			// Add database connection string for correlation (sanitized)
 			attribute.String("db.connection_string", "localhost/postgres"),
-			attribute.String("db.system", "postgres"),
 		)
 
-		fmt.Printf("Added Aurora correlation attributes to span: %s\n", spanName)
+		fmt.Printf("Added Aurora correlation attributes to span: %s with operation: %s\n", spanName, sqlOperation)
 	}
 }
 
 // OnEnd is called when a span ends
 func (p *SQLSpanProcessor) OnEnd(s trace.ReadOnlySpan) {
-	// No additional processing needed on span end
+	// Nothing to do here - all processing happens in OnStart
+}
+
+// extractSQLOperation extracts the SQL operation type from a SQL statement
+func (p *SQLSpanProcessor) extractSQLOperation(sqlStatement string) string {
+	if sqlStatement == "" {
+		return "UnknownRemoteOperation"
+	}
+
+	// Convert to uppercase and extract the first word (SQL operation)
+	sqlUpper := strings.ToUpper(strings.TrimSpace(sqlStatement))
+
+	if strings.HasPrefix(sqlUpper, "INSERT") {
+		return "INSERT INTO"
+	} else if strings.HasPrefix(sqlUpper, "SELECT") {
+		return "SELECT"
+	} else if strings.HasPrefix(sqlUpper, "UPDATE") {
+		return "UPDATE"
+	} else if strings.HasPrefix(sqlUpper, "DELETE") {
+		return "DELETE"
+	} else if strings.HasPrefix(sqlUpper, "CREATE") {
+		return "CREATE"
+	} else if strings.HasPrefix(sqlUpper, "DROP") {
+		return "DROP"
+	} else if strings.HasPrefix(sqlUpper, "ALTER") {
+		return "ALTER"
+	}
+
+	return "UnknownRemoteOperation"
 }
 
 // Shutdown is called when the processor is shut down
@@ -69,23 +101,35 @@ func (p *SQLSpanProcessor) ForceFlush(ctx context.Context) error {
 	return nil
 }
 
-// isSQLSpan checks if the span is a SQL span that needs Aurora correlation
-func (p *SQLSpanProcessor) isSQLSpan(spanName string) bool {
-	sqlSpanNames := []string{
-		"sql.conn.exec",
-		"sql.conn.query",
-		"sql.conn.query_row",
-		"sql.conn.prepare",
-		"sql.conn.reset_session",
+// isDatabaseSpan checks if the span is a database span that needs Aurora correlation
+func (p *SQLSpanProcessor) isDatabaseSpan(spanName string, s trace.ReadWriteSpan) bool {
+	// Check if span name indicates a database operation
+	if spanName == "postgres" {
+		return true
 	}
 
-	for _, sqlSpan := range sqlSpanNames {
-		if spanName == sqlSpan {
+	// Also check for db.system attribute to identify database spans
+	for _, attr := range s.Attributes() {
+		if attr.Key == "db.system" && attr.Value.AsString() == "postgres" {
 			return true
 		}
 	}
 
 	return false
+}
+
+// extractSQLOperationFromSpan extracts the SQL operation from span attributes
+func (p *SQLSpanProcessor) extractSQLOperationFromSpan(s trace.ReadWriteSpan) string {
+	// Look for db.statement attribute which contains the SQL query
+	for _, attr := range s.Attributes() {
+		if attr.Key == "db.statement" {
+			sqlStatement := attr.Value.AsString()
+			return p.extractSQLOperation(sqlStatement)
+		}
+	}
+
+	// If no SQL statement found, return unknown operation
+	return "UnknownRemoteOperation"
 }
 
 // createSQLSpanProcessor creates and configures the SQL span processor

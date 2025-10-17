@@ -40,7 +40,7 @@ func getServiceName() string {
 
 var tracer trace.Tracer
 
-func otelInit(ctx context.Context) {
+func otelInit(ctx context.Context, cfg payforadoption.Config) {
 	// OpenTelemetry Go requires an exporter to send traces to a backend
 	// Exporters allow telemetry data to be transferred either to the ADOT Collector,
 	// or to a remote system or console for further analysis
@@ -74,12 +74,31 @@ func otelInit(ctx context.Context) {
 		mergedResource = svcNameResource
 		fmt.Println("mergedResource error", err)
 	}
-	// Create tracer provider with SQL span processor for Aurora correlation
+
+	// Create SQL span processor for Aurora correlation
+	sqlProcessor, err := createSQLSpanProcessor(ctx, cfg)
+	if err != nil {
+		fmt.Printf("Warning: failed to create SQL span processor: %v\n", err)
+	}
+
+	// Create tracer provider with SQL span processor
+	var processors []sdktrace.SpanProcessor
+	processors = append(processors, sdktrace.NewBatchSpanProcessor(traceExporter))
+	if sqlProcessor != nil {
+		processors = append(processors, sqlProcessor)
+	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithSpanProcessor(processors[0]), // Batch processor
 		sdktrace.WithResource(mergedResource),
 	)
+
+	// Register SQL span processor if available
+	if sqlProcessor != nil {
+		tp.RegisterSpanProcessor(sqlProcessor)
+		fmt.Println("SQL span processor registered for Aurora correlation")
+	}
 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(xray.Propagator{})
@@ -89,7 +108,6 @@ func otelInit(ctx context.Context) {
 
 func main() {
 	ctx := context.Background()
-	otelInit(ctx)
 
 	var (
 		httpAddr = flag.String("http.addr", ":80", "HTTP Port binding")
@@ -112,19 +130,10 @@ func main() {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)
 		}
-		cfg.Tracer = tracer
 
-		// Add SQL span processor for Aurora correlation
-		sqlProcessor, err := createSQLSpanProcessor(ctx, cfg)
-		if err != nil {
-			level.Error(logger).Log("msg", "failed to create SQL span processor", "error", err)
-		} else {
-			// Get the tracer provider and add the SQL span processor
-			if tp, ok := otel.GetTracerProvider().(*sdktrace.TracerProvider); ok {
-				tp.RegisterSpanProcessor(sqlProcessor)
-				level.Info(logger).Log("msg", "SQL span processor registered for Aurora correlation")
-			}
-		}
+		// Initialize OpenTelemetry with config for SQL span processor
+		otelInit(ctx, cfg)
+		cfg.Tracer = tracer
 	}
 
 	//auto instrumentation of AWS APIs
