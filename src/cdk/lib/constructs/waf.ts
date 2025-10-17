@@ -51,7 +51,7 @@ export class RegionalWaf extends Construct {
                         },
                     },
                     overrideAction: {
-                        none: {},
+                        count: {},
                     },
                     visibilityConfig: {
                         cloudWatchMetricsEnabled: true,
@@ -124,7 +124,7 @@ export class GlobalWaf extends Construct {
                         },
                     },
                     overrideAction: {
-                        none: {},
+                        count: {},
                     },
                     visibilityConfig: {
                         cloudWatchMetricsEnabled: true,
