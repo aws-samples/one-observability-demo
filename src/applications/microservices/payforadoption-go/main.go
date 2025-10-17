@@ -155,8 +155,8 @@ func main() {
 
 	var s payforadoption.Service
 	{
-		// Use enhanced repository with Aurora correlation support
-		repo, err := createEnhancedRepository(ctx, db, cfg, logger)
+		// Create repository - Aurora correlation handled by SQL span processor
+		repo, err := createRepository(ctx, db, cfg, logger)
 		if err != nil {
 			level.Error(logger).Log("exit", err)
 			os.Exit(-1)

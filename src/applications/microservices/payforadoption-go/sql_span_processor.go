@@ -15,6 +15,24 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
+// Constants for SQL operations
+const (
+	unknownRemoteOperation = "UnknownRemoteOperation"
+	dbSystemPostgres       = "postgres"
+	dbConnectionString     = "localhost/postgres"
+)
+
+// SQL operation mappings
+var sqlOperations = map[string]string{
+	"INSERT": "INSERT INTO",
+	"SELECT": "SELECT",
+	"UPDATE": "UPDATE",
+	"DELETE": "DELETE",
+	"CREATE": "CREATE",
+	"DROP":   "DROP",
+	"ALTER":  "ALTER",
+}
+
 // SQLSpanProcessor adds Aurora correlation attributes to SQL spans
 type SQLSpanProcessor struct {
 	resourceIdentifier string
@@ -41,18 +59,7 @@ func (p *SQLSpanProcessor) OnStart(parent context.Context, s trace.ReadWriteSpan
 		sqlOperation := p.extractSQLOperationFromSpan(s)
 
 		// Add Aurora correlation attributes to the SQL span
-		s.SetAttributes(
-			// Ensure the service name is preserved
-			attribute.String("aws.remote.service", "postgres"),
-			// Add Aurora correlation attributes
-			attribute.String("aws.remote.resource.identifier", p.resourceIdentifier),
-			attribute.String("aws.remote.resource.type", "DB::Connection"),
-			attribute.String("aws.remote.operation", sqlOperation), // Set the actual SQL operation
-			attribute.String("remote.db.user", p.dbUser),
-			attribute.String("remote.resource.cfn.primary.identifier", p.resourceIdentifier),
-			// Add database connection string for correlation (sanitized)
-			attribute.String("db.connection_string", "localhost/postgres"),
-		)
+		s.SetAttributes(p.buildAuroraCorrelationAttributes(sqlOperation)...)
 
 		fmt.Printf("Added Aurora correlation attributes to span: %s with operation: %s\n", spanName, sqlOperation)
 	}
@@ -66,29 +73,20 @@ func (p *SQLSpanProcessor) OnEnd(s trace.ReadOnlySpan) {
 // extractSQLOperation extracts the SQL operation type from a SQL statement
 func (p *SQLSpanProcessor) extractSQLOperation(sqlStatement string) string {
 	if sqlStatement == "" {
-		return "UnknownRemoteOperation"
+		return unknownRemoteOperation
 	}
 
 	// Convert to uppercase and extract the first word (SQL operation)
 	sqlUpper := strings.ToUpper(strings.TrimSpace(sqlStatement))
 
-	if strings.HasPrefix(sqlUpper, "INSERT") {
-		return "INSERT INTO"
-	} else if strings.HasPrefix(sqlUpper, "SELECT") {
-		return "SELECT"
-	} else if strings.HasPrefix(sqlUpper, "UPDATE") {
-		return "UPDATE"
-	} else if strings.HasPrefix(sqlUpper, "DELETE") {
-		return "DELETE"
-	} else if strings.HasPrefix(sqlUpper, "CREATE") {
-		return "CREATE"
-	} else if strings.HasPrefix(sqlUpper, "DROP") {
-		return "DROP"
-	} else if strings.HasPrefix(sqlUpper, "ALTER") {
-		return "ALTER"
+	// Check for known SQL operations
+	for prefix, operation := range sqlOperations {
+		if strings.HasPrefix(sqlUpper, prefix) {
+			return operation
+		}
 	}
 
-	return "UnknownRemoteOperation"
+	return unknownRemoteOperation
 }
 
 // Shutdown is called when the processor is shut down
@@ -104,18 +102,34 @@ func (p *SQLSpanProcessor) ForceFlush(ctx context.Context) error {
 // isDatabaseSpan checks if the span is a database span that needs Aurora correlation
 func (p *SQLSpanProcessor) isDatabaseSpan(spanName string, s trace.ReadWriteSpan) bool {
 	// Check if span name indicates a database operation
-	if spanName == "postgres" {
+	if spanName == dbSystemPostgres {
 		return true
 	}
 
 	// Also check for db.system attribute to identify database spans
 	for _, attr := range s.Attributes() {
-		if attr.Key == "db.system" && attr.Value.AsString() == "postgres" {
+		if attr.Key == "db.system" && attr.Value.AsString() == dbSystemPostgres {
 			return true
 		}
 	}
 
 	return false
+}
+
+// buildAuroraCorrelationAttributes builds the Aurora correlation attributes for a span
+func (p *SQLSpanProcessor) buildAuroraCorrelationAttributes(sqlOperation string) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		// Ensure the service name is preserved
+		attribute.String("aws.remote.service", dbSystemPostgres),
+		// Add Aurora correlation attributes
+		attribute.String("aws.remote.resource.identifier", p.resourceIdentifier),
+		attribute.String("aws.remote.resource.type", "DB::Connection"),
+		attribute.String("aws.remote.operation", sqlOperation),
+		attribute.String("remote.db.user", p.dbUser),
+		attribute.String("remote.resource.cfn.primary.identifier", p.resourceIdentifier),
+		// Add database connection string for correlation (sanitized)
+		attribute.String("db.connection_string", dbConnectionString),
+	}
 }
 
 // extractSQLOperationFromSpan extracts the SQL operation from span attributes
@@ -129,7 +143,7 @@ func (p *SQLSpanProcessor) extractSQLOperationFromSpan(s trace.ReadWriteSpan) st
 	}
 
 	// If no SQL statement found, return unknown operation
-	return "UnknownRemoteOperation"
+	return unknownRemoteOperation
 }
 
 // createSQLSpanProcessor creates and configures the SQL span processor

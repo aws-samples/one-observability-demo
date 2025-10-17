@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"petadoptions/payforadoption"
 
@@ -20,7 +19,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-// Enhanced database connection with proper Aurora correlation attributes and SQL operation tracking
+// createInstrumentedDB creates an instrumented database connection
+// Aurora correlation is handled by the SQL span processor
 func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.DB, error) {
 	// Get database configuration from secrets manager
 	dbService := payforadoption.NewDatabaseConfigService(cfg)
@@ -30,7 +30,7 @@ func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.
 	}
 
 	// Build connection string
-	connStr := buildEnhancedConnectionString(dbConfig)
+	connStr := buildConnectionString(dbConfig)
 
 	// Build resource identifier for Aurora correlation
 	// Format: engine|host|port for CloudWatch Application Signals correlation
@@ -62,27 +62,8 @@ func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.
 	return db, nil
 }
 
-// isAuroraCluster checks if the hostname indicates an Aurora cluster
-func isAuroraCluster(host string) bool {
-	return strings.Contains(host, ".cluster-") && strings.Contains(host, ".rds.amazonaws.com")
-}
-
-// extractClusterIdentifier extracts the cluster identifier from Aurora hostname
-func extractClusterIdentifier(host string) string {
-	if !isAuroraCluster(host) {
-		return ""
-	}
-
-	// Extract cluster identifier from hostname like: cluster-name.cluster-xyz.region.rds.amazonaws.com
-	parts := strings.Split(host, ".")
-	if len(parts) >= 2 && strings.Contains(parts[1], "cluster-") {
-		return parts[0] // Return the cluster name part
-	}
-	return ""
-}
-
-// Enhanced connection string builder with better attribute support
-func buildEnhancedConnectionString(config *payforadoption.DatabaseConfig) string {
+// buildConnectionString builds a PostgreSQL connection string
+func buildConnectionString(config *payforadoption.DatabaseConfig) string {
 	u := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(config.Username, config.Password),
@@ -99,24 +80,9 @@ func buildEnhancedConnectionString(config *payforadoption.DatabaseConfig) string
 	return u.String()
 }
 
-// createEnhancedRepository creates a repository with Aurora correlation support
-func createEnhancedRepository(ctx context.Context, db *sql.DB, cfg payforadoption.Config, logger log.Logger) (payforadoption.Repository, error) {
-	// Get database configuration for correlation attributes
-	dbService := payforadoption.NewDatabaseConfigService(cfg)
-	dbConfig, err := dbService.GetDatabaseConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database config for correlation: %w", err)
-	}
-
-	// Build resource identifier for Aurora correlation
-	resourceIdentifier := fmt.Sprintf("postgres|%s|%d", dbConfig.Host, dbConfig.Port)
-
-	// Create Aurora correlation wrapper
-	auroraWrapper := NewAuroraCorrelationWrapper(db, resourceIdentifier, dbConfig.Username, dbConfig.Host)
-
-	// Create original repository
-	originalRepo := payforadoption.NewRepository(db, cfg, logger)
-
-	// Return enhanced repository with Aurora correlation
-	return NewEnhancedRepository(originalRepo, auroraWrapper), nil
+// createRepository creates a standard repository
+// Aurora correlation is now handled by the SQL span processor
+func createRepository(ctx context.Context, db *sql.DB, cfg payforadoption.Config, logger log.Logger) (payforadoption.Repository, error) {
+	// Create standard repository - Aurora correlation handled by SQL span processor
+	return payforadoption.NewRepository(db, cfg, logger), nil
 }
