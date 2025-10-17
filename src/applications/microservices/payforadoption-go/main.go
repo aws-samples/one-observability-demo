@@ -74,6 +74,7 @@ func otelInit(ctx context.Context) {
 		mergedResource = svcNameResource
 		fmt.Println("mergedResource error", err)
 	}
+	// Create tracer provider with SQL span processor for Aurora correlation
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(traceExporter),
@@ -112,6 +113,18 @@ func main() {
 			os.Exit(-1)
 		}
 		cfg.Tracer = tracer
+
+		// Add SQL span processor for Aurora correlation
+		sqlProcessor, err := createSQLSpanProcessor(ctx, cfg)
+		if err != nil {
+			level.Error(logger).Log("msg", "failed to create SQL span processor", "error", err)
+		} else {
+			// Get the tracer provider and add the SQL span processor
+			if tp, ok := otel.GetTracerProvider().(*sdktrace.TracerProvider); ok {
+				tp.RegisterSpanProcessor(sqlProcessor)
+				level.Info(logger).Log("msg", "SQL span processor registered for Aurora correlation")
+			}
+		}
 	}
 
 	//auto instrumentation of AWS APIs

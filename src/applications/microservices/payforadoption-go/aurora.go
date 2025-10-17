@@ -33,66 +33,24 @@ func NewAuroraCorrelationWrapper(db *sql.DB, resourceIdentifier, dbUser, host st
 	}
 }
 
-// ExecContext wraps sql.DB.ExecContext with Aurora correlation attributes
+// ExecContext wraps sql.DB.ExecContext - Aurora correlation handled by span processor
 func (w *AuroraCorrelationWrapper) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	span := trace.SpanFromContext(ctx)
-	if span.IsRecording() {
-		// Add the missing attributes for Aurora correlation
-		span.SetAttributes(
-			// Keep the service name as postgres for proper detection
-			attribute.String("aws.remote.service", "postgres"),
-			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
-			attribute.String("aws.remote.resource.type", "DB::Connection"),
-			attribute.String("remote.db.user", w.dbUser),
-			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
-			// Add database connection string for correlation (sanitized)
-			attribute.String("db.connection_string", "localhost/postgres"),
-			attribute.String("db.system", "postgres"),
-		)
-	}
-
+	// Aurora correlation attributes are now added by the SQLSpanProcessor
+	// This ensures they're added to the correct sql.conn.exec span
 	return w.db.ExecContext(ctx, query, args...)
 }
 
-// QueryContext wraps sql.DB.QueryContext with Aurora correlation attributes
+// QueryContext wraps sql.DB.QueryContext - Aurora correlation handled by span processor
 func (w *AuroraCorrelationWrapper) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	span := trace.SpanFromContext(ctx)
-	if span.IsRecording() {
-		// Add the missing attributes for Aurora correlation
-		span.SetAttributes(
-			// Keep the service name as postgres for proper detection
-			attribute.String("aws.remote.service", "postgres"),
-			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
-			attribute.String("aws.remote.resource.type", "DB::Connection"),
-			attribute.String("remote.db.user", w.dbUser),
-			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
-			// Add database connection string for correlation (sanitized)
-			attribute.String("db.connection_string", "localhost/postgres"),
-			attribute.String("db.system", "postgres"),
-		)
-	}
-
+	// Aurora correlation attributes are now added by the SQLSpanProcessor
+	// This ensures they're added to the correct sql.conn.query span
 	return w.db.QueryContext(ctx, query, args...)
 }
 
-// QueryRowContext wraps sql.DB.QueryRowContext with Aurora correlation attributes
+// QueryRowContext wraps sql.DB.QueryRowContext - Aurora correlation handled by span processor
 func (w *AuroraCorrelationWrapper) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	span := trace.SpanFromContext(ctx)
-	if span.IsRecording() {
-		// Add the missing attributes for Aurora correlation
-		span.SetAttributes(
-			// Keep the service name as postgres for proper detection
-			attribute.String("aws.remote.service", "postgres"),
-			attribute.String("aws.remote.resource.identifier", w.resourceIdentifier),
-			attribute.String("aws.remote.resource.type", "DB::Connection"),
-			attribute.String("remote.db.user", w.dbUser),
-			attribute.String("remote.resource.cfn.primary.identifier", w.resourceIdentifier),
-			// Add database connection string for correlation (sanitized)
-			attribute.String("db.connection_string", "localhost/postgres"),
-			attribute.String("db.system", "postgres"),
-		)
-	}
-
+	// Aurora correlation attributes are now added by the SQLSpanProcessor
+	// This ensures they're added to the correct sql.conn.query_row span
 	return w.db.QueryRowContext(ctx, query, args...)
 }
 
