@@ -17,7 +17,6 @@ import (
 	"petadoptions/payforadoption"
 
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -56,7 +55,7 @@ func otelInit(ctx context.Context, cfg payforadoption.Config) {
 		otlptracegrpc.WithEndpoint(endpoint),
 	)
 	if err != nil {
-		fmt.Println("init error", err)
+		ErrorWithTrace(ctx, "init error: %v\n", err)
 	}
 
 	// service name used to display traces in backends
@@ -72,13 +71,13 @@ func otelInit(ctx context.Context, cfg payforadoption.Config) {
 	mergedResource, err := resource.Merge(ecsRes, svcNameResource)
 	if err != nil {
 		mergedResource = svcNameResource
-		fmt.Println("mergedResource error", err)
+		WarnWithTrace(ctx, "mergedResource error: %v\n", err)
 	}
 
 	// Create SQL span processor for Aurora correlation
 	sqlProcessor, err := createSQLSpanProcessor(ctx, cfg)
 	if err != nil {
-		fmt.Printf("Warning: failed to create SQL span processor: %v\n", err)
+		WarnWithTrace(ctx, "Warning: failed to create SQL span processor: %v\n", err)
 	}
 
 	// Create tracer provider with SQL span processor
@@ -97,7 +96,7 @@ func otelInit(ctx context.Context, cfg payforadoption.Config) {
 	// Register SQL span processor if available
 	if sqlProcessor != nil {
 		tp.RegisterSpanProcessor(sqlProcessor)
-		fmt.Println("SQL span processor registered for Aurora correlation")
+		InfoWithTrace(ctx, "SQL span processor registered for Aurora correlation\n")
 	}
 
 	otel.SetTracerProvider(tp)
@@ -127,7 +126,9 @@ func main() {
 		var err error
 		cfg, err = fetchConfig(ctx, logger)
 		if err != nil {
-			level.Error(logger).Log("exit", err)
+			// Use tracing logger for structured logging with trace ID
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
 			os.Exit(-1)
 		}
 
@@ -146,7 +147,8 @@ func main() {
 		// Use enhanced database connection with Aurora correlation attributes
 		db, err = createInstrumentedDB(ctx, cfg)
 		if err != nil {
-			level.Error(logger).Log("exit", err)
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
 			os.Exit(-1)
 		}
 
@@ -158,7 +160,8 @@ func main() {
 		// Create repository - Aurora correlation handled by SQL span processor
 		repo, err := createRepository(ctx, db, cfg, logger)
 		if err != nil {
-			level.Error(logger).Log("exit", err)
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
 			os.Exit(-1)
 		}
 		s = payforadoption.NewService(logger, repo, tracer)

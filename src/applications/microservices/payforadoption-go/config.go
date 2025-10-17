@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/spf13/viper"
 )
 
@@ -24,7 +23,7 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		level.Error(logger).Log("aws", err)
+		ErrorWithTrace(ctx, "aws error: %v\n", err)
 	}
 
 	cfg := payforadoption.Config{
@@ -64,13 +63,13 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 		fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
 	}
 
-	level.Info(logger).Log("msg", "fetching SSM parameters", "names", fmt.Sprintf("%v", paramNames))
+	InfoWithTrace(ctx, "fetching SSM parameters: %v\n", paramNames)
 
 	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
 		Names: paramNames,
 	})
 	if err != nil {
-		level.Error(logger).Log("msg", "failed to fetch SSM parameters", "names", fmt.Sprintf("%v", paramNames), "error", err)
+		ErrorWithTrace(ctx, "failed to fetch SSM parameters %v: %v\n", paramNames, err)
 		return cfg, err
 	}
 

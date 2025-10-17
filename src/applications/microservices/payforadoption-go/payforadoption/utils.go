@@ -74,7 +74,7 @@ func memoryLeak() {
 // Critical system stress scenario
 func systemStressDegradation(ctx context.Context, logger log.Logger, adoption Adoption, startTime time.Time) DegradationResult {
 	degradationType := "system stress"
-	level.Error(logger).Log("degradation", degradationType, "severity", "critical")
+	ErrorWithTrace(ctx, logger, "degradation", degradationType, "severity", "critical")
 
 	// Add CPU pressure for realistic system stress
 	go simulateHighCPU(500 * time.Millisecond)
@@ -93,7 +93,7 @@ func systemStressDegradation(ctx context.Context, logger log.Logger, adoption Ad
 func circuitBreakerDegradation(ctx context.Context, logger log.Logger, adoption Adoption, startTime time.Time) DegradationResult {
 	// if rand.Intn(10) < 3 { // 30% failure rate
 	degradationType := "circuit breaker open"
-	level.Error(logger).Log("degradation", degradationType, "severity", "high")
+	ErrorWithTrace(ctx, logger, "degradation", degradationType, "severity", "high")
 
 	simulateNetworkLatency(500, 200) // Quick failure
 	duration := time.Since(startTime)
@@ -109,12 +109,12 @@ func circuitBreakerDegradation(ctx context.Context, logger log.Logger, adoption 
 // Real database connection exhaustion scenario
 func databaseConnectionDegradation(ctx context.Context, logger log.Logger, adoption Adoption, startTime time.Time, repository Repository) DegradationResult {
 	degradationType := "database connection exhaustion"
-	level.Error(logger).Log("degradation", degradationType, "severity", "critical")
+	ErrorWithTrace(ctx, logger, "degradation", degradationType, "severity", "critical")
 
 	// Get the connection string from the repository
 	connStr, err := repository.GetConnectionString(ctx)
 	if err != nil {
-		level.Error(logger).Log("failed_to_get_connection_string", err)
+		ErrorWithTrace(ctx, logger, "failed_to_get_connection_string", err)
 		// Fallback to simulated timeout
 		simulateNetworkLatency(5000, 1000)
 		duration := time.Since(startTime)
@@ -125,13 +125,13 @@ func databaseConnectionDegradation(ctx context.Context, logger log.Logger, adopt
 		}
 	}
 
-	level.Info(logger).Log("connection_string_retrieved", "success", "degradation_mode", "database_exhaustion")
+	InfoWithTrace(ctx, logger, "connection_string_retrieved", "success", "degradation_mode", "database_exhaustion")
 
 	// Get the connection exhauster
 	exhauster := GetConnectionExhauster(logger)
 
 	maxConnections := 100 // Conservative number to avoid completely killing the database
-	level.Warn(logger).Log("attempting_connection_exhaustion", maxConnections, "connection_string_length", len(connStr))
+	WarnWithTrace(ctx, logger, "attempting_connection_exhaustion", maxConnections, "connection_string_length", len(connStr))
 
 	// Attempt to exhaust connections
 	exhaustErr := exhauster.ExhaustConnections(ctx, connStr, maxConnections)
@@ -139,13 +139,13 @@ func databaseConnectionDegradation(ctx context.Context, logger log.Logger, adopt
 	duration := time.Since(startTime)
 
 	if exhaustErr != nil {
-		level.Error(logger).Log("connection_exhaustion_failed", exhaustErr, "connections_held", exhauster.GetConnectionCount())
+		ErrorWithTrace(ctx, logger, "connection_exhaustion_failed", exhaustErr, "connections_held", exhauster.GetConnectionCount())
 
 		// Even if we couldn't exhaust all connections, we might have opened some
 		// Release them after a delay to simulate the issue
 		go func() {
 			time.Sleep(30 * time.Second) // Hold connections for 30 seconds
-			level.Info(logger).Log("releasing_partial_connections", "cleanup")
+			InfoWithTrace(ctx, logger, "releasing_partial_connections", "cleanup")
 			exhauster.ReleaseConnections()
 		}()
 
@@ -156,12 +156,12 @@ func databaseConnectionDegradation(ctx context.Context, logger log.Logger, adopt
 		}
 	}
 
-	level.Error(logger).Log("database_connections_exhausted", exhauster.GetConnectionCount(), "duration_ms", duration.Milliseconds())
+	ErrorWithTrace(ctx, logger, "database_connections_exhausted", exhauster.GetConnectionCount(), "duration_ms", duration.Milliseconds())
 
 	// Release connections after a delay to simulate the real issue
 	go func() {
 		time.Sleep(45 * time.Second) // Hold connections for 45 seconds to show real impact
-		level.Info(logger).Log("releasing_exhausted_connections", "auto_cleanup", "connections", exhauster.GetConnectionCount())
+		InfoWithTrace(ctx, logger, "releasing_exhausted_connections", "auto_cleanup", "connections", exhauster.GetConnectionCount())
 		exhauster.ReleaseConnections()
 	}()
 
@@ -175,7 +175,7 @@ func databaseConnectionDegradation(ctx context.Context, logger log.Logger, adopt
 // just slow requests
 func defaultDegradation(ctx context.Context, logger log.Logger, adoption Adoption, startTime time.Time) DegradationResult {
 	degradationType := "default"
-	level.Error(logger).Log("degradation", degradationType, "severity", "low")
+	ErrorWithTrace(ctx, logger, "degradation", degradationType, "severity", "low")
 
 	// Simulate cascading delays
 	simulateNetworkLatency(1000, 800)
@@ -230,7 +230,7 @@ func (dce *DatabaseConnectionExhauster) ExhaustConnections(ctx context.Context, 
 	dce.mutex.Lock()
 	defer dce.mutex.Unlock()
 
-	level.Warn(dce.logger).Log("action", "exhausting_database_connections", "target_connections", maxConnections)
+	WarnWithTrace(ctx, dce.logger, "action", "exhausting_database_connections", "target_connections", maxConnections)
 
 	for i := 0; i < maxConnections; i++ {
 		// Open a new database connection
@@ -238,7 +238,7 @@ func (dce *DatabaseConnectionExhauster) ExhaustConnections(ctx context.Context, 
 			semconv.DBSystemKey.String("postgres"),
 		))
 		if err != nil {
-			level.Error(dce.logger).Log("connection_exhaustion_error", err, "connections_opened", i)
+			ErrorWithTrace(ctx, dce.logger, "connection_exhaustion_error", err, "connections_opened", i)
 			return err
 		}
 
@@ -249,7 +249,7 @@ func (dce *DatabaseConnectionExhauster) ExhaustConnections(ctx context.Context, 
 
 		// Test the connection to ensure it's actually established
 		if err := db.PingContext(ctx); err != nil {
-			level.Error(dce.logger).Log("connection_ping_error", err, "connection_number", i)
+			ErrorWithTrace(ctx, dce.logger, "connection_ping_error", err, "connection_number", i)
 			db.Close()
 			return err
 		}
@@ -261,11 +261,11 @@ func (dce *DatabaseConnectionExhauster) ExhaustConnections(ctx context.Context, 
 		time.Sleep(10 * time.Millisecond)
 
 		if i%10 == 0 {
-			level.Info(dce.logger).Log("connections_opened", i+1, "target", maxConnections)
+			InfoWithTrace(ctx, dce.logger, "connections_opened", i+1, "target", maxConnections)
 		}
 	}
 
-	level.Warn(dce.logger).Log("database_connections_exhausted", maxConnections)
+	WarnWithTrace(ctx, dce.logger, "database_connections_exhausted", maxConnections)
 	return nil
 }
 

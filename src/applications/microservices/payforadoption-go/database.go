@@ -56,7 +56,7 @@ func createInstrumentedDB(ctx context.Context, cfg payforadoption.Config) (*sql.
 		attribute.String("db.instance.id", resourceIdentifier),
 	)); err != nil {
 		// Log warning but don't fail - metrics registration is optional
-		fmt.Printf("Warning: failed to register DB stats metrics: %v\n", err)
+		WarnWithTrace(ctx, "Warning: failed to register DB stats metrics: %v\n", err)
 	}
 
 	return db, nil

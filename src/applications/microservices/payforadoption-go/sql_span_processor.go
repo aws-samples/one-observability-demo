@@ -61,7 +61,7 @@ func (p *SQLSpanProcessor) OnStart(parent context.Context, s trace.ReadWriteSpan
 		// Add Aurora correlation attributes to the SQL span
 		s.SetAttributes(p.buildAuroraCorrelationAttributes(sqlOperation)...)
 
-		fmt.Printf("Added Aurora correlation attributes to span: %s with operation: %s\n", spanName, sqlOperation)
+		DebugWithTrace(parent, "Added Aurora correlation attributes to span: %s with operation: %s\n", spanName, sqlOperation)
 	}
 }
 
