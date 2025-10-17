@@ -29,6 +29,8 @@ import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
+import { CUSTOM_ENABLE_WAF } from '../bin/environment';
+import { GlobalWaf } from './constructs/waf';
 
 /**
  * Properties for configuring the CDK Pipeline stack.
@@ -142,7 +144,16 @@ export class CDKPipeline extends Stack {
             primaryOutputDirectory: `${properties.workingFolder}/cdk.out`,
             installCommands: ['npm i -g aws-cdk'],
             // Using globally installed CDK due to this issue https://github.com/aws/aws-cdk/issues/28519
-            commands: [`cd ${properties.workingFolder}`, 'npm ci', 'npm run build', 'cdk synth --all'],
+            commands: [
+                `cd ${properties.workingFolder}`,
+                'npm ci',
+                'npm run build',
+                'echo ----------------------------',
+                'echo "Working with configuration:"',
+                'cat .env',
+                'echo ----------------------------',
+                'cdk synth --all',
+            ],
             buildEnvironment: {
                 buildImage: LinuxBuildImage.STANDARD_7_0,
             },
@@ -221,6 +232,7 @@ export class CDKPipeline extends Stack {
         const storageStage = new StorageStage(this, 'Storage', {
             assetsProperties: {
                 seedPaths: properties.petImagesPaths,
+                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
             },
             auroraDatabaseProperties: {
                 engineVersion: properties.postgresEngineVersion,

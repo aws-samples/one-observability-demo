@@ -20,13 +20,15 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { App, Aspects } from 'aws-cdk-lib';
+import { App, Aspects, Stack } from 'aws-cdk-lib';
 import { CoreStack } from '../lib/stages/core';
 import {
     APPLICATION_LIST,
     AURORA_POSTGRES_VERSION,
     CANARY_FUNCTIONS,
     CORE_PROPERTIES,
+    CUSTOM_ENABLE_WAF,
+    DEFAULT_RETENTION_DAYS,
     LAMBDA_FUNCTIONS,
     MICROSERVICES_PLACEMENT,
     PET_IMAGES,
@@ -39,6 +41,7 @@ import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
 import { Utilities, WorkshopNagPack } from '../lib/utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
+import { GlobalWaf } from '../lib/constructs/waf';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -47,7 +50,29 @@ const app = new App();
 const core = new CoreStack(app, 'DevCoreStack', {
     ...CORE_PROPERTIES,
     tags: TAGS,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 });
+
+if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
+    // A Separate stage is needed if the region is NOT us-east-1
+    // This is handled in the stage but needs to be copied here for local
+    // deployments
+    const globalWafStack = new Stack(this, 'GlobalWafStack', {
+        env: {
+            region: 'us-east-1',
+            account: process.env.AWS_ACCOUNT_ID,
+        },
+    });
+    new GlobalWaf(globalWafStack, 'GlobalWaf', {
+        logRetention: DEFAULT_RETENTION_DAYS,
+    });
+    if (TAGS) {
+        Utilities.TagConstruct(globalWafStack, TAGS);
+    }
+}
 
 /** Validate required environment variables */
 const s3BucketName = process.env.CONFIG_BUCKET;
@@ -68,6 +93,10 @@ const containers = new ContainersStack(app, 'DevApplicationsStack', {
     },
     tags: TAGS,
     applicationList: APPLICATION_LIST,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 });
 
 /** Deploy storage stack with S3, Aurora, and DynamoDB */
@@ -75,6 +104,7 @@ const storage = new StorageStack(app, 'DevStorageStack', {
     tags: TAGS,
     assetsProperties: {
         seedPaths: PET_IMAGES,
+        globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
     },
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,

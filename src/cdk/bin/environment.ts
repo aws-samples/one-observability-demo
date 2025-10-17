@@ -296,6 +296,8 @@ export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;
 
 export const CUSTOM_ENABLE_WAF = process.env.CUSTOM_ENABLE_WAF == 'true' || false;
 export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON == 'true' || false;
+export const CUSTOM_ENABLE_NETWORKING_TRAIL = process.env.CUSTOM_ENABLE_NETWORKING_TRAIL == 'true' || false;
+export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
 
 /**
  * This section contains values that will affect the workshop deployment
@@ -303,7 +305,5 @@ export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARD
  */
 
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
-export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
-export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT || true;
-export const ENABLE_NETWORKING_TRAIL = process.env.ENABLE_NETWORKING_TRAIL == 'true' || false;
+export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;

@@ -490,7 +490,7 @@ Resources:
                       cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
                       return
 
-                  outputs = {o['OutputKey']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', [])}
+                  outputs = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
@@ -983,7 +983,7 @@ Resources:
                   "Next": "DeleteStacks"
                 }
               ],
-              "Default": "NoStacksToClean"
+              "Default": "CleanupCDKStagingBucket"
             },
             "DeleteStacks": {
               "Type": "Map",
@@ -1076,11 +1076,15 @@ Resources:
                   }
                 }
               },
-              "Next": "DeleteCDKToolkitStack"
+              "Next": "CleanupCDKStagingBucket"
             },
-            "NoStacksToClean": {
-              "Type": "Pass",
-              "Result": "No tagged stacks found to clean up",
+            "CleanupCDKStagingBucket": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rCDKStagingBucketCleanupFunction}",
+                "Payload": {}
+              },
               "Next": "DeleteCDKToolkitStack"
             },
             "DeleteCDKToolkitStack": {
@@ -1093,7 +1097,7 @@ Resources:
               "Catch": [
                 {
                   "ErrorEquals": ["States.ALL"],
-                  "Next": "CleanupCDKStagingBucket"
+                  "Next": "CleanupComplete"
                 }
               ]
             },
@@ -1113,7 +1117,7 @@ Resources:
               "Catch": [
                 {
                   "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
-                  "Next": "CleanupCDKStagingBucket"
+                  "Next": "CleanupComplete"
                 }
               ]
             },
@@ -1128,19 +1132,10 @@ Resources:
                 {
                   "Variable": "$.cdkStackStatus.Stacks[0].StackStatus",
                   "StringEquals": "DELETE_COMPLETE",
-                  "Next": "CleanupCDKStagingBucket"
+                  "Next": "CleanupComplete"
                 }
               ],
-              "Default": "CleanupCDKStagingBucket"
-            },
-            "CleanupCDKStagingBucket": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "${rCDKStagingBucketCleanupFunction}",
-                "Payload": {}
-              },
-              "Next": "CleanupComplete"
+              "Default": "CleanupComplete"
             },
             "CleanupComplete": {
               "Type": "Task",
@@ -1189,6 +1184,10 @@ Resources:
                 Condition:
                   StringEquals:
                     "aws:ResourceTag/application": !Ref pApplicationName
+              - Effect: Allow
+                Action:
+                  - cloudformation:DeleteStack
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CDKToolkitPetsite/*"
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction

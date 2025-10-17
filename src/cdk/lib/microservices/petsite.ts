@@ -8,7 +8,7 @@ import { Microservice, MicroserviceProperties } from '../constructs/microservice
 import { readFileSync } from 'node:fs';
 import * as yaml from 'yaml';
 import * as nunjucks from 'nunjucks';
-import { ManagedPolicy, Policy, PolicyDocument, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Policy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { CfnPodIdentityAssociation } from 'aws-cdk-lib/aws-eks';
 import {
     ApplicationLoadBalancer,
@@ -28,17 +28,21 @@ import {
 import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
-import { CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+
+export interface PetSetProperties extends EKSDeploymentProperties {
+    globalWebACLArn?: string;
+}
 
 export class PetSite extends EKSDeployment {
     public readonly loadBalancer: ApplicationLoadBalancer;
     public readonly targetGroup: ApplicationTargetGroup;
     public readonly distribution: Distribution;
-    constructor(scope: Construct, id: string, properties: EKSDeploymentProperties) {
+    constructor(scope: Construct, id: string, properties: PetSetProperties) {
         super(scope, id, properties);
         this.loadBalancer = new ApplicationLoadBalancer(scope, 'loadBalancer', {
             vpc: properties.vpc!,
@@ -77,12 +81,18 @@ export class PetSite extends EKSDeployment {
             open: false,
         });
 
-        // TODO: Autodelete is not working for this bucket
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
-            removalPolicy: RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN,
             enforceSSL: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
-            autoDeleteObjects: true,
+            autoDeleteObjects: false, // TODO: Autodelete is not working for this bucket
+            lifecycleRules: [
+                {
+                    enabled: true,
+                    expiration: Duration.days(DEFAULT_RETENTION_DAYS),
+                    id: 'ExpireAfterOneWeek',
+                },
+            ],
         });
 
         this.distribution = new Distribution(this, 'Distribution', {
@@ -110,6 +120,7 @@ export class PetSite extends EKSDeployment {
                 },
             ],
             enableIpv6: false,
+            webAclId: properties.globalWebACLArn,
         });
 
         // Allow load balancer to reach EKS nodes
@@ -156,6 +167,10 @@ export class PetSite extends EKSDeployment {
                 {
                     id: 'AwsSolutions-S1',
                     reason: 'Cloudfront access log bucket',
+                },
+                {
+                    id: 'Workshop-S3-1',
+                    reason: 'Auto-delete is failing for cloudfront buckets',
                 },
             ],
             true,
@@ -232,7 +247,15 @@ export class PetSite extends EKSDeployment {
         const servicePolicy = new Policy(this, 'PetSitePolicy', {
             policyName: 'PetSiteAccessPolicy',
             document: new PolicyDocument({
-                statements: [Microservice.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX)],
+                statements: [
+                    Microservice.getDefaultSSMPolicy(this, PARAMETER_STORE_PREFIX),
+                    new PolicyStatement({
+                        actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+                        resources: [
+                            `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:runtime/PetFoodAgent*`,
+                        ],
+                    }),
+                ],
             }),
             roles: [this.serviceAccountRole],
         });
@@ -272,6 +295,7 @@ export class PetSite extends EKSDeployment {
     createOutputs(): void {
         new CfnOutput(this, 'PetSiteUrl', {
             value: `https://${this.distribution.distributionDomainName}`,
+            exportName: 'PetSiteUrl',
         });
 
         if (this.loadBalancer) {

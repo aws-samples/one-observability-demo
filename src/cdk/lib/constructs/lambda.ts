@@ -29,7 +29,7 @@ import {
 } from '../../bin/environment';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
-import { Duration, RemovalPolicy } from 'aws-cdk-lib';
+import { Duration, Names, RemovalPolicy } from 'aws-cdk-lib';
 
 /**
  * Gets the OpenTelemetry Python layer ARN for the specified region.
@@ -265,7 +265,7 @@ export abstract class WokshopLambdaFunction extends Construct {
         super(scope, id);
 
         const logGroup = new LogGroup(this, 'LogGroup', {
-            logGroupName: `/aws/lambda/${properties.name}`,
+            logGroupName: `/aws/lambda/${properties.name}-${Names.nodeUniqueId(this.node)}`,
             retention: properties.logRetentionDays ?? RetentionDays.ONE_DAY,
             removalPolicy: RemovalPolicy.DESTROY,
         });

@@ -9,11 +9,17 @@ fi
 ENV_FILE="$1"
 AUTO_TRANSACTION_SEARCH_CONFIGURED=""
 ENABLE_PET_FOOD_AGENT=""
-AWS_REGION=""
+AWS_REGION="${AWS_REGION:-}"
 AVAILABILITY_ZONES=""
+
+# Log initial environment variable values
+if [[ -n "$AWS_REGION" ]]; then
+    echo "[INFO] AWS_REGION from environment: $AWS_REGION"
+fi
 
 # Function to read existing .env file
 read_env_file() {
+    echo "[INFO] Reading .env file: $ENV_FILE"
     if [[ -f "$ENV_FILE" ]]; then
         while IFS='=' read -r key value || [[ -n "$key" ]]; do
             [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
@@ -24,10 +30,18 @@ read_env_file() {
                 AUTO_TRANSACTION_SEARCH_CONFIGURED="$value"
             elif [[ "$key" == "ENABLE_PET_FOOD_AGENT" ]]; then
                 ENABLE_PET_FOOD_AGENT="$value"
+                echo "[INFO] ENABLE_PET_FOOD_AGENT from .env: $value"
             elif [[ "$key" == "AWS_REGION" ]]; then
-                AWS_REGION="$value"
+                if [[ -z "$AWS_REGION" ]]; then
+                    AWS_REGION="$value"
+                    echo "[INFO] AWS_REGION from .env: $value"
+                else
+                    echo "[INFO] AWS_REGION from .env ignored (using environment value): $AWS_REGION"
+                fi
             fi
         done < "$ENV_FILE"
+    else
+        echo "[WARN] .env file not found: $ENV_FILE"
     fi
 }
 
@@ -45,7 +59,7 @@ write_env_file() {
 
 # Validation function for AUTO_TRANSACTION_SEARCH_CONFIGURED
 validate_auto_transaction_search() {
-    local region="${AWS_REGION:-$AWS_DEFAULT_REGION}"
+    local region="$AWS_REGION"
     local result
     local error_output
 
@@ -70,8 +84,10 @@ validate_auto_transaction_search() {
 
 # Function to retrieve and map availability zones
 retrieve_availability_zones() {
-    local region="${AWS_REGION:-$AWS_DEFAULT_REGION}"
+    local region="$AWS_REGION"
+    echo "[INFO] Checking AZ retrieval conditions: ENABLE_PET_FOOD_AGENT=$ENABLE_PET_FOOD_AGENT, region=$region"
     if [[ "$ENABLE_PET_FOOD_AGENT" == "true" && -n "$region" ]]; then
+        echo "[INFO] Retrieving availability zones for region: $region"
         local az_data
         local error_output
 
@@ -106,6 +122,7 @@ retrieve_availability_zones() {
                 exit 1
                 ;;
         esac
+        echo "[INFO] Target zone IDs for $region: $region_az_map"
 
         local mapped_zones=()
         IFS=',' read -ra target_zones <<< "$region_az_map"
@@ -118,6 +135,9 @@ retrieve_availability_zones() {
         done
 
         AVAILABILITY_ZONES=$(IFS=','; echo "${mapped_zones[*]}")
+        echo "[INFO] Mapped availability zones: $AVAILABILITY_ZONES"
+    else
+        echo "[INFO] Skipping AZ retrieval (ENABLE_PET_FOOD_AGENT=$ENABLE_PET_FOOD_AGENT, region=$region)"
     fi
 }
 

@@ -3,7 +3,15 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { CfnOutput, Stack } from 'aws-cdk-lib';
-import { PolicyStatement, PolicyDocument, Role, ServicePrincipal, ManagedPolicy, Effect } from 'aws-cdk-lib/aws-iam';
+import {
+    PolicyStatement,
+    PolicyDocument,
+    Role,
+    ServicePrincipal,
+    ManagedPolicy,
+    Effect,
+    PrincipalWithConditions,
+} from 'aws-cdk-lib/aws-iam';
 import { CfnRuntime } from 'aws-cdk-lib/aws-bedrockagentcore';
 // Note: BedrockAgentCore L2 constructs may not be available in all CDK versions
 // Using L1 constructs (CfnResource) as fallback
@@ -16,7 +24,7 @@ import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 
 export interface PetFoodAgentProperties {
     readonly ecrRepositoryUri: string; // ECR repository URI from containers pipeline
-    readonly securityGroup: ISecurityGroup;
+    readonly securityGroups: ISecurityGroup[];
     readonly vpc: IVpc;
 }
 
@@ -28,7 +36,14 @@ export class PetFoodAgentConstruct extends Construct {
 
         // Create IAM role for Agent Runtime
         const agentRuntimeRole = new Role(this, 'AgentRuntimeRole', {
-            assumedBy: new ServicePrincipal('bedrock.amazonaws.com'),
+            assumedBy: new PrincipalWithConditions(new ServicePrincipal('bedrock-agentcore.amazonaws.com'), {
+                StringEquals: {
+                    'aws:SourceAccount': Stack.of(this).account,
+                },
+                ArnLike: {
+                    'aws:SourceArn': `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:*`,
+                },
+            }),
             managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess')],
             inlinePolicies: {
                 AgentRuntimePolicy: new PolicyDocument({
@@ -78,10 +93,11 @@ export class PetFoodAgentConstruct extends Construct {
         });
 
         this.agentRuntime.addOverride('Properties.NetworkConfiguration.NetworkModeConfig', {
-            SecurityGroups: [properties.securityGroup.securityGroupId],
+            SecurityGroups: properties.securityGroups.map((sg) => sg.securityGroupId),
             Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
         });
 
+        this.createOutputs(PARAMETER_STORE_PREFIX);
         // Apply NAG suppressions
 
         NagSuppressions.addResourceSuppressions(

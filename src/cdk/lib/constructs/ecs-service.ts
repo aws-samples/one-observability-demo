@@ -342,6 +342,10 @@ export abstract class EcsService extends Microservice {
                 id: 'AwsSolutions-ECS2',
                 reason: 'AWS_REGION is required by OTEL. TODO: Replace with proper environment variables ',
             },
+            {
+                id: 'AwsSolutions-ECS7',
+                reason: 'False positive, Open Telemetry is used for logging on all tasks',
+            },
         ]);
 
         if (taskDefinition.executionRole) {
