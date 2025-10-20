@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/gofrs/uuid"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -64,9 +63,18 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		AdoptionDate:  time.Now(),
 	}
 
+	// Log the start of the adoption process
+	InfoWithTrace(ctx, logger,
+		"action", "adoption_process_started",
+		"transactionId", a.TransactionID,
+		"petId", petId,
+		"petType", petType,
+		"userId", userID,
+	)
+
 	// Introduce degraded experience when error mode is enabled
 	if s.repository.ErrorModeOn(ctx) {
-		level.Error(logger).Log("errorMode", "On", "petType", petType, "userID", userID)
+		ErrorWithTrace(ctx, logger, "errorMode", "On", "petType", petType, "userID", userID)
 
 		startTime := time.Now()
 
@@ -84,21 +92,34 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 
 	// Step 1: Create transaction in database (synchronous)
 	if err := s.repository.CreateTransaction(ctx, a); err != nil {
-		level.Error(logger).Log("err", err, "action", "create_transaction_failed")
+		ErrorWithTrace(ctx, logger, "err", err, "action", "create_transaction_failed")
 		return Adoption{}, err
 	}
+	InfoWithTrace(ctx, logger, "action", "transaction_created_successfully", "transactionId", a.TransactionID)
 
 	// Step 2: Update pet availability (synchronous)
 	if err := s.repository.UpdateAvailability(ctx, a); err != nil {
-		level.Error(logger).Log("err", err, "action", "update_availability_failed")
+		ErrorWithTrace(ctx, logger, "err", err, "action", "update_availability_failed")
 		return Adoption{}, err
 	}
+	InfoWithTrace(ctx, logger, "action", "availability_updated_successfully", "petId", a.PetID)
 
 	// Step 3: Send history message to SQS (asynchronous - don't fail if this fails)
 	if err := s.repository.SendHistoryMessage(ctx, a); err != nil {
-		level.Warn(logger).Log("err", err, "action", "send_history_message_failed", "note", "continuing despite history message failure")
+		WarnWithTrace(ctx, logger, "err", err, "action", "send_history_message_failed", "note", "continuing despite history message failure")
 		// Don't return error - history tracking is not critical for adoption success
+	} else {
+		InfoWithTrace(ctx, logger, "action", "history_message_sent_successfully", "transactionId", a.TransactionID)
 	}
+
+	// Log successful completion of the entire adoption process
+	InfoWithTrace(ctx, logger,
+		"action", "adoption_completed_successfully",
+		"transactionId", a.TransactionID,
+		"petId", a.PetID,
+		"petType", a.PetType,
+		"userId", a.UserID,
+	)
 
 	return a, nil
 }
@@ -109,24 +130,27 @@ func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
 	ctx, parentSpan := s.tracer.Start(ctx, "PG drop user transactions")
 	defer parentSpan.End()
 	if err := s.repository.DropTransactions(ctx, userID); err != nil {
-		level.Error(logger).Log("err", err)
+		ErrorWithTrace(ctx, logger, "err", err)
 		return err
 	}
 
-	level.Info(logger).Log("action", "user_transactions_cleaned", "userID", userID)
+	InfoWithTrace(ctx, logger, "action", "user_transactions_cleaned", "userID", userID)
 	return nil
 }
 
 func (s service) TriggerSeeding(ctx context.Context) error {
+	logger := log.With(s.logger, "method", "TriggerSeeding")
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Triggering seeding in DDB")
 
+	InfoWithTrace(ctx, logger, "action", "seeding_process_started")
+
 	if err := s.repository.TriggerSeeding(ctx); err != nil {
-		logger := log.With(s.logger, "method", "TriggerSeeding")
-		level.Error(logger).Log("err", err)
+		ErrorWithTrace(ctx, logger, "err", err)
 		span.RecordError(err)
 		return err
 	}
 
+	InfoWithTrace(ctx, logger, "action", "seeding_completed_successfully")
 	return nil
 }
