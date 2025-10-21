@@ -12,6 +12,14 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
+/**
+ * Defines the architecture used to build the container
+ */
+export enum ContainerArchitecture {
+    ARM64,
+    AMD64,
+}
+
 // VPC Export Names
 export const VPC_ID_EXPORT_NAME = 'WorkshopVPC';
 export const VPC_CIDR_EXPORT_NAME = 'WorkshopVPCCidr';
