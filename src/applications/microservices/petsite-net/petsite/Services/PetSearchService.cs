@@ -24,6 +24,7 @@ namespace PetSite.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<PetSearchService> _logger;
+        private readonly ParameterRefreshManager _refreshManager;
 
         //Prometheus metrics
         private static readonly Counter PetSearchCount =
@@ -37,12 +38,13 @@ namespace PetSite.Services
 
         private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor;
 
-        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger, Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
+        public PetSearchService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<PetSearchService> logger, Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor, ParameterRefreshManager refreshManager)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
+            _refreshManager = refreshManager;
         }
 
         public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid, string userId)
@@ -63,7 +65,7 @@ namespace PetSite.Services
                     break;
             }
 
-            string searchapiurl = ParameterNames.GetParameterValue(ParameterNames.SEARCH_API_URL, _configuration);
+            string searchapiurl = await ParameterNames.GetParameterValueAsync(ParameterNames.SEARCH_API_URL, _refreshManager);
             using var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(30);
 

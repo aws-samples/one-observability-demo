@@ -8,6 +8,9 @@ use std::time::Duration;
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
+mod refresh_manager;
+use refresh_manager::RefreshManager;
+
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("Configuration loading error: {message}")]
@@ -113,6 +116,7 @@ pub struct EventsConfig {
 
 pub struct ParameterStoreConfig {
     ssm_client: SsmClient,
+    refresh_manager: RefreshManager,
 }
 
 impl std::fmt::Debug for ParameterStoreConfig {
@@ -439,11 +443,22 @@ impl EventsConfig {
 
 impl ParameterStoreConfig {
     pub fn new(ssm_client: SsmClient) -> Self {
-        Self { ssm_client }
+        Self {
+            ssm_client,
+            refresh_manager: RefreshManager::new(),
+        }
     }
 
     pub async fn get_parameter(&self, name: &str) -> Result<String, ConfigError> {
         debug!("Getting parameter: {}", name);
+
+        // Check if we should refresh
+        if !self.refresh_manager.should_refresh(name).await {
+            if let Some(cached) = self.refresh_manager.get_cached(name).await {
+                debug!("Using cached parameter: {}", name);
+                return Ok(cached);
+            }
+        }
 
         // Fetch from Parameter Store
         debug!("Fetching parameter from AWS SSM: {}", name);
@@ -465,6 +480,11 @@ impl ParameterStoreConfig {
                 name: name.to_string(),
             })?
             .to_string();
+
+        // Cache the parameter
+        self.refresh_manager
+            .cache_parameter(name.to_string(), value.clone())
+            .await;
 
         debug!("Parameter retrieved and cached: {}", name);
         Ok(value)

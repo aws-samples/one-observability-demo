@@ -11,6 +11,13 @@ RUN gradle build -DexcludeTags='integration' --no-daemon --stacktrace
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2-generic-jdk
 WORKDIR /app
 
+RUN yum install -y curl unzip && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws && \
+    yum clean all
+
 ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
 

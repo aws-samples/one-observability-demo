@@ -14,13 +14,14 @@ namespace PetSite.Controllers
         private readonly ILogger<WaggleController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly ParameterRefreshManager _refreshManager;
 
-
-        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration, ParameterRefreshManager refreshManager)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _refreshManager = refreshManager;
         }
 
         public IActionResult Index(string userId)
@@ -42,7 +43,7 @@ namespace PetSite.Controllers
 
                 using var httpClient = _httpClientFactory.CreateClient();
 
-                var waggleApiUrl = ParameterNames.GetParameterValue(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _configuration);
+                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
 
                 var payload = new
                 {

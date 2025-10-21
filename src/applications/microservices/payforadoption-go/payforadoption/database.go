@@ -22,7 +22,9 @@ type DatabaseConfig struct {
 
 // DatabaseConfigService handles database configuration operations
 type DatabaseConfigService struct {
-	cfg Config
+	cfg           Config
+	secretCache   string
+	lastFetchTime int64
 }
 
 // NewDatabaseConfigService creates a new database configuration service
@@ -41,7 +43,14 @@ func (dcs *DatabaseConfigService) GetSecretValue(ctx context.Context) (string, e
 		return "", err
 	}
 
-	return aws.ToString(res.SecretString), nil
+	secret := aws.ToString(res.SecretString)
+	dcs.secretCache = secret
+	dcs.lastFetchTime = getCurrentTimeMillis()
+	return secret, nil
+}
+
+func getCurrentTimeMillis() int64 {
+	return 0 // Placeholder - will be managed by RefreshManager
 }
 
 // GetDatabaseConfig retrieves and parses the database configuration
