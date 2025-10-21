@@ -31,6 +31,7 @@ import * as dotenv from 'dotenv';
 import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
 import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
 import { Duration } from 'aws-cdk-lib';
+import { ContainerArchitecture } from './constants';
 
 /**
  * Host type enumeration for microservice deployment.
@@ -114,6 +115,7 @@ export const PAYFORADOPTION_GO = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet List Adoptions microservice configuration (Go implementation) */
@@ -123,6 +125,7 @@ export const PETLISTADOPTIONS_PY = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Search microservice configuration (Java implementation) */
@@ -132,6 +135,7 @@ export const PETSEARCH_JAVA = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Site frontend application configuration (deployed on EKS) */
@@ -142,6 +146,7 @@ export const PETSITE_NET = {
     computeType: ComputeType.Fargate,
     disableService: false,
     manifestPath: 'lib/microservices/manifests/petsite-deployment.yaml',
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Status Updater microservice configuration */
@@ -151,6 +156,7 @@ export const PETFOOD_RS = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 export const PETFOODAGENT_STRANDS_PY = {
@@ -159,6 +165,7 @@ export const PETFOODAGENT_STRANDS_PY = {
     hostType: HostType.None, // Note: This is for container building only, actual deployment is via Bedrock AgentCore
     computeType: ComputeType.Fargate,
     disableService: true, // Disable ECS service since it runs on Bedrock AgentCore
+    architecture: ContainerArchitecture.ARM64,
 };
 
 /** Complete list of all microservice applications */
