@@ -114,8 +114,6 @@ func getRDSConnectionString(ctx context.Context, cfg payforadoption.Config) (str
 	if refreshManager != nil && !refreshManager.shouldRefreshSecret() {
 		if secret, ok := refreshManager.getCachedSecret(); ok {
 			InfoWithTrace(ctx, "Using cached database secret\n")
-			// Parse cached secret and build connection string
-			dcs := payforadoption.NewDatabaseConfigService(cfg)
 			var dbConfig payforadoption.DatabaseConfig
 			if err := json.Unmarshal([]byte(secret), &dbConfig); err == nil {
 				u := &url.URL{

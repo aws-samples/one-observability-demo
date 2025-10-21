@@ -5,6 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 package ca.petsearch.controllers;
 
 import ca.petsearch.MetricEmitter;
+import ca.petsearch.ParameterRefreshManager;
 import ca.petsearch.RandomNumberGenerator;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
