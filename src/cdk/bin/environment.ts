@@ -81,6 +81,9 @@ export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline';
 /** Working directory for CDK operations */
 export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 
+/** Max number of concurrent users for traffic generator. User 0 to disable */
+export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
+
 /** Default tags applied to all resources */
 export const TAGS = {
     environment: 'non-prod',
@@ -218,7 +221,7 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     memorySize: 128,
     handler: 'handler',
     scheduleExpression: 'rate(2 minutes)',
-    enableSchedule: true,
+    enableSchedule: CONCURRENT_USERS > 0,
     timeout: Duration.seconds(90),
 };
 

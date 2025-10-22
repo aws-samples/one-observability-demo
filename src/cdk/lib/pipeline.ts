@@ -302,6 +302,30 @@ export class CDKPipeline extends Stack {
             });
         }
 
+        if (pipeline.pipeline.crossRegionSupport) {
+            const supportStacks = pipeline.pipeline.crossRegionSupport;
+            for (const stack of Object.values(supportStacks)) {
+                NagSuppressions.addResourceSuppressions(
+                    [stack.stack, stack.replicationBucket],
+                    [
+                        {
+                            id: 'AwsSolutions-KMS5',
+                            reason: 'KMS Rotation disabled for cross-region bucket',
+                        },
+                        {
+                            id: 'AwsSolutions-S1',
+                            reason: 'Server access logs not needed for cross-region stack',
+                        },
+                        {
+                            id: 'Workshop-S3-1',
+                            reason: 'Disabled since bucket is managed by CDK',
+                        },
+                    ],
+                    true,
+                );
+            }
+        }
+
         /**
          * Add CDK-nag suppressions for the pipeline role.
          */
