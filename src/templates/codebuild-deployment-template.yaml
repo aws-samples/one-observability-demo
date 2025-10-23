@@ -1655,10 +1655,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - states:StartExecution
+                Resource: !GetAtt rCDKCleanupStateMachine.Arn
+              - Effect: Allow
+                Action:
                   - states:DescribeExecution
-                Resource:
-                  - !GetAtt rCDKCleanupStateMachine.Arn
-                  - !Sub "${rCDKCleanupStateMachine.Arn}:*"
+                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${AWS::StackName}-cdk-cleanup:*"
 
   # EventBridge Rule for Stack Deletion
   rStackDeletionRule:
