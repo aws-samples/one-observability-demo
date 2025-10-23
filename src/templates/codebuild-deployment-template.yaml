@@ -607,6 +607,10 @@ Resources:
         Type: NO_SOURCE
         BuildSpec: |
           version: 0.2
+          cache:
+            key: npm-$(codebuild-hash-files package-lock.json)
+            paths:
+              - "node_modules/**/*"
           phases:
             install:
               runtime-versions:
@@ -624,7 +628,8 @@ Resources:
                 - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
                 - cd ./repo
                 # Download configuration file and append to .env
-                - curl -o ./config.env "$CONFIG_FILE_URL"
+                - |
+                  curl -o ./config.env "$CONFIG_FILE_URL"
                 - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
                 - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env
@@ -646,17 +651,28 @@ Resources:
                   EOF
                 # Add only .env file to repository
                 - git add ${WORKING_FOLDER}/.env -f
-                - git commit -m "Add merged configuration and environment variables to .env"
+                - |
+                  git commit -m "Add merged configuration and environment variables to .env"
                 # Configure S3 remote with s3+zip protocol for CodePipeline
                 - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
                 - git push s3 $BRANCH_NAME --force
+                # Print .env contents for troubleshooting
+                - |
+                  echo "=== .env file contents ==="
+                - cat ${WORKING_FOLDER}/.env
+                - |
+                  echo "=== End of .env ==="
                 # Bootstrap current region
                 - ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} ${AWS_REGION}
                 # Bootstrap us-east-1 if WAF is enabled
                 - |
+                  echo "Checking for WAF configuration..."
+                  grep "CUSTOM_ENABLE_WAF" ${WORKING_FOLDER}/.env || echo "WAF setting not found"
                   if grep -q "CUSTOM_ENABLE_WAF=true" ${WORKING_FOLDER}/.env; then
                     echo "WAF enabled, bootstrapping us-east-1..."
                     ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} us-east-1
+                  else
+                    echo "WAF not enabled, skipping us-east-1 bootstrap"
                   fi
             build:
               commands:
@@ -679,7 +695,8 @@ Resources:
                 - |
                   echo "Pipeline Name: $PIPELINE_NAME"
                 # Wait for pipeline to complete
-                - ./${WORKING_FOLDER}/scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
+                - |
+                  ./scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
             post_build:
               commands:
                 - |
