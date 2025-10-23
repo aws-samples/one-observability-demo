@@ -1,8 +1,9 @@
-import { CfnOutput, Fn, Names, RemovalPolicy } from 'aws-cdk-lib';
+import { Names, RemovalPolicy } from 'aws-cdk-lib';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
-import { WAFV2_GLOABL_ACL_ARN_EXPORT_NAME, WAFV2_REGIONAL_ACL_ARN_EXPORT_NAME } from '../../bin/constants';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 export interface WorkshopWebAclProperties {
     logRetention?: RetentionDays;
@@ -70,14 +71,15 @@ export class RegionalWaf extends Construct {
     }
 
     private createWafv2Outputs() {
-        new CfnOutput(this, 'WAFv2RegionalAclArn', {
-            value: this.wafv2RegionalAcl.attrArn,
-            exportName: WAFV2_REGIONAL_ACL_ARN_EXPORT_NAME,
+        new StringParameter(this, 'WAFv2RegionalAclArnParam', {
+            parameterName: `${PARAMETER_STORE_PREFIX}/waf/regional-acl-arn`,
+            stringValue: this.wafv2RegionalAcl.attrArn,
+            description: 'Regional WAF ACL ARN',
         });
     }
 
-    public static regionalAclArnFromExports(): string {
-        return Fn.importValue(WAFV2_REGIONAL_ACL_ARN_EXPORT_NAME);
+    public static regionalAclArnFromParameter(): string {
+        return `{{resolve:ssm:${PARAMETER_STORE_PREFIX}/waf/regional-acl-arn}}`;
     }
 }
 
@@ -141,13 +143,22 @@ export class GlobalWaf extends Construct {
         return webAcl;
     }
     private createWafv2Outputs() {
-        new CfnOutput(this, 'WAFv2GloballAclArn', {
-            value: this.wafv2GlobalAcl.attrArn,
-            exportName: WAFV2_GLOABL_ACL_ARN_EXPORT_NAME,
+        new StringParameter(this, 'WAFv2GlobalAclArnParam', {
+            parameterName: `${PARAMETER_STORE_PREFIX}/waf/global-acl-arn`,
+            stringValue: this.wafv2GlobalAcl.attrArn,
+            description: 'Global WAF ACL ARN for CloudFront',
         });
     }
 
-    public static globalAclArnFromExports(): string {
-        return Fn.importValue(WAFV2_GLOABL_ACL_ARN_EXPORT_NAME);
+    public static globalAclArnFromParameter(): string {
+        return `{{resolve:ssm:${PARAMETER_STORE_PREFIX}/waf/global-acl-arn:1}}`;
+    }
+
+    public replicateParameterToRegion(targetStack: Construct): void {
+        new StringParameter(targetStack, 'GlobalWafArnReplicaParam', {
+            parameterName: `${PARAMETER_STORE_PREFIX}/waf/global-acl-arn`,
+            stringValue: this.wafv2GlobalAcl.attrArn,
+            description: `Global WAF ACL ARN (replicated from us-east-1)`,
+        });
     }
 }

@@ -165,6 +165,55 @@ aws cloudformation create-stack \
 
 ## Implementation Details
 
+### Bootstrap Account Script
+
+The `bootstrap-account.sh` script intelligently manages CDK bootstrap status:
+
+```bash
+#!/bin/bash
+# Bootstrap CDK account for a specific region
+# Usage: ./bootstrap-account.sh <account-id> <region>
+
+set -e
+
+ACCOUNT_ID=$1
+REGION=$2
+
+echo "Checking CDK bootstrap status for account $ACCOUNT_ID in region $REGION..."
+
+STACK_STATUS=$(aws cloudformation list-stacks --region "$REGION" \
+  --query "StackSummaries[?StackName=='CDKToolkitPetsite'] | [0].StackStatus" \
+  --output text)
+
+if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
+  echo "CDK bootstrap stack exists with status: $STACK_STATUS"
+elif [ "$STACK_STATUS" = "DELETE_COMPLETE" ]; then
+  echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
+  cleanup_resources
+  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+elif [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+  echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
+  cleanup_resources
+  aws cloudformation delete-stack --stack-name CDKToolkitPetsite --region "$REGION"
+  aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite --region "$REGION"
+  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+elif [ -z "$STACK_STATUS" ] || [ "$STACK_STATUS" = "None" ]; then
+  echo "Account not bootstrapped, bootstrapping now..."
+  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+else
+  echo "CDK bootstrap stack in unexpected state: $STACK_STATUS. Manual intervention required."
+  exit 1
+fi
+```
+
+**Key Features:**
+- Only considers CREATE_COMPLETE or UPDATE_COMPLETE as valid states
+- Retrieves current stack status (not historical records)
+- Handles DELETE_COMPLETE by cleaning up resources and re-bootstrapping
+- Handles ROLLBACK_COMPLETE by deleting stack and re-bootstrapping
+- Fails on unexpected states requiring manual intervention
+- Prevents false positives from historical DELETE_COMPLETE records
+
 ### CodeBuild Project Configuration
 
 The CodeBuild project uses:
@@ -182,6 +231,10 @@ npm install -g aws-cdk
 pip3 install git-remote-s3
 ```
 
+**Dependencies:**
+- aws-cdk: CDK CLI for deployment
+- git-remote-s3: Enables S3 as a Git remote for CodePipeline source
+
 #### 2. **Pre-Build Phase**
 ```bash
 # Configure Git and clone repository
@@ -190,13 +243,19 @@ git config --global user.name "AWS CodeBuild"
 git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
 
 # Download configuration and setup S3 remote
-curl -o ./config.json "$CONFIG_FILE_URL"
+curl -o ./config.env "$CONFIG_FILE_URL"
+cat ./config.env >> ${WORKING_FOLDER}/.env
+git add ${WORKING_FOLDER}/.env -f
+git commit -m "Add merged configuration and environment variables to .env"
 git remote add s3 s3+zip://$CONFIG_BUCKET/repo
-git push s3 $BRANCH_NAME
+git push s3 $BRANCH_NAME --force
 
-# Handle CDK bootstrapping
-if ! aws cloudformation describe-stacks --stack-name CDKToolkit > /dev/null 2>&1; then
-  cdk bootstrap
+# Bootstrap CDK using intelligent status checking
+./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} ${AWS_REGION}
+
+# Bootstrap us-east-1 if WAF is enabled
+if grep -q "CUSTOM_ENABLE_WAF=true" ${WORKING_FOLDER}/.env; then
+  ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} us-east-1
 fi
 ```
 

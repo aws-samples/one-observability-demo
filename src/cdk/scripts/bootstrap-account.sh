@@ -14,8 +14,7 @@ fi
 
 echo "Checking CDK bootstrap status for account $ACCOUNT_ID in region $REGION..."
 
-STACK_EXISTS=$(aws cloudformation list-stacks --region "$REGION" --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackName" --output text)
-STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --region "$REGION" --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus=='DELETE_COMPLETE'].StackName" --output text)
+STACK_STATUS=$(aws cloudformation list-stacks --region "$REGION" --query "StackSummaries[?StackName=='CDKToolkitPetsite'] | [0].StackStatus" --output text)
 
 cleanup_resources() {
   echo "Cleaning up CDK resources..."
@@ -28,24 +27,24 @@ cleanup_resources() {
   fi
 }
 
-if [ -z "$STACK_EXISTS" ] && [ -z "$STACK_DELETE_COMPLETE" ]; then
-  echo "Account not bootstrapped, bootstrapping now..."
-  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
-elif [ -n "$STACK_DELETE_COMPLETE" ]; then
+if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
+  echo "CDK bootstrap stack exists with status: $STACK_STATUS"
+elif [ "$STACK_STATUS" = "DELETE_COMPLETE" ]; then
   echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
   cleanup_resources
   cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+elif [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+  echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
+  cleanup_resources
+  aws cloudformation delete-stack --stack-name CDKToolkitPetsite --region "$REGION"
+  aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite --region "$REGION"
+  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+elif [ -z "$STACK_STATUS" ] || [ "$STACK_STATUS" = "None" ]; then
+  echo "Account not bootstrapped, bootstrapping now..."
+  cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
 else
-  STACK_STATUS=$(aws cloudformation list-stacks --region "$REGION" --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
-  if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
-    echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
-    cleanup_resources
-    aws cloudformation delete-stack --stack-name CDKToolkitPetsite --region "$REGION"
-    aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite --region "$REGION"
-    cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
-  else
-    echo "CDK bootstrap stack exists with status: $STACK_STATUS"
-  fi
+  echo "CDK bootstrap stack in unexpected state: $STACK_STATUS. Manual intervention required."
+  exit 1
 fi
 
 echo "Bootstrap complete for region $REGION"

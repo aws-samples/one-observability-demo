@@ -240,7 +240,7 @@ export class CDKPipeline extends Stack {
         const storageStage = new StorageStage(this, 'Storage', {
             assetsProperties: {
                 seedPaths: properties.petImagesPaths,
-                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
+                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined,
             },
             auroraDatabaseProperties: {
                 engineVersion: properties.postgresEngineVersion,

@@ -104,7 +104,7 @@ const storage = new StorageStack(app, 'DevStorageStack', {
     tags: TAGS,
     assetsProperties: {
         seedPaths: PET_IMAGES,
-        globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
+        globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined,
     },
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,
