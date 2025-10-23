@@ -14,7 +14,7 @@ fi
 
 echo "Checking CDK bootstrap status for account $ACCOUNT_ID in region $REGION..."
 
-STACK_STATUS=$(aws cloudformation list-stacks --region "$REGION" --query "StackSummaries[?StackName=='CDKToolkitPetsite'] | [0].StackStatus" --output text)
+STACK_STATUS=$(aws cloudformation list-stacks --region "$REGION" --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE ROLLBACK_COMPLETE UPDATE_ROLLBACK_COMPLETE --query "StackSummaries[?StackName=='CDKToolkitPetsite'] | [0].StackStatus" --output text)
 
 cleanup_resources() {
   echo "Cleaning up CDK resources..."
