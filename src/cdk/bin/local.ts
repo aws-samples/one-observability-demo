@@ -60,7 +60,7 @@ if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
     // A Separate stage is needed if the region is NOT us-east-1
     // This is handled in the stage but needs to be copied here for local
     // deployments
-    const globalWafStack = new Stack(this, 'GlobalWafStack', {
+    const globalWafStack = new Stack(app, 'GlobalWafStack', {
         env: {
             region: 'us-east-1',
             account: process.env.AWS_ACCOUNT_ID,
