@@ -215,6 +215,7 @@ export class PetSite extends EKSDeployment {
             NAMESPACE: this.namespace,
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
+            PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
             // Parameter names (not values) - these environment variables tell the app which parameter names to look up
             PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
             PET_LIST_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,

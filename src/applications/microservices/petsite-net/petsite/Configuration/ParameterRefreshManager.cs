@@ -13,6 +13,7 @@ namespace PetSite.Configuration
         private readonly ILogger<ParameterRefreshManager> _logger;
         private readonly TimeSpan _refreshInterval;
         private readonly ConcurrentDictionary<string, CachedParameter> _cache;
+        private readonly string _parameterPrefix;
 
         private class CachedParameter
         {
@@ -25,6 +26,8 @@ namespace PetSite.Configuration
             _ssmClient = ssmClient;
             _logger = logger;
             _cache = new ConcurrentDictionary<string, CachedParameter>();
+
+            _parameterPrefix = Environment.GetEnvironmentVariable("PARAMETER_STORE_PREFIX") ?? "/petstore";
 
             var intervalStr = Environment.GetEnvironmentVariable("CONFIG_REFRESH_INTERVAL");
             var intervalSeconds = 300; // default 5 minutes
@@ -46,40 +49,42 @@ namespace PetSite.Configuration
 
         public async Task<string> GetParameterAsync(string parameterName)
         {
-            if (_cache.TryGetValue(parameterName, out var cached))
+            var fullParameterName = parameterName.StartsWith("/") ? parameterName : $"{_parameterPrefix}/{parameterName}";
+
+            if (_cache.TryGetValue(fullParameterName, out var cached))
             {
                 var elapsed = DateTime.UtcNow - cached.Timestamp;
                 if (elapsed < _refreshInterval)
                 {
-                    _logger.LogDebug("Using cached parameter: {ParameterName}", parameterName);
+                    _logger.LogDebug("Using cached parameter: {ParameterName}", fullParameterName);
                     return cached.Value;
                 }
 
                 _logger.LogInformation(
                     "Parameter {ParameterName} needs refresh (elapsed: {Elapsed})",
-                    parameterName,
+                    fullParameterName,
                     elapsed
                 );
             }
 
-            _logger.LogInformation("Fetching parameter from SSM: {ParameterName}", parameterName);
+            _logger.LogInformation("Fetching parameter from SSM: {ParameterName}", fullParameterName);
 
             var request = new GetParameterRequest
             {
-                Name = parameterName,
+                Name = fullParameterName,
                 WithDecryption = false
             };
 
             var response = await _ssmClient.GetParameterAsync(request);
             var value = response.Parameter.Value;
 
-            _cache[parameterName] = new CachedParameter
+            _cache[fullParameterName] = new CachedParameter
             {
                 Value = value,
                 Timestamp = DateTime.UtcNow
             };
 
-            _logger.LogDebug("Parameter cached: {ParameterName}", parameterName);
+            _logger.LogDebug("Parameter cached: {ParameterName}", fullParameterName);
             return value;
         }
     }
