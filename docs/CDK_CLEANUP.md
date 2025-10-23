@@ -23,10 +23,12 @@ ListTaggedStacks → CheckStacksFound → DeleteStacks (Map) → CheckDeletionRe
                                                                                           ↓
                                                                     All Success? → CleanupCDKStagingBucket
                                                                           ↓              ↓
-                                                                    Any Failed?    DeleteCDKToolkitStack
+                                                                    Any Failed?    CleanupCacheBucket
                                                                           ↓              ↓
-                                                                    SkipCleanup    CleanupComplete
-                                                                       (END)          (END)
+                                                                    SkipCleanup    DeleteCDKToolkitStack
+                                                                       (END)           ↓
+                                                                              CleanupComplete
+                                                                                 (END)
 ```
 
 **Stack Deletion Loop** (per stack):
@@ -59,14 +61,17 @@ def handler(event, context):
 - Returns true only if ALL deletions succeeded
 - Determines whether cleanup should proceed
 
-#### 3. CDK Staging Bucket Cleanup (`rCDKStagingBucketCleanupFunction`)
-- Empties and deletes CDK staging bucket
-- Handles versioned objects and delete markers
+#### 3. Bucket Cleanup (`rBucketCleanupFunction`)
+- Generic function to clean up S3 buckets
+- Accepts `bucketName` and `deleteBucket` parameters
+- Empties bucket by deleting all objects and versions
+- Optionally deletes the bucket itself
+- Used for both CDK staging bucket and cache bucket
 - Only runs if all stack deletions succeed
 
 #### 4. Cleanup Completion (`rCleanupCompletionFunction`)
 Deletes all retained resources when cleanup succeeds:
-- Lambda functions: stack-lister, deletion-checker, staging-cleanup, cleanup-monitor, cleanup-completion
+- Lambda functions: stack-lister, deletion-checker, bucket-cleanup, cleanup-monitor, cleanup-completion
 - IAM roles: All roles for Lambda functions, Step Function, and EventBridge
 - EventBridge rules matching the stack name
 - Step Function state machine itself
@@ -110,7 +115,7 @@ def handler(event, context):
 All cleanup resources have `DeletionPolicy: Retain` to enable retry on failure:
 - Step Function state machine
 - Lambda functions (5 total)
-- IAM roles (7 total)
+- IAM roles (6 total)
 - EventBridge rules and role
 
 These are automatically deleted by `rCleanupCompletionFunction` on successful cleanup.
@@ -124,13 +129,14 @@ These are automatically deleted by `rCleanupCompletionFunction` on successful cl
 4. Each stack deleted sequentially with async polling
 5. All deletions succeed → `{\"status\": \"success\"}`
 6. `rDeletionResultCheckerFunction` confirms all successful
-7. CDK staging bucket cleaned up
-8. CDK bootstrap stack (`CDKToolkitPetsite`) deleted
-9. `rCleanupCompletionFunction` removes all retained resources
-10. Step Function completes successfully
-11. `rCleanupMonitor` signals SUCCESS to CloudFormation
-12. CloudFormation stack deletion completes
-13. **Result**: No resources left behind
+7. CDK staging bucket cleaned up and deleted
+8. Cache bucket emptied (bucket retained)
+9. CDK bootstrap stack (`CDKToolkitPetsite`) deleted
+10. `rCleanupCompletionFunction` removes all retained resources
+11. Step Function completes successfully
+12. `rCleanupMonitor` signals SUCCESS to CloudFormation
+13. CloudFormation stack deletion completes
+14. **Result**: No resources left behind
 
 ### Failed Cleanup
 1. CloudFormation stack deletion initiated

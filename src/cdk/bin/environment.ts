@@ -323,3 +323,5 @@ export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
 export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
+/** Enables OpenSearch Application creation */
+export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLICATION == 'true' || false;
