@@ -909,6 +909,7 @@ Resources:
               "Type": "Map",
               "ItemsPath": "$.stackList.Payload.stacks",
               "MaxConcurrency": 1,
+              "ResultPath": "$.deletionResults",
               "Iterator": {
                 "StartAt": "DescribeStack",
                 "States": {
@@ -925,6 +926,7 @@ Resources:
                     "Catch": [
                       {
                         "ErrorEquals": ["CloudFormation.CloudFormationException"],
+                        "ResultPath": "$.error",
                         "Next": "StackAlreadyDeleted"
                       }
                     ]
@@ -939,6 +941,7 @@ Resources:
                     "Catch": [
                       {
                         "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
                         "Next": "DeletionFailed"
                       }
                     ]
@@ -959,6 +962,7 @@ Resources:
                     "Catch": [
                       {
                         "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
+                        "ResultPath": "$.error",
                         "Next": "DeletionComplete"
                       }
                     ]
@@ -981,22 +985,48 @@ Resources:
                   },
                   "DeletionComplete": {
                     "Type": "Pass",
-                    "Result": "Stack deleted successfully",
+                    "Result": {"status": "success"},
                     "End": true
                   },
                   "DeletionFailed": {
                     "Type": "Pass",
-                    "Result": "Stack deletion failed or cancelled",
+                    "Result": {"status": "failed"},
                     "End": true
                   },
                   "StackAlreadyDeleted": {
                     "Type": "Pass",
-                    "Result": "Stack already deleted or does not exist",
+                    "Result": {"status": "success"},
                     "End": true
                   }
                 }
               },
-              "Next": "CleanupCDKStagingBucket"
+              "Next": "CheckDeletionResults"
+            },
+            "CheckDeletionResults": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${rDeletionResultCheckerFunction}",
+                "Payload.$": "$.deletionResults"
+              },
+              "ResultPath": "$.allSuccessful",
+              "Next": "EvaluateOverallSuccess"
+            },
+            "EvaluateOverallSuccess": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.allSuccessful.Payload.allSuccessful",
+                  "BooleanEquals": true,
+                  "Next": "CleanupCDKStagingBucket"
+                }
+              ],
+              "Default": "SkipCleanup"
+            },
+            "SkipCleanup": {
+              "Type": "Pass",
+              "Result": "Stack deletion failed. Skipping Step Function and CDK bootstrap cleanup to allow retry.",
+              "End": true
             },
             "CleanupCDKStagingBucket": {
               "Type": "Task",
@@ -1147,6 +1177,45 @@ Resources:
                 Resource:
                   - !GetAtt rCleanupCompletionFunction.Arn
                   - !GetAtt rCDKStagingBucketCleanupFunction.Arn
+                  - !GetAtt rDeletionResultCheckerFunction.Arn
+
+  # Lambda function to check deletion results
+  rDeletionResultCheckerFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-deletion-result-checker
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rDeletionResultCheckerRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              # Check if all deletions were successful
+              all_successful = all(
+                  result.get('status') == 'success'
+                  for result in event
+                  if isinstance(result, dict)
+              )
+              return {'allSuccessful': all_successful}
+
+  # IAM Role for Deletion Result Checker Lambda
+  rDeletionResultCheckerRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
