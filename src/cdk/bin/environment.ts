@@ -81,6 +81,12 @@ export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline';
 /** Working directory for CDK operations */
 export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 
+/** CodeBuild cache bucket for build performance */
+export const CODEBUILD_CACHE_BUCKET = process.env.CODEBUILD_CACHE_BUCKET;
+
+/** CodeBuild cache prefix for S3 cache location */
+export const CODEBUILD_CACHE_NAMESPACE = process.env.CODEBUILD_CACHE_NAMESPACE || 'codebuild-cache';
+
 /** Max number of concurrent users for traffic generator. User 0 to disable */
 export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
 

@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
-import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import { BuildSpec, Cache, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { IRole, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
@@ -29,7 +29,7 @@ import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
-import { CUSTOM_ENABLE_WAF } from '../bin/environment';
+import { CODEBUILD_CACHE_BUCKET, CODEBUILD_CACHE_NAMESPACE, CUSTOM_ENABLE_WAF } from '../bin/environment';
 import { GlobalWaf } from './constructs/waf';
 
 /**
@@ -165,6 +165,9 @@ export class CDKPipeline extends Stack {
                         },
                     },
                 },
+                cache: {
+                    paths: ['node_modules/**/*'],
+                },
             }),
         });
         /**
@@ -192,6 +195,11 @@ export class CDKPipeline extends Stack {
                         },
                     },
                 },
+                cache: CODEBUILD_CACHE_BUCKET
+                    ? Cache.bucket(Bucket.fromBucketName(this, 'CodeBuildCache', CODEBUILD_CACHE_BUCKET), {
+                          cacheNamespace: CODEBUILD_CACHE_NAMESPACE,
+                      })
+                    : undefined,
             },
         });
 

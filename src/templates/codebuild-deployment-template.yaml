@@ -374,6 +374,53 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
+
+  # S3 bucket for CodeBuild cache
+  rCacheBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldCacheAfter30Days
+            Status: Enabled
+            ExpirationInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cache-bucket
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -548,6 +595,13 @@ Resources:
           - Name: VPC_CIDR
             Value: !Ref pVpcCidr
             Type: PLAINTEXT
+          - Name: CACHE_BUCKET
+            Value: !Ref rCacheBucket
+            Type: PLAINTEXT
+      Cache:
+        Type: S3
+        Location: !Sub ${rCacheBucket}/codebuild-cache
+        CacheNamespace: codebuild-cache
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
@@ -587,52 +641,22 @@ Resources:
                   AWS_REGION=$AWS_REGION
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
+                  CODEBUILD_CACHE_BUCKET=$CACHE_BUCKET
+                  CODEBUILD_CACHE_NAMESPACE=codebuild-cache
                   EOF
                 # Add only .env file to repository
                 - git add ${WORKING_FOLDER}/.env -f
                 - git commit -m "Add merged configuration and environment variables to .env"
                 # Configure S3 remote with s3+zip protocol for CodePipeline
                 - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
-                - git push s3 $BRANCH_NAME
-                # Check if account is bootstrapped
+                - git push s3 $BRANCH_NAME --force
+                # Bootstrap current region
+                - ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} ${AWS_REGION}
+                # Bootstrap us-east-1 if WAF is enabled
                 - |
-                  STACK_EXISTS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackName" --output text)
-                  STACK_DELETE_COMPLETE=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus=='DELETE_COMPLETE'].StackName" --output text)
-                  if [ -z "$STACK_EXISTS" ] && [ -z "$STACK_DELETE_COMPLETE" ]; then
-                    echo "Account not bootstrapped, bootstrapping now..."
-                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
-                  elif [ -n "$STACK_DELETE_COMPLETE" ]; then
-                    echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
-                    # Force remove ECR and S3 buckets
-                    aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
-                    bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
-                    if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
-                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
-                      aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
-                      aws s3api delete-bucket --bucket "$bucket" || true
-                    fi
-                    # Bootstrap again
-                    cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
-                  else
-                    STACK_STATUS=$(aws cloudformation list-stacks --query "StackSummaries[?StackName=='CDKToolkitPetsite' && StackStatus!='DELETE_COMPLETE'].StackStatus" --output text)
-                    if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
-                      echo "CDK bootstrap stack in ROLLBACK_COMPLETE state, cleaning up resources..."
-                      # Force remove ECR and S3 buckets
-                      aws ecr delete-repository --repository-name "cdk-petsite-container-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}" --force 2>/dev/null || true
-                      bucket="cdk-petsite-assets-${AWS_ACCOUNT_ID}-${AWS_REGION}"
-                      if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
-                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
-                        aws s3api delete-objects --bucket "$bucket" --delete "$(aws s3api list-object-versions --bucket "$bucket" --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" 2>/dev/null || true
-                        aws s3api delete-bucket --bucket "$bucket" || true
-                      fi
-                      # Delete the stack
-                      aws cloudformation delete-stack --stack-name CDKToolkitPetsite
-                      aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite
-                      # Bootstrap again
-                      cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
-                    else
-                      echo "CDK bootstrap stack exists with status: $STACK_STATUS"
-                    fi
+                  if grep -q "CUSTOM_ENABLE_WAF=true" ${WORKING_FOLDER}/.env; then
+                    echo "WAF enabled, bootstrapping us-east-1..."
+                    ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} us-east-1
                   fi
             build:
               commands:
@@ -640,7 +664,7 @@ Resources:
                 # Install dependencies and synthesize CDK
                 - npm install
                 - cdk synth --quiet
-                - cdk deploy --require-approval never --outputs-file cdk-outputs.json --quiet
+                - cdk deploy OneObservability --require-approval never --outputs-file cdk-outputs.json --quiet
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
@@ -651,132 +675,9 @@ Resources:
                 - |
                   echo "Pipeline ARN: $PIPELINE_ARN"
                 - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
-                - |
-                  echo "Pipeline Name: $PIPELINE_NAME"
-                # Wait for pipeline to complete using direct status checking with retry handling
-                - |
-                  echo "Waiting for pipeline ${PIPELINE_NAME} execution to complete..."
-                  TIMEOUT=3600  # 1 hour timeout
-                  ELAPSED=0
-                  SLEEP_INTERVAL=30
-                  INITIAL_EXECUTION_ID=""
-                  RETRY_COUNT=0
-                  MAX_RETRIES=3
-                  RETRY_LOOP_COUNT=0
-                  MAX_RETRY_LOOPS=10
-
-                  # Get the initial execution ID to track retries
-                  INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
-                    --pipeline-name "$PIPELINE_NAME" \
-                    --max-items 1 \
-                    --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
-                    --output text)
-
-                  echo "Initial pipeline execution ID: $INITIAL_EXECUTION_ID"
-
-                  while [ $ELAPSED -lt $TIMEOUT ]; do
-                    # Get the most recent pipeline execution details
-                    EXECUTION_DETAILS=$(aws codepipeline list-pipeline-executions \
-                      --pipeline-name "$PIPELINE_NAME" \
-                      --max-items 1 \
-                      --query 'pipelineExecutionSummaries[0].[pipelineExecutionId,status]' \
-                      --output text)
-
-                    CURRENT_EXECUTION_ID=$(echo "$EXECUTION_DETAILS" | cut -f1)
-                    EXECUTION_STATUS=$(echo "$EXECUTION_DETAILS" | cut -f2)
-
-                    # Check if this is a new execution (retry scenario)
-                    if [ "$CURRENT_EXECUTION_ID" != "$INITIAL_EXECUTION_ID" ]; then
-                      RETRY_COUNT=$((RETRY_COUNT + 1))
-                      echo "Detected new pipeline execution (retry #$RETRY_COUNT): $CURRENT_EXECUTION_ID"
-                      INITIAL_EXECUTION_ID="$CURRENT_EXECUTION_ID"
-                      RETRY_LOOP_COUNT=0  # Reset retry loop counter for new execution
-                      echo "Continuing to monitor new execution..."
-                    fi
-
-                    echo "Current pipeline execution status: $EXECUTION_STATUS (ID: $CURRENT_EXECUTION_ID)"
-
-                    case "$EXECUTION_STATUS" in
-                      "Succeeded")
-                        echo "Pipeline execution completed successfully!"
-                        if [ $RETRY_COUNT -gt 0 ]; then
-                          echo "Success achieved after $RETRY_COUNT retry(ies)"
-                        fi
-                        echo "Signaling CloudFormation SUCCESS"
-                        WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
-                        curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "SUCCESS","Reason" : "Pipeline completed successfully","UniqueId" : "'$(uuidgen)'","Data" : "Pipeline execution finished"}' "$WAIT_HANDLE_URL"
-                        break
-                        ;;
-                      "Failed")
-                        echo "Pipeline execution failed with status: $EXECUTION_STATUS"
-                        RETRY_LOOP_COUNT=$((RETRY_LOOP_COUNT + 1))
-                        echo "Retry loop count: $RETRY_LOOP_COUNT/$MAX_RETRY_LOOPS"
-
-                        if [ $RETRY_LOOP_COUNT -lt $MAX_RETRY_LOOPS ]; then
-                          echo "Waiting for potential retry... (loop $RETRY_LOOP_COUNT of $MAX_RETRY_LOOPS)"
-                          sleep 60
-                          ELAPSED=$((ELAPSED + 60))
-                          continue
-                        else
-                          echo "Maximum retry loops ($MAX_RETRY_LOOPS) reached without new execution. Build failed."
-                          exit 1
-                        fi
-                        ;;
-                      "Cancelled"|"Stopped")
-                        echo "Pipeline execution was cancelled or stopped: $EXECUTION_STATUS"
-                        echo "This may indicate manual intervention or system issues."
-                        exit 1
-                        ;;
-                      "Superseded")
-                        echo "Pipeline execution was superseded by a newer execution"
-                        echo "Continuing to monitor the newer execution..."
-                        sleep $SLEEP_INTERVAL
-                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
-                        ;;
-                      "InProgress")
-                        echo "Pipeline execution in progress..."
-                        sleep $SLEEP_INTERVAL
-                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
-                        ;;
-                      "Stopping")
-                        echo "Pipeline execution is stopping..."
-                        sleep $SLEEP_INTERVAL
-                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
-                        ;;
-                      *)
-                        echo "Unknown pipeline status: $EXECUTION_STATUS"
-                        echo "Continuing to monitor..."
-                        sleep $SLEEP_INTERVAL
-                        ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
-                        ;;
-                    esac
-
-                    # Additional safety check for stuck executions
-                    if [ $ELAPSED -gt 0 ] && [ $((ELAPSED % 300)) -eq 0 ]; then
-                      echo "Progress check: $((ELAPSED / 60)) minutes elapsed, status: $EXECUTION_STATUS"
-
-                      # Get detailed stage information for better visibility
-                      aws codepipeline get-pipeline-state \
-                        --name "$PIPELINE_NAME" \
-                        --query 'stageStates[*].[stageName,latestExecution.status]' \
-                        --output table || echo "Could not retrieve detailed stage information"
-                    fi
-                  done
-
-                  if [ $ELAPSED -ge $TIMEOUT ]; then
-                    echo "Timeout reached after $((TIMEOUT / 60)) minutes"
-                    echo "Final pipeline status: $EXECUTION_STATUS"
-                    echo "Total retries attempted: $RETRY_COUNT"
-
-                    # Get final pipeline state for debugging
-                    echo "Final pipeline state:"
-                    aws codepipeline get-pipeline-state \
-                      --name "$PIPELINE_NAME" \
-                      --query 'stageStates[*].[stageName,latestExecution.status,latestExecution.errorDetails.message]' \
-                      --output table || echo "Could not retrieve final pipeline state"
-
-                    exit 1
-                  fi
+                - echo "Pipeline Name: $PIPELINE_NAME"
+                # Wait for pipeline to complete
+                - ./${WORKING_FOLDER}/scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
             post_build:
               commands:
                 - |
@@ -1187,7 +1088,40 @@ Resources:
               - Effect: Allow
                 Action:
                   - cloudformation:DeleteStack
+                  - cloudformation:DescribeStackResources
                 Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CDKToolkitPetsite/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetBucketPolicy
+                Resource:
+                  - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}/*'
+              - Effect: Allow
+                Action:
+                  - ecr:DeleteRepository
+                  - ecr:BatchDeleteImage
+                  - ecr:ListImages
+                Resource: !Sub 'arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/cdk-petsite-container-assets-${AWS::AccountId}-${AWS::Region}'
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:GetRole
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-petsite-*'
+              - Effect: Allow
+                Action:
+                  - ssm:DeleteParameter
+                  - ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-bootstrap/petsite/*'
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
