@@ -674,8 +674,10 @@ Resources:
                   fi
                 - |
                   echo "Pipeline ARN: $PIPELINE_ARN"
-                - PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
-                - echo "Pipeline Name: $PIPELINE_NAME"
+                - |
+                  PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
+                - |
+                  echo "Pipeline Name: $PIPELINE_NAME"
                 # Wait for pipeline to complete
                 - ./${WORKING_FOLDER}/scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
             post_build:
