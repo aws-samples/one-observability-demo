@@ -166,7 +166,7 @@ export class CDKPipeline extends Stack {
                     },
                 },
                 cache: {
-                    paths: ['node_modules/**/*'],
+                    paths: [`${properties.workingFolder}/node_modules/**/*`],
                 },
             }),
         });
@@ -199,7 +199,12 @@ export class CDKPipeline extends Stack {
                     ? Cache.bucket(Bucket.fromBucketName(this, 'CodeBuildCache', CODEBUILD_CACHE_BUCKET), {
                           cacheNamespace: CODEBUILD_CACHE_NAMESPACE,
                       })
-                    : undefined,
+                    : Cache.local(),
+                partialBuildSpec: BuildSpec.fromObject({
+                    cache: {
+                        modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],
+                    },
+                }),
             },
         });
 

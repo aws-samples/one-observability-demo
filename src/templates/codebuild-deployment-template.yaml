@@ -601,16 +601,18 @@ Resources:
       Cache:
         Type: S3
         Location: !Sub ${rCacheBucket}/codebuild-cache
-        CacheNamespace: codebuild-cache
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
+          - LOCAL_SOURCE_CACHE
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
         BuildSpec: |
           version: 0.2
           cache:
-            key: npm-$(codebuild-hash-files package-lock.json)
+            key: npm-$(codebuild-hash-files ${WORKING_FOLDER}/package-lock.json)
             paths:
-              - "node_modules/**/*"
+              - "${WORKING_FOLDER}/node_modules/**/*"
           phases:
             install:
               runtime-versions:
