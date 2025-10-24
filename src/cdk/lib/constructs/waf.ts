@@ -1,4 +1,4 @@
-import { Names, RemovalPolicy } from 'aws-cdk-lib';
+import { RemovalPolicy } from 'aws-cdk-lib';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -26,7 +26,6 @@ export class RegionalWaf extends Construct {
         const logGroup = new LogGroup(this, 'WAFv2RegionalLogGroup', {
             retention: properties.logRetention || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
-            logGroupName: 'aws-waf-logs-regional-' + Names.uniqueId(this),
         });
 
         const webAcl = new CfnWebACL(this, 'WAFv2RegionalACL', {
@@ -101,7 +100,6 @@ export class GlobalWaf extends Construct {
         const logGroup = new LogGroup(this, 'WAFv2GlobalLogGroup', {
             retention: properties.logRetention || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
-            logGroupName: 'aws-waf-logs-global-' + Names.uniqueId(this),
         });
         const webAcl = new CfnWebACL(this, 'WAFv2GlobalACL', {
             defaultAction: {

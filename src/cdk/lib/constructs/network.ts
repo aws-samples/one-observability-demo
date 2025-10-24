@@ -269,35 +269,50 @@ export class WorkshopNetwork extends Construct {
      * Creates CloudFormation outputs for VPC resources
      */
     private createVpcOutputs() {
-        new CfnOutput(this, 'VpcId', { value: this.vpc.vpcId, exportName: VPC_ID_EXPORT_NAME });
-        new CfnOutput(this, 'VpcCidr', { value: this.vpc.vpcCidrBlock, exportName: VPC_CIDR_EXPORT_NAME });
+        new CfnOutput(this, 'VpcId', {
+            value: this.vpc.vpcId,
+            exportName: VPC_ID_EXPORT_NAME,
+            description: 'VPC ID for the workshop network',
+        });
+        new CfnOutput(this, 'VpcCidr', {
+            value: this.vpc.vpcCidrBlock,
+            exportName: VPC_CIDR_EXPORT_NAME,
+            description: 'CIDR block of the workshop VPC',
+        });
         new CfnOutput(this, 'VpcPrivateSubnets', {
             value: this.vpc.privateSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_PRIVATE_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of private subnet IDs with NAT gateway access',
         });
         new CfnOutput(this, 'VpcPublicSubnets', {
             value: this.vpc.publicSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_PUBLIC_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of public subnet IDs with internet gateway access',
         });
         new CfnOutput(this, 'VpcIsolatedSubnets', {
             value: this.vpc.isolatedSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_ISOLATED_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of isolated subnet IDs without internet access',
         });
         new CfnOutput(this, 'VpcAvailabilityZones', {
             value: this.vpc.availabilityZones.join(','),
             exportName: VPC_AVAILABILITY_ZONES_EXPORT_NAME,
+            description: 'Comma-separated list of availability zones used by the VPC',
         });
         new CfnOutput(this, 'VpcPrivateSubnetCidrs', {
             value: this.vpc.privateSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for private subnets',
         });
         new CfnOutput(this, 'VpcPublicSubnetCidrs', {
             value: this.vpc.publicSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for public subnets',
         });
         new CfnOutput(this, 'VpcIsolatedSubnetCidrs', {
             value: this.vpc.isolatedSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for isolated subnets',
         });
     }
 
@@ -308,16 +323,19 @@ export class WorkshopNetwork extends Construct {
         new CfnOutput(this, 'CloudMapNamespaceId', {
             value: this.cloudMapNamespace.namespaceId,
             exportName: CLOUDMAP_NAMESPACE_ID_EXPORT_NAME,
+            description: 'Cloud Map namespace ID for service discovery',
         });
 
         new CfnOutput(this, 'CloudMapNamespaceName', {
             value: this.cloudMapNamespace.namespaceName,
             exportName: CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
+            description: 'Cloud Map namespace name for service discovery',
         });
 
         new CfnOutput(this, 'CloudMapNamespaceArn', {
             value: this.cloudMapNamespace.namespaceArn,
             exportName: CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
+            description: 'Cloud Map namespace ARN for service discovery',
         });
     }
 

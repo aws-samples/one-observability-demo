@@ -189,7 +189,7 @@ export class PetFoodAgentConstruct extends Construct {
 
         new CfnOutput(this, 'AgentRuntimeArn', {
             value: this.agentRuntime.attrAgentRuntimeArn,
-            description: 'Agent Runtime ARN',
+            description: 'ARN of the Bedrock Agent Runtime for pet food recommendations',
         });
     }
 }

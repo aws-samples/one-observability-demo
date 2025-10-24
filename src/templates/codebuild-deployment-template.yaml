@@ -139,6 +139,7 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
       only contain alphanumeric characters or special characters ( _ . : / = + -
       or @) up to 128 characters'
+    Default: awsApplication
 
   pUserDefinedTagValue3:
     Type: String
@@ -147,6 +148,7 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Value. This
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
+    Default: One Observabiity Workshop
 
   pUserDefinedTagKey4:
     Type: String

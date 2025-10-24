@@ -75,10 +75,12 @@ export class EventBusResources extends Construct {
         new CfnOutput(this, 'EventBusArn', {
             value: this.eventBus.eventBusArn,
             exportName: EVENTBUS_ARN_EXPORT_NAME,
+            description: 'ARN of the EventBridge event bus for cross-service communication',
         });
         new CfnOutput(this, 'EventBusName', {
             value: this.eventBus.eventBusName,
             exportName: EVENTBUS_NAME_EXPORT_NAME,
+            description: 'Name of the EventBridge event bus',
         });
     }
 }

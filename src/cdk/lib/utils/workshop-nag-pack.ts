@@ -34,6 +34,16 @@ export class WorkshopNagPack extends NagPack {
             });
 
             this.applyRule({
+                ruleSuffixOverride: 'CWL3',
+                info: 'CloudWatch Log Groups should use dynamically generated names',
+                explanation:
+                    'Log groups with static names may cause conflicts when redeploying the stack. Use dynamically generated names instead.',
+                level: NagMessageLevel.ERROR,
+                rule: this.checkCloudWatchLogGroupName,
+                node: node,
+            });
+
+            this.applyRule({
                 ruleSuffixOverride: 'S3-1',
                 info: 'S3 Buckets should have deletion policy configured',
                 explanation:
@@ -83,6 +93,20 @@ export class WorkshopNagPack extends NagPack {
         if (node.cfnResourceType === 'AWS::Logs::LogGroup') {
             const deletionPolicy = node.cfnOptions.deletionPolicy;
             if (!deletionPolicy || deletionPolicy.toString() !== 'Delete') {
+                return NagRuleCompliance.NON_COMPLIANT;
+            }
+            return NagRuleCompliance.COMPLIANT;
+        }
+        return NagRuleCompliance.NOT_APPLICABLE;
+    };
+
+    private checkCloudWatchLogGroupName = (node: CfnResource): NagRuleResult => {
+        if (node.cfnResourceType === 'AWS::Logs::LogGroup') {
+            const logGroupName = NagRules.resolveIfPrimitive(
+                node,
+                (node as CfnResource & { logGroupName?: unknown }).logGroupName,
+            );
+            if (logGroupName && typeof logGroupName === 'string' && !logGroupName.includes('Ref')) {
                 return NagRuleCompliance.NON_COMPLIANT;
             }
             return NagRuleCompliance.COMPLIANT;

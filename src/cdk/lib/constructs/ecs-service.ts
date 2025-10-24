@@ -103,7 +103,6 @@ export abstract class EcsService extends Microservice {
 
         // Create CloudWatch log group
         const logGroup = new LogGroup(this, 'ecs-log-group', {
-            logGroupName: properties.logGroupName || `/ecs/${properties.name}`,
             removalPolicy: RemovalPolicy.DESTROY,
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
         });
@@ -210,7 +209,7 @@ export abstract class EcsService extends Microservice {
             this.addAdotPythonInitContainer(taskDefinition, container);
 
             // Add CloudWatch agent sidecar
-            this.addCloudWatchAgentSidecar(taskDefinition, properties);
+            this.addCloudWatchAgentSidecar(taskDefinition);
         }
 
         if (!properties.disableService) {
@@ -474,7 +473,6 @@ export abstract class EcsService extends Microservice {
             logging: new AwsLogDriver({
                 streamPrefix: 'firelens',
                 logGroup: new LogGroup(this, 'firelens-log-group', {
-                    logGroupName: `/ecs/firelens/${properties.name}`,
                     removalPolicy: RemovalPolicy.DESTROY,
                     retention: RetentionDays.ONE_WEEK,
                 }),
@@ -568,7 +566,7 @@ export abstract class EcsService extends Microservice {
         });
     }
 
-    private addCloudWatchAgentSidecar(taskDefinition: TaskDefinition, properties: EcsServiceProperties): void {
+    private addCloudWatchAgentSidecar(taskDefinition: TaskDefinition): void {
         // CloudWatch agent configuration for Application Signals
         const cloudWatchConfig = {
             traces: {
@@ -592,7 +590,6 @@ export abstract class EcsService extends Microservice {
             logging: new AwsLogDriver({
                 streamPrefix: 'cloudwatch-agent',
                 logGroup: new LogGroup(this, 'cloudwatch-agent-log-group', {
-                    logGroupName: `/ecs/cloudwatch-agent/${properties.name}`,
                     removalPolicy: RemovalPolicy.DESTROY,
                     retention: RetentionDays.ONE_WEEK,
                 }),

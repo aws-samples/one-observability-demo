@@ -177,22 +177,26 @@ export class OpenSearchCollection extends Construct {
         new CfnOutput(this, 'CollectionArn', {
             value: this.collection.attrArn,
             exportName: OPENSEARCH_COLLECTION_ARN_EXPORT_NAME,
+            description: 'ARN of the OpenSearch Serverless collection for log storage',
         });
 
         new CfnOutput(this, 'CollectionId', {
             value: this.collection.attrId,
             exportName: OPENSEARCH_COLLECTION_ID_EXPORT_NAME,
+            description: 'ID of the OpenSearch Serverless collection',
         });
 
         new CfnOutput(this, 'CollectionEndpoint', {
             value: this.collection.attrCollectionEndpoint,
             exportName: OPENSEARCH_COLLECTION_ENDPOINT_EXPORT_NAME,
+            description: 'HTTPS endpoint URL for the OpenSearch Serverless collection',
         });
 
         // Export access policy name for updates
         new CfnOutput(this, 'AccessPolicyName', {
             value: this.accessPolicy.name!,
             exportName: `${OPENSEARCH_COLLECTION_ARN_EXPORT_NAME}-AccessPolicy`,
+            description: 'Name of the data access policy for the OpenSearch collection',
         });
     }
 

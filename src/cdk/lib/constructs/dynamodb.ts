@@ -147,31 +147,37 @@ export class DynamoDatabase extends Construct {
         new CfnOutput(this, 'TableArn', {
             value: this.petAdoptionTable.tableArn,
             exportName: DYNAMODB_TABLE_ARN_EXPORT_NAME,
+            description: 'ARN of the DynamoDB table for pet adoption data',
         });
 
         new CfnOutput(this, 'TableName', {
             value: this.petAdoptionTable.tableName,
             exportName: DYNAMODB_TABLE_NAME_EXPORT_NAME,
+            description: 'Name of the DynamoDB table for pet adoption data',
         });
 
         new CfnOutput(this, 'PetFoodsTableArn', {
             value: this.petFoodsTable.tableArn,
             exportName: `${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoods`,
+            description: 'ARN of the DynamoDB table for pet food products',
         });
 
         new CfnOutput(this, 'PetFoodsTableName', {
             value: this.petFoodsTable.tableName,
             exportName: `${DYNAMODB_TABLE_NAME_EXPORT_NAME}-PetFoods`,
+            description: 'Name of the DynamoDB table for pet food products',
         });
 
         new CfnOutput(this, 'PetFoodsCartTableArn', {
             value: this.petFoodsCartTable.tableArn,
             exportName: `${DYNAMODB_TABLE_ARN_EXPORT_NAME}-PetFoodsCart`,
+            description: 'ARN of the DynamoDB table for pet food shopping cart',
         });
 
         new CfnOutput(this, 'PetFoodsCartTableName', {
             value: this.petFoodsCartTable.tableName,
             exportName: `${DYNAMODB_TABLE_NAME_EXPORT_NAME}-PetFoodsCart`,
+            description: 'Name of the DynamoDB table for pet food shopping cart',
         });
     }
 

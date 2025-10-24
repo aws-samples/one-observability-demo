@@ -235,36 +235,43 @@ export class WorkshopEks extends Construct {
         new CfnOutput(this, 'ClusterArn', {
             value: this.cluster.clusterArn,
             exportName: EKS_CLUSTER_ARN_EXPORT_NAME,
+            description: 'ARN of the EKS cluster',
         });
 
         new CfnOutput(this, 'ClusterName', {
             value: this.cluster.clusterName,
             exportName: EKS_CLUSTER_NAME_EXPORT_NAME,
+            description: 'Name of the EKS cluster for kubectl configuration',
         });
 
         new CfnOutput(this, 'SecurityGroupId', {
             value: this.cluster.clusterSecurityGroupId,
             exportName: EKS_SECURITY_GROUP_ID_EXPORT_NAME,
+            description: 'Security group ID for EKS cluster network access',
         });
 
         new CfnOutput(this, 'KubectlRoleArn', {
             value: this.cluster.kubectlRole!.roleArn,
             exportName: EKS_KUBECTL_ROLE_ARN_EXPORT_NAME,
+            description: 'IAM role ARN for kubectl operations on the EKS cluster',
         });
 
         new CfnOutput(this, 'OpenIdConnectProviderArn', {
             value: this.cluster.openIdConnectProvider.openIdConnectProviderArn,
             exportName: EKS_OPEN_ID_CONNECT_PROVIDER_ARN_EXPORT_NAME,
+            description: 'OIDC provider ARN for EKS service account IAM role integration',
         });
 
         new CfnOutput(this, 'KubectlSecurityGroupId', {
             value: this.cluster.kubectlSecurityGroup!.securityGroupId,
             exportName: EKS_KUBECTL_SECURITY_GROUP_ID_EXPORT_NAME,
+            description: 'Security group ID for kubectl Lambda function',
         });
 
         new CfnOutput(this, 'KubectlLambdaRoleArn', {
             value: this.cluster.kubectlLambdaRole!.roleArn,
             exportName: EKS_KUBECTL_LAMBDA_ROLE_ARN_EXPORT_NAME,
+            description: 'IAM role ARN for the kubectl Lambda function',
         });
     }
 

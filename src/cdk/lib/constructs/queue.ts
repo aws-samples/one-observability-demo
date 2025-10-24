@@ -116,14 +116,17 @@ export class QueueResources extends Construct {
         new CfnOutput(this, 'SNSTopicArn', {
             value: this.topic.topicArn,
             exportName: SNS_TOPIC_ARN_EXPORT_NAME,
+            description: 'ARN of the SNS topic for pet adoption notifications',
         });
         new CfnOutput(this, 'SQSQueueArn', {
             value: this.queue.queueArn,
             exportName: SQS_QUEUE_ARN_EXPORT_NAME,
+            description: 'ARN of the SQS queue for pet adoption messages',
         });
         new CfnOutput(this, 'SQSQueueUrl', {
             value: this.queue.queueUrl,
             exportName: SQS_QUEUE_URL_EXPORT_NAME,
+            description: 'URL of the SQS queue for sending and receiving messages',
         });
     }
 
