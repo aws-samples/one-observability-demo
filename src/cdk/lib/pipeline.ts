@@ -52,9 +52,7 @@ export interface CDKPipelineProperties extends StackProps {
     /** Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source. */
     codeConnectionArn?: string;
     /** Base path in Parameter Store for configuration storage */
-    parameterStoreBasePath?: string;
-    /** CloudFormation stack name for parameter retrieval */
-    stackName?: string;
+    configurationParameterName?: string;
     /** Optional tags to apply to all resources */
     tags?: { [key: string]: string };
     /** Optional properties for the core infrastructure stage */
@@ -180,10 +178,8 @@ export class CDKPipeline extends Stack {
                 'echo ----------------------------',
                 'echo "Retrieving configuration..."',
                 // Use the reusable script to retrieve configuration
-                ...(properties.parameterStoreBasePath && properties.stackName
-                    ? [
-                          `./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}/${properties.stackName}/config"`,
-                      ]
+                ...(properties.configurationParameterName
+                    ? [`./scripts/retrieve-config.sh "${properties.configurationParameterName}"`]
                     : [
                           'echo "Using local .env file (Parameter Store base path not configured)"',
                           'cat .env || echo "No .env file found"',
@@ -336,10 +332,8 @@ export class CDKPipeline extends Stack {
                 `cd ${properties.workingFolder}`,
                 'echo "Retrieving configuration for exports dashboard..."',
                 // Use the reusable script to retrieve configuration
-                ...(properties.parameterStoreBasePath && properties.stackName
-                    ? [
-                          `./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}/${properties.stackName}/config"`,
-                      ]
+                ...(properties.configurationParameterName && properties.stackName
+                    ? [`./scripts/retrieve-config.sh "${properties.configurationParameterName}"`]
                     : [
                           'echo "Using local .env file (Parameter Store base path not configured)"',
                           'cat .env || echo "No .env file found"',
@@ -390,12 +384,12 @@ export class CDKPipeline extends Stack {
             ];
 
             // Add Parameter Store permissions if base path is provided
-            if (properties.parameterStoreBasePath) {
+            if (properties.configurationParameterName) {
                 policyStatements.push(
                     new PolicyStatement({
                         actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
                         resources: [
-                            `arn:aws:ssm:${this.region}:${this.account}:parameter${properties.parameterStoreBasePath}*`,
+                            `arn:aws:ssm:${this.region}:${this.account}:parameter${properties.configurationParameterName}*`,
                         ],
                     }),
                 );

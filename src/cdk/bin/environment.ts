@@ -322,3 +322,4 @@ export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLI
 
 /** CodeConnection ARN for GitHub integration (optional) */
 export const CODE_CONNECTION_ARN = process.env.CODE_CONNECTION_ARN || undefined;
+export const CONFIG_PARAM_NAME = process.env.CONFIG_PARAM_NAME || undefined;

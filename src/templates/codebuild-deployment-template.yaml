@@ -667,6 +667,10 @@ Resources:
                 - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
                 - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env
+                - |
+                  CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
+                  echo "Parameter path: ${CONFIG_PARAM_NAME}"
+
                 # Append additional environment variables to .env file
                 - |
                   cat >> ${WORKING_FOLDER}/.env << EOF
@@ -682,13 +686,11 @@ Resources:
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
                   CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
                   PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
+                  CONFIG_PARAM_NAME=$CONFIG_PARAM_NAME
                   EOF
                 # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |
                   echo "Storing complete configuration in Parameter Store parameter"
-                  CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
-                  echo "Parameter path: ${CONFIG_PARAM_NAME}"
-
                   # Update the CloudFormation-created parameter with complete configuration
                   aws ssm put-parameter \
                     --name "${CONFIG_PARAM_NAME}" \
@@ -1319,7 +1321,7 @@ Resources:
               try:
                   # List stacks in current region
                   paginator = cf_client.get_paginator('list_stacks')
-                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'CREATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
                       for stack in page['StackSummaries']:
                           # Skip nested stacks
                           if 'ParentId' in stack:
