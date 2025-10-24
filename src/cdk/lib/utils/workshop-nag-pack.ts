@@ -38,7 +38,7 @@ export class WorkshopNagPack extends NagPack {
                 info: 'CloudWatch Log Groups should use dynamically generated names',
                 explanation:
                     'Log groups with static names may cause conflicts when redeploying the stack. Use dynamically generated names instead.',
-                level: NagMessageLevel.WARN,
+                level: NagMessageLevel.ERROR,
                 rule: this.checkCloudWatchLogGroupName,
                 node: node,
             });
