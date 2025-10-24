@@ -41,7 +41,7 @@ namespace PetSite.Controllers
                 }
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_URL, _refreshManager);
+                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
 
                 var payload = new
                 {

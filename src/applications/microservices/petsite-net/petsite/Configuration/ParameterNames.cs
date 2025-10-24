@@ -15,7 +15,7 @@ namespace PetSite.Configuration
         public const string CART_API_URL = "CART_API_URL_PARAM_NAME";
         public const string SEARCH_API_URL = "SEARCH_API_URL_PARAM_NAME";
         public const string RUM_SCRIPT_PARAMETER = "RUM_SCRIPT_PARAMETER_NAME";
-        public const string PETFOOD_AGENT_RUNTIME_URL = "PETFOOD_AGENT_RUNTIME_URL";
+        public const string PETFOOD_AGENT_RUNTIME_ARN = "PETFOOD_AGENT_RUNTIME_ARN";
 
         /// <summary>
         /// Retrieves a parameter value using the parameter name from environment variables.
