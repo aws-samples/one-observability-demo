@@ -39,8 +39,8 @@ import { GlobalWaf } from './constructs/waf';
  * for deploying the One Observability Workshop infrastructure pipeline.
  */
 export interface CDKPipelineProperties extends StackProps {
-    /** S3 bucket name containing the source code repository */
-    configBucketName: string;
+    /** S3 bucket name containing the source code repository (required only when not using CodeConnection) */
+    configBucketName?: string;
     /** Git branch name to deploy from */
     branchName: string;
     /** Organization name for resource naming */
@@ -101,6 +101,11 @@ export class CDKPipeline extends Stack {
     constructor(scope: Construct, id: string, properties: CDKPipelineProperties) {
         super(scope, id, properties);
 
+        // Validate required properties based on source type
+        if (!properties.codeConnectionArn && !properties.configBucketName) {
+            throw new Error('Either codeConnectionArn or configBucketName must be provided');
+        }
+
         // Determine pipeline source based on CodeConnection availability
         let pipelineSource: CodePipelineSource;
         let configBucket: IBucket | undefined;
@@ -117,7 +122,7 @@ export class CDKPipeline extends Stack {
             );
         } else {
             // Fallback to S3 bucket source
-            configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
+            configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName!);
             bucketKey = `repo/refs/heads/${properties.branchName}/repo.zip`;
 
             pipelineSource = CodePipelineSource.s3(configBucket, bucketKey, {
@@ -262,7 +267,7 @@ export class CDKPipeline extends Stack {
                       }
                     : {
                           source: {
-                              bucketName: properties.configBucketName,
+                              bucketName: properties.configBucketName!,
                               bucketKey: bucketKey || `repo/refs/heads/${properties.branchName}/repo.zip`,
                           },
                       }),

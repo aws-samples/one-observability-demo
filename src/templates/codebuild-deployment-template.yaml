@@ -680,13 +680,22 @@ Resources:
                   CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
                   PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
                   EOF
-                # Prepare configuration content for Parameter Store (will be created by CloudFormation)
+                # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |
-                  echo "Configuration prepared for Parameter Store parameter"
+                  echo "Storing complete configuration in Parameter Store parameter"
                   CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
-                  echo "Parameter path will be: ${CONFIG_PARAM_NAME}"
-                  echo "Configuration content preview:"
-                  head -5 ${WORKING_FOLDER}/.env
+                  echo "Parameter path: ${CONFIG_PARAM_NAME}"
+
+                  # Update the CloudFormation-created parameter with complete configuration
+                  aws ssm put-parameter \
+                    --name "${CONFIG_PARAM_NAME}" \
+                    --value "$(cat ${WORKING_FOLDER}/.env)" \
+                    --type "String" \
+                    --overwrite
+
+                  echo "Configuration successfully stored in Parameter Store"
+                  echo "Configuration content:"
+                  cat ${WORKING_FOLDER}/.env
                 # Handle repository source configuration based on CodeConnection ARN
                 - |
                   if [ -n "$CODE_CONNECTION_ARN" ] && [ "$CODE_CONNECTION_ARN" != "" ]; then
