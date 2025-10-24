@@ -29,7 +29,7 @@ import { StorageStage } from './stages/storage';
 import { AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
-import { CODEBUILD_CACHE_BUCKET, CODEBUILD_CACHE_NAMESPACE, CUSTOM_ENABLE_WAF } from '../bin/environment';
+import { CUSTOM_ENABLE_WAF } from '../bin/environment';
 import { GlobalWaf } from './constructs/waf';
 
 /**
@@ -195,11 +195,7 @@ export class CDKPipeline extends Stack {
                         },
                     },
                 },
-                cache: CODEBUILD_CACHE_BUCKET
-                    ? Cache.bucket(Bucket.fromBucketName(this, 'CodeBuildCache', CODEBUILD_CACHE_BUCKET), {
-                          cacheNamespace: CODEBUILD_CACHE_NAMESPACE,
-                      })
-                    : Cache.local(),
+                cache: Cache.local(),
                 partialBuildSpec: BuildSpec.fromObject({
                     cache: {
                         modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],

@@ -376,51 +376,6 @@ Resources:
                 aws:SecureTransport: 'false'
 
   # S3 bucket for CodeBuild cache
-  rCacheBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldCacheAfter30Days
-            Status: Enabled
-            ExpirationInDays: 7
-      Tags:
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-cache-bucket
-        - !If
-          - cCreateTag1
-          - Key: !Ref pUserDefinedTagKey1
-            Value: !Ref pUserDefinedTagValue1
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag2
-          - Key: !Ref pUserDefinedTagKey2
-            Value: !Ref pUserDefinedTagValue2
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag3
-          - Key: !Ref pUserDefinedTagKey3
-            Value: !Ref pUserDefinedTagValue3
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag4
-          - Key: !Ref pUserDefinedTagKey4
-            Value: !Ref pUserDefinedTagValue4
-          - !Ref AWS::NoValue
-        - !If
-          - cCreateTag5
-          - Key: !Ref pUserDefinedTagKey5
-            Value: !Ref pUserDefinedTagValue5
-          - !Ref AWS::NoValue
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -595,12 +550,8 @@ Resources:
           - Name: VPC_CIDR
             Value: !Ref pVpcCidr
             Type: PLAINTEXT
-          - Name: CACHE_BUCKET
-            Value: !Ref rCacheBucket
-            Type: PLAINTEXT
       Cache:
-        Type: S3
-        Location: !Sub ${rCacheBucket}/codebuild-cache
+        Type: LOCAL
         Modes:
           - LOCAL_DOCKER_LAYER_CACHE
           - LOCAL_SOURCE_CACHE
@@ -609,10 +560,6 @@ Resources:
         Type: NO_SOURCE
         BuildSpec: |
           version: 0.2
-          cache:
-            key: npm-$(codebuild-hash-files ${WORKING_FOLDER}/package-lock.json)
-            paths:
-              - "${WORKING_FOLDER}/node_modules/**/*"
           phases:
             install:
               runtime-versions:
@@ -648,8 +595,6 @@ Resources:
                   AWS_REGION=$AWS_REGION
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
-                  CODEBUILD_CACHE_BUCKET=$CACHE_BUCKET
-                  CODEBUILD_CACHE_NAMESPACE=codebuild-cache
                   EOF
                 # Add only .env file to repository
                 - git add ${WORKING_FOLDER}/.env -f
@@ -917,17 +862,16 @@ Resources:
                 "States": {
                   "DescribeStack": {
                     "Type": "Task",
-                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                    "Resource": "arn:aws:states:::lambda:invoke",
                     "Parameters": {
-                      "StackName.$": "$"
+                      "FunctionName": "${rCrossRegionStackOperationFunction}",
+                      "Payload.$": "$"
                     },
-                    "Assign": {
-                      "stackInfo.$": "$.Stacks[0]"
-                    },
+                    "ResultPath": "$.stackInfo",
                     "Next": "DeleteStack",
                     "Catch": [
                       {
-                        "ErrorEquals": ["CloudFormation.CloudFormationException"],
+                        "ErrorEquals": ["States.ALL"],
                         "ResultPath": "$.error",
                         "Next": "StackAlreadyDeleted"
                       }
@@ -935,10 +879,16 @@ Resources:
                   },
                   "DeleteStack": {
                     "Type": "Task",
-                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+                    "Resource": "arn:aws:states:::lambda:invoke",
                     "Parameters": {
-                      "StackName.$": "$stackInfo.StackName"
+                      "FunctionName": "${rCrossRegionStackOperationFunction}",
+                      "Payload": {
+                        "operation": "delete",
+                        "name.$": "$.name",
+                        "region.$": "$.region"
+                      }
                     },
+                    "ResultPath": "$.deleteResult",
                     "Next": "WaitForDeletion",
                     "Catch": [
                       {
@@ -955,15 +905,20 @@ Resources:
                   },
                   "CheckDeletionStatus": {
                     "Type": "Task",
-                    "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                    "Resource": "arn:aws:states:::lambda:invoke",
                     "Parameters": {
-                      "StackName.$": "$stackInfo.StackName"
+                      "FunctionName": "${rCrossRegionStackOperationFunction}",
+                      "Payload": {
+                        "operation": "status",
+                        "name.$": "$.name",
+                        "region.$": "$.region"
+                      }
                     },
                     "ResultPath": "$.stackStatus",
                     "Next": "EvaluateDeletionStatus",
                     "Catch": [
                       {
-                        "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
+                        "ErrorEquals": ["States.ALL"],
                         "ResultPath": "$.error",
                         "Next": "DeletionComplete"
                       }
@@ -973,12 +928,12 @@ Resources:
                     "Type": "Choice",
                     "Choices": [
                       {
-                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
+                        "Variable": "$.stackStatus.Payload.status",
                         "StringEquals": "DELETE_IN_PROGRESS",
                         "Next": "WaitForDeletion"
                       },
                       {
-                        "Variable": "$.stackStatus.Stacks[0].StackStatus",
+                        "Variable": "$.stackStatus.Payload.status",
                         "StringEquals": "DELETE_COMPLETE",
                         "Next": "DeletionComplete"
                       }
@@ -1038,18 +993,6 @@ Resources:
                 "Payload": {
                   "bucketName": "cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}",
                   "deleteBucket": true
-                }
-              },
-              "Next": "CleanupCacheBucket"
-            },
-            "CleanupCacheBucket": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "${rBucketCleanupFunction}",
-                "Payload": {
-                  "bucketName": "${rCacheBucket}",
-                  "deleteBucket": false
                 }
               },
               "Next": "DeleteCDKToolkitStack"
@@ -1195,6 +1138,7 @@ Resources:
                   - !GetAtt rCleanupCompletionFunction.Arn
                   - !GetAtt rBucketCleanupFunction.Arn
                   - !GetAtt rDeletionResultCheckerFunction.Arn
+                  - !GetAtt rCrossRegionStackOperationFunction.Arn
 
   # Lambda function to check deletion results
   rDeletionResultCheckerFunction:
@@ -1250,10 +1194,12 @@ Resources:
           import boto3
 
           def handler(event, context):
-              cf_client = boto3.client('cloudformation')
+              current_region = '${AWS::Region}'
+              cf_client = boto3.client('cloudformation', region_name=current_region)
               stacks = []
 
               try:
+                  # List stacks in current region
                   paginator = cf_client.get_paginator('list_stacks')
                   for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
                       for stack in page['StackSummaries']:
@@ -1282,17 +1228,38 @@ Resources:
                               if has_app_tag:
                                   stacks.append({
                                       'name': stack['StackName'],
+                                      'region': current_region,
                                       'sequence': sequence_value
                                   })
                           except Exception as e:
                               print(f"Error checking stack {stack['StackName']}: {str(e)}")
                               continue
 
+                  # Check for us-east-1 support stack if not already in us-east-1
+                  if current_region != 'us-east-1':
+                      try:
+                          cf_useast1 = boto3.client('cloudformation', region_name='us-east-1')
+                          support_stack_name = 'OneObservability-support-us-east-1'
+                          stack_detail = cf_useast1.describe_stacks(StackName=support_stack_name)
+                          tags = stack_detail['Stacks'][0].get('Tags', [])
+
+                          # Check if it has the application tag
+                          for tag in tags:
+                              if tag['Key'] == 'application' and tag['Value'] == '${pApplicationName}':
+                                  stacks.append({
+                                      'name': support_stack_name,
+                                      'region': 'us-east-1',
+                                      'sequence': 0  # Delete after main stacks
+                                  })
+                                  break
+                      except Exception as e:
+                          print(f"No support stack in us-east-1 or error checking: {str(e)}")
+
                   # Sort stacks by sequence in descending order (highest first)
                   stacks.sort(key=lambda x: x['sequence'], reverse=True)
 
-                  # Return just the stack names in sorted order
-                  return {'stacks': [stack['name'] for stack in stacks]}
+                  # Return stacks with region information
+                  return {'stacks': stacks}
               except Exception as e:
                   print(f"Error listing stacks: {str(e)}")
                   return {'stacks': []}
@@ -1321,6 +1288,69 @@ Resources:
                 Action:
                   - cloudformation:ListStacks
                   - cloudformation:DescribeStacks
+                Resource: "*"
+
+  # Lambda function for cross-region stack operations
+  rCrossRegionStackOperationFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cross-region-stack-ops
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCrossRegionStackOperationRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+
+          def handler(event, context):
+              stack_name = event.get('name')
+              region = event.get('region')
+              operation = event.get('operation', 'describe')
+
+              cf_client = boto3.client('cloudformation', region_name=region)
+
+              try:
+                  if operation == 'delete':
+                      cf_client.delete_stack(StackName=stack_name)
+                      return {'status': 'DELETE_IN_PROGRESS'}
+                  elif operation == 'status':
+                      response = cf_client.describe_stacks(StackName=stack_name)
+                      return {'status': response['Stacks'][0]['StackStatus']}
+                  else:
+                      response = cf_client.describe_stacks(StackName=stack_name)
+                      return {'stack': response['Stacks'][0]}
+              except cf_client.exceptions.ValidationError:
+                  return {'status': 'DELETE_COMPLETE'}
+              except Exception as e:
+                  raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
+
+  # IAM Role for Cross-Region Stack Operation Lambda
+  rCrossRegionStackOperationRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CrossRegionStackOperationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DeleteStack
                 Resource: "*"
 
   # Lambda function to clean up retained resources after Step Function completes
@@ -1563,8 +1593,7 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}'
                   - !Sub 'arn:aws:s3:::cdk-petsite-assets-${AWS::AccountId}-${AWS::Region}/*'
-                  - !GetAtt rCacheBucket.Arn
-                  - !Sub '${rCacheBucket.Arn}/*'
+
 
   # Custom resource to monitor Step Function execution during stack deletion
   rCleanupMonitor:

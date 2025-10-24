@@ -25,7 +25,7 @@ This CloudFormation template automates the deployment of AWS Cloud Development K
 This template creates a complete infrastructure for automated CDK deployments, including:
 
 - **S3 bucket** for configuration storage and CodePipeline source
-- **CodeBuild project** for CDK deployment orchestration
+- **CodeBuild project** for CDK deployment orchestration with local caching
 - **Lambda functions** for deployment initiation and resource cleanup
 - **IAM roles** with appropriate permissions
 - **Wait conditions** for CloudFormation synchronization
@@ -221,6 +221,7 @@ The CodeBuild project uses:
 - **Compute**: `BUILD_GENERAL1_SMALL` (sufficient for most CDK deployments)
 - **Privileged Mode**: Enabled for Docker operations
 - **Timeout**: 60 minutes (CloudFormation level)
+- **Cache**: Local cache modes (Docker layer and source) for faster builds
 
 ### Build Phases
 
