@@ -61,14 +61,17 @@ if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
     // This is handled in the stage but needs to be copied here for local
     // deployments
     const globalWafStack = new Stack(app, 'GlobalWafStack', {
+        crossRegionReferences: true,
         env: {
             region: 'us-east-1',
             account: process.env.AWS_ACCOUNT_ID,
         },
     });
-    new GlobalWaf(globalWafStack, 'GlobalWaf', {
+    const globalWaf = new GlobalWaf(globalWafStack, 'GlobalWaf', {
         logRetention: DEFAULT_RETENTION_DAYS,
     });
+    // Replicate parameter to deployment region for cross-region access
+    globalWaf.replicateParameterToRegion(core);
     if (TAGS) {
         Utilities.TagConstruct(globalWafStack, TAGS);
     }

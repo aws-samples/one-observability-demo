@@ -151,7 +151,7 @@ export class GlobalWaf extends Construct {
     }
 
     public static globalAclArnFromParameter(): string {
-        return `{{resolve:ssm:${PARAMETER_STORE_PREFIX}/waf/global-acl-arn:1}}`;
+        return `{{resolve:ssm:${PARAMETER_STORE_PREFIX}/waf/global-acl-arn}}`;
     }
 
     public replicateParameterToRegion(targetStack: Construct): void {
