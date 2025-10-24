@@ -15,6 +15,7 @@ import {
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { OpenSearchCollection } from './opensearch-collection';
+import { NagSuppressions } from 'cdk-nag';
 
 /**
  * Properties for configuring OpenSearchPipeline construct
@@ -128,6 +129,7 @@ export class OpenSearchPipeline extends Construct {
         const logGroup = new LogGroup(this, 'PipelineLogGroup', {
             retention: RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
+            logGroupName: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
         });
 
         // Create IAM role for the pipeline
@@ -153,7 +155,7 @@ export class OpenSearchPipeline extends Construct {
                 effect: Effect.ALLOW,
                 actions: ['logs:CreateLogStream', 'logs:PutLogEvents', 'logs:CreateLogGroup'],
                 resources: [
-                    `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/${logGroup.logGroupName}*`,
+                    `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/vendedlogs/opensearch-ingestion/${pipelineName}*`,
                 ],
             }),
         );
@@ -207,6 +209,13 @@ export class OpenSearchPipeline extends Construct {
                 },
             ],
         });
+
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'OpenSearch pipeline log group name must include vendedlogs or creation will fail',
+            },
+        ]);
 
         // Add dependencies to ensure resources are created in correct order
         this.pipeline.node.addDependency(this.pipelineRole);
