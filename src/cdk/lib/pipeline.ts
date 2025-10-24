@@ -16,7 +16,7 @@ import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { IRole, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { BlockPublicAccess, Bucket, BucketEncryption, IBucket } from 'aws-cdk-lib/aws-s3';
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
@@ -49,6 +49,12 @@ export interface CDKPipelineProperties extends StackProps {
     repositoryName: string;
     /** Working folder path within the repository */
     workingFolder: string;
+    /** Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source. */
+    codeConnectionArn?: string;
+    /** Base path in Parameter Store for configuration storage */
+    parameterStoreBasePath?: string;
+    /** CloudFormation stack name for parameter retrieval */
+    stackName?: string;
     /** Optional tags to apply to all resources */
     tags?: { [key: string]: string };
     /** Optional properties for the core infrastructure stage */
@@ -95,14 +101,29 @@ export class CDKPipeline extends Stack {
     constructor(scope: Construct, id: string, properties: CDKPipelineProperties) {
         super(scope, id, properties);
 
-        // Create a CodePipeline source using the Specified S3 Bucket
-        const configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
-        const bucketKey = `repo/refs/heads/${properties.branchName}/repo.zip`;
+        // Determine pipeline source based on CodeConnection availability
+        let pipelineSource: CodePipelineSource;
+        let configBucket: IBucket | undefined;
+        let bucketKey: string | undefined;
 
-        // Use the configuration file as the pipeline trigger
-        const bucketSource = CodePipelineSource.s3(configBucket, bucketKey, {
-            trigger: S3Trigger.POLL,
-        });
+        if (properties.codeConnectionArn) {
+            // Use CodeConnection as pipeline source
+            pipelineSource = CodePipelineSource.connection(
+                `${properties.organizationName}/${properties.repositoryName}`,
+                properties.branchName,
+                {
+                    connectionArn: properties.codeConnectionArn,
+                },
+            );
+        } else {
+            // Fallback to S3 bucket source
+            configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
+            bucketKey = `repo/refs/heads/${properties.branchName}/repo.zip`;
+
+            pipelineSource = CodePipelineSource.s3(configBucket, bucketKey, {
+                trigger: S3Trigger.POLL,
+            });
+        }
         /**
          * Create an S3 bucket to store the pipeline artifacts.
          * The bucket has encryption at rest using a CMK and enforces encryption in transit.
@@ -136,11 +157,14 @@ export class CDKPipeline extends Stack {
 
         /**
          * Grant access to the source bucket for the pipeline role.
+         * Only grant access if using S3 bucket source (not CodeConnection).
          */
-        configBucket.grantRead(this.pipelineRole);
+        if (configBucket) {
+            configBucket.grantRead(this.pipelineRole);
+        }
 
         const synthStep = new CodeBuildStep('Synth', {
-            input: bucketSource,
+            input: pipelineSource,
             primaryOutputDirectory: `${properties.workingFolder}/cdk.out`,
             installCommands: ['npm i -g aws-cdk'],
             // Using globally installed CDK due to this issue https://github.com/aws/aws-cdk/issues/28519
@@ -149,8 +173,14 @@ export class CDKPipeline extends Stack {
                 'npm ci',
                 'npm run build',
                 'echo ----------------------------',
-                'echo "Working with configuration:"',
-                'cat .env',
+                'echo "Retrieving configuration..."',
+                // Use the reusable script to retrieve configuration
+                ...(properties.parameterStoreBasePath
+                    ? [`./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}"`]
+                    : [
+                          'echo "Using local .env file (Parameter Store base path not configured)"',
+                          'cat .env || echo "No .env file found"',
+                      ]),
                 'echo ----------------------------',
                 'cdk synth --all',
             ],
@@ -219,10 +249,21 @@ export class CDKPipeline extends Stack {
             new ContainersPipelineStage(this, 'Applications', {
                 applicationList: properties.applicationList,
                 tags: applicationsStageTags,
-                source: {
-                    bucketName: properties.configBucketName,
-                    bucketKey: bucketKey,
-                },
+                ...(properties.codeConnectionArn
+                    ? {
+                          codeConnectionSource: {
+                              connectionArn: properties.codeConnectionArn,
+                              organizationName: properties.organizationName,
+                              repositoryName: properties.repositoryName,
+                              branchName: properties.branchName,
+                          },
+                      }
+                    : {
+                          source: {
+                              bucketName: properties.configBucketName,
+                              bucketKey: bucketKey || `repo/refs/heads/${properties.branchName}/repo.zip`,
+                          },
+                      }),
                 env: properties.env,
             }),
         );
@@ -246,7 +287,10 @@ export class CDKPipeline extends Stack {
         });
 
         backendWave.addStage(storageStage, {
-            post: [storageStage.getDDBSeedingStep(this, configBucket), storageStage.getRDSSeedingStep(this)],
+            post: [
+                ...(configBucket ? [storageStage.getDDBSeedingStep(this, configBucket as Bucket)] : []),
+                storageStage.getRDSSeedingStep(this),
+            ],
         });
 
         const computeStage = new ComputeStage(this, 'Compute', {
@@ -280,11 +324,21 @@ export class CDKPipeline extends Stack {
         const exportsDashboardWave = pipeline.addWave('ExportsDashboard');
 
         const exportsDashboardStep = new CodeBuildStep('GenerateExportsDashboard', {
-            input: bucketSource,
+            input: pipelineSource,
             commands: [
                 `cd ${properties.workingFolder}`,
+                'echo "Retrieving configuration for exports dashboard..."',
+                // Use the reusable script to retrieve configuration
+                ...(properties.parameterStoreBasePath
+                    ? [`./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}"`]
+                    : [
+                          'echo "Using local .env file (Parameter Store base path not configured)"',
+                          'cat .env || echo "No .env file found"',
+                      ]),
+                // Source the .env file to make variables available as environment variables
+                'set -a && source .env && set +a',
                 'echo "Installing Python dependencies for exports generation..."',
-                'pip3 install -r /scripts/requirements.txt',
+                'pip3 install -r scripts/requirements.txt',
                 'echo "Generating CDK exports dashboard..."',
                 'python3 scripts/manage-exports.py generate-dashboard',
                 'echo "Exports dashboard generation completed"',
@@ -295,9 +349,6 @@ export class CDKPipeline extends Stack {
                 environmentVariables: {
                     NODE_VERSION: {
                         value: '22.x',
-                    },
-                    CUSTOM_ENABLE_WAF: {
-                        value: CUSTOM_ENABLE_WAF ? 'true' : 'false',
                     },
                 },
             },
@@ -313,22 +364,36 @@ export class CDKPipeline extends Stack {
         pipeline.buildPipeline();
 
         /**
-         * Grant access to describe Prefix lists
+         * Grant access to describe Prefix lists and Parameter Store
          */
         if (pipeline.synthProject.role) {
-            new Policy(this, 'CloudFormationPolicy', {
-                statements: [
+            const policyStatements = [
+                new PolicyStatement({
+                    actions: [
+                        'cloudformation:DescribeStacks',
+                        'cloudformation:ListResources',
+                        'ec2:DescribeManagedPrefixLists',
+                        'ec2:GetManagedPrefixListEntries',
+                        'ec2:DescribeAvailabilityZones',
+                    ],
+                    resources: ['*'],
+                }),
+            ];
+
+            // Add Parameter Store permissions if base path is provided
+            if (properties.parameterStoreBasePath) {
+                policyStatements.push(
                     new PolicyStatement({
-                        actions: [
-                            'cloudformation:DescribeStacks',
-                            'cloudformation:ListResources',
-                            'ec2:DescribeManagedPrefixLists',
-                            'ec2:GetManagedPrefixListEntries',
-                            'ec2:DescribeAvailabilityZones',
+                        actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
+                        resources: [
+                            `arn:aws:ssm:${this.region}:${this.account}:parameter${properties.parameterStoreBasePath}*`,
                         ],
-                        resources: ['*'],
                     }),
-                ],
+                );
+            }
+
+            new Policy(this, 'CloudFormationPolicy', {
+                statements: policyStatements,
                 roles: [pipeline.synthProject.role],
             });
         }
