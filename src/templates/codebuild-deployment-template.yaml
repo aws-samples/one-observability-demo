@@ -668,20 +668,12 @@ Resources:
                   CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
                   PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
                   EOF
-                # Store configuration in Parameter Store
+                # Store complete .env file configuration in Parameter Store as single parameter
                 - |
-                  echo "Storing configuration in Parameter Store..."
-                  PARAM_PATH="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
-                  while IFS= read -r line || [[ -n "$line" ]]; do
-                    if [[ "$line" == *"="* ]] && [[ ! "$line" == \#* ]]; then
-                      key=$(echo "$line" | cut -d'=' -f1)
-                      value=$(echo "$line" | cut -d'=' -f2-)
-                      # Remove quotes if present
-                      value=$(echo "$value" | sed 's/^"//;s/"$//')
-                      echo "Setting parameter: ${PARAM_PATH}/${key}"
-                      aws ssm put-parameter --name "${PARAM_PATH}/${key}" --value "$value" --type "String" --overwrite
-                    fi
-                  done < ${WORKING_FOLDER}/.env
+                  echo "Storing complete .env configuration in Parameter Store..."
+                  CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
+                  echo "Setting parameter: ${CONFIG_PARAM_NAME}"
+                  aws ssm put-parameter --name "${CONFIG_PARAM_NAME}" --value "$(cat ${WORKING_FOLDER}/.env)" --type "String" --overwrite
                 # Handle repository source configuration based on CodeConnection ARN
                 - |
                   if [ -n "$CODE_CONNECTION_ARN" ] && [ "$CODE_CONNECTION_ARN" != "" ]; then
