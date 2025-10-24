@@ -137,61 +137,73 @@ export class VpcEndpoints extends Construct {
         new CfnOutput(this, 'ApiGatewayEndpointId', {
             value: this.apiGatewayEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_APIGATEWAY_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for API Gateway private access',
         });
 
         new CfnOutput(this, 'DynamoDbEndpointId', {
             value: this.dynamoDbEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_DYNAMODB_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for DynamoDB private access',
         });
 
         new CfnOutput(this, 'LambdaEndpointId', {
             value: this.lambdaEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_LAMBDA_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for Lambda private access',
         });
 
         new CfnOutput(this, 'ServiceDiscoveryEndpointId', {
             value: this.serviceDiscoveryEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_SERVICEDISCOVERY_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for Cloud Map service discovery',
         });
 
         new CfnOutput(this, 'DataServiceDiscoveryEndpointId', {
             value: this.dataServiceDiscoveryEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_DATA_SERVICEDISCOVERY_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for Cloud Map data service discovery',
         });
 
         new CfnOutput(this, 'S3EndpointId', {
             value: this.s3Endpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_S3_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for S3 private access',
         });
 
         new CfnOutput(this, 'SSMEndpointId', {
             value: this.ssmEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_SSM_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for Systems Manager private access',
         });
 
         new CfnOutput(this, 'EC2MessagesEndpointId', {
             value: this.ec2MessagesEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_EC2MESSAGES_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for EC2 messages (SSM Session Manager)',
         });
 
         new CfnOutput(this, 'SSMMessagesEndpointId', {
             value: this.ssmMessagesEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_SSMMESSAGES_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for SSM messages (Session Manager)',
         });
 
         new CfnOutput(this, 'SecretsManagerEndpointId', {
             value: this.secretsManagerEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_SECRETSMANAGER_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for Secrets Manager private access',
         });
 
         new CfnOutput(this, 'CloudWatchMonitoringEndpointId', {
             value: this.cloudWatchMonitoringEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_CLOUDWATCH_MONITORING_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for CloudWatch monitoring metrics',
         });
 
         new CfnOutput(this, 'CloudWatchLogsEndpointId', {
             value: this.cloudWatchLogsEndpoint.vpcEndpointId,
             exportName: VPC_ENDPOINT_CLOUDWATCH_LOGS_ID_EXPORT_NAME,
+            description: 'VPC endpoint ID for CloudWatch Logs',
         });
     }
 

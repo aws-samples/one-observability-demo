@@ -399,6 +399,7 @@ export class CDKPipeline extends Stack {
         new CfnOutput(this, 'PipelineArn', {
             value: pipeline.pipeline.pipelineArn,
             exportName: 'PipelineArn',
+            description: 'ARN of the CI/CD pipeline for deploying workshop infrastructure',
         });
 
         /**

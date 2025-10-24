@@ -12,7 +12,7 @@ import {
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { Names, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { EndpointType, LambdaRestApi, LogGroupLogDestination, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
@@ -35,7 +35,6 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         super(scope, id, properties);
 
         const accesLogs = new LogGroup(this, 'access-logs', {
-            logGroupName: `/aws/apigw/${Names.uniqueId(this)}`,
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
         });

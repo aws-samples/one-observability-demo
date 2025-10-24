@@ -42,7 +42,6 @@ export interface MicroserviceProperties {
     name: string;
     repositoryURI: string;
     disableService?: boolean;
-    logGroupName?: string;
     healthCheck?: string;
     subnetType?: SubnetType;
     listenerPort?: number;

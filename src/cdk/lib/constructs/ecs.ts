@@ -151,16 +151,19 @@ export class WorkshopEcs extends Construct {
         new CfnOutput(this, 'ClusterArn', {
             value: this.cluster.clusterArn,
             exportName: ECS_CLUSTER_ARN_EXPORT_NAME,
+            description: 'ARN of the ECS cluster for container deployments',
         });
 
         new CfnOutput(this, 'ClusterName', {
             value: this.cluster.clusterName,
             exportName: ECS_CLUSTER_NAME_EXPORT_NAME,
+            description: 'Name of the ECS cluster',
         });
 
         new CfnOutput(this, 'SecurityGroupId', {
             value: this.securityGroup.securityGroupId,
             exportName: ECS_SECURITY_GROUP_ID_EXPORT_NAME,
+            description: 'Security group ID for ECS cluster resources',
         });
     }
 

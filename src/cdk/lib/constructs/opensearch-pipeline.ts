@@ -166,7 +166,6 @@ export class OpenSearchPipeline extends Construct {
         // Create CloudWatch log group for pipeline logs
         // OpenSearch Ingestion requires log groups to use /aws/vendedlogs/ prefix
         const logGroup = new LogGroup(this, 'PipelineLogGroup', {
-            logGroupName: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
             retention: RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
         });
@@ -271,16 +270,19 @@ log-pipeline:
         new CfnOutput(this, 'PipelineArn', {
             value: this.pipeline.attrPipelineArn,
             exportName: OPENSEARCH_PIPELINE_ARN_EXPORT_NAME,
+            description: 'ARN of the OpenSearch Ingestion pipeline for log processing',
         });
 
         new CfnOutput(this, 'PipelineEndpoint', {
             value: this.pipelineEndpoint,
             exportName: OPENSEARCH_PIPELINE_ENDPOINT_EXPORT_NAME,
+            description: 'HTTP endpoint URL for ingesting logs into the OpenSearch pipeline',
         });
 
         new CfnOutput(this, 'PipelineRoleArn', {
             value: this.pipelineRole.roleArn,
             exportName: OPENSEARCH_PIPELINE_ROLE_ARN_EXPORT_NAME,
+            description: 'IAM role ARN used by the OpenSearch Ingestion pipeline',
         });
     }
 

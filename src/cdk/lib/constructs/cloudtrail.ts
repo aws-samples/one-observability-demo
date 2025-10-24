@@ -16,7 +16,7 @@ import { Construct } from 'constructs';
 import { Trail, InsightType, CfnEventDataStore, CfnTrail } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
-import { Names, RemovalPolicy, Duration } from 'aws-cdk-lib';
+import { RemovalPolicy, Duration } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 
@@ -58,11 +58,9 @@ export class WorkshopCloudTrail extends Construct {
     constructor(scope: Construct, id: string, properties: WorkshopCloudTrailProperties) {
         super(scope, id);
 
-        const logName = Names.uniqueResourceName(this, {});
         // Create CloudWatch log group for CloudTrail
         this.logGroup = new LogGroup(this, 'CloudTrailLogGroup', {
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
-            logGroupName: `/aws/cloudtrail/${logName}`,
             removalPolicy: RemovalPolicy.DESTROY,
         });
 

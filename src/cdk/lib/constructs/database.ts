@@ -158,21 +158,25 @@ export class AuroraDatabase extends Construct {
         new CfnOutput(this, 'ClusterArn', {
             value: this.cluster.clusterArn,
             exportName: AURORA_CLUSTER_ARN_EXPORT_NAME,
+            description: 'ARN of the Aurora PostgreSQL database cluster',
         });
 
         new CfnOutput(this, 'ClusterEndpoint', {
             value: this.cluster.clusterEndpoint.hostname,
             exportName: AURORA_CLUSTER_ENDPOINT_EXPORT_NAME,
+            description: 'Writer endpoint hostname for the Aurora PostgreSQL cluster',
         });
 
         new CfnOutput(this, 'SecurityGroupId', {
             value: this.databaseSecurityGroup.securityGroupId,
             exportName: AURORA_SECURITY_GROUP_ID_EXPORT_NAME,
+            description: 'Security group ID for Aurora PostgreSQL cluster access control',
         });
 
         new CfnOutput(this, 'AdminSecretArn', {
             value: this.cluster.secret!.secretArn,
             exportName: AURORA_ADMIN_SECRET_ARN_EXPORT_NAME,
+            description: 'Secrets Manager ARN containing Aurora admin credentials',
         });
     }
 
