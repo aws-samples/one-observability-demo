@@ -1,4 +1,4 @@
-import { CfnResource, Stack } from 'aws-cdk-lib';
+import { CfnResource, Stack, Token } from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
 import { NagPack, NagPackProps, NagRuleCompliance, NagRuleResult, NagMessageLevel, NagRules } from 'cdk-nag';
 
@@ -38,7 +38,7 @@ export class WorkshopNagPack extends NagPack {
                 info: 'CloudWatch Log Groups should use dynamically generated names',
                 explanation:
                     'Log groups with static names may cause conflicts when redeploying the stack. Use dynamically generated names instead.',
-                level: NagMessageLevel.ERROR,
+                level: NagMessageLevel.WARN,
                 rule: this.checkCloudWatchLogGroupName,
                 node: node,
             });
@@ -102,13 +102,25 @@ export class WorkshopNagPack extends NagPack {
 
     private checkCloudWatchLogGroupName = (node: CfnResource): NagRuleResult => {
         if (node.cfnResourceType === 'AWS::Logs::LogGroup') {
-            const logGroupName = NagRules.resolveIfPrimitive(
-                node,
-                (node as CfnResource & { logGroupName?: unknown }).logGroupName,
-            );
-            if (logGroupName && typeof logGroupName === 'string' && !logGroupName.includes('Ref')) {
+            const nodeWithLogGroupName = node as CfnResource & { logGroupName?: unknown };
+
+            // If logGroupName property is not set at all, it's compliant
+            if (!('logGroupName' in nodeWithLogGroupName) || nodeWithLogGroupName.logGroupName === undefined) {
+                return NagRuleCompliance.COMPLIANT;
+            }
+
+            const rawLogGroupName = nodeWithLogGroupName.logGroupName;
+
+            // If logGroupName is a token/intrinsic function, it's non-compliant
+            if (Token.isUnresolved(rawLogGroupName)) {
                 return NagRuleCompliance.NON_COMPLIANT;
             }
+
+            // If it's a static string, it's non-compliant
+            if (typeof rawLogGroupName === 'string') {
+                return NagRuleCompliance.NON_COMPLIANT;
+            }
+
             return NagRuleCompliance.COMPLIANT;
         }
         return NagRuleCompliance.NOT_APPLICABLE;

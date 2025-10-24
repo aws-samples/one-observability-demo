@@ -12,7 +12,7 @@ import {
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, CfnOutput } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { EndpointType, LambdaRestApi, LogGroupLogDestination, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
@@ -149,6 +149,12 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                     }),
                 ),
             );
+
+            new CfnOutput(this, 'StatusUpdaterApiUrl', {
+                value: this.api.url,
+                exportName: 'StatusUpdaterApiUrl',
+                description: 'API Gateway URL for the pet status updater service',
+            });
         } else {
             throw new Error('Service is not defined');
         }

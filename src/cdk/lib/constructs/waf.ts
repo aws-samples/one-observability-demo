@@ -1,9 +1,10 @@
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { Names, RemovalPolicy } from 'aws-cdk-lib';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface WorkshopWebAclProperties {
     logRetention?: RetentionDays;
@@ -26,6 +27,7 @@ export class RegionalWaf extends Construct {
         const logGroup = new LogGroup(this, 'WAFv2RegionalLogGroup', {
             retention: properties.logRetention || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
+            logGroupName: 'aws-waf-logs-regional-' + Names.uniqueId(this),
         });
 
         const webAcl = new CfnWebACL(this, 'WAFv2RegionalACL', {
@@ -66,6 +68,13 @@ export class RegionalWaf extends Construct {
             logDestinationConfigs: [logGroup.logGroupArn],
             resourceArn: webAcl.attrArn,
         });
+
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'WAF Log group name must be prefixed with aws-waf-logs',
+            },
+        ]);
         return webAcl;
     }
 
@@ -100,6 +109,7 @@ export class GlobalWaf extends Construct {
         const logGroup = new LogGroup(this, 'WAFv2GlobalLogGroup', {
             retention: properties.logRetention || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
+            logGroupName: 'aws-waf-logs-global-' + Names.uniqueId(this),
         });
         const webAcl = new CfnWebACL(this, 'WAFv2GlobalACL', {
             defaultAction: {
@@ -138,6 +148,12 @@ export class GlobalWaf extends Construct {
             logDestinationConfigs: [logGroup.logGroupArn],
             resourceArn: webAcl.attrArn,
         });
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'WAF Log group name must be prefixed with aws-waf-logs',
+            },
+        ]);
         return webAcl;
     }
     private createWafv2Outputs() {

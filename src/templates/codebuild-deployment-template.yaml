@@ -495,6 +495,41 @@ Resources:
                       return
 
                   outputs = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
+
+                  # Construct exports dashboard URL from CloudFront domain and assets bucket
+                  dashboard_url = None
+                  cloudfront_domain = None
+                  assets_bucket = None
+
+                  # Look for WorkshopCloudFrontDomain export first
+                  for export_name, export_value in outputs.items():
+                      if export_name == 'WorkshopCloudFrontDomain':
+                          if export_value.startswith('https://'):
+                              cloudfront_domain = export_value.rstrip('/')
+                          else:
+                              cloudfront_domain = f"https://{export_value.rstrip('/')}"
+                          break
+
+                  # Find assets bucket
+                  for export_name, export_value in outputs.items():
+                      if 'AssetsBucket' in export_name or 'assets' in export_name.lower():
+                          # Extract bucket name from ARN if needed
+                          if export_value.startswith('arn:aws:s3:::'):
+                              assets_bucket = export_value.split(':::')[-1]
+                          else:
+                              assets_bucket = export_value
+                          break
+
+                  # Construct dashboard URL
+                  if cloudfront_domain:
+                      dashboard_url = f"{cloudfront_domain}/workshop-exports/index.html"
+                  elif assets_bucket:
+                      dashboard_url = f"https://{assets_bucket}.s3.amazonaws.com/workshop-exports/index.html"
+
+                  # Add the dashboard URL to outputs if we found it
+                  if dashboard_url:
+                      outputs['ExportsDashboardUrl'] = dashboard_url
+
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
@@ -1769,3 +1804,9 @@ Outputs:
   oPetSiteUrl:
     Description: PetSite URL from CDK stack
     Value: !GetAtt rCDKOutputs.PetSiteUrl
+
+  oExportsDashboardUrl:
+    Description: URL to access the CDK exports dashboard
+    Value: !GetAtt rCDKOutputs.ExportsDashboardUrl
+    Export:
+      Name: !Sub ${AWS::StackName}-ExportsDashboardUrl

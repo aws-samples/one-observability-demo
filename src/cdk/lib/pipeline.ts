@@ -275,6 +275,37 @@ export class CDKPipeline extends Stack {
         );
 
         /**
+         * Add exports dashboard generation as the final pipeline stage
+         */
+        const exportsDashboardWave = pipeline.addWave('ExportsDashboard');
+
+        const exportsDashboardStep = new CodeBuildStep('GenerateExportsDashboard', {
+            input: bucketSource,
+            commands: [
+                `cd ${properties.workingFolder}`,
+                'echo "Installing Python dependencies for exports generation..."',
+                'pip3 install -r /scripts/requirements.txt',
+                'echo "Generating CDK exports dashboard..."',
+                'python3 scripts/manage-exports.py generate-dashboard',
+                'echo "Exports dashboard generation completed"',
+            ],
+            buildEnvironment: {
+                buildImage: LinuxBuildImage.STANDARD_7_0,
+                privileged: false,
+                environmentVariables: {
+                    NODE_VERSION: {
+                        value: '22.x',
+                    },
+                    CUSTOM_ENABLE_WAF: {
+                        value: CUSTOM_ENABLE_WAF ? 'true' : 'false',
+                    },
+                },
+            },
+        });
+
+        exportsDashboardWave.addPost(exportsDashboardStep);
+
+        /**
          * Build the pipeline to add suppressions and customizations.
          * This is required before adding additional configurations.
          * @see https://github.com/cdklabs/cdk-nag?tab=readme-ov-file#suppressing-aws-cdk-libpipelines-violations

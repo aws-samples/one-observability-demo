@@ -66,6 +66,7 @@ if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
             region: 'us-east-1',
             account: process.env.AWS_ACCOUNT_ID,
         },
+        tags: TAGS,
     });
     const globalWaf = new GlobalWaf(globalWafStack, 'GlobalWaf', {
         logRetention: DEFAULT_RETENTION_DAYS,
