@@ -554,7 +554,6 @@ Resources:
         Type: LOCAL
         Modes:
           - LOCAL_DOCKER_LAYER_CACHE
-          - LOCAL_SOURCE_CACHE
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE

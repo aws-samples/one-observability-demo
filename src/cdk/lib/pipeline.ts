@@ -198,7 +198,7 @@ export class CDKPipeline extends Stack {
                 cache: Cache.local(),
                 partialBuildSpec: BuildSpec.fromObject({
                     cache: {
-                        modes: ['LOCAL_DOCKER_LAYER_CACHE', 'LOCAL_SOURCE_CACHE'],
+                        modes: ['LOCAL_DOCKER_LAYER_CACHE'],
                     },
                 }),
             },
