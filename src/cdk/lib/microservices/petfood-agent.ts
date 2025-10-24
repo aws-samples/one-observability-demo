@@ -191,10 +191,5 @@ export class PetFoodAgentConstruct extends Construct {
             value: this.agentRuntime.attrAgentRuntimeArn,
             description: 'Agent Runtime ARN',
         });
-
-        new CfnOutput(this, 'AgentRuntimeEndpoint', {
-            value: this.agentRuntime.getAtt('Endpoint').toString(),
-            description: 'Agent Runtime HTTP Endpoint',
-        });
     }
 }
