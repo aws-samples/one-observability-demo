@@ -393,6 +393,18 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
+  # Parameter Store parameter to store configuration
+  rWorkshopConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '${pParameterStoreBasePath}/${AWS::StackName}/config'
+      Type: String
+      Value: '# Configuration will be populated by CodeBuild'
+      Description: !Sub 'Workshop configuration for stack ${AWS::StackName}'
+      Tags:
+        Environment: workshop
+        StackName: !Ref AWS::StackName
+
   # S3 bucket for CodeBuild cache
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
@@ -668,19 +680,18 @@ Resources:
                   CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
                   PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
                   EOF
-                # Store complete .env file configuration in Parameter Store as single parameter
+                # Prepare configuration content for Parameter Store (will be created by CloudFormation)
                 - |
-                  echo "Storing complete .env configuration in Parameter Store..."
+                  echo "Configuration prepared for Parameter Store parameter"
                   CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
-                  echo "Setting parameter: ${CONFIG_PARAM_NAME}"
-                  aws ssm put-parameter --name "${CONFIG_PARAM_NAME}" --value "$(cat ${WORKING_FOLDER}/.env)" --type "String" --overwrite
+                  echo "Parameter path will be: ${CONFIG_PARAM_NAME}"
+                  echo "Configuration content preview:"
+                  head -5 ${WORKING_FOLDER}/.env
                 # Handle repository source configuration based on CodeConnection ARN
                 - |
                   if [ -n "$CODE_CONNECTION_ARN" ] && [ "$CODE_CONNECTION_ARN" != "" ]; then
                     echo "CodeConnection ARN provided: $CODE_CONNECTION_ARN"
                     echo "Will use CodeConnection as pipeline source"
-                    # Store CodeConnection ARN in Parameter Store for CDK to use
-                    aws ssm put-parameter --name "${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/pipeline/codeConnectionArn" --value "$CODE_CONNECTION_ARN" --type "String" --overwrite
                   else
                     echo "No CodeConnection ARN provided, using S3 as fallback source"
                     # Add .env file to repository and push to S3

@@ -9,7 +9,7 @@ The pipeline now supports two modes of operation:
 1. **CodeConnection Mode**: Uses AWS CodeConnection to connect directly to GitHub repositories
 2. **S3 Fallback Mode**: Uses S3 bucket as the source (existing functionality)
 
-Additionally, configuration management has been moved from local `.env` files to AWS Systems Manager Parameter Store for better security and centralization.
+Additionally, configuration management has been moved from local `.env` files to AWS Systems Manager Parameter Store for better security and centralization. The implementation uses a **single parameter** approach for efficiency, storing the entire configuration as one parameter instead of multiple individual parameters.
 
 ## Implementation Details
 
@@ -20,68 +20,104 @@ Additionally, configuration management has been moved from local `.env` files to
 #### New Parameters
 
 - `pCodeConnectionArn`: Optional CodeConnection ARN for GitHub integration
-- `pParameterStoreBasePath`: Base path in Parameter Store for configuration storage (default: `/oneobservability/workshop`)
+- `pParameterStoreBasePath`: Base path in Parameter Store for configuration storage (default: `/petstore`)
+
+#### New CloudFormation Resources
+
+- `rWorkshopConfigParameter`: Parameter Store parameter created as CloudFormation resource for proper lifecycle management
+
+```yaml
+rWorkshopConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+        Name: !Sub '${pParameterStoreBasePath}/${AWS::StackName}/config'
+        Type: String
+        Value: '# Configuration will be populated by CodeBuild'
+        Description: !Sub 'Workshop configuration for stack ${AWS::StackName}'
+```
 
 #### Updated IAM Permissions
 
 The CodeBuild service role now includes Parameter Store permissions:
 
 ```yaml
-- Effect: Allow
-  Action:
-      - ssm:GetParameter
-      - ssm:GetParameters
-      - ssm:GetParametersByPath
-  Resource: !Sub '${pParameterStoreBasePath}*'
+- PolicyName: ParameterStoreAccess
+  PolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+          - Effect: Allow
+            Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+                - ssm:PutParameter
+                - ssm:DeleteParameter
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${pParameterStoreBasePath}/*'
 ```
 
 #### Updated BuildSpec
 
 The initial CodeBuild job now:
 
-1. Stores configuration in Parameter Store instead of customizing `.env` files
+1. Populates the CloudFormation-created Parameter Store parameter with the entire configuration
 2. Handles conditional repository source setup (CodeConnection vs S3)
+3. No longer stores CodeConnection ARN separately in Parameter Store (it's included in the main configuration)
 
 ### CDK Pipeline Updates
 
-**File**: `src/cdk/lib/pipeline.ts`
+#### Environment Configuration
 
-#### Interface Changes
+**File**: `src/cdk/bin/environment.ts`
+
+Added support for CodeConnection ARN via environment variable:
 
 ```typescript
-export interface CDKPipelineProperties extends StackProps {
-    // ... existing properties
-    /** Optional CodeConnection ARN for GitHub integration */
-    codeConnectionArn?: string;
-    /** Base path in Parameter Store for configuration storage */
-    parameterStoreBasePath?: string;
-    /** CloudFormation stack name for parameter retrieval */
-    stackName?: string;
-}
+export const CODE_CONNECTION_ARN = process.env.CODE_CONNECTION_ARN;
 ```
 
-#### Conditional Source Selection
+#### Workshop Entry Point
+
+**File**: `src/cdk/bin/workshop.ts`
+
+Updated the CDKPipeline constructor to include new parameters:
 
 ```typescript
-if (properties.codeConnectionArn) {
+const pipeline = new CDKPipeline(this, 'Pipeline', {
+    // ... existing properties
+    codeConnectionArn: context.codeConnectionArn || CODE_CONNECTION_ARN,
+    parameterStoreBasePath: context.parameterStoreBasePath,
+    stackName: stackName,
+});
+```
+
+#### Local Development Configuration
+
+**File**: `src/cdk/bin/local.ts`
+
+Updated the ContainersStack configuration with conditional source selection:
+
+```typescript
+if (codeConnectionArn) {
     // Use CodeConnection as pipeline source
-    pipelineSource = CodePipelineSource.connection(
-        `${properties.organizationName}/${properties.repositoryName}`,
-        properties.branchName,
-        { connectionArn: properties.codeConnectionArn },
-    );
+    repositorySource = RepositorySource.connection({
+        organizationName,
+        repositoryName,
+        branchName,
+        connectionArn: codeConnectionArn,
+    });
 } else {
     // Fallback to S3 bucket source
-    configBucket = Bucket.fromBucketName(this, 'ConfigBucket', properties.configBucketName);
-    pipelineSource = CodePipelineSource.s3(configBucket, bucketKey, {
-        trigger: S3Trigger.POLL,
+    repositorySource = RepositorySource.s3({
+        configBucketName,
+        repositoryName,
+        branchName,
     });
 }
 ```
 
 #### Parameter Store Integration
 
-Both the synthesis step and exports dashboard step now use a reusable script to retrieve configuration from Parameter Store.
+Both the synthesis step and exports dashboard step now use a reusable script to retrieve configuration from Parameter Store with the single parameter approach.
 
 ### Configuration Retrieval Script
 
@@ -89,16 +125,18 @@ Both the synthesis step and exports dashboard step now use a reusable script to 
 
 This reusable bash script:
 
-1. Accepts Parameter Store base path as parameter
-2. Retrieves all parameters under the specified path
-3. Creates `.env` file with proper formatting
-4. Provides fallback to local `.env` file if Parameter Store is not configured
+1. Accepts Parameter Store parameter name as argument
+2. Retrieves the single configuration parameter containing the entire `.env` file content
+3. Creates `.env` file from the Parameter Store content
+4. Provides fallback to local `.env` file if Parameter Store retrieval fails
 
 Usage:
 
 ```bash
-./scripts/retrieve-config.sh "/oneobservability/workshop"
+./scripts/retrieve-config.sh "/petstore/stack-name/config"
 ```
+
+The script implements the **single parameter approach** for optimal performance, retrieving all configuration in one API call instead of multiple calls for individual parameters.
 
 ## Usage
 
@@ -132,25 +170,23 @@ aws cloudformation deploy \
 
 ### Parameter Store Configuration
 
-Store your configuration parameters in Parameter Store:
+The configuration is automatically populated by the CloudFormation template's CodeBuild process. The **single parameter** contains the entire `.env` file content:
 
 ```bash
-# Example configuration parameters
-aws ssm put-parameter \
-  --name "/oneobservability/workshop/CUSTOM_ENABLE_WAF" \
-  --value "true" \
-  --type "String"
+# Example: View the configuration parameter created by CloudFormation
+aws ssm get-parameter \
+  --name "/petstore/your-stack-name/config" \
+  --with-decryption
 
-aws ssm put-parameter \
-  --name "/oneobservability/workshop/AWS_REGION" \
-  --value "us-east-1" \
-  --type "String"
-
-aws ssm put-parameter \
-  --name "/oneobservability/workshop/ORGANIZATION_NAME" \
-  --value "aws-samples" \
-  --type "String"
+# The parameter value contains the entire configuration as a single .env format:
+# CUSTOM_ENABLE_WAF=true
+# AWS_REGION=us-east-1
+# ORGANIZATION_NAME=aws-samples
+# CODE_CONNECTION_ARN=arn:aws:codeconnections:region:account:connection/connection-id
+# ... (all other configuration variables)
 ```
+
+**Note**: The parameter is managed by CloudFormation and automatically populated during the initial CodeBuild process. Manual configuration changes should be made by updating the source configuration file and rerunning the pipeline.
 
 ## Benefits
 

@@ -175,8 +175,10 @@ export class CDKPipeline extends Stack {
                 'echo ----------------------------',
                 'echo "Retrieving configuration..."',
                 // Use the reusable script to retrieve configuration
-                ...(properties.parameterStoreBasePath
-                    ? [`./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}"`]
+                ...(properties.parameterStoreBasePath && properties.stackName
+                    ? [
+                          `./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}/${properties.stackName}/config"`,
+                      ]
                     : [
                           'echo "Using local .env file (Parameter Store base path not configured)"',
                           'cat .env || echo "No .env file found"',
@@ -329,8 +331,10 @@ export class CDKPipeline extends Stack {
                 `cd ${properties.workingFolder}`,
                 'echo "Retrieving configuration for exports dashboard..."',
                 // Use the reusable script to retrieve configuration
-                ...(properties.parameterStoreBasePath
-                    ? [`./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}"`]
+                ...(properties.parameterStoreBasePath && properties.stackName
+                    ? [
+                          `./scripts/retrieve-config.sh "${properties.parameterStoreBasePath}/${properties.stackName}/config"`,
+                      ]
                     : [
                           'echo "Using local .env file (Parameter Store base path not configured)"',
                           'cat .env || echo "No .env file found"',
