@@ -81,8 +81,8 @@ if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
 
 /** Validate required environment variables */
 const s3BucketName = process.env.CONFIG_BUCKET;
-if (!s3BucketName) {
-    throw new Error('CONFIG_BUCKET environment variable is not set');
+if (!s3BucketName && !CODE_CONNECTION_ARN) {
+    throw new Error('CONFIG_BUCKET or CODE_CONNECTION_ARN environment variable must be set');
 }
 
 const branch_name = process.env.BRANCH_NAME;
@@ -104,7 +104,7 @@ const containers = new ContainersStack(app, 'DevApplicationsStack', {
           }
         : {
               source: {
-                  bucketName: s3BucketName,
+                  bucketName: s3BucketName!,
                   bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
               },
           }),

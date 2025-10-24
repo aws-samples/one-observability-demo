@@ -123,6 +123,13 @@ export class OpenSearchPipeline extends Construct {
                 ? properties.openSearchCollection.collectionArn
                 : properties.openSearchCollection.collection.attrArn;
 
+        // Create CloudWatch log group for pipeline logs
+        // OpenSearch Ingestion requires log groups to use /aws/vendedlogs/ prefix
+        const logGroup = new LogGroup(this, 'PipelineLogGroup', {
+            retention: RetentionDays.ONE_WEEK,
+            removalPolicy: RemovalPolicy.DESTROY,
+        });
+
         // Create IAM role for the pipeline
         this.pipelineRole = new Role(this, 'PipelineRole', {
             assumedBy: new ServicePrincipal('osis-pipelines.amazonaws.com'),
@@ -146,7 +153,7 @@ export class OpenSearchPipeline extends Construct {
                 effect: Effect.ALLOW,
                 actions: ['logs:CreateLogStream', 'logs:PutLogEvents', 'logs:CreateLogGroup'],
                 resources: [
-                    `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/vendedlogs/opensearch-ingestion/${pipelineName}*`,
+                    `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/${logGroup.logGroupName}*`,
                 ],
             }),
         );
@@ -162,13 +169,6 @@ export class OpenSearchPipeline extends Construct {
                 ],
             }),
         );
-
-        // Create CloudWatch log group for pipeline logs
-        // OpenSearch Ingestion requires log groups to use /aws/vendedlogs/ prefix
-        const logGroup = new LogGroup(this, 'PipelineLogGroup', {
-            retention: RetentionDays.ONE_WEEK,
-            removalPolicy: RemovalPolicy.DESTROY,
-        });
 
         // Generate pipeline configuration YAML
         const pipelineConfiguration = this.generatePipelineConfiguration(
@@ -188,7 +188,7 @@ export class OpenSearchPipeline extends Construct {
             logPublishingOptions: {
                 isLoggingEnabled: true,
                 cloudWatchLogDestination: {
-                    logGroup: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
+                    logGroup: logGroup.logGroupName,
                 },
             },
             // Add tags for resource management
