@@ -200,7 +200,7 @@ export const PET_IMAGES = [
 ];
 
 /** Prefix for AWS Systems Manager Parameter Store parameters */
-export const PARAMETER_STORE_PREFIX = '/petstore';
+export const PARAMETER_STORE_PREFIX = process.env.PARAMETER_STORE_BASE_PATH || '/petstore';
 
 /** Lambda function configuration for pet status updater */
 export const STATUS_UPDATER_FUNCTION = {
@@ -319,3 +319,6 @@ export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true'
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
 /** Enables OpenSearch Application creation */
 export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLICATION == 'true' || false;
+
+/** CodeConnection ARN for GitHub integration (optional) */
+export const CODE_CONNECTION_ARN = process.env.CODE_CONNECTION_ARN || undefined;

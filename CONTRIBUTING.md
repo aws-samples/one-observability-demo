@@ -347,6 +347,19 @@ This retrieves the parameter `/petstore/database-endpoint` from Parameter Store.
 - `-1` if parameter not found or invalid key
 - `-2` if access denied
 
+## Troubleshooting
+
+### CDK Bootstrap Stack Deletion Issue
+
+When the delete step function fails, the CDK bootstrap stack may be removed before some stacks are cleaned up. Under that situation, stacks cannot be deleted because the CloudFormation execution role was removed with the CDK bootstrap stack.
+
+To regain access to delete the resources, bootstrap again from CloudShell by running the following commands:
+
+```bash
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+cdk bootstrap aws://${AWS_ACCOUNT_ID}/${AWS_REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+```
+
 ## Security issue notifications
 
 If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.

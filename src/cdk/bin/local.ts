@@ -33,6 +33,7 @@ import {
     MICROSERVICES_PLACEMENT,
     PET_IMAGES,
     TAGS,
+    CODE_CONNECTION_ARN,
 } from './environment';
 import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
@@ -91,10 +92,22 @@ if (!branch_name) {
 
 /** Deploy container applications stack with ECS and EKS services */
 const containers = new ContainersStack(app, 'DevApplicationsStack', {
-    source: {
-        bucketName: s3BucketName,
-        bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
-    },
+    // Conditionally use CodeConnection or S3 source based on environment
+    ...(CODE_CONNECTION_ARN
+        ? {
+              codeConnectionSource: {
+                  connectionArn: CODE_CONNECTION_ARN,
+                  organizationName: process.env.ORGANIZATION_NAME || 'aws-samples',
+                  repositoryName: process.env.REPOSITORY_NAME || 'one-observability-demo',
+                  branchName: branch_name,
+              },
+          }
+        : {
+              source: {
+                  bucketName: s3BucketName,
+                  bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
+              },
+          }),
     tags: TAGS,
     applicationList: APPLICATION_LIST,
     env: {

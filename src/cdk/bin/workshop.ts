@@ -43,6 +43,8 @@ import {
     MICROSERVICES_PLACEMENT,
     LAMBDA_FUNCTIONS,
     CANARY_FUNCTIONS,
+    CODE_CONNECTION_ARN,
+    PARAMETER_STORE_PREFIX,
 } from './environment';
 
 /** Main CDK application instance */
@@ -58,6 +60,8 @@ new CDKPipeline(app, 'OneObservability', {
     organizationName: app.node.tryGetContext('organizationName') || ORGANIZATION_NAME,
     repositoryName: app.node.tryGetContext('repositoryName') || REPOSITORY_NAME,
     workingFolder: app.node.tryGetContext('workingFolder') || WORKING_FOLDER,
+    codeConnectionArn: app.node.tryGetContext('codeConnectionArn') || CODE_CONNECTION_ARN,
+    parameterStoreBasePath: app.node.tryGetContext('parameterStoreBasePath') || PARAMETER_STORE_PREFIX,
     env: {
         account: ACCOUNT_ID,
         region: REGION,
