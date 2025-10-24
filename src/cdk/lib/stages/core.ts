@@ -72,16 +72,18 @@ export class CoreStage extends Stage {
 
         this.coreStack = new CoreStack(this, `Stack`, properties);
         if (CUSTOM_ENABLE_WAF && properties.env?.region != 'us-east-1') {
-            // A Separate stage is needed if the region is NOT us-east-1
             const globalWafStack = new Stack(this, 'GlobalWafStack', {
+                crossRegionReferences: true,
                 env: {
                     region: 'us-east-1',
                     account: properties.env?.account,
                 },
             });
-            new GlobalWaf(globalWafStack, 'GlobalWaf', {
+            const globalWaf = new GlobalWaf(globalWafStack, 'GlobalWaf', {
                 logRetention: DEFAULT_RETENTION_DAYS,
             });
+            // Replicate parameter to deployment region for cross-region access
+            globalWaf.replicateParameterToRegion(this.coreStack);
             if (properties.tags) {
                 Utilities.TagConstruct(globalWafStack, properties.tags);
             }
@@ -113,7 +115,7 @@ export class CoreStack extends Stack {
      * @throws Error when neither createVpc nor vpcId is properly specified
      */
     constructor(scope: Construct, id: string, properties: CoreStageProperties) {
-        super(scope, id, properties);
+        super(scope, id, { ...properties, crossRegionReferences: true });
 
         /** Add Queue resources */
         new QueueResources(this, 'QueueResources', properties.queueProperties);

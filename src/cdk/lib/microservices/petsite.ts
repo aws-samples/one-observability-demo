@@ -209,12 +209,13 @@ export class PetSite extends EKSDeployment {
         const manifestTemplate = readFileSync(properties.manifestPath, 'utf8');
         nunjucks.configure({ autoescape: true });
 
+        // Remember to add the parameter to the manifest too or the change won't be applied
         const deploymentYaml = nunjucks.renderString(manifestTemplate, {
             ECR_IMAGE_URL: properties.repositoryURI,
-            SUBNETS: properties.vpc?.publicSubnets,
             NAMESPACE: this.namespace,
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
+            PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
             // Parameter names (not values) - these environment variables tell the app which parameter names to look up
             PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
             PET_LIST_ADOPTIONS_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_LIST_ADOPTIONS_URL,
@@ -224,7 +225,7 @@ export class PetSite extends EKSDeployment {
             CART_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_FOOD_CART_URL,
             SEARCH_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
             RUM_SCRIPT_PARAMETER_NAME: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
-            PETFOOD_AGENT_RUNTIME_ARN_PARAMETER_NAME: SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN,
+            PETFOOD_AGENT_RUNTIME_URL: SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN,
         });
         return yaml.parseAllDocuments(deploymentYaml).map((document) => document.toJS());
     }

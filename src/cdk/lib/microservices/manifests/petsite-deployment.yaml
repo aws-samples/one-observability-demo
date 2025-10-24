@@ -56,6 +56,8 @@ spec:
                       - containerPort: 80
                         protocol: TCP
                   env:
+                      - name: PARAMETER_STORE_PREFIX
+                        value: {{ PARAMETER_STORE_PREFIX }}
                       - name: PET_HISTORY_URL_PARAM_NAME
                         value: {{ PET_HISTORY_URL_PARAM_NAME }}
                       - name: PET_LIST_ADOPTIONS_URL_PARAM_NAME
@@ -72,6 +74,8 @@ spec:
                         value: {{ SEARCH_API_URL_PARAM_NAME }}
                       - name: RUM_SCRIPT_PARAMETER_NAME
                         value: {{ RUM_SCRIPT_PARAMETER_NAME }}
+                      - name: PETFOOD_AGENT_RUNTIME_ARN
+                        value: {{ PETFOOD_AGENT_RUNTIME_ARN }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
 ---

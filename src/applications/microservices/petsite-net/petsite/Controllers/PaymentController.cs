@@ -26,18 +26,20 @@ namespace PetSite.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly IPetSearchService _petSearchService;
+        private readonly ParameterRefreshManager _refreshManager;
 
         //Prometheus metric to count the number of Pets adopted
         private static readonly Counter PetAdoptionCount =
             Metrics.CreateCounter("petsite_petadoptions_total", "Count the number of Pets adopted");
 
         public PaymentController(ILogger<PaymentController> logger, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory, IPetSearchService petSearchService)
+            IHttpClientFactory httpClientFactory, IPetSearchService petSearchService, ParameterRefreshManager refreshManager)
         {
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _petSearchService = petSearchService;
             _logger = logger;
+            _refreshManager = refreshManager;
         }
 
         // GET: Payment
@@ -102,7 +104,7 @@ namespace PetSite.Controllers
 
                     using var httpClient = _httpClientFactory.CreateClient();
 
-                    var paymentapiurl = ParameterNames.GetParameterValue(ParameterNames.PAYMENT_API_URL, _configuration);
+                    var paymentapiurl = await ParameterNames.GetParameterValueAsync(ParameterNames.PAYMENT_API_URL, _refreshManager);
                     var url = UrlHelper.BuildUrl(paymentapiurl, null,
                         ("petId", petId), ("petType", petType), ("userId", userId));
                     await httpClient.PostAsync(url, null);

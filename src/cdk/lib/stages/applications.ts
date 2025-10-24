@@ -124,8 +124,8 @@ export class MicroservicesStack extends Stack {
         const eventBusExports = EventBusResources.importFromExports(this, 'EventBusResources');
         const queueExports = QueueResources.importFromExports(this, 'QueueResources');
         const baseURI = `${Stack.of(this).account}.dkr.ecr.${Stack.of(this).region}.amazonaws.com`;
-        const regionalAclArn = CUSTOM_ENABLE_WAF ? RegionalWaf.regionalAclArnFromExports() : undefined;
-        const globalAclArn = CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined;
+        const regionalAclArn = CUSTOM_ENABLE_WAF ? RegionalWaf.regionalAclArnFromParameter() : undefined;
+        const globalAclArn = CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined;
 
         return {
             vpcExports,

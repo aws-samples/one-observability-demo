@@ -81,6 +81,9 @@ export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline';
 /** Working directory for CDK operations */
 export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 
+/** Max number of concurrent users for traffic generator. User 0 to disable */
+export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
+
 /** Default tags applied to all resources */
 export const TAGS = {
     environment: 'non-prod',
@@ -218,7 +221,7 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     memorySize: 128,
     handler: 'handler',
     scheduleExpression: 'rate(2 minutes)',
-    enableSchedule: true,
+    enableSchedule: CONCURRENT_USERS > 0,
     timeout: Duration.seconds(90),
 };
 
@@ -314,3 +317,5 @@ export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
 export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
+/** Enables OpenSearch Application creation */
+export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLICATION == 'true' || false;

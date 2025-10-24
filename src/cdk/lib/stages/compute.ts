@@ -12,6 +12,7 @@ import { WorkshopEks } from '../constructs/eks';
 import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
 import { OpenSearchPipeline } from '../constructs/opensearch-pipeline';
 import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
+import { ENABLE_OPENSEARCH_APPLICATION } from '../../bin/environment';
 
 export interface ComputeProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
@@ -68,10 +69,12 @@ export class ComputeStack extends Stack {
         );
 
         /** Add OpenSearch Application resource */
-        new OpenSearchApplication(this, 'OpenSearchUiApplication', {
-            collection: openSearchCollection,
-            ...properties.opensearchApplicationProperties,
-        });
+        if (ENABLE_OPENSEARCH_APPLICATION) {
+            new OpenSearchApplication(this, 'OpenSearchUiApplication', {
+                collection: openSearchCollection,
+                ...properties.opensearchApplicationProperties,
+            });
+        }
 
         // Create OpenSearch ingestion pipeline
         this.openSearchPipeline = new OpenSearchPipeline(this, 'LogsIngestionPipeline', {

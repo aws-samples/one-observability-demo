@@ -105,17 +105,32 @@ retrieve_availability_zones() {
 
         local region_az_map
         case "$region" in
-            us-west-2)
-                region_az_map="usw2-az1,usw2-az2,usw2-az3"
-                ;;
             us-east-1)
                 region_az_map="use1-az1,use1-az2,use1-az4"
                 ;;
-            eu-central-1)
-                region_az_map="euc1-az1,euc1-az2,euc1-az3"
+            us-east-2)
+                region_az_map="use2-az1,use2-az2,use2-az3"
+                ;;
+            us-west-2)
+                region_az_map="usw2-az1,usw2-az2,usw2-az3"
                 ;;
             ap-southeast-2)
                 region_az_map="apse2-az1,apse2-az2,apse2-az3"
+                ;;
+            ap-south-1)
+                region_az_map="aps1-az1,aps1-az2,aps1-az3"
+                ;;
+            ap-southeast-1)
+                region_az_map="apse1-az1,apse1-az2,apse1-az3"
+                ;;
+            ap-northeast-1)
+                region_az_map="apne1-az1,apne1-az2,apne1-az4"
+                ;;
+            eu-west-1)
+                region_az_map="euw1-az1,euw1-az2,euw1-az3"
+                ;;
+            eu-central-1)
+                region_az_map="euc1-az1,euc1-az2,euc1-az3"
                 ;;
             *)
                 echo "Error: Agent Core is not supported in region: $region" >&2

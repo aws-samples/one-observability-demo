@@ -15,15 +15,13 @@ public class PetHistoryController : BaseController
 {
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
-    private static string _pethistoryurl;
+    private readonly ParameterRefreshManager _refreshManager;
 
-    public PetHistoryController(IConfiguration configuration, IHttpClientFactory httpClientFactory)
+    public PetHistoryController(IConfiguration configuration, IHttpClientFactory httpClientFactory, ParameterRefreshManager refreshManager)
     {
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
-
-        _pethistoryurl = ParameterNames.GetParameterValue(ParameterNames.PET_HISTORY_URL, _configuration);
-        //string _pethistoryurl = SystemsManagerConfigurationProviderWithReloadExtensions.GetConfiguration(_configuration,"pethistoryurl");
+        _refreshManager = refreshManager;
     }
 
     /// <summary>
@@ -48,7 +46,8 @@ public class PetHistoryController : BaseController
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = ViewBag.UserId?.ToString() ?? "unknown";
-                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", null, ("userId", userId));
+                var pethistoryurl = await ParameterNames.GetParameterValueAsync(ParameterNames.PET_HISTORY_URL, _refreshManager);
+                var url = UrlHelper.BuildUrl($"{pethistoryurl}/api/home/transactions", null, ("userId", userId));
                 ViewData["pethistory"] = await httpClient.GetStringAsync(url);
             }
         }
@@ -83,7 +82,8 @@ public class PetHistoryController : BaseController
             {
                 using var httpClient = _httpClientFactory.CreateClient();
                 var userId = ViewBag.UserId?.ToString() ?? "unknown";
-                var url = UrlHelper.BuildUrl($"{_pethistoryurl}/api/home/transactions", null, ("userId", userId));
+                var pethistoryurl = await ParameterNames.GetParameterValueAsync(ParameterNames.PET_HISTORY_URL, _refreshManager);
+                var url = UrlHelper.BuildUrl($"{pethistoryurl}/api/home/transactions", null, ("userId", userId));
                 ViewData["pethistory"] = await httpClient.DeleteAsync(url);
             }
         }

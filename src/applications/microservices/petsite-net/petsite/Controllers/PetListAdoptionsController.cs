@@ -21,12 +21,18 @@ namespace PetSite.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<PetListAdoptionsController> _logger;
+        private readonly ParameterRefreshManager _refreshManager;
 
-        public PetListAdoptionsController(ILogger<PetListAdoptionsController> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory)
+        public PetListAdoptionsController(
+            ILogger<PetListAdoptionsController> logger,
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory,
+            ParameterRefreshManager refreshManager)
         {
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _refreshManager = refreshManager;
         }
 
         // GET
@@ -48,7 +54,7 @@ namespace PetSite.Controllers
                 // Begin activity span to track PetListAdoptions API call
                 using (var activity = Activity.Current?.Source?.StartActivity($"Calling PetListAdoptions API for user: {ViewBag.UserId?.ToString()}"))
                 {
-                    string petlistadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.PET_LIST_ADOPTIONS_URL, _configuration);
+                    string petlistadoptionsurl = await ParameterNames.GetParameterValueAsync(ParameterNames.PET_LIST_ADOPTIONS_URL, _refreshManager);
                     using var httpClient = _httpClientFactory.CreateClient();
                     var userId = ViewBag.UserId?.ToString();
                     //var url = UrlHelper.BuildUrl(petlistadoptionsurl, null, ("userId",userId));

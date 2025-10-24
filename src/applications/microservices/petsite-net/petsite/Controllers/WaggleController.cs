@@ -14,13 +14,14 @@ namespace PetSite.Controllers
         private readonly ILogger<WaggleController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly ParameterRefreshManager _refreshManager;
 
-
-        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public WaggleController(ILogger<WaggleController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration, ParameterRefreshManager refreshManager)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _refreshManager = refreshManager;
         }
 
         public IActionResult Index(string userId)
@@ -34,15 +35,13 @@ namespace PetSite.Controllers
         {
             try
             {
-                // Generate SessionId if not provided
                 if (string.IsNullOrEmpty(request.SessionId))
                 {
                     request.SessionId = System.Guid.NewGuid().ToString();
                 }
 
                 using var httpClient = _httpClientFactory.CreateClient();
-
-                var waggleApiUrl = ParameterNames.GetParameterValue(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _configuration);
+                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
 
                 var payload = new
                 {
@@ -52,15 +51,11 @@ namespace PetSite.Controllers
 
                 var json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-
                 var response = await httpClient.PostAsync(waggleApiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                //var apiResponse = JsonSerializer.Deserialize<dynamic>(responseContent);
-
                 return Json(new ChatResponse
                 {
-                    //Message = apiResponse.GetProperty("message").GetString(),
                     Message = responseContent,
                     SessionId = request.SessionId,
                     Success = true

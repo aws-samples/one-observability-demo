@@ -6,7 +6,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"petadoptions/payforadoption"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,7 +18,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+var refreshManager *RefreshManager
+
 func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config, error) {
+	if refreshManager == nil {
+		refreshManager = NewRefreshManager()
+	}
 
 	// fetch from env
 	viper.AutomaticEnv() // Bind automatically all env vars that have the same prefix
@@ -31,7 +38,7 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 		AWSCfg:    awsCfg,
 	}
 
-	return fetchConfigFromParameterStore(ctx, cfg, logger)
+	return refreshManager.fetchConfigIfNeeded(ctx, cfg)
 }
 
 func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config, logger log.Logger) (payforadoption.Config, error) {
@@ -104,5 +111,33 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 
 // Call aws secrets manager and return parsed sql server query str
 func getRDSConnectionString(ctx context.Context, cfg payforadoption.Config) (string, error) {
+	if refreshManager != nil && !refreshManager.shouldRefreshSecret() {
+		if secret, ok := refreshManager.getCachedSecret(); ok {
+			InfoWithTrace(ctx, "Using cached database secret\n")
+			var dbConfig payforadoption.DatabaseConfig
+			if err := json.Unmarshal([]byte(secret), &dbConfig); err == nil {
+				u := &url.URL{
+					Scheme: dbConfig.Engine,
+					User:   url.UserPassword(dbConfig.Username, dbConfig.Password),
+					Host:   fmt.Sprintf("%s:%d", dbConfig.Host, dbConfig.Port),
+					Path:   dbConfig.Dbname,
+				}
+				connStr := u.String() + "?sslmode=disable"
+				return connStr, nil
+			}
+		}
+	}
+
+	InfoWithTrace(ctx, "Refreshing database secret from Secrets Manager\n")
+	dcs := payforadoption.NewDatabaseConfigService(cfg)
+	secret, err := dcs.GetSecretValue(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if refreshManager != nil {
+		refreshManager.cacheSecret(secret)
+	}
+
 	return payforadoption.GetRDSConnectionString(ctx, cfg)
 }

@@ -5,6 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 package ca.petsearch.controllers;
 
 import ca.petsearch.MetricEmitter;
+import ca.petsearch.ParameterRefreshManager;
 import ca.petsearch.RandomNumberGenerator;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
@@ -53,16 +54,18 @@ public class SearchController {
     private final AWSSimpleSystemsManagement ssmClient;
     private final MetricEmitter metricEmitter;
     private final Tracer tracer;
-    private Map<String, String> paramCache = new HashMap<>();
+    private final ParameterRefreshManager refreshManager;
 
     public SearchController(AmazonS3 s3Client, AmazonDynamoDB ddbClient, AWSSimpleSystemsManagement ssmClient,
-            MetricEmitter metricEmitter, Tracer tracer, RandomNumberGenerator randomGenerator) {
+            MetricEmitter metricEmitter, Tracer tracer, RandomNumberGenerator randomGenerator,
+            ParameterRefreshManager refreshManager) {
         this.s3Client = s3Client;
         this.ddbClient = ddbClient;
         this.ssmClient = ssmClient;
         this.metricEmitter = metricEmitter;
         this.tracer = tracer;
         this.randomGenerator = randomGenerator;
+        this.refreshManager = refreshManager;
 
         // Initialize configurable parameter names from environment variables
         String paramPrefix = getRequiredEnvironmentVariable("PETSEARCH_PARAM_PREFIX");
@@ -147,9 +150,9 @@ public class SearchController {
     private String getSSMParameter(String paramName) {
         logger.info("Attempting to retrieve SSM parameter: {}", paramName);
 
-        if (!paramCache.containsKey(paramName)) {
+        if (refreshManager.shouldRefresh(paramName)) {
             try {
-                logger.debug("Parameter not in cache, fetching from SSM: {}", paramName);
+                logger.debug("Parameter needs refresh, fetching from SSM: {}", paramName);
 
                 GetParameterRequest parameterRequest = new GetParameterRequest().withName(paramName)
                         .withWithDecryption(false);
@@ -160,7 +163,7 @@ public class SearchController {
                 logger.info("Successfully retrieved SSM parameter '{}' with value: {}", paramName,
                            paramValue != null ? paramValue.substring(0, Math.min(50, paramValue.length())) + "..." : "null");
 
-                paramCache.put(paramName, paramValue);
+                refreshManager.cacheParameter(paramName, paramValue);
                 return paramValue;
 
             } catch (ParameterNotFoundException e) {
@@ -194,7 +197,7 @@ public class SearchController {
             }
         } else {
             logger.debug("Using cached value for SSM parameter: {}", paramName);
-            return paramCache.get(paramName);
+            return refreshManager.getCachedParameter(paramName);
         }
     }
 

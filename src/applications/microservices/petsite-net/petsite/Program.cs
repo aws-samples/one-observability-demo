@@ -44,8 +44,9 @@ namespace PetSite
 
                         try
                         {
-                            config.AddSystemsManager("/petstore");
-                            Console.WriteLine("[DEBUG] Systems Manager configuration added.");
+                            var parameterPrefix = Environment.GetEnvironmentVariable("PARAMETER_STORE_PREFIX") ?? "/petstore";
+                            config.AddSystemsManager(parameterPrefix);
+                            Console.WriteLine($"[DEBUG] Systems Manager configuration added with prefix: {parameterPrefix}");
                         }
                         catch (Exception ex)
                         {

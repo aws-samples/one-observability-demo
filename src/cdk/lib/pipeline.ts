@@ -232,7 +232,7 @@ export class CDKPipeline extends Stack {
         const storageStage = new StorageStage(this, 'Storage', {
             assetsProperties: {
                 seedPaths: properties.petImagesPaths,
-                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromExports() : undefined,
+                globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined,
             },
             auroraDatabaseProperties: {
                 engineVersion: properties.postgresEngineVersion,
@@ -300,6 +300,30 @@ export class CDKPipeline extends Stack {
                 ],
                 roles: [pipeline.synthProject.role],
             });
+        }
+
+        if (pipeline.pipeline.crossRegionSupport) {
+            const supportStacks = pipeline.pipeline.crossRegionSupport;
+            for (const stack of Object.values(supportStacks)) {
+                NagSuppressions.addResourceSuppressions(
+                    [stack.stack, stack.replicationBucket],
+                    [
+                        {
+                            id: 'AwsSolutions-KMS5',
+                            reason: 'KMS Rotation disabled for cross-region bucket',
+                        },
+                        {
+                            id: 'AwsSolutions-S1',
+                            reason: 'Server access logs not needed for cross-region stack',
+                        },
+                        {
+                            id: 'Workshop-S3-1',
+                            reason: 'Disabled since bucket is managed by CDK',
+                        },
+                    ],
+                    true,
+                );
+            }
         }
 
         /**

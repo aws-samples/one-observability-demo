@@ -7,7 +7,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
 FROM public.ecr.aws/docker/library/alpine:3.22.1
 WORKDIR /app
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates curl aws-cli
 COPY --from=builder /go/src/app/app .
 COPY --from=builder /go/src/app/seed.json .
 EXPOSE 80

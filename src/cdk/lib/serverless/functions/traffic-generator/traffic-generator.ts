@@ -16,7 +16,7 @@ import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
 import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
 import { Stack } from 'aws-cdk-lib';
-import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
+import { CONCURRENT_USERS, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
@@ -66,9 +66,9 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     }
     createOutputs(): void {}
     getEnvironmentVariables(): { [key: string]: string } | undefined {
-        // No environment variables to create
         return {
             PETSITE_URL_PARAMETER_NAME: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
+            CONCURRENT_USERS: `${CONCURRENT_USERS}`,
         };
     }
 

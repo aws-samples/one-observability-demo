@@ -102,8 +102,12 @@ class PetAdoptionsService:
     """Main service class following Python best practices"""
 
     def __init__(self):
+        self.refresh_interval = int(os.getenv("CONFIG_REFRESH_INTERVAL", "300"))
         self.pet_search_url = os.getenv("APP_PET_SEARCH_URL")
         self.rds_secret_arn = os.getenv("APP_RDS_SECRET_ARN")
+        self._params_last_fetch = 0
+        self._secret_last_fetch = 0
+        self._cached_secret_data = None
 
         # If not set via env vars, try to get from Parameter Store
         if not self.pet_search_url or not self.rds_secret_arn:
@@ -123,31 +127,60 @@ class PetAdoptionsService:
                 elif param["Name"] == "/petstore/searchapiurl":
                     self.pet_search_url = param["Value"]
 
+            self._params_last_fetch = time.time()
+            logger.info("Parameter Store values refreshed")
+
         except Exception as e:
             logger.error(f"Failed to fetch from Parameter Store: {e}")
+
+    def _refresh_parameters_if_needed(self):
+        """Refresh parameters if threshold exceeded"""
+        if (
+            self.refresh_interval != -1
+            and time.time() - self._params_last_fetch > self.refresh_interval
+        ):
+            self._fetch_from_parameter_store()
+
+    def _fetch_secret(self):
+        """Fetch secret from AWS Secrets Manager"""
+        if self.rds_secret_arn == "local-secret":  # pragma: allowlist secret
+            with open("/app/local-secret.json") as f:  # pragma: allowlist secret
+                self._cached_secret_data = json.loads(f.read())
+        else:
+            secrets = boto3.client("secretsmanager")
+            response = secrets.get_secret_value(SecretId=self.rds_secret_arn)
+            self._cached_secret_data = json.loads(response["SecretString"])
+
+        self._secret_last_fetch = time.time()
+        logger.info("Database secret refreshed")
+
+    def _refresh_secret_if_needed(self):
+        """Refresh secret if threshold exceeded"""
+        if not self._cached_secret_data:
+            self._fetch_secret()
+        elif (
+            self.refresh_interval != -1
+            and time.time() - self._secret_last_fetch > self.refresh_interval
+        ):
+            self._fetch_secret()
 
     def _get_database_connection_string(self) -> str:
         """Get database connection string from AWS Secrets Manager"""
         try:
-            # Check if this is a local test setup
-            if self.rds_secret_arn == "local-secret":  # pragma: allowlist secret
-                # Read from local file for testing
-                with open("/app/local-secret.json") as f:  # pragma: allowlist secret
-                    secret_data = json.loads(f.read())
-            else:
-                # Use AWS Secrets Manager
-                secrets = boto3.client("secretsmanager")
-                response = secrets.get_secret_value(SecretId=self.rds_secret_arn)
-                secret_data = json.loads(response["SecretString"])
+            self._refresh_secret_if_needed()
 
-            # Build connection string for psycopg2
             connection_string = (
-                f"postgresql://{secret_data['username']}:"
-                f"{secret_data['password']}@{secret_data['host']}:"
-                f"{secret_data.get('port', 5432)}/{secret_data['dbname']}"
+                f"postgresql://{self._cached_secret_data['username']}:"
+                f"{self._cached_secret_data['password']}@"
+                f"{self._cached_secret_data['host']}:"
+                f"{self._cached_secret_data.get('port', 5432)}/"
+                f"{self._cached_secret_data['dbname']}"
             )
 
-            logger.info(f"Generated connection string for host: {secret_data['host']}")
+            logger.info(
+                f"Generated connection string for host: "
+                f"{self._cached_secret_data['host']}",
+            )
             return connection_string
 
         except Exception as e:
@@ -220,6 +253,7 @@ class PetAdoptionsService:
 
     def _search_pet_info(self, pet_id: str) -> List[Dict[str, Any]]:
         """Search for pet information by pet_id"""
+        self._refresh_parameters_if_needed()
         url = f"{self.pet_search_url}petid={pet_id}"
 
         try:

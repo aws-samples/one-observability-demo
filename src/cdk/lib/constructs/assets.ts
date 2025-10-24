@@ -16,7 +16,7 @@ import {
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import {
     ASSETS_BUCKET_NAME_EXPORT_NAME,
     ASSETS_BUCKET_ARN_EXPORT_NAME,
@@ -73,8 +73,8 @@ export class WorkshopAssets extends Construct {
             lifecycleRules: [
                 {
                     enabled: true,
-                    expiration: Duration.days(DEFAULT_RETENTION_DAYS),
-                    id: 'ExpireAfterOneWeek',
+                    expiration: Duration.days(365),
+                    id: 'ExpireAfterOneYear',
                 },
             ],
         });

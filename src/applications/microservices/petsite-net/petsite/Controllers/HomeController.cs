@@ -25,6 +25,7 @@ namespace PetSite.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private static Variety _variety = new Variety();
         private readonly IConfiguration _configuration;
+        private readonly ParameterRefreshManager _refreshManager;
 
         //Prometheus metric to count the number of searches performed
         private static readonly Counter PetSearchCount =
@@ -47,12 +48,13 @@ namespace PetSite.Controllers
 
 
 
-        public HomeController(ILogger<HomeController> logger, IConfiguration configuration, PetSite.Services.IPetSearchService petSearchService, IHttpClientFactory httpClientFactory)
+        public HomeController(ILogger<HomeController> logger, IConfiguration configuration, PetSite.Services.IPetSearchService petSearchService, IHttpClientFactory httpClientFactory, ParameterRefreshManager refreshManager)
         {
             _configuration = configuration;
             _petSearchService = petSearchService;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _refreshManager = refreshManager;
 
             _variety.PetTypes = new List<SelectListItem>()
             {
@@ -80,7 +82,7 @@ namespace PetSite.Controllers
             _logger.LogInformation($"In Housekeeping, trying to reset the app for user: {userId}");
             try
             {
-                string cleanupadoptionsurl = ParameterNames.GetParameterValue(ParameterNames.CLEANUP_ADOPTIONS_URL, _configuration);
+                string cleanupadoptionsurl = await ParameterNames.GetParameterValueAsync(ParameterNames.CLEANUP_ADOPTIONS_URL, _refreshManager);
                 using var httpClient = _httpClientFactory.CreateClient();
                 var url = UrlHelper.BuildUrl(cleanupadoptionsurl, new String[]{userId}, null);
                 var response = await httpClient.DeleteAsync(url);

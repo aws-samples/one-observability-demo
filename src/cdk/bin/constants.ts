@@ -152,6 +152,5 @@ export const SSM_PARAMETER_NAMES = {
     SQS_QUEUE_URL: 'queueurl',
 
     // PetFood Agent parameters
-
     PETFOOD_AGENT_RUNTIME_ARN: 'petfoodagent-runtime-arn',
 } as const;
