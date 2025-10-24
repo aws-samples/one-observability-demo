@@ -35,15 +35,13 @@ namespace PetSite.Controllers
         {
             try
             {
-                // Generate SessionId if not provided
                 if (string.IsNullOrEmpty(request.SessionId))
                 {
                     request.SessionId = System.Guid.NewGuid().ToString();
                 }
 
                 using var httpClient = _httpClientFactory.CreateClient();
-
-                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
+                var waggleApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_URL, _refreshManager);
 
                 var payload = new
                 {
@@ -53,15 +51,11 @@ namespace PetSite.Controllers
 
                 var json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
-
                 var response = await httpClient.PostAsync(waggleApiUrl, content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                //var apiResponse = JsonSerializer.Deserialize<dynamic>(responseContent);
-
                 return Json(new ChatResponse
                 {
-                    //Message = apiResponse.GetProperty("message").GetString(),
                     Message = responseContent,
                     SessionId = request.SessionId,
                     Success = true

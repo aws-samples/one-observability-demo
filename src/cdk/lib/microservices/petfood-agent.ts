@@ -182,9 +182,7 @@ export class PetFoodAgentConstruct extends Construct {
             parameterStorePrefix,
             new Map(
                 Object.entries({
-                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN]: this.agentRuntime
-                        .getAtt('AgentRuntimeArn')
-                        .toString(),
+                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_URL]: this.agentRuntime.getAtt('EndpointUrl').toString(),
                 }),
             ),
         );
@@ -192,6 +190,11 @@ export class PetFoodAgentConstruct extends Construct {
         new CfnOutput(this, 'AgentRuntimeArn', {
             value: this.agentRuntime.attrAgentRuntimeArn,
             description: 'Agent Runtime ARN',
+        });
+
+        new CfnOutput(this, 'AgentRuntimeEndpoint', {
+            value: this.agentRuntime.getAtt('EndpointUrl').toString(),
+            description: 'Agent Runtime HTTP Endpoint',
         });
     }
 }
