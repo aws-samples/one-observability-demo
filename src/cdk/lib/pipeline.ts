@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
-import { BuildSpec, Cache, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import { BuildSpec, LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
 import { PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { IRole, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
@@ -165,9 +165,6 @@ export class CDKPipeline extends Stack {
                         },
                     },
                 },
-                cache: {
-                    paths: [`${properties.workingFolder}/node_modules/**/*`],
-                },
             }),
         });
         /**
@@ -195,12 +192,6 @@ export class CDKPipeline extends Stack {
                         },
                     },
                 },
-                cache: Cache.local(),
-                partialBuildSpec: BuildSpec.fromObject({
-                    cache: {
-                        modes: ['LOCAL_DOCKER_LAYER_CACHE'],
-                    },
-                }),
             },
         });
 

@@ -1240,17 +1240,13 @@ Resources:
                           cf_useast1 = boto3.client('cloudformation', region_name='us-east-1')
                           support_stack_name = 'OneObservability-support-us-east-1'
                           stack_detail = cf_useast1.describe_stacks(StackName=support_stack_name)
-                          tags = stack_detail['Stacks'][0].get('Tags', [])
-
-                          # Check if it has the application tag
-                          for tag in tags:
-                              if tag['Key'] == 'application' and tag['Value'] == '${pApplicationName}':
-                                  stacks.append({
-                                      'name': support_stack_name,
-                                      'region': 'us-east-1',
-                                      'sequence': 0  # Delete after main stacks
-                                  })
-                                  break
+                          # Support stacks are created by CDK cross-region references and may not have tags
+                          # Include them based on name pattern
+                          stacks.append({
+                              'name': support_stack_name,
+                              'region': 'us-east-1',
+                              'sequence': 0  # Delete after main stacks
+                          })
                       except Exception as e:
                           print(f"No support stack in us-east-1 or error checking: {str(e)}")
 
