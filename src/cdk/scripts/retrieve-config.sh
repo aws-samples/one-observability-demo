@@ -23,15 +23,21 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log_debug() {
-    [[ "$LOG_LEVEL" == "DEBUG" ]] && echo -e "${BLUE}[DEBUG]${NC} $*" >&2
+    if [[ "$LOG_LEVEL" == "DEBUG" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} $*" >&2
+    fi
 }
 
 log_info() {
-    [[ "$LOG_LEVEL" =~ ^(DEBUG|INFO)$ ]] && echo -e "${GREEN}[INFO]${NC} $*" >&2
+    if [[ "$LOG_LEVEL" =~ ^(DEBUG|INFO)$ ]]; then
+        echo -e "${GREEN}[INFO]${NC} $*" >&2
+    fi
 }
 
 log_warn() {
-    [[ "$LOG_LEVEL" =~ ^(DEBUG|INFO|WARN)$ ]] && echo -e "${YELLOW}[WARN]${NC} $*" >&2
+    if [[ "$LOG_LEVEL" =~ ^(DEBUG|INFO|WARN)$ ]]; then
+        echo -e "${YELLOW}[WARN]${NC} $*" >&2
+    fi
 }
 
 log_error() {
