@@ -860,26 +860,39 @@ class CDKExportsManager:
         """Try to get CloudFront distribution URL for the S3 bucket."""
         try:
             # Look specifically for WorkshopCloudFrontDomain export first
-            for export in self.exports_data:
-                if export["exportName"] == "WorkshopCloudFrontDomain":
-                    base_url = export["exportValue"]
-                    if base_url.startswith("https://"):
-                        return f"{base_url.rstrip('/')}/{key}"
-                    else:
-                        # Add https if not present
-                        return f"https://{base_url.rstrip('/')}/{key}"
+            # Handle both prefixed and non-prefixed export names
+            domain_export_names = [
+                "public:WorkshopCloudFrontDomain",
+                "WorkshopCloudFrontDomain",
+                "private:WorkshopCloudFrontDomain",
+            ]
 
-            # Fallback: Look for other CloudFront-related exports
             for export in self.exports_data:
-                if (
-                    "cloudfront" in export["exportName"].lower()
-                    or "distribution" in export["exportName"].lower()
-                ):
+                if export["exportName"] in domain_export_names:
                     base_url = export["exportValue"]
-                    if base_url.startswith("https://"):
-                        return f"{base_url.rstrip('/')}/{key}"
-                    else:
+                    # Ensure it's a domain name, not a distribution ID
+                    if "." in base_url and not base_url.startswith(
+                        ("http://", "https://"),
+                    ):
                         return f"https://{base_url.rstrip('/')}/{key}"
+                    elif base_url.startswith("https://"):
+                        return f"{base_url.rstrip('/')}/{key}"
+
+            # Fallback: Look for other CloudFront domain-related exports
+            # But be careful to avoid distribution IDs
+            for export in self.exports_data:
+                export_name_lower = export["exportName"].lower()
+                export_value = export["exportValue"]
+
+                if "cloudfront" in export_name_lower and "domain" in export_name_lower:
+                    # Make sure it's a domain name (contains dots) and not
+                    # a distribution ID
+                    if "." in export_value and not export_value.startswith(
+                        ("http://", "https://"),
+                    ):
+                        return f"https://{export_value.rstrip('/')}/{key}"
+                    elif export_value.startswith("https://"):
+                        return f"{export_value.rstrip('/')}/{key}"
 
             return None
         except Exception as e:
@@ -996,8 +1009,8 @@ Examples:
     )
     dashboard_parser.add_argument(
         "--filter-prefix",
-        default="Workshop",
-        help="Export name prefix filter",
+        default="public:",
+        help="Export name prefix filter (default: public: for public exports)",
     )
     dashboard_parser.add_argument("--bucket", help="S3 bucket name")
     dashboard_parser.add_argument("--template", help="Custom template path")
@@ -1073,7 +1086,73 @@ Examples:
 
             if not exports:
                 logger.warning("No exports found matching criteria")
-                sys.exit(1)
+                logger.info("Troubleshooting suggestions:")
+                logger.info("  1. Check if CloudFormation stacks have been deployed")
+
+                # Try to find available exports and suggest alternatives
+                logger.info("Attempting to find available exports...")
+                all_exports = manager.extract_exports(
+                    filter_prefix=None,  # Get all exports
+                    exclude_internal=True,
+                    max_retries=1,
+                )
+
+                if all_exports:
+                    # Find common prefixes
+                    prefixes = {}
+                    for export in all_exports:
+                        export_name = export["exportName"]
+                        if ":" in export_name:
+                            prefix = export_name.split(":", 1)[0] + ":"
+                            prefixes[prefix] = prefixes.get(prefix, 0) + 1
+                        elif export_name.startswith("Workshop"):
+                            prefixes["Workshop"] = prefixes.get("Workshop", 0) + 1
+
+                    if prefixes:
+                        logger.info("Available export prefixes found:")
+                        for prefix, count in sorted(
+                            prefixes.items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        ):
+                            logger.info(f"  {prefix} ({count} exports)")
+
+                        # Suggest the most common Workshop-related prefix
+                        workshop_prefixes = [
+                            p for p in prefixes.keys() if "workshop" in p.lower()
+                        ]
+                        if workshop_prefixes:
+                            suggested_prefix = max(
+                                workshop_prefixes,
+                                key=lambda p: prefixes[p],
+                            )
+                            logger.info(
+                                "Suggestion: Try --filter-prefix "
+                                f"'{suggested_prefix}'",
+                            )
+                        else:
+                            logger.info(
+                                "Suggestion: Try --filter-prefix 'public:' "
+                                "to see public exports",
+                            )
+
+                    logger.info(
+                        "  2. Try without filter: --filter-prefix ''",
+                    )
+                    logger.info(
+                        "  3. Use debug-exports command to see all "
+                        "available exports",
+                    )
+                else:
+                    logger.info(
+                        "  2. No exports found in any stacks - "
+                        "verify deployments exist",
+                    )
+                    logger.info("  3. Check AWS region and credentials")
+
+                # Don't exit with error code 1 - this makes automation harder
+                logger.info("Dashboard generation completed with no matching exports")
+                return  # Exit gracefully instead of sys.exit(1)
 
             html_content = manager.generate_html(args.template)
             url = manager.upload_to_s3(html_content, args.bucket)
