@@ -332,7 +332,7 @@ export class CDKPipeline extends Stack {
                 `cd ${properties.workingFolder}`,
                 'echo "Retrieving configuration for exports dashboard..."',
                 // Use the reusable script to retrieve configuration
-                ...(properties.configurationParameterName && properties.stackName
+                ...(properties.configurationParameterName
                     ? [`./scripts/retrieve-config.sh "${properties.configurationParameterName}"`]
                     : [
                           'echo "Using local .env file (Parameter Store base path not configured)"',
