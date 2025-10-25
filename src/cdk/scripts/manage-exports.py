@@ -628,8 +628,88 @@ class CDKExportsManager:
         export_value: str,
     ) -> str:
         """Generate AWS Console URL for the export's resource."""
-        base_url = "https://console.aws.amazon.com/cloudformation/home"
-        return f"{base_url}?region={region}#/stacks/stackinfo?stackId={stack_name}"
+        name_lower = export_name.lower()
+
+        # VPC resources
+        if "vpc" in name_lower and "vpcid" in name_lower:
+            vpc_id = export_value
+            return (
+                f"https://console.aws.amazon.com/vpc/home?"
+                f"region={region}#VpcDetails:VpcId={vpc_id}"
+            )
+
+        # S3 Bucket
+        if "bucket" in name_lower:
+            bucket_name = (
+                export_value.split(":::")[-1] if ":::" in export_value else export_value
+            )
+            return (
+                f"https://s3.console.aws.amazon.com/s3/buckets/"
+                f"{bucket_name}?region={region}"
+            )
+
+        # DynamoDB Table
+        if "dynamodb" in name_lower or "table" in name_lower:
+            if export_value.startswith("arn:aws:dynamodb"):
+                table_name = export_value.split("/")[-1]
+                return (
+                    f"https://console.aws.amazon.com/dynamodbv2/home?"
+                    f"region={region}#table?name={table_name}"
+                )
+
+        # RDS/Aurora
+        if "aurora" in name_lower or "rds" in name_lower or "cluster" in name_lower:
+            if "arn:aws:rds" in export_value:
+                cluster_id = export_value.split(":")[-1]
+                return (
+                    f"https://console.aws.amazon.com/rds/home?"
+                    f"region={region}#database:id={cluster_id}"
+                )
+
+        # ECS Cluster
+        if "ecs" in name_lower and "cluster" in name_lower:
+            if export_value.startswith("arn:aws:ecs"):
+                cluster_name = export_value.split("/")[-1]
+                return (
+                    f"https://console.aws.amazon.com/ecs/v2/clusters/"
+                    f"{cluster_name}?region={region}"
+                )
+
+        # EKS Cluster
+        if "eks" in name_lower and "cluster" in name_lower:
+            if export_value.startswith("arn:aws:eks"):
+                cluster_name = export_value.split("/")[-1]
+                return (
+                    f"https://console.aws.amazon.com/eks/home?"
+                    f"region={region}#/clusters/{cluster_name}"
+                )
+
+        # CloudFront Distribution
+        if "cloudfront" in name_lower and "distribution" in name_lower:
+            dist_id = export_value
+            return (
+                f"https://console.aws.amazon.com/cloudfront/v3/home#"
+                f"/distributions/{dist_id}"
+            )
+
+        # SNS Topic
+        if "sns" in name_lower or "topic" in name_lower:
+            if export_value.startswith("arn:aws:sns"):
+                return (
+                    f"https://console.aws.amazon.com/sns/v3/home?"
+                    f"region={region}#/topic/{export_value}"
+                )
+
+        # SQS Queue
+        if "sqs" in name_lower or "queue" in name_lower:
+            if export_value.startswith("arn:aws:sqs"):
+                return (
+                    f"https://console.aws.amazon.com/sqs/v2/home?"
+                    f"region={region}#/queues/{export_value}"
+                )
+
+        # Return empty string for unknown services (will hide the link in template)
+        return ""
 
     def _get_stack_info_safe(self, cf_client, stack_name: str, region: str) -> Dict:
         """Get additional information about a CloudFormation stack with

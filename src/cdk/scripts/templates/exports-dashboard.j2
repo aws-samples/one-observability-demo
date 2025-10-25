@@ -425,12 +425,14 @@
                             </div>
                         </div>
                         <div class="col-md-4 text-md-end">
+                            {% if export.consoleUrl %}
                             <a href="{{ export.consoleUrl }}"
                                target="_blank"
                                class="console-link">
                                 <i class="fas fa-external-link-alt me-1"></i>
                                 View in Console
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
