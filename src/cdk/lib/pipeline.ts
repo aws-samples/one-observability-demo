@@ -356,12 +356,7 @@ export class CDKPipeline extends Stack {
         exportDashboardRole.addToPolicy(
             new PolicyStatement({
                 actions: ['s3:PutObject'],
-                resources: ['arn:aws:s3:::*/*'],
-                conditions: {
-                    StringEquals: {
-                        'aws:ResourceTag/parent': this.stackName,
-                    },
-                },
+                resources: [`arn:aws:s3:::*/*`],
             }),
         );
 
