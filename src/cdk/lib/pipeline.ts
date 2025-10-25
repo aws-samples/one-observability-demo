@@ -178,6 +178,7 @@ export class CDKPipeline extends Stack {
                 'npm run build',
                 'echo ----------------------------',
                 'echo "Retrieving configuration..."',
+                'export LOG_LEVEL=DEBUG',
                 // Use the reusable script to retrieve configuration
                 ...(properties.configurationParameterName
                     ? [`./scripts/retrieve-config.sh "${properties.configurationParameterName}"`]
@@ -357,6 +358,7 @@ export class CDKPipeline extends Stack {
             commands: [
                 `cd ${properties.workingFolder}`,
                 'echo "Retrieving configuration for exports dashboard..."',
+                'export LOG_LEVEL=DEBUG',
                 // Use the reusable script to retrieve configuration
                 ...(properties.configurationParameterName
                     ? [`./scripts/retrieve-config.sh "${properties.configurationParameterName}"`]
