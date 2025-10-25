@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface WorkshopWebAclProperties {
     logRetention?: RetentionDays;
@@ -66,6 +67,13 @@ export class RegionalWaf extends Construct {
             logDestinationConfigs: [logGroup.logGroupArn],
             resourceArn: webAcl.attrArn,
         });
+
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'WAF Log group name must be prefixed with aws-waf-logs',
+            },
+        ]);
         return webAcl;
     }
 
@@ -138,6 +146,12 @@ export class GlobalWaf extends Construct {
             logDestinationConfigs: [logGroup.logGroupArn],
             resourceArn: webAcl.attrArn,
         });
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'WAF Log group name must be prefixed with aws-waf-logs',
+            },
+        ]);
         return webAcl;
     }
     private createWafv2Outputs() {

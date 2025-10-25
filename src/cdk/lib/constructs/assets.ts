@@ -20,6 +20,8 @@ import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import {
     ASSETS_BUCKET_NAME_EXPORT_NAME,
     ASSETS_BUCKET_ARN_EXPORT_NAME,
+    CLOUDFRONT_DOMAIN_EXPORT_NAME,
+    CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
     SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
 
@@ -208,13 +210,13 @@ export class WorkshopAssets extends Construct {
         // CloudFront distribution outputs
         new CfnOutput(this, 'CloudFrontDomainOutput', {
             value: this.distribution.distributionDomainName,
-            exportName: 'WorkshopCloudFrontDomain',
+            exportName: CLOUDFRONT_DOMAIN_EXPORT_NAME,
             description: 'Workshop CloudFront Distribution Domain Name',
         });
 
         new CfnOutput(this, 'CloudFrontDistributionIdOutput', {
             value: this.distribution.distributionId,
-            exportName: 'WorkshopCloudFrontDistributionId',
+            exportName: CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
             description: 'Workshop CloudFront Distribution ID',
         });
 

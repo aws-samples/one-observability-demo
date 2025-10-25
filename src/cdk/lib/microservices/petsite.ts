@@ -29,7 +29,7 @@ import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { SSM_PARAMETER_NAMES, PETSITE_URL_EXPORT_NAME } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
@@ -296,7 +296,7 @@ export class PetSite extends EKSDeployment {
     createOutputs(): void {
         new CfnOutput(this, 'PetSiteUrl', {
             value: `https://${this.distribution.distributionDomainName}`,
-            exportName: 'PetSiteUrl',
+            exportName: PETSITE_URL_EXPORT_NAME,
             description: 'The URL of the PetSite application',
         });
 

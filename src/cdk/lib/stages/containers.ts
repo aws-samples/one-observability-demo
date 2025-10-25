@@ -9,6 +9,7 @@ import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import {
     CodeBuildAction,
+    CodeStarConnectionsSourceAction,
     EcrBuildAndPublishAction,
     RegistryType,
     S3SourceAction,
@@ -119,11 +120,27 @@ export interface S3SourceProperties {
 }
 
 /**
+ * Properties for CodeConnection source configuration
+ */
+export interface CodeConnectionSourceProperties {
+    /** CodeConnection ARN for GitHub integration */
+    connectionArn: string;
+    /** Organization/owner name */
+    organizationName: string;
+    /** Repository name */
+    repositoryName: string;
+    /** Branch name */
+    branchName: string;
+}
+
+/**
  * Properties for the Containers Pipeline Stage
  */
 export interface ContainersPipelineStageProperties extends StackProps {
-    /** S3 source configuration */
-    source: S3SourceProperties;
+    /** S3 source configuration (used when CodeConnection is not available) */
+    source?: S3SourceProperties;
+    /** CodeConnection source configuration */
+    codeConnectionSource?: CodeConnectionSourceProperties;
     /** List of applications to build and deploy */
     applicationList: ContainerDefinition[];
 }
@@ -163,8 +180,12 @@ export class ContainersStack extends Stack {
     constructor(scope: Construct, id: string, properties?: ContainersPipelineStageProperties) {
         super(scope, id, properties);
 
-        if (!properties?.source || !properties?.applicationList) {
-            throw new Error('Source and applicationList are required');
+        if (!properties?.applicationList) {
+            throw new Error('ApplicationList is required');
+        }
+
+        if (!properties?.source && !properties?.codeConnectionSource) {
+            throw new Error('Either S3 source or CodeConnection source is required');
         }
 
         const pipelineRole = new Role(this, 'PipelineRole', {
@@ -214,7 +235,6 @@ export class ContainersStack extends Stack {
         });
 
         const sourceOutput = new Artifact();
-        const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
 
         const pipelineLogArn = Arn.format(
             {
@@ -239,18 +259,37 @@ export class ContainersStack extends Stack {
             roles: [pipelineRole, codeBuildRole],
         });
 
-        sourceBucket.grantRead(pipelineRole);
+        // Determine source action based on available configuration
+        let sourceAction;
+
+        if (properties.codeConnectionSource) {
+            // Use CodeConnection as source
+            sourceAction = new CodeStarConnectionsSourceAction({
+                actionName: 'Source',
+                owner: properties.codeConnectionSource.organizationName,
+                repo: properties.codeConnectionSource.repositoryName,
+                branch: properties.codeConnectionSource.branchName,
+                connectionArn: properties.codeConnectionSource.connectionArn,
+                output: sourceOutput,
+            });
+        } else if (properties.source) {
+            // Fallback to S3 source
+            const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
+            sourceBucket.grantRead(pipelineRole);
+
+            sourceAction = new S3SourceAction({
+                actionName: 'Source',
+                bucket: sourceBucket,
+                bucketKey: properties.source.bucketKey,
+                output: sourceOutput,
+                trigger: S3Trigger.POLL,
+            });
+        } else {
+            throw new Error('No valid source configuration provided');
+        }
 
         // Ensure CloudWatch policy is attached before pipeline actions
         this.pipeline.node.addDependency(cloudWatchPolicy);
-
-        const sourceAction = new S3SourceAction({
-            actionName: 'Source',
-            bucket: sourceBucket,
-            bucketKey: properties.source.bucketKey,
-            output: sourceOutput,
-            trigger: S3Trigger.POLL,
-        });
 
         this.pipeline.addStage({
             stageName: 'Source',
