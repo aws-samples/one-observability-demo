@@ -360,7 +360,7 @@ export class CDKPipeline extends Stack {
                           'cat .env || echo "No .env file found"',
                       ]),
                 // Source the .env file to make variables available as environment variables
-                'echo "Environment variables in use:',
+                'echo "Environment variables in use:"',
                 'cat .env',
                 'set -a && source .env && set +a',
                 'echo "Installing Python dependencies for exports generation..."',
