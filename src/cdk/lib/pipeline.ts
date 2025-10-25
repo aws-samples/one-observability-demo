@@ -31,6 +31,7 @@ import { ComputeStage } from './stages/compute';
 import { MicroservicesStage, MicroserviceApplicationsProperties } from './stages/applications';
 import { CUSTOM_ENABLE_WAF } from '../bin/environment';
 import { GlobalWaf } from './constructs/waf';
+import { PIPELINE_ARN_EXPORT_NAME } from '../bin/constants';
 
 /**
  * Properties for configuring the CDK Pipeline stack.
@@ -530,7 +531,7 @@ export class CDKPipeline extends Stack {
          */
         new CfnOutput(this, 'PipelineArn', {
             value: pipeline.pipeline.pipelineArn,
-            exportName: 'PipelineArn',
+            exportName: PIPELINE_ARN_EXPORT_NAME,
             description: 'ARN of the CI/CD pipeline for deploying workshop infrastructure',
         });
 
