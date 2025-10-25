@@ -43,6 +43,8 @@ import {
     MICROSERVICES_PLACEMENT,
     LAMBDA_FUNCTIONS,
     CANARY_FUNCTIONS,
+    CODE_CONNECTION_ARN,
+    CONFIG_PARAM_NAME,
 } from './environment';
 
 /** Main CDK application instance */
@@ -53,11 +55,13 @@ const app = new App();
  * Configuration values are resolved from CDK context first, then fall back to environment variables.
  */
 new CDKPipeline(app, 'OneObservability', {
-    configBucketName: app.node.tryGetContext('configBucketName') || CONFIG_BUCKET,
-    branchName: app.node.tryGetContext('branchName') || BRANCH_NAME,
-    organizationName: app.node.tryGetContext('organizationName') || ORGANIZATION_NAME,
-    repositoryName: app.node.tryGetContext('repositoryName') || REPOSITORY_NAME,
-    workingFolder: app.node.tryGetContext('workingFolder') || WORKING_FOLDER,
+    configBucketName: CONFIG_BUCKET,
+    branchName: BRANCH_NAME,
+    organizationName: ORGANIZATION_NAME,
+    repositoryName: REPOSITORY_NAME,
+    workingFolder: WORKING_FOLDER,
+    codeConnectionArn: CODE_CONNECTION_ARN,
+    configurationParameterName: CONFIG_PARAM_NAME,
     env: {
         account: ACCOUNT_ID,
         region: REGION,

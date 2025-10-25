@@ -96,6 +96,15 @@ export const CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME = 'public:WorkshopCloudMapNamesp
 // Assets Export Names
 export const ASSETS_BUCKET_NAME_EXPORT_NAME = 'public:WorkshopAssetsBucketName';
 export const ASSETS_BUCKET_ARN_EXPORT_NAME = 'public:WorkshopAssetsBucketArn';
+export const CLOUDFRONT_DOMAIN_EXPORT_NAME = 'public:WorkshopCloudFrontDomain';
+export const CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME = 'public:WorkshopCloudFrontDistributionId';
+
+// Application URL Export Names
+export const PETSITE_URL_EXPORT_NAME = 'public:WorkshopPetSiteUrl';
+export const STATUS_UPDATER_API_URL_EXPORT_NAME = 'public:WorkshopStatusUpdaterApiUrl';
+
+// Pipeline Export Names
+export const PIPELINE_ARN_EXPORT_NAME = 'public:WorkshopPipelineArn';
 
 // EventBridge Export Names
 export const EVENTBUS_ARN_EXPORT_NAME = 'public:WorkshopEventBusArn';

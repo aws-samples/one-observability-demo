@@ -415,7 +415,7 @@
                 <div class="export-header">
                     <div class="row align-items-center">
                         <div class="col-md-8">
-                            <div class="export-name">{{ export.exportName }}</div>
+                            <div class="export-name">{{ export.displayName }}</div>
                             <div class="mt-2">
                                 <span class="category-badge category-{{ export.category }}">
                                     {{ export.category }}
@@ -425,12 +425,14 @@
                             </div>
                         </div>
                         <div class="col-md-4 text-md-end">
+                            {% if export.consoleUrl %}
                             <a href="{{ export.consoleUrl }}"
                                target="_blank"
                                class="console-link">
                                 <i class="fas fa-external-link-alt me-1"></i>
                                 View in Console
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

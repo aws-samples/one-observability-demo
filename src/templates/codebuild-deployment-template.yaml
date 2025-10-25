@@ -20,10 +20,12 @@ Metadata:
           - pOrganizationName
           - pRepositoryName
           - pBranchName
+          - pCodeConnectionArn
           - pWorkingFolder
           - pApplicationName
           - pDisableCleanup
           - pCDKStackName
+          - pParameterStoreBasePath
       - Label:
           default: Network Configuration
         Parameters:
@@ -192,6 +194,20 @@ Parameters:
     Type: String
     Description: CDK stack name to retrieve outputs from
     Default: Microservices-Microservice
+
+  pCodeConnectionArn:
+    Type: String
+    Description: Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source.
+    Default: ''
+    AllowedPattern: '^(arn:aws:codeconnections:[a-z0-9-]+:\d{12}:connection/[a-f0-9-]+)?$'
+    ConstraintDescription: Must be empty or a valid CodeConnection ARN
+
+  pParameterStoreBasePath:
+    Type: String
+    Description: Base path in Parameter Store for storing configuration
+    Default: /petstore
+    AllowedPattern: '^/[a-zA-Z0-9/_-]+$'
+    ConstraintDescription: Must be a valid Parameter Store path starting with /
 
 
 
@@ -377,6 +393,18 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
+  # Parameter Store parameter to store configuration
+  rWorkshopConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '${pParameterStoreBasePath}/${AWS::StackName}/config'
+      Type: String
+      Value: '# Configuration will be populated by CodeBuild'
+      Description: !Sub 'Workshop configuration for stack ${AWS::StackName}'
+      Tags:
+        Environment: workshop
+        StackName: !Ref AWS::StackName
+
   # S3 bucket for CodeBuild cache
   # Create IAM role for CodeBuild project
   rCodeBuildServiceRole:
@@ -406,6 +434,18 @@ Resources:
                 Condition:
                   StringEquals:
                     'aws:RequestedRegion': !Ref AWS::Region
+        - PolicyName: ParameterStoreAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${pParameterStoreBasePath}/*'
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-codebuild-role
@@ -554,6 +594,9 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         PrivilegedMode: true
         EnvironmentVariables:
+          - Name: APPLICATION_NAME
+            Value: !Ref pApplicationName
+            Type: PLAINTEXT
           - Name: CONFIG_FILE_URL
             Value: !Ref pConfigFileUrl
             Type: PLAINTEXT
@@ -587,6 +630,12 @@ Resources:
           - Name: VPC_CIDR
             Value: !Ref pVpcCidr
             Type: PLAINTEXT
+          - Name: CODE_CONNECTION_ARN
+            Value: !Ref pCodeConnectionArn
+            Type: PLAINTEXT
+          - Name: PARAMETER_STORE_BASE_PATH
+            Value: !Ref pParameterStoreBasePath
+            Type: PLAINTEXT
       Cache:
         Type: LOCAL
         Modes:
@@ -612,12 +661,16 @@ Resources:
                 # Clone repository with shallow clone
                 - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
                 - cd ./repo
-                # Download configuration file and append to .env
+                # Download configuration file and create initial configuration
                 - |
                   curl -o ./config.env "$CONFIG_FILE_URL"
                 - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
                 - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env
+                - |
+                  CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
+                  echo "Parameter path: ${CONFIG_PARAM_NAME}"
+
                 # Append additional environment variables to .env file
                 - |
                   cat >> ${WORKING_FOLDER}/.env << EOF
@@ -631,20 +684,44 @@ Resources:
                   AWS_REGION=$AWS_REGION
                   AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
                   DISABLE_CLEANUP=$DISABLE_CLEANUP
+                  CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
+                  PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
+                  CONFIG_PARAM_NAME=$CONFIG_PARAM_NAME
                   EOF
-                # Add only .env file to repository
-                - git add ${WORKING_FOLDER}/.env -f
+                # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |
-                  git commit -m "Add merged configuration and environment variables to .env"
-                # Configure S3 remote with s3+zip protocol for CodePipeline
-                - git remote add s3 s3+zip://$CONFIG_BUCKET/repo
-                - git push s3 $BRANCH_NAME --force
-                # Print .env contents for troubleshooting
+                  echo "Storing complete configuration in Parameter Store parameter"
+                  # Update the CloudFormation-created parameter with complete configuration
+                  aws ssm put-parameter \
+                    --name "${CONFIG_PARAM_NAME}" \
+                    --value "$(cat ${WORKING_FOLDER}/.env)" \
+                    --type "String" \
+                    --overwrite
+
+                  echo "Configuration successfully stored in Parameter Store"
+                  echo "Configuration content:"
+                  cat ${WORKING_FOLDER}/.env
+                # Handle repository source configuration based on CodeConnection ARN
                 - |
-                  echo "=== .env file contents ==="
-                - cat ${WORKING_FOLDER}/.env
+                  if [ -n "$CODE_CONNECTION_ARN" ] && [ "$CODE_CONNECTION_ARN" != "" ]; then
+                    echo "CodeConnection ARN provided: $CODE_CONNECTION_ARN"
+                    echo "Will use CodeConnection as pipeline source"
+                  else
+                    echo "No CodeConnection ARN provided, using S3 as fallback source"
+                    # Add .env file to repository and push to S3
+                    git add ${WORKING_FOLDER}/.env -f
+                    git commit -m "Add merged configuration and environment variables to .env"
+                    # Configure S3 remote with s3+zip protocol for CodePipeline
+                    git remote add s3 s3+zip://$CONFIG_BUCKET/repo
+                    git push s3 $BRANCH_NAME --force
+                  fi
+                # Print configuration summary for troubleshooting
                 - |
-                  echo "=== End of .env ==="
+                  echo "=== Configuration Summary ==="
+                  echo "Parameter Store base path: $PARAMETER_STORE_BASE_PATH"
+                  echo "Configuration path: ${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
+                  echo "CodeConnection ARN: ${CODE_CONNECTION_ARN:-'Not provided (using S3 fallback)'}"
+                  echo "=== End Configuration Summary ==="
                 # Bootstrap current region
                 - ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} ${AWS_REGION}
                 # Bootstrap us-east-1 if WAF is enabled
@@ -663,7 +740,14 @@ Resources:
                 # Install dependencies and synthesize CDK
                 - npm install
                 - cdk synth --quiet
-                - cdk deploy OneObservability --require-approval never --outputs-file cdk-outputs.json --quiet
+                # Deploy with proper tags so cleanup function can find the stack
+                - |
+                  cdk deploy OneObservability \
+                    --require-approval never \
+                    --outputs-file cdk-outputs.json \
+                    --tags application="$APPLICATION_NAME" \
+                    --tags sequence="0" \
+                    --quiet
                 # Extract pipeline ARN for later use
                 - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
                 - |
@@ -1237,7 +1321,7 @@ Resources:
               try:
                   # List stacks in current region
                   paginator = cf_client.get_paginator('list_stacks')
-                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'CREATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
                       for stack in page['StackSummaries']:
                           # Skip nested stacks
                           if 'ParentId' in stack:

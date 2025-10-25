@@ -15,6 +15,7 @@ import {
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { OpenSearchCollection } from './opensearch-collection';
+import { NagSuppressions } from 'cdk-nag';
 
 /**
  * Properties for configuring OpenSearchPipeline construct
@@ -123,6 +124,14 @@ export class OpenSearchPipeline extends Construct {
                 ? properties.openSearchCollection.collectionArn
                 : properties.openSearchCollection.collection.attrArn;
 
+        // Create CloudWatch log group for pipeline logs
+        // OpenSearch Ingestion requires log groups to use /aws/vendedlogs/ prefix
+        const logGroup = new LogGroup(this, 'PipelineLogGroup', {
+            retention: RetentionDays.ONE_WEEK,
+            removalPolicy: RemovalPolicy.DESTROY,
+            logGroupName: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
+        });
+
         // Create IAM role for the pipeline
         this.pipelineRole = new Role(this, 'PipelineRole', {
             assumedBy: new ServicePrincipal('osis-pipelines.amazonaws.com'),
@@ -163,13 +172,6 @@ export class OpenSearchPipeline extends Construct {
             }),
         );
 
-        // Create CloudWatch log group for pipeline logs
-        // OpenSearch Ingestion requires log groups to use /aws/vendedlogs/ prefix
-        const logGroup = new LogGroup(this, 'PipelineLogGroup', {
-            retention: RetentionDays.ONE_WEEK,
-            removalPolicy: RemovalPolicy.DESTROY,
-        });
-
         // Generate pipeline configuration YAML
         const pipelineConfiguration = this.generatePipelineConfiguration(
             collectionEndpoint,
@@ -188,7 +190,7 @@ export class OpenSearchPipeline extends Construct {
             logPublishingOptions: {
                 isLoggingEnabled: true,
                 cloudWatchLogDestination: {
-                    logGroup: `/aws/vendedlogs/opensearch-ingestion/${pipelineName}`,
+                    logGroup: logGroup.logGroupName,
                 },
             },
             // Add tags for resource management
@@ -207,6 +209,13 @@ export class OpenSearchPipeline extends Construct {
                 },
             ],
         });
+
+        NagSuppressions.addResourceSuppressions(logGroup, [
+            {
+                id: 'Workshop-CWL3',
+                reason: 'OpenSearch pipeline log group name must include vendedlogs or creation will fail',
+            },
+        ]);
 
         // Add dependencies to ensure resources are created in correct order
         this.pipeline.node.addDependency(this.pipelineRole);
