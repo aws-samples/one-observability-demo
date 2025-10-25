@@ -333,7 +333,11 @@ export class CDKPipeline extends Stack {
 
         exportDashboardRole.addToPolicy(
             new PolicyStatement({
-                actions: ['cloudformation:DescribeStacks', 'cloudformation:ListResources'],
+                actions: [
+                    'cloudformation:DescribeStacks',
+                    'cloudformation:ListResources',
+                    'cloudformation:ListExports',
+                ],
                 resources: ['*'],
             }),
         );
@@ -377,6 +381,9 @@ export class CDKPipeline extends Stack {
                         value: '22.x',
                     },
                 },
+            },
+            env: {
+                shell: 'bash',
             },
             role: exportDashboardRole,
         });
