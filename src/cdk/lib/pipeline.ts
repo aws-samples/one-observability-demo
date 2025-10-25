@@ -326,6 +326,27 @@ export class CDKPipeline extends Stack {
          */
         const exportsDashboardWave = pipeline.addWave('ExportsDashboard');
 
+        const exportDashboardRole = new Role(this, 'ExportsDashboardRole', {
+            assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
+            description: 'CodeBuild role for exports dashboard generation',
+        });
+
+        exportDashboardRole.addToPolicy(
+            new PolicyStatement({
+                actions: ['cloudformation:DescribeStacks', 'cloudformation:ListResources'],
+                resources: ['*'],
+            }),
+        );
+
+        exportDashboardRole.addToPolicy(
+            new PolicyStatement({
+                actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
+                resources: [
+                    `arn:aws:ssm:${this.region}:${this.account}:parameter${properties.configurationParameterName}*`,
+                ],
+            }),
+        );
+
         const exportsDashboardStep = new CodeBuildStep('GenerateExportsDashboard', {
             input: pipelineSource,
             commands: [
@@ -339,6 +360,8 @@ export class CDKPipeline extends Stack {
                           'cat .env || echo "No .env file found"',
                       ]),
                 // Source the .env file to make variables available as environment variables
+                'echo "Environment variables in use:',
+                'cat .env',
                 'set -a && source .env && set +a',
                 'echo "Installing Python dependencies for exports generation..."',
                 'pip3 install -r scripts/requirements.txt',
@@ -355,6 +378,7 @@ export class CDKPipeline extends Stack {
                     },
                 },
             },
+            role: exportDashboardRole,
         });
 
         exportsDashboardWave.addPost(exportsDashboardStep);
