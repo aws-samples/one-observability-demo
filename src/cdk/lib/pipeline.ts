@@ -382,9 +382,11 @@ export class CDKPipeline extends Stack {
                     },
                 },
             },
-            env: {
-                shell: 'bash',
-            },
+            partialBuildSpec: BuildSpec.fromObject({
+                env: {
+                    shell: 'bash',
+                },
+            }),
             role: exportDashboardRole,
         });
 
