@@ -37,7 +37,7 @@ export class StorageStage extends Stage {
             Utilities.TagConstruct(this.stack, properties.tags);
         }
     }
-    public getDDBSeedingStep(scope: Stack, artifactBucket: IBucket) {
+    public getDDBSeedingStep(scope: Stack, artifactBucket: IBucket, configurationParameterName?: string) {
         const seedingRole = new Role(scope, 'DDBSeedingRole', {
             assumedBy: new ServicePrincipal('codebuild.amazonaws.com'),
             description: 'CodeBuild role for DynamoDB seeding',
@@ -49,21 +49,24 @@ export class StorageStage extends Stage {
             roles: [seedingRole],
             statements: [
                 new PolicyStatement({
-                    actions: ['ssm:GetParameter'],
+                    actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
                     resources: ['*'],
                 }),
             ],
         });
 
-        // Seeding action role needs access to retrieve the table
-        // name from Parameter store, and full access to dynamodb
-
         const seedStep = new CodeBuildStep('DDBSeeding', {
             commands: [
                 'cd src/cdk',
+                ...(configurationParameterName
+                    ? [`./scripts/retrieve-config.sh "${configurationParameterName}"`]
+                    : ['echo "Using local .env file"']),
+                'set -a && source .env && set +a',
                 `PET_ADOPTION_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME})`,
+                'if [ "$PET_ADOPTION_TABLE_NAME" = "-1" ] || [ -z "$PET_ADOPTION_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet adoption table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh pets $PET_ADOPTION_TABLE_NAME',
                 `PET_FOOD_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME})`,
+                'if [ "$PET_FOOD_TABLE_NAME" = "-1" ] || [ -z "$PET_FOOD_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet food table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh petfood $PET_FOOD_TABLE_NAME',
             ],
             buildEnvironment: {
