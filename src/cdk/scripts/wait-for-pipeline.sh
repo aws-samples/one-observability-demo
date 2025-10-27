@@ -24,7 +24,6 @@ MAX_RETRY_LOOPS=10
 INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
   --pipeline-name "$PIPELINE_NAME" \
   --region "$REGION" \
-  --max-items 1 \
   --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
   --output text)
 
@@ -34,11 +33,11 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
   CURRENT_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
     --pipeline-name "$PIPELINE_NAME" \
     --region "$REGION" \
-    --max-items 1 \
     --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
-    --output text 2>&1)
+    --output text)
+  EXIT_CODE=$?
 
-  if [ $? -ne 0 ] || [ -z "$CURRENT_EXECUTION_ID" ] || [ "$CURRENT_EXECUTION_ID" = "None" ]; then
+  if [ $EXIT_CODE -ne 0 ] || [ -z "$CURRENT_EXECUTION_ID" ] || [ "$CURRENT_EXECUTION_ID" = "None" ]; then
     echo "ERROR: Failed to retrieve execution ID. Response: '$CURRENT_EXECUTION_ID'"
     sleep $SLEEP_INTERVAL
     ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
@@ -48,11 +47,11 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
   EXECUTION_STATUS=$(aws codepipeline list-pipeline-executions \
     --pipeline-name "$PIPELINE_NAME" \
     --region "$REGION" \
-    --max-items 1 \
     --query 'pipelineExecutionSummaries[0].status' \
-    --output text 2>&1)
+    --output text)
+  EXIT_CODE=$?
 
-  if [ $? -ne 0 ] || [ -z "$EXECUTION_STATUS" ] || [ "$EXECUTION_STATUS" = "None" ]; then
+  if [ $EXIT_CODE -ne 0 ] || [ -z "$EXECUTION_STATUS" ] || [ "$EXECUTION_STATUS" = "None" ]; then
     echo "ERROR: Failed to retrieve execution status. Response: '$EXECUTION_STATUS'"
     sleep $SLEEP_INTERVAL
     ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
