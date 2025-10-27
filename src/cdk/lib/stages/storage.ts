@@ -59,13 +59,11 @@ export class StorageStage extends Stage {
         const seedStep = new CodeBuildStep('DDBSeeding', {
             commands: [
                 'cd src/cdk',
-                `export PARAMETER_STORE_PREFIX="${PARAMETER_STORE_PREFIX}"`,
-                'echo "Using PARAMETER_STORE_PREFIX: $PARAMETER_STORE_PREFIX"',
-                `PET_ADOPTION_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME})`,
-                'if [ "$PET_ADOPTION_TABLE_NAME" = "-1" ] || [ -z "$PET_ADOPTION_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet adoption table name"; exit 1; fi',
+                `PET_ADOPTION_TABLE_NAME=$(aws ssm get-parameter --name "${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME}" --query 'Parameter.Value' --output text)`,
+                'if [ -z "$PET_ADOPTION_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet adoption table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh pets $PET_ADOPTION_TABLE_NAME',
-                `PET_FOOD_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME})`,
-                'if [ "$PET_FOOD_TABLE_NAME" = "-1" ] || [ -z "$PET_FOOD_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet food table name"; exit 1; fi',
+                `PET_FOOD_TABLE_NAME=$(aws ssm get-parameter --name "${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME}" --query 'Parameter.Value' --output text)`,
+                'if [ -z "$PET_FOOD_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet food table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh petfood $PET_FOOD_TABLE_NAME',
             ],
             buildEnvironment: {
