@@ -989,11 +989,22 @@ Resources:
                     "Next": "DeleteStack",
                     "Catch": [
                       {
-                        "ErrorEquals": ["States.ALL"],
+                        "ErrorEquals": ["States.TaskFailed"],
                         "ResultPath": "$.error",
-                        "Next": "StackAlreadyDeleted"
+                        "Next": "CheckDescribeError"
                       }
                     ]
+                  },
+                  "CheckDescribeError": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.error.Cause",
+                        "StringMatches": "*ValidationError*",
+                        "Next": "StackAlreadyDeleted"
+                      }
+                    ],
+                    "Default": "DeletionFailed"
                   },
                   "DeleteStack": {
                     "Type": "Task",
@@ -1418,6 +1429,7 @@ Resources:
       Code:
         ZipFile: |
           import boto3
+          from datetime import datetime
 
           def handler(event, context):
               stack_name = event.get('name')
@@ -1435,7 +1447,15 @@ Resources:
                       return {'status': response['Stacks'][0]['StackStatus']}
                   else:
                       response = cf_client.describe_stacks(StackName=stack_name)
-                      return {'stack': response['Stacks'][0]}
+                      stack = response['Stacks'][0]
+                      # Convert datetime objects to ISO format strings
+                      if 'CreationTime' in stack:
+                          stack['CreationTime'] = stack['CreationTime'].isoformat()
+                      if 'LastUpdatedTime' in stack:
+                          stack['LastUpdatedTime'] = stack['LastUpdatedTime'].isoformat()
+                      if 'DeletionTime' in stack:
+                          stack['DeletionTime'] = stack['DeletionTime'].isoformat()
+                      return {'stack': stack}
               except cf_client.exceptions.ValidationError:
                   return {'status': 'DELETE_COMPLETE'}
               except Exception as e:
