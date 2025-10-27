@@ -293,15 +293,7 @@ export class CDKPipeline extends Stack {
 
         backendWave.addStage(storageStage, {
             post: [
-                ...(configBucket
-                    ? [
-                          storageStage.getDDBSeedingStep(
-                              this,
-                              configBucket as Bucket,
-                              properties.configurationParameterName,
-                          ),
-                      ]
-                    : []),
+                ...(configBucket ? [storageStage.getDDBSeedingStep(this, configBucket as Bucket)] : []),
                 storageStage.getRDSSeedingStep(this),
             ],
         });

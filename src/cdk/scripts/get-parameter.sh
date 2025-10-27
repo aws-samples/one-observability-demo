@@ -3,8 +3,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../bin/environment.ts"
 PARAMETER_KEY="$1"
 
 if [[ -z "$PARAMETER_KEY" ]]; then
@@ -20,11 +18,9 @@ if ! aws sts get-caller-identity &>/dev/null 2>&1; then
     exit 0
 fi
 
-# Extract PARAMETER_STORE_PREFIX from environment.ts
-PARAMETER_STORE_PREFIX=$(grep "PARAMETER_STORE_PREFIX = " "$ENV_FILE" 2>/dev/null | sed "s/.*= '\(.*\)';/\1/")
-
+# Use PARAMETER_STORE_PREFIX from environment variable (set via .env file)
 if [[ -z "$PARAMETER_STORE_PREFIX" ]]; then
-    echo "Error: Could not extract PARAMETER_STORE_PREFIX from $ENV_FILE" >&2
+    echo "Error: PARAMETER_STORE_PREFIX environment variable not set" >&2
     echo "-1"
     exit 0
 fi
