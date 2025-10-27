@@ -941,8 +941,6 @@ Resources:
   # Step Function for CDK Stack Cleanup
   rCDKCleanupStateMachine:
     Type: AWS::StepFunctions::StateMachine
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
     Properties:
       StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
       RoleArn: !GetAtt rCDKCleanupRole.Arn
@@ -1714,6 +1712,12 @@ Resources:
   # Custom resource to monitor Step Function execution during stack deletion
   rCleanupMonitor:
     Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - rCDKStackListerFunction
+      - rDeletionResultCheckerFunction
+      - rCrossRegionStackOperationFunction
+      - rBucketCleanupFunction
+      - rCleanupCompletionFunction
     Properties:
       ServiceToken: !GetAtt rCleanupMonitorFunction.Arn
       StateMachineArn: !GetAtt rCDKCleanupStateMachine.Arn
