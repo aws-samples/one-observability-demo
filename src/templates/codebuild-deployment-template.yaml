@@ -503,7 +503,9 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: cloudformation:DescribeStacks
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ListExports
                 Resource: '*'
 
   rCDKOutputRetrieverFunction:
@@ -524,19 +526,17 @@ Resources:
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
 
-                  stack_name = event['ResourceProperties']['StackName']
-                  print(f"Retrieving outputs from stack: {stack_name}")
                   cf = boto3.client('cloudformation')
-                  response = cf.describe_stacks(StackName=stack_name)
+                  print("Retrieving CloudFormation exports")
 
-                  if not response['Stacks']:
-                      print(f"Stack {stack_name} not found")
-                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
-                      return
+                  # Get all exports
+                  exports = {}
+                  paginator = cf.get_paginator('list_exports')
+                  for page in paginator.paginate():
+                      for export in page['Exports']:
+                          exports[export['Name']] = export['Value']
 
-                  exports = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
-                  print(f"Found {len(exports)} exports: {list(exports.keys())}")
-
+                  print(f"Found {len(exports)} total exports: {list(exports.keys())}")
                   outputs = {}
 
                   # Find CloudFront domain for dashboard URL
@@ -547,6 +547,9 @@ Resources:
                           outputs['ExportsDashboardUrl'] = f"{cloudfront_domain.rstrip('/')}/workshop-exports/index.html"
                           print(f"Dashboard URL: {outputs['ExportsDashboardUrl']}")
                           break
+                  else:
+                      print("Warning: WorkshopCloudFrontDomain export not found")
+                      outputs['ExportsDashboardUrl'] = 'missing'
 
                   # Find PetSite URL
                   for export_name, export_value in exports.items():
@@ -554,6 +557,9 @@ Resources:
                           print(f"Found PetSite URL: {export_name}")
                           outputs['PetSiteUrl'] = export_value
                           break
+                  else:
+                      print("Warning: WorkshopPetSiteUrl export not found")
+                      outputs['PetSiteUrl'] = 'missing'
 
                   print(f"Returning {len(outputs)} outputs")
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
