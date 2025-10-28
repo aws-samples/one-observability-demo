@@ -30,6 +30,8 @@ export const VPC_AVAILABILITY_ZONES_EXPORT_NAME = 'public:WorkshopVPCAvailabilit
 export const VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME = 'public:WorkshopVPCPrivateSubnetCidrs';
 export const VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME = 'public:WorkshopVPCPublicSubnetCidrs';
 export const VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME = 'public:WorkshopVPCIsolatedSubnetCidrs';
+export const VPC_FLOWLOGS_LOGGROUP_NAME = 'public:VPCFlowLogsLogGroupName';
+export const R53_QUERY_RESOLVER_LOGGROUP_NAME = 'public:R53QueryResolverLogGroupName';
 
 // SNS/SQS Export Names
 export const SNS_TOPIC_ARN_EXPORT_NAME = 'public:WorkshopSNSTopicArn';
