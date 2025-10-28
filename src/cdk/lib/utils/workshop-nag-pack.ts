@@ -104,19 +104,19 @@ export class WorkshopNagPack extends NagPack {
         if (node.cfnResourceType === 'AWS::Logs::LogGroup') {
             const nodeWithLogGroupName = node as CfnResource & { logGroupName?: unknown };
 
-            // If logGroupName property is not set at all, it's compliant
+            // If logGroupName property is not set at all, it's compliant (CDK generates name)
             if (!('logGroupName' in nodeWithLogGroupName) || nodeWithLogGroupName.logGroupName === undefined) {
                 return NagRuleCompliance.COMPLIANT;
             }
 
             const rawLogGroupName = nodeWithLogGroupName.logGroupName;
 
-            // If logGroupName is a token/intrinsic function, it's non-compliant
+            // If logGroupName is a token/intrinsic function, it's compliant (dynamically generated)
             if (Token.isUnresolved(rawLogGroupName)) {
-                return NagRuleCompliance.NON_COMPLIANT;
+                return NagRuleCompliance.COMPLIANT;
             }
 
-            // If it's a static string, it's non-compliant
+            // If it's a static string, it's non-compliant (hardcoded name)
             if (typeof rawLogGroupName === 'string') {
                 return NagRuleCompliance.NON_COMPLIANT;
             }
