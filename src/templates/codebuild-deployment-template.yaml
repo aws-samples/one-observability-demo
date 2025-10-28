@@ -527,51 +527,40 @@ Resources:
                       return
 
                   stack_name = event['ResourceProperties']['StackName']
+                  print(f"Retrieving outputs from stack: {stack_name}")
                   cf = boto3.client('cloudformation')
                   response = cf.describe_stacks(StackName=stack_name)
 
                   if not response['Stacks']:
+                      print(f"Stack {stack_name} not found")
                       cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
                       return
 
-                  outputs = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
+                  exports = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
+                  print(f"Found {len(exports)} exports: {list(exports.keys())}")
 
-                  # Construct exports dashboard URL from CloudFront domain and assets bucket
-                  dashboard_url = None
-                  cloudfront_domain = None
-                  assets_bucket = None
+                  outputs = {}
 
-                  # Look for WorkshopCloudFrontDomain export first
-                  for export_name, export_value in outputs.items():
-                      if export_name == 'WorkshopCloudFrontDomain':
-                          if export_value.startswith('https://'):
-                              cloudfront_domain = export_value.rstrip('/')
-                          else:
-                              cloudfront_domain = f"https://{export_value.rstrip('/')}"
+                  # Find CloudFront domain for dashboard URL
+                  for export_name, export_value in exports.items():
+                      if 'WorkshopCloudFrontDomain' in export_name:
+                          print(f"Found CloudFront domain: {export_name}")
+                          cloudfront_domain = export_value if export_value.startswith('https://') else f"https://{export_value}"
+                          outputs['ExportsDashboardUrl'] = f"{cloudfront_domain.rstrip('/')}/workshop-exports/index.html"
+                          print(f"Dashboard URL: {outputs['ExportsDashboardUrl']}")
                           break
 
-                  # Find assets bucket
-                  for export_name, export_value in outputs.items():
-                      if 'AssetsBucket' in export_name or 'assets' in export_name.lower():
-                          # Extract bucket name from ARN if needed
-                          if export_value.startswith('arn:aws:s3:::'):
-                              assets_bucket = export_value.split(':::')[-1]
-                          else:
-                              assets_bucket = export_value
+                  # Find PetSite URL
+                  for export_name, export_value in exports.items():
+                      if 'WorkshopPetSiteUrl' in export_name:
+                          print(f"Found PetSite URL: {export_name}")
+                          outputs['PetSiteUrl'] = export_value
                           break
 
-                  # Construct dashboard URL
-                  if cloudfront_domain:
-                      dashboard_url = f"{cloudfront_domain}/workshop-exports/index.html"
-                  elif assets_bucket:
-                      dashboard_url = f"https://{assets_bucket}.s3.amazonaws.com/workshop-exports/index.html"
-
-                  # Add the dashboard URL to outputs if we found it
-                  if dashboard_url:
-                      outputs['ExportsDashboardUrl'] = dashboard_url
-
+                  print(f"Returning {len(outputs)} outputs")
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
               except Exception as e:
+                  print(f"Error: {str(e)}")
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
 
   rCDKOutputs:
