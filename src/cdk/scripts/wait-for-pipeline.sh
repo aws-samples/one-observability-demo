@@ -24,22 +24,39 @@ MAX_RETRY_LOOPS=10
 INITIAL_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
   --pipeline-name "$PIPELINE_NAME" \
   --region "$REGION" \
-  --max-items 1 \
   --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
   --output text)
 
 echo "Initial pipeline execution ID: $INITIAL_EXECUTION_ID"
 
 while [ $ELAPSED -lt $TIMEOUT ]; do
-  EXECUTION_DETAILS=$(aws codepipeline list-pipeline-executions \
+  CURRENT_EXECUTION_ID=$(aws codepipeline list-pipeline-executions \
     --pipeline-name "$PIPELINE_NAME" \
     --region "$REGION" \
-    --max-items 1 \
-    --query 'pipelineExecutionSummaries[0].[pipelineExecutionId,status]' \
+    --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
     --output text)
+  EXIT_CODE=$?
 
-  CURRENT_EXECUTION_ID=$(echo "$EXECUTION_DETAILS" | cut -f1)
-  EXECUTION_STATUS=$(echo "$EXECUTION_DETAILS" | cut -f2)
+  if [ $EXIT_CODE -ne 0 ] || [ -z "$CURRENT_EXECUTION_ID" ] || [ "$CURRENT_EXECUTION_ID" = "None" ]; then
+    echo "ERROR: Failed to retrieve execution ID. Response: '$CURRENT_EXECUTION_ID'"
+    sleep $SLEEP_INTERVAL
+    ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+    continue
+  fi
+
+  EXECUTION_STATUS=$(aws codepipeline list-pipeline-executions \
+    --pipeline-name "$PIPELINE_NAME" \
+    --region "$REGION" \
+    --query 'pipelineExecutionSummaries[0].status' \
+    --output text)
+  EXIT_CODE=$?
+
+  if [ $EXIT_CODE -ne 0 ] || [ -z "$EXECUTION_STATUS" ] || [ "$EXECUTION_STATUS" = "None" ]; then
+    echo "ERROR: Failed to retrieve execution status. Response: '$EXECUTION_STATUS'"
+    sleep $SLEEP_INTERVAL
+    ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+    continue
+  fi
 
   if [ "$CURRENT_EXECUTION_ID" != "$INITIAL_EXECUTION_ID" ]; then
     echo "Detected new pipeline execution: $CURRENT_EXECUTION_ID"
@@ -80,7 +97,8 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
       echo "Pipeline execution in progress..."
       ;;
     *)
-      echo "Unknown pipeline status: $EXECUTION_STATUS"
+      echo "WARNING: Unknown pipeline status: '$EXECUTION_STATUS' (ID: $CURRENT_EXECUTION_ID)"
+      echo "DEBUG: Raw status value length: ${#EXECUTION_STATUS}"
       ;;
   esac
 

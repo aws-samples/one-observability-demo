@@ -141,7 +141,6 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Key. This can
       only contain alphanumeric characters or special characters ( _ . : / = + -
       or @) up to 128 characters'
-    Default: awsApplication
 
   pUserDefinedTagValue3:
     Type: String
@@ -150,7 +149,6 @@ Parameters:
     ConstraintDescription: 'Must match the allowable values for a Tag Value. This
       can only contain alphanumeric characters or special characters ( _ . : / =
       + - or @) up to 256 characters'
-    Default: One Observabiity Workshop
 
   pUserDefinedTagKey4:
     Type: String
@@ -505,7 +503,9 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: cloudformation:DescribeStacks
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ListExports
                 Resource: '*'
 
   rCDKOutputRetrieverFunction:
@@ -526,52 +526,45 @@ Resources:
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
 
-                  stack_name = event['ResourceProperties']['StackName']
                   cf = boto3.client('cloudformation')
-                  response = cf.describe_stacks(StackName=stack_name)
+                  print("Retrieving CloudFormation exports")
 
-                  if not response['Stacks']:
-                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, f"Stack {stack_name} not found")
-                      return
+                  # Get all exports
+                  exports = {}
+                  paginator = cf.get_paginator('list_exports')
+                  for page in paginator.paginate():
+                      for export in page['Exports']:
+                          exports[export['Name']] = export['Value']
 
-                  outputs = {o['ExportName']: o['OutputValue'] for o in response['Stacks'][0].get('Outputs', []) if 'ExportName' in o}
+                  print(f"Found {len(exports)} total exports: {list(exports.keys())}")
+                  outputs = {}
 
-                  # Construct exports dashboard URL from CloudFront domain and assets bucket
-                  dashboard_url = None
-                  cloudfront_domain = None
-                  assets_bucket = None
-
-                  # Look for WorkshopCloudFrontDomain export first
-                  for export_name, export_value in outputs.items():
-                      if export_name == 'WorkshopCloudFrontDomain':
-                          if export_value.startswith('https://'):
-                              cloudfront_domain = export_value.rstrip('/')
-                          else:
-                              cloudfront_domain = f"https://{export_value.rstrip('/')}"
+                  # Find CloudFront domain for dashboard URL
+                  for export_name, export_value in exports.items():
+                      if 'WorkshopCloudFrontDomain' in export_name:
+                          print(f"Found CloudFront domain: {export_name}")
+                          cloudfront_domain = export_value if export_value.startswith('https://') else f"https://{export_value}"
+                          outputs['ExportsDashboardUrl'] = f"{cloudfront_domain.rstrip('/')}/workshop-exports/index.html"
+                          print(f"Dashboard URL: {outputs['ExportsDashboardUrl']}")
                           break
+                  else:
+                      print("Warning: WorkshopCloudFrontDomain export not found")
+                      outputs['ExportsDashboardUrl'] = 'missing'
 
-                  # Find assets bucket
-                  for export_name, export_value in outputs.items():
-                      if 'AssetsBucket' in export_name or 'assets' in export_name.lower():
-                          # Extract bucket name from ARN if needed
-                          if export_value.startswith('arn:aws:s3:::'):
-                              assets_bucket = export_value.split(':::')[-1]
-                          else:
-                              assets_bucket = export_value
+                  # Find PetSite URL
+                  for export_name, export_value in exports.items():
+                      if 'WorkshopPetSiteUrl' in export_name:
+                          print(f"Found PetSite URL: {export_name}")
+                          outputs['PetSiteUrl'] = export_value
                           break
+                  else:
+                      print("Warning: WorkshopPetSiteUrl export not found")
+                      outputs['PetSiteUrl'] = 'missing'
 
-                  # Construct dashboard URL
-                  if cloudfront_domain:
-                      dashboard_url = f"{cloudfront_domain}/workshop-exports/index.html"
-                  elif assets_bucket:
-                      dashboard_url = f"https://{assets_bucket}.s3.amazonaws.com/workshop-exports/index.html"
-
-                  # Add the dashboard URL to outputs if we found it
-                  if dashboard_url:
-                      outputs['ExportsDashboardUrl'] = dashboard_url
-
+                  print(f"Returning {len(outputs)} outputs")
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, outputs)
               except Exception as e:
+                  print(f"Error: {str(e)}")
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
 
   rCDKOutputs:
@@ -941,8 +934,6 @@ Resources:
   # Step Function for CDK Stack Cleanup
   rCDKCleanupStateMachine:
     Type: AWS::StepFunctions::StateMachine
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
     Properties:
       StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
       RoleArn: !GetAtt rCDKCleanupRole.Arn
@@ -991,11 +982,22 @@ Resources:
                     "Next": "DeleteStack",
                     "Catch": [
                       {
-                        "ErrorEquals": ["States.ALL"],
+                        "ErrorEquals": ["States.TaskFailed"],
                         "ResultPath": "$.error",
-                        "Next": "StackAlreadyDeleted"
+                        "Next": "CheckDescribeError"
                       }
                     ]
+                  },
+                  "CheckDescribeError": {
+                    "Type": "Choice",
+                    "Choices": [
+                      {
+                        "Variable": "$.error.Cause",
+                        "StringMatches": "*ValidationError*",
+                        "Next": "StackAlreadyDeleted"
+                      }
+                    ],
+                    "Default": "DeletionFailed"
                   },
                   "DeleteStack": {
                     "Type": "Task",
@@ -1420,6 +1422,7 @@ Resources:
       Code:
         ZipFile: |
           import boto3
+          from datetime import datetime
 
           def handler(event, context):
               stack_name = event.get('name')
@@ -1437,7 +1440,15 @@ Resources:
                       return {'status': response['Stacks'][0]['StackStatus']}
                   else:
                       response = cf_client.describe_stacks(StackName=stack_name)
-                      return {'stack': response['Stacks'][0]}
+                      stack = response['Stacks'][0]
+                      # Convert datetime objects to ISO format strings
+                      if 'CreationTime' in stack:
+                          stack['CreationTime'] = stack['CreationTime'].isoformat()
+                      if 'LastUpdatedTime' in stack:
+                          stack['LastUpdatedTime'] = stack['LastUpdatedTime'].isoformat()
+                      if 'DeletionTime' in stack:
+                          stack['DeletionTime'] = stack['DeletionTime'].isoformat()
+                      return {'stack': stack}
               except cf_client.exceptions.ValidationError:
                   return {'status': 'DELETE_COMPLETE'}
               except Exception as e:
@@ -1714,6 +1725,12 @@ Resources:
   # Custom resource to monitor Step Function execution during stack deletion
   rCleanupMonitor:
     Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - rCDKStackListerFunction
+      - rDeletionResultCheckerFunction
+      - rCrossRegionStackOperationFunction
+      - rBucketCleanupFunction
+      - rCleanupCompletionFunction
     Properties:
       ServiceToken: !GetAtt rCleanupMonitorFunction.Arn
       StateMachineArn: !GetAtt rCDKCleanupStateMachine.Arn
