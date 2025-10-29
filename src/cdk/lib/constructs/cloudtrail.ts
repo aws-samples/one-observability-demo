@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { Trail, InsightType, CfnEventDataStore, CfnTrail } from 'aws-cdk-lib/aws-cloudtrail';
+import { Trail, InsightType, CfnEventDataStore, CfnTrail, ReadWriteType } from 'aws-cdk-lib/aws-cloudtrail';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { RemovalPolicy, Duration } from 'aws-cdk-lib';
@@ -91,6 +91,9 @@ export class WorkshopCloudTrail extends Construct {
             ],
         });
 
+        const advancedSelector =
+            properties.includeNetworkEvents || properties.includeLambdaEvents || properties.includeS3DataEvents;
+
         // Create CloudTrail trail
         this.trail = new Trail(this, 'Trail', {
             trailName: properties.name,
@@ -98,6 +101,7 @@ export class WorkshopCloudTrail extends Construct {
             includeGlobalServiceEvents: true,
             isMultiRegionTrail: true,
             enableFileValidation: true,
+            managementEvents: advancedSelector ? undefined : ReadWriteType.ALL,
             sendToCloudWatchLogs: true,
             insightTypes: properties.enableAnomalyDetection
                 ? [InsightType.API_CALL_RATE, InsightType.API_ERROR_RATE]
@@ -105,8 +109,18 @@ export class WorkshopCloudTrail extends Construct {
             bucket: trailBucket,
         });
 
-        if (properties.includeNetworkEvents) {
+        if (advancedSelector) {
             const advancedSelectors: CfnEventDataStore.AdvancedEventSelectorProperty[] = [];
+            advancedSelectors.push({
+                fieldSelectors: [
+                    {
+                        field: 'eventCategory',
+                        equalTo: ['Management'],
+                    },
+                ],
+                name: 'Management Events',
+            });
+
             if (properties.includeS3DataEvents) {
                 advancedSelectors.push({
                     fieldSelectors: [
@@ -190,6 +204,58 @@ export class WorkshopCloudTrail extends Construct {
                             },
                         ],
                         name: 'Network Activity Events (Secrets Manager)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['s3.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (S3)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['sns.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (SNS)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['sqs.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (SQS)',
+                    },
+                    {
+                        fieldSelectors: [
+                            {
+                                field: 'eventCategory',
+                                equalTo: ['NetworkActivity'],
+                            },
+                            {
+                                field: 'eventSource',
+                                equalTo: ['bedrock.amazonaws.com'],
+                            },
+                        ],
+                        name: 'Network Activity Events (Bedrock)',
                     },
                 );
             }

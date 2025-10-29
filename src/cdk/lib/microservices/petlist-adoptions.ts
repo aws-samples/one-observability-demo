@@ -11,6 +11,7 @@ import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
+import { Stack } from 'aws-cdk-lib';
 
 export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -24,6 +25,7 @@ export class ListAdoptionsService extends EcsService {
             PETSTORE_PARAM_PREFIX: PARAMETER_STORE_PREFIX,
             RDS_SECRET_ARN_NAME: SSM_PARAMETER_NAMES.RDS_SECRET_ARN_NAME,
             SEARCH_API_URL_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
+            AWS_REGION: Stack.of(scope).region,
         };
         super(scope, id, {
             ...properties,

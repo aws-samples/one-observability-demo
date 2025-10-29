@@ -13,6 +13,7 @@ import { Utilities } from '../utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IQueue } from 'aws-cdk-lib/aws-sqs';
+import { Stack } from 'aws-cdk-lib';
 
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -31,6 +32,7 @@ export class PayForAdoptionService extends EcsService {
             S3_BUCKET_PARAMETER_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
             DYNAMODB_TABLE_PARAMETER_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
             SQS_QUEUE_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SQS_QUEUE_URL,
+            AWS_REGION: Stack.of(scope).region,
         };
         super(scope, id, {
             ...properties,
