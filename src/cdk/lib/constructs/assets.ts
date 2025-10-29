@@ -24,6 +24,7 @@ import {
     CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
     SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 /**
  * Properties for configuring Assets construct
@@ -37,6 +38,7 @@ export interface AssetsProperties {
      */
     seedPaths?: string[];
     globalWebACLArn?: string;
+    logRetentionDays?: RetentionDays;
 }
 
 /**
@@ -145,6 +147,15 @@ export class WorkshopAssets extends Construct {
         // Create Origin Access Identity for secure S3 access
         const originAccessIdentity = new OriginAccessIdentity(this, 'AssetsOAI', {
             comment: 'OAI for Pet Store Assets',
+        });
+
+        /** A log group will be created, but is not associated with the Cloudfront
+         * distribution. This configuration must be done in the console.
+         * https://github.com/aws/aws-cdk/issues/32279
+         */
+        new LogGroup(this, 'CloudFrontLogGroup', {
+            retention: properties?.logRetentionDays || RetentionDays.ONE_WEEK,
+            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         // Grant read permissions to CloudFront

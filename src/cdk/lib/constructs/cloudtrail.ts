@@ -96,7 +96,7 @@ export class WorkshopCloudTrail extends Construct {
             trailName: properties.name,
             cloudWatchLogGroup: this.logGroup,
             includeGlobalServiceEvents: true,
-            isMultiRegionTrail: false,
+            isMultiRegionTrail: true,
             enableFileValidation: true,
             sendToCloudWatchLogs: true,
             insightTypes: properties.enableAnomalyDetection
