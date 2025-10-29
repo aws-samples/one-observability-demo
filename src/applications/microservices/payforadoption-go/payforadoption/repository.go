@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/dghubble/sling"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/guregu/dynamo/v2"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
@@ -81,11 +80,11 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.AdoptionDate, a.TransactionID, a.UserID)
 	if err != nil {
 		span.RecordError(err)
-		level.Error(r.logger).Log("error", "failed to create transaction", "err", err)
+		ErrorWithTrace(ctx, r.logger, "error", "failed to create transaction", "err", err)
 		return err
 	}
 
-	level.Info(r.logger).Log(
+	InfoWithTrace(ctx, r.logger,
 		"action", "transaction_created",
 		"transactionId", a.TransactionID,
 		"petId", a.PetID,
@@ -112,7 +111,7 @@ func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 	// Convert to JSON
 	messageBody, err := json.Marshal(historyMessage)
 	if err != nil {
-		level.Error(r.logger).Log("error", "failed to marshal history message", "err", err)
+		ErrorWithTrace(ctx, r.logger, "error", "failed to marshal history message", "err", err)
 		return err
 	}
 
@@ -138,11 +137,11 @@ func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 
 	result, err := sqsClient.SendMessage(ctx, input)
 	if err != nil {
-		level.Error(r.logger).Log("error", "failed to send history message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
+		ErrorWithTrace(ctx, r.logger, "error", "failed to send history message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
 		return err
 	}
 
-	level.Info(r.logger).Log(
+	InfoWithTrace(ctx, r.logger,
 		"action", "history_message_sent",
 		"messageId", aws.ToString(result.MessageId),
 		"queueUrl", r.cfg.SQSQueueURL,
@@ -160,17 +159,17 @@ func (r *repo) DropTransactions(ctx context.Context, userID string) error {
 
 	sql := `DELETE FROM transactions WHERE user_id = $1`
 
-	r.logger.Log("sql", sql, "userID", userID)
 	result, err := r.db.ExecContext(ctx, sql, userID)
 	if err != nil {
 		span.RecordError(err)
-		level.Error(r.logger).Log("error", "failed to delete user transactions", "err", err, "userID", userID)
+		ErrorWithTrace(ctx, r.logger, "error", "failed to delete user transactions", "err", err, "userID", userID)
 		return err
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	level.Info(r.logger).Log(
+	InfoWithTrace(ctx, r.logger,
 		"action", "user_transactions_deleted",
+		"sql", sql,
 		"userID", userID,
 		"rowsAffected", rowsAffected,
 	)
@@ -199,7 +198,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
 		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
 		if err != nil {
-			level.Error(logger).Log("err", err)
+			ErrorWithTrace(updateAdoptionStatusCtx, logger, "err", err)
 			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 			return
@@ -207,12 +206,12 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 
 		defer resp.Body.Close()
 		if body, err := io.ReadAll(resp.Body); err != nil {
-			level.Error(logger).Log("err", err)
+			ErrorWithTrace(updateAdoptionStatusCtx, logger, "err", err)
 			updateAdoptionStatusSpan.RecordError(err)
 			errs <- err
 		} else {
 			sb := string(body)
-			logger.Log(sb)
+			LogWithTrace(updateAdoptionStatusCtx, logger, "response_body", sb)
 		}
 	}()
 
@@ -224,7 +223,7 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
 		request, err := http.NewRequestWithContext(availabilityCtx, http.MethodGet, "https://amazon.com", nil)
 		if err != nil {
-			level.Error(logger).Log("err", err)
+			ErrorWithTrace(availabilityCtx, logger, "err", err)
 			availabilitySpan.RecordError(err)
 			errs <- err
 		}
@@ -264,7 +263,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 	seedRawData, err := r.fetchSeedData()
 
 	if err != nil {
-		level.Error(r.logger).Log("err", err)
+		ErrorWithTrace(ctx, r.logger, "err", err)
 		span.RecordError(err)
 		return err
 	}
@@ -272,7 +271,7 @@ func (r *repo) TriggerSeeding(ctx context.Context) error {
 	var pets []Pet
 
 	if err := json.Unmarshal([]byte(seedRawData), &pets); err != nil {
-		level.Error(r.logger).Log("err", err)
+		ErrorWithTrace(ctx, r.logger, "err", err)
 		span.RecordError(err)
 		return err
 	}

@@ -12,7 +12,7 @@ import {
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
 import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, CfnOutput } from 'aws-cdk-lib';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { EndpointType, LambdaRestApi, LogGroupLogDestination, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
@@ -20,7 +20,7 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
 import { Utilities } from '../../../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
-import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
+import { SSM_PARAMETER_NAMES, STATUS_UPDATER_API_URL_EXPORT_NAME } from '../../../../bin/constants';
 
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
     table: ITable;
@@ -35,7 +35,6 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         super(scope, id, properties);
 
         const accesLogs = new LogGroup(this, 'access-logs', {
-            logGroupName: `/aws/apigw/${properties.name}-api/access-logs`,
             retention: properties.logRetentionDays || RetentionDays.ONE_WEEK,
             removalPolicy: RemovalPolicy.DESTROY,
         });
@@ -102,6 +101,10 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                     id: 'AwsSolutions-COG4',
                     reason: 'Private API. Authentication is not required for now as the private zone is considered trusted',
                 },
+                {
+                    id: 'AwsSolutions-APIG4',
+                    reason: 'Private API. Authentication is not required for now as the private zone is considered trusted',
+                },
             ],
             true,
         );
@@ -146,6 +149,12 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
                     }),
                 ),
             );
+
+            new CfnOutput(this, 'StatusUpdaterApiUrl', {
+                value: this.api.url,
+                exportName: STATUS_UPDATER_API_URL_EXPORT_NAME,
+                description: 'API Gateway URL for the pet status updater service',
+            });
         } else {
             throw new Error('Service is not defined');
         }

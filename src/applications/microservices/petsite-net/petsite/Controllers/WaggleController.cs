@@ -16,13 +16,15 @@ namespace PetSite.Controllers
         private readonly ILogger<WaggleController> _logger;
         private readonly IAmazonBedrockAgentCore _bedrockAgentCore;
         private readonly IConfiguration _configuration;
+        private readonly ParameterRefreshManager _refreshManager;
 
         public WaggleController(ILogger<WaggleController> logger, IAmazonBedrockAgentCore bedrockAgentCore,
-            IConfiguration configuration)
+            IConfiguration configuration, ParameterRefreshManager refreshManager)
         {
             _logger = logger;
             _bedrockAgentCore = bedrockAgentCore;
             _configuration = configuration;
+            _refreshManager = refreshManager;
         }
 
         public IActionResult Index(string userId)
@@ -35,7 +37,7 @@ namespace PetSite.Controllers
         public async Task<IActionResult> SendMessage([FromBody] ChatRequest request)
         {
             var responseText = "";
-
+            
             try
             {
                 // Generate SessionId if not provided
@@ -45,7 +47,8 @@ namespace PetSite.Controllers
                 }
 
                 // Get Agent Runtime ARN from configuration
-                var agentRuntimeArn =ParameterNames.GetParameterValue(ParameterNames.WAGGLE_AGENT_ARN, _configuration); 
+                var agentRuntimeArn = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
+
                 
                 _logger.LogInformation($"Agent ARN: {agentRuntimeArn}");
                 
@@ -169,7 +172,7 @@ namespace PetSite.Controllers
                 _logger.LogError(ex, $"Error invoking Bedrock agent for user: {request.UserId}");
                 return Json(new ChatResponse
                 {
-                    Message = $"Sorry, I'm having trouble connecting right now. Please try again later.",
+                    Message = $"{ex.Message} - Sorry, I'm having trouble connecting right now. Please try again later.",
                     SessionId = request.SessionId,
                     Success = false
                 });

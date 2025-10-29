@@ -149,9 +149,12 @@ export const Utilities = {
         }
     },
 
-    createOuputs(scope: Construct, parameters: Map<string, string>) {
+    createOutputs(scope: Construct, parameters: Map<string, string>, descriptions?: Map<string, string>) {
         for (const [key, value] of parameters.entries()) {
-            new CfnOutput(scope, key, { value: value });
+            new CfnOutput(scope, key, {
+                value: value,
+                description: descriptions?.get(key) || `Output for ${key}`,
+            });
         }
     },
 };

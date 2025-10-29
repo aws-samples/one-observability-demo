@@ -100,11 +100,13 @@ export class OpenSearchApplication extends Construct {
         new CfnOutput(this, 'ApplicationArn', {
             value: this.application.attrArn,
             exportName: OPENSEARCH_APPLICATION_ARN_EXPORT_NAME,
+            description: 'ARN of the OpenSearch UI application for data visualization',
         });
 
         new CfnOutput(this, 'ApplicationId', {
             value: this.application.attrId,
             exportName: OPENSEARCH_APPLICATION_ID_EXPORT_NAME,
+            description: 'ID of the OpenSearch UI application',
         });
     }
 

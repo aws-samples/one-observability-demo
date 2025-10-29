@@ -35,6 +35,8 @@ import {
     CLOUDMAP_NAMESPACE_ID_EXPORT_NAME,
     CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
     CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
+    VPC_FLOWLOGS_LOGGROUP_NAME,
+    R53_QUERY_RESOLVER_LOGGROUP_NAME,
 } from '../../bin/constants';
 import { PrivateDnsNamespace, IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 import { Utilities } from '../utils/utilities';
@@ -66,6 +68,10 @@ export class WorkshopNetwork extends Construct {
     public readonly vpcEndpoints: VpcEndpoints;
     /** Cloud Map domain */
     public readonly cloudMapNamespace: PrivateDnsNamespace;
+    /** VPC Flow logs group */
+    public readonly vpcFlowLogs: FlowLog;
+    /** DNS Query Resolver Logs */
+    public readonly dnsQueryResolverLogs: CfnResolverQueryLoggingConfig;
 
     /**
      * Creates a new WorkshopNetwork construct
@@ -116,11 +122,13 @@ export class WorkshopNetwork extends Construct {
         }
 
         if (properties.enableFlowLogs) {
-            this.enableFlowLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
+            this.vpcFlowLogs = this.enableFlowLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
         }
 
         if (properties.enableDnsQueryResolverLogs) {
-            this.enableDnsQueryResolverLogs(properties.logRetentionDays || RetentionDays.ONE_WEEK);
+            this.dnsQueryResolverLogs = this.enableDnsQueryResolverLogs(
+                properties.logRetentionDays || RetentionDays.ONE_WEEK,
+            );
         }
 
         // Create VPC endpoints
@@ -146,20 +154,21 @@ export class WorkshopNetwork extends Construct {
      */
     private enableDnsQueryResolverLogs(retention: RetentionDays) {
         const resolverLogGroup = new LogGroup(this, 'ResolverLogGroup', {
-            logGroupName: '/aws/vpc/dns-query-resolver-logs/' + this.vpc.vpcId,
             retention: retention,
             removalPolicy: RemovalPolicy.DESTROY,
         });
 
-        const cfnResovlerQueryConfig = new CfnResolverQueryLoggingConfig(this, 'ResolverQueryLogConfig', {
+        const cfnResolverQueryConfig = new CfnResolverQueryLoggingConfig(this, 'ResolverQueryLogConfig', {
             destinationArn: resolverLogGroup.logGroupArn,
             name: 'ResolverQueryLogConfig',
         });
 
         new CfnResolverQueryLoggingConfigAssociation(this, 'ResolverQueryLogConfigAssociation', {
-            resolverQueryLogConfigId: cfnResovlerQueryConfig.ref,
+            resolverQueryLogConfigId: cfnResolverQueryConfig.ref,
             resourceId: this.vpc.vpcId,
         });
+
+        return cfnResolverQueryConfig;
     }
 
     /**
@@ -177,7 +186,7 @@ export class WorkshopNetwork extends Construct {
             assumedBy: new ServicePrincipal('vpc-flow-logs.amazonaws.com'),
         });
 
-        new FlowLog(this, 'VPCFlowLog', {
+        return new FlowLog(this, 'VPCFlowLog', {
             destination: FlowLogDestination.toCloudWatchLogs(flowLogGroup, role),
             resourceType: FlowLogResourceType.fromVpc(this.vpc),
             logFormat: [
@@ -269,35 +278,63 @@ export class WorkshopNetwork extends Construct {
      * Creates CloudFormation outputs for VPC resources
      */
     private createVpcOutputs() {
-        new CfnOutput(this, 'VpcId', { value: this.vpc.vpcId, exportName: VPC_ID_EXPORT_NAME });
-        new CfnOutput(this, 'VpcCidr', { value: this.vpc.vpcCidrBlock, exportName: VPC_CIDR_EXPORT_NAME });
+        new CfnOutput(this, 'VpcId', {
+            value: this.vpc.vpcId,
+            exportName: VPC_ID_EXPORT_NAME,
+            description: 'VPC ID for the workshop network',
+        });
+        new CfnOutput(this, 'VpcCidr', {
+            value: this.vpc.vpcCidrBlock,
+            exportName: VPC_CIDR_EXPORT_NAME,
+            description: 'CIDR block of the workshop VPC',
+        });
         new CfnOutput(this, 'VpcPrivateSubnets', {
             value: this.vpc.privateSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_PRIVATE_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of private subnet IDs with NAT gateway access',
         });
         new CfnOutput(this, 'VpcPublicSubnets', {
             value: this.vpc.publicSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_PUBLIC_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of public subnet IDs with internet gateway access',
         });
         new CfnOutput(this, 'VpcIsolatedSubnets', {
             value: this.vpc.isolatedSubnets.map((s) => s.subnetId).join(','),
             exportName: VPC_ISOLATED_SUBNETS_EXPORT_NAME,
+            description: 'Comma-separated list of isolated subnet IDs without internet access',
         });
         new CfnOutput(this, 'VpcAvailabilityZones', {
             value: this.vpc.availabilityZones.join(','),
             exportName: VPC_AVAILABILITY_ZONES_EXPORT_NAME,
+            description: 'Comma-separated list of availability zones used by the VPC',
         });
         new CfnOutput(this, 'VpcPrivateSubnetCidrs', {
             value: this.vpc.privateSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_PRIVATE_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for private subnets',
         });
         new CfnOutput(this, 'VpcPublicSubnetCidrs', {
             value: this.vpc.publicSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_PUBLIC_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for public subnets',
         });
         new CfnOutput(this, 'VpcIsolatedSubnetCidrs', {
             value: this.vpc.isolatedSubnets.map((s) => s.ipv4CidrBlock).join(','),
             exportName: VPC_ISOLATED_SUBNET_CIDRS_EXPORT_NAME,
+            description: 'Comma-separated list of CIDR blocks for isolated subnets',
+        });
+        new CfnOutput(this, 'VpcFlowLogsLogGroupName', {
+            value: this.vpcFlowLogs && this.vpcFlowLogs.logGroup ? this.vpcFlowLogs.logGroup.logGroupName : '',
+            exportName: VPC_FLOWLOGS_LOGGROUP_NAME,
+            description: 'VPC Flow logs Log Group name',
+        });
+        new CfnOutput(this, 'R53QueryResolverLogGroupName', {
+            value:
+                this.dnsQueryResolverLogs && this.dnsQueryResolverLogs.destinationArn
+                    ? this.dnsQueryResolverLogs.destinationArn
+                    : '',
+            exportName: R53_QUERY_RESOLVER_LOGGROUP_NAME,
+            description: 'R53 Query Resolver Group name',
         });
     }
 
@@ -308,16 +345,19 @@ export class WorkshopNetwork extends Construct {
         new CfnOutput(this, 'CloudMapNamespaceId', {
             value: this.cloudMapNamespace.namespaceId,
             exportName: CLOUDMAP_NAMESPACE_ID_EXPORT_NAME,
+            description: 'Cloud Map namespace ID for service discovery',
         });
 
         new CfnOutput(this, 'CloudMapNamespaceName', {
             value: this.cloudMapNamespace.namespaceName,
             exportName: CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
+            description: 'Cloud Map namespace name for service discovery',
         });
 
         new CfnOutput(this, 'CloudMapNamespaceArn', {
             value: this.cloudMapNamespace.namespaceArn,
             exportName: CLOUDMAP_NAMESPACE_ARN_EXPORT_NAME,
+            description: 'Cloud Map namespace ARN for service discovery',
         });
     }
 

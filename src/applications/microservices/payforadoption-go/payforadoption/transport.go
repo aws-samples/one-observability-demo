@@ -18,6 +18,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
@@ -165,5 +166,27 @@ func codeFrom(err error) int {
 }
 
 func loggingMiddleware(ctx context.Context, code int, r *http.Request) {
-	fmt.Println(r.Method, r.RequestURI, r.Proto, r.RemoteAddr, code)
+	// Extract trace ID from context
+	traceID := extractTraceIDFromContext(ctx)
+	if traceID != "" {
+		fmt.Printf("[INFO] trace_id=%s %s %s %s %s %d\n", traceID, r.Method, r.RequestURI, r.Proto, r.RemoteAddr, code)
+	} else {
+		fmt.Printf("[INFO] %s %s %s %s %d\n", r.Method, r.RequestURI, r.Proto, r.RemoteAddr, code)
+	}
+}
+
+// extractTraceIDFromContext extracts the trace ID from the current span context
+func extractTraceIDFromContext(ctx context.Context) string {
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return ""
+	}
+
+	spanContext := span.SpanContext()
+	if !spanContext.IsValid() {
+		return ""
+	}
+
+	// Return trace ID in the format specified (32 hex characters)
+	return spanContext.TraceID().String()
 }

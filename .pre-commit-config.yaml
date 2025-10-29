@@ -13,7 +13,7 @@ default_stages: [pre-commit]
 
 repos:
     - repo: https://github.com/commitizen-tools/commitizen
-      rev: v4.8.3
+      rev: v4.9.1
       hooks:
           - id: commitizen
             stages:
@@ -34,10 +34,11 @@ repos:
                 - '.secrets.baseline'
                 - '--exclude-files'
                 - 'archive/.*'
+                - '--verbose'
 
     # Formatting
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v5.0.0
+      rev: v6.0.0
       hooks:
           - id: check-json
           - id: check-yaml
@@ -61,7 +62,7 @@ repos:
             entry: bash -c 'codespell "$@" || true' -- # Don't block, just alert
             verbose: true
     - repo: https://github.com/pre-commit/mirrors-eslint
-      rev: v9.32.0
+      rev: v9.38.0
       hooks:
           - id: eslint
             files: \.[jt]sx?$
@@ -83,7 +84,7 @@ repos:
     #       - id: dockerfile_lint
     # PYTHON FORMATTING
     - repo: https://github.com/ambv/black
-      rev: '25.1.0'
+      rev: '25.9.0'
       hooks:
           - id: black
     - repo: https://github.com/pycqa/flake8
@@ -93,15 +94,15 @@ repos:
             args: ['--max-line-length=88'] # Same max-length as black
 
     - repo: https://github.com/asottile/pyupgrade
-      rev: v3.20.0
+      rev: v3.21.0
       hooks:
           - id: pyupgrade
     - repo: https://github.com/asottile/add-trailing-comma
-      rev: v3.2.0
+      rev: v4.0.0
       hooks:
           - id: add-trailing-comma
     - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.17.1
+      rev: v1.18.2
       hooks:
           - id: mypy
             entry: bash -c 'mypy "$@" || true' -- # Don't block, just alert
@@ -109,7 +110,7 @@ repos:
             additional_dependencies: [types-requests]
     # CFN CHECKS & LINTING
     - repo: https://github.com/aws-cloudformation/cfn-python-lint
-      rev: v1.38.2
+      rev: v1.40.2
       hooks:
           - id: cfn-python-lint
             files: src/templates.*\.(ya?ml)$

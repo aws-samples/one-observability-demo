@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
 namespace PetSite.Configuration
@@ -14,7 +15,7 @@ namespace PetSite.Configuration
         public const string CART_API_URL = "CART_API_URL_PARAM_NAME";
         public const string SEARCH_API_URL = "SEARCH_API_URL_PARAM_NAME";
         public const string RUM_SCRIPT_PARAMETER = "RUM_SCRIPT_PARAMETER_NAME";
-        public const string WAGGLE_AGENT_ARN = "PETFOOD_AGENT_RUNTIME_ARN_PARAMETER_NAME";
+        public const string PETFOOD_AGENT_RUNTIME_ARN = "PETFOOD_AGENT_RUNTIME_ARN_NAME";
 
         /// <summary>
         /// Retrieves a parameter value using the parameter name from environment variables.
@@ -44,6 +45,24 @@ namespace PetSite.Configuration
             }
 
             return parameterValue;
+        }
+
+        /// <summary>
+        /// Retrieves a parameter value with refresh support using ParameterRefreshManager.
+        /// </summary>
+        /// <param name="parameterNameEnvVar">The environment variable name that contains the parameter name</param>
+        /// <param name="refreshManager">The ParameterRefreshManager instance</param>
+        /// <returns>The parameter value</returns>
+        public static async Task<string> GetParameterValueAsync(string parameterNameEnvVar, ParameterRefreshManager refreshManager)
+        {
+            var parameterName = Environment.GetEnvironmentVariable(parameterNameEnvVar);
+
+            if (string.IsNullOrEmpty(parameterName))
+            {
+                throw new InvalidOperationException($"Parameter name environment variable '{parameterNameEnvVar}' is not set or is empty.");
+            }
+
+            return await refreshManager.GetParameterAsync(parameterName);
         }
     }
 }

@@ -17,12 +17,14 @@ namespace PetSite.Controllers
         private readonly ILogger<CheckoutController> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly ParameterRefreshManager _refreshManager;
 
-        public CheckoutController(ILogger<CheckoutController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public CheckoutController(ILogger<CheckoutController> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration, ParameterRefreshManager refreshManager)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _refreshManager = refreshManager;
         }
 
         [HttpGet]
@@ -52,7 +54,7 @@ namespace PetSite.Controllers
                 userId = requestData.GetProperty("userId").GetString();
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
                 var paymentUrl = UrlHelper.BuildUrl(cartApiUrl, new[] {  userId, "checkout" }, null);
                 var jsonContent = new StringContent(requestData.GetRawText(), Encoding.UTF8, "application/json");
 
@@ -110,7 +112,7 @@ namespace PetSite.Controllers
                 var foodId = requestData.GetProperty("food_id").GetString();
 
                 using var httpClient = _httpClientFactory.CreateClient();
-                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
                 var removeItemUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId, "items", foodId }, null);
 
                 var response = await httpClient.DeleteAsync(removeItemUrl);
@@ -129,7 +131,7 @@ namespace PetSite.Controllers
         private async Task<CartResponse> GetCartDataAsync(string userId)
         {
             using var httpClient = _httpClientFactory.CreateClient();
-            var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+            var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
             var cartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId }, null);
             var response = await httpClient.GetAsync(cartUrl);
             response.EnsureSuccessStatusCode();
@@ -147,7 +149,7 @@ namespace PetSite.Controllers
             {
                 _logger.LogInformation($"Clearing cart for user: {userId}");
                 using var httpClient = _httpClientFactory.CreateClient();
-                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
                 var clearCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId, "clear" }, null);
                 await httpClient.PostAsync(clearCartUrl, new StringContent(string.Empty, Encoding.UTF8, "application/json"));
                 _logger.LogInformation($"Cart cleared for user: {userId}");

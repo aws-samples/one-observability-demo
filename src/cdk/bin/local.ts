@@ -20,17 +20,20 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { App, Aspects } from 'aws-cdk-lib';
+import { App, Aspects, Stack } from 'aws-cdk-lib';
 import { CoreStack } from '../lib/stages/core';
 import {
     APPLICATION_LIST,
     AURORA_POSTGRES_VERSION,
     CANARY_FUNCTIONS,
     CORE_PROPERTIES,
+    CUSTOM_ENABLE_WAF,
+    DEFAULT_RETENTION_DAYS,
     LAMBDA_FUNCTIONS,
     MICROSERVICES_PLACEMENT,
     PET_IMAGES,
     TAGS,
+    CODE_CONNECTION_ARN,
 } from './environment';
 import { ContainersStack } from '../lib/stages/containers';
 import { AwsSolutionsChecks } from 'cdk-nag';
@@ -39,6 +42,7 @@ import { ComputeStack } from '../lib/stages/compute';
 import { MicroservicesStack } from '../lib/stages/applications';
 import { Utilities, WorkshopNagPack } from '../lib/utils/utilities';
 import { NagSuppressions } from 'cdk-nag';
+import { GlobalWaf } from '../lib/constructs/waf';
 
 /** CDK Application instance for local deployment */
 const app = new App();
@@ -47,12 +51,38 @@ const app = new App();
 const core = new CoreStack(app, 'DevCoreStack', {
     ...CORE_PROPERTIES,
     tags: TAGS,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 });
+
+if (CUSTOM_ENABLE_WAF && process.env?.AWS_REGION != 'us-east-1') {
+    // A Separate stage is needed if the region is NOT us-east-1
+    // This is handled in the stage but needs to be copied here for local
+    // deployments
+    const globalWafStack = new Stack(app, 'GlobalWafStack', {
+        crossRegionReferences: true,
+        env: {
+            region: 'us-east-1',
+            account: process.env.AWS_ACCOUNT_ID,
+        },
+        tags: TAGS,
+    });
+    const globalWaf = new GlobalWaf(globalWafStack, 'GlobalWaf', {
+        logRetention: DEFAULT_RETENTION_DAYS,
+    });
+    // Replicate parameter to deployment region for cross-region access
+    globalWaf.replicateParameterToRegion(core);
+    if (TAGS) {
+        Utilities.TagConstruct(globalWafStack, TAGS);
+    }
+}
 
 /** Validate required environment variables */
 const s3BucketName = process.env.CONFIG_BUCKET;
-if (!s3BucketName) {
-    throw new Error('CONFIG_BUCKET environment variable is not set');
+if (!s3BucketName && !CODE_CONNECTION_ARN) {
+    throw new Error('CONFIG_BUCKET or CODE_CONNECTION_ARN environment variable must be set');
 }
 
 const branch_name = process.env.BRANCH_NAME;
@@ -62,12 +92,28 @@ if (!branch_name) {
 
 /** Deploy container applications stack with ECS and EKS services */
 const containers = new ContainersStack(app, 'DevApplicationsStack', {
-    source: {
-        bucketName: s3BucketName,
-        bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
-    },
+    // Conditionally use CodeConnection or S3 source based on environment
+    ...(CODE_CONNECTION_ARN
+        ? {
+              codeConnectionSource: {
+                  connectionArn: CODE_CONNECTION_ARN,
+                  organizationName: process.env.ORGANIZATION_NAME || 'aws-samples',
+                  repositoryName: process.env.REPOSITORY_NAME || 'one-observability-demo',
+                  branchName: branch_name,
+              },
+          }
+        : {
+              source: {
+                  bucketName: s3BucketName!,
+                  bucketKey: `repo/refs/heads/${branch_name}/repo.zip`,
+              },
+          }),
     tags: TAGS,
     applicationList: APPLICATION_LIST,
+    env: {
+        account: process.env.AWS_ACCOUNT_ID,
+        region: process.env.AWS_REGION,
+    },
 });
 
 /** Deploy storage stack with S3, Aurora, and DynamoDB */
@@ -75,6 +121,7 @@ const storage = new StorageStack(app, 'DevStorageStack', {
     tags: TAGS,
     assetsProperties: {
         seedPaths: PET_IMAGES,
+        globalWebACLArn: CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined,
     },
     auroraDatabaseProperties: {
         engineVersion: AURORA_POSTGRES_VERSION,

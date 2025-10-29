@@ -39,6 +39,9 @@ namespace PetSite
             // Configure AWS Services - using default credential chain for Pod Identity
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
             services.AddAWSService<Amazon.BedrockAgentCore.IAmazonBedrockAgentCore>();
+
+            // Register parameter refresh manager as singleton
+            services.AddSingleton<PetSite.Configuration.ParameterRefreshManager>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

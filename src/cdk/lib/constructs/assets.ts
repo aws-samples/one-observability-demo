@@ -2,7 +2,7 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-import { RemovalPolicy, Stack, CfnOutput, Fn } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, CfnOutput, Fn, Duration } from 'aws-cdk-lib';
 import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
@@ -20,6 +20,8 @@ import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import {
     ASSETS_BUCKET_NAME_EXPORT_NAME,
     ASSETS_BUCKET_ARN_EXPORT_NAME,
+    CLOUDFRONT_DOMAIN_EXPORT_NAME,
+    CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
     SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
 
@@ -34,6 +36,7 @@ export interface AssetsProperties {
      * @optional
      */
     seedPaths?: string[];
+    globalWebACLArn?: string;
 }
 
 /**
@@ -66,15 +69,26 @@ export class WorkshopAssets extends Construct {
 
         this.bucket = new Bucket(this, 'petadoptionBucket', {
             publicReadAccess: false,
-            autoDeleteObjects: true,
-            removalPolicy: RemovalPolicy.DESTROY,
+            autoDeleteObjects: false,
+            removalPolicy: RemovalPolicy.RETAIN,
             enforceSSL: true,
+            lifecycleRules: [
+                {
+                    enabled: true,
+                    expiration: Duration.days(365),
+                    id: 'ExpireAfterOneYear',
+                },
+            ],
         });
 
         NagSuppressions.addResourceSuppressions(this.bucket, [
             {
                 id: 'AwsSolutions-S1',
                 reason: 'Bucket does not need server access logs',
+            },
+            {
+                id: 'Workshop-S3-1',
+                reason: 'Auto-delete is failing for cloudfront buckets',
             },
         ]);
 
@@ -118,7 +132,7 @@ export class WorkshopAssets extends Construct {
         }
 
         // Create CloudFront distribution for optimized image delivery
-        this.createCloudFrontDistribution();
+        this.createCloudFrontDistribution(properties);
 
         // Create CloudFormation outputs for Assets resources
         this.createAssetsOutputs();
@@ -127,7 +141,7 @@ export class WorkshopAssets extends Construct {
     /**
      * Creates CloudFront distribution for optimized asset delivery
      */
-    private createCloudFrontDistribution(): void {
+    private createCloudFrontDistribution(properties?: AssetsProperties): void {
         // Create Origin Access Identity for secure S3 access
         const originAccessIdentity = new OriginAccessIdentity(this, 'AssetsOAI', {
             comment: 'OAI for Pet Store Assets',
@@ -149,6 +163,7 @@ export class WorkshopAssets extends Construct {
             comment: 'Pet Store Assets CDN',
             enableIpv6: true,
             priceClass: PriceClass.PRICE_CLASS_ALL,
+            webAclId: properties?.globalWebACLArn,
         });
 
         // Add CDK-nag suppressions for CloudFront
@@ -195,13 +210,13 @@ export class WorkshopAssets extends Construct {
         // CloudFront distribution outputs
         new CfnOutput(this, 'CloudFrontDomainOutput', {
             value: this.distribution.distributionDomainName,
-            exportName: 'WorkshopCloudFrontDomain',
+            exportName: CLOUDFRONT_DOMAIN_EXPORT_NAME,
             description: 'Workshop CloudFront Distribution Domain Name',
         });
 
         new CfnOutput(this, 'CloudFrontDistributionIdOutput', {
             value: this.distribution.distributionId,
-            exportName: 'WorkshopCloudFrontDistributionId',
+            exportName: CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
             description: 'Workshop CloudFront Distribution ID',
         });
 

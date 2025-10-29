@@ -16,9 +16,7 @@ import (
 
 	"petadoptions/payforadoption"
 
-	"github.com/XSAM/otelsql"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	_ "github.com/lib/pq"
 	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -41,7 +39,7 @@ func getServiceName() string {
 
 var tracer trace.Tracer
 
-func otelInit(ctx context.Context) {
+func otelInit(ctx context.Context, cfg payforadoption.Config) {
 	// OpenTelemetry Go requires an exporter to send traces to a backend
 	// Exporters allow telemetry data to be transferred either to the ADOT Collector,
 	// or to a remote system or console for further analysis
@@ -57,7 +55,7 @@ func otelInit(ctx context.Context) {
 		otlptracegrpc.WithEndpoint(endpoint),
 	)
 	if err != nil {
-		fmt.Println("init error", err)
+		ErrorWithTrace(ctx, "init error: %v\n", err)
 	}
 
 	// service name used to display traces in backends
@@ -73,13 +71,33 @@ func otelInit(ctx context.Context) {
 	mergedResource, err := resource.Merge(ecsRes, svcNameResource)
 	if err != nil {
 		mergedResource = svcNameResource
-		fmt.Println("mergedResource error", err)
+		WarnWithTrace(ctx, "mergedResource error: %v\n", err)
 	}
+
+	// Create SQL span processor for Aurora correlation
+	sqlProcessor, err := createSQLSpanProcessor(ctx, cfg)
+	if err != nil {
+		WarnWithTrace(ctx, "Warning: failed to create SQL span processor: %v\n", err)
+	}
+
+	// Create tracer provider with SQL span processor
+	var processors []sdktrace.SpanProcessor
+	processors = append(processors, sdktrace.NewBatchSpanProcessor(traceExporter))
+	if sqlProcessor != nil {
+		processors = append(processors, sqlProcessor)
+	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithSpanProcessor(processors[0]), // Batch processor
 		sdktrace.WithResource(mergedResource),
 	)
+
+	// Register SQL span processor if available
+	if sqlProcessor != nil {
+		tp.RegisterSpanProcessor(sqlProcessor)
+		InfoWithTrace(ctx, "SQL span processor registered for Aurora correlation\n")
+	}
 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(xray.Propagator{})
@@ -89,7 +107,6 @@ func otelInit(ctx context.Context) {
 
 func main() {
 	ctx := context.Background()
-	otelInit(ctx)
 
 	var (
 		httpAddr = flag.String("http.addr", ":80", "HTTP Port binding")
@@ -109,9 +126,14 @@ func main() {
 		var err error
 		cfg, err = fetchConfig(ctx, logger)
 		if err != nil {
-			level.Error(logger).Log("exit", err)
+			// Use tracing logger for structured logging with trace ID
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
 			os.Exit(-1)
 		}
+
+		// Initialize OpenTelemetry with config for SQL span processor
+		otelInit(ctx, cfg)
 		cfg.Tracer = tracer
 	}
 
@@ -121,19 +143,12 @@ func main() {
 	var db *sql.DB
 	{
 		var err error
-		var connStr string
 
-		connStr, err = getRDSConnectionString(ctx, cfg)
+		// Use enhanced database connection with Aurora correlation attributes
+		db, err = createInstrumentedDB(ctx, cfg)
 		if err != nil {
-			level.Error(logger).Log("exit", err)
-			os.Exit(-1)
-		}
-
-		db, err = otelsql.Open("postgres", connStr, otelsql.WithAttributes(
-			semconv.DBSystemKey.String("postgres"),
-		))
-		if err != nil {
-			level.Error(logger).Log("exit", err)
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
 			os.Exit(-1)
 		}
 
@@ -142,7 +157,13 @@ func main() {
 
 	var s payforadoption.Service
 	{
-		repo := payforadoption.NewRepository(db, cfg, logger)
+		// Create repository - Aurora correlation handled by SQL span processor
+		repo, err := createRepository(ctx, db, cfg, logger)
+		if err != nil {
+			tracingLogger := NewTracingLogger(logger)
+			tracingLogger.Error(ctx, "exit", err)
+			os.Exit(-1)
+		}
 		s = payforadoption.NewService(logger, repo, tracer)
 		s = payforadoption.NewInstrumenting(logger, s)
 	}

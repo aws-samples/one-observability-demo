@@ -31,6 +31,7 @@ import * as dotenv from 'dotenv';
 import { MicroserviceApplicationPlacement } from '../lib/stages/applications';
 import { WorkshopLambdaFunctionProperties } from '../lib/constructs/lambda';
 import { Duration } from 'aws-cdk-lib';
+import { ContainerArchitecture } from './constants';
 
 /**
  * Host type enumeration for microservice deployment.
@@ -80,6 +81,9 @@ export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline';
 /** Working directory for CDK operations */
 export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 
+/** Max number of concurrent users for traffic generator. User 0 to disable */
+export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
+
 /** Default tags applied to all resources */
 export const TAGS = {
     environment: 'non-prod',
@@ -114,6 +118,7 @@ export const PAYFORADOPTION_GO = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet List Adoptions microservice configuration (Go implementation) */
@@ -123,6 +128,7 @@ export const PETLISTADOPTIONS_PY = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Search microservice configuration (Java implementation) */
@@ -132,6 +138,7 @@ export const PETSEARCH_JAVA = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Site frontend application configuration (deployed on EKS) */
@@ -142,6 +149,7 @@ export const PETSITE_NET = {
     computeType: ComputeType.Fargate,
     disableService: false,
     manifestPath: 'lib/microservices/manifests/petsite-deployment.yaml',
+    architecture: ContainerArchitecture.AMD64,
 };
 
 /** Pet Status Updater microservice configuration */
@@ -151,6 +159,7 @@ export const PETFOOD_RS = {
     hostType: HostType.ECS,
     computeType: ComputeType.Fargate,
     disableService: false,
+    architecture: ContainerArchitecture.AMD64,
 };
 
 export const PETFOODAGENT_STRANDS_PY = {
@@ -159,6 +168,7 @@ export const PETFOODAGENT_STRANDS_PY = {
     hostType: HostType.None, // Note: This is for container building only, actual deployment is via Bedrock AgentCore
     computeType: ComputeType.Fargate,
     disableService: true, // Disable ECS service since it runs on Bedrock AgentCore
+    architecture: ContainerArchitecture.ARM64,
 };
 
 /** Complete list of all microservice applications */
@@ -190,7 +200,7 @@ export const PET_IMAGES = [
 ];
 
 /** Prefix for AWS Systems Manager Parameter Store parameters */
-export const PARAMETER_STORE_PREFIX = '/petstore';
+export const PARAMETER_STORE_PREFIX = process.env.PARAMETER_STORE_BASE_PATH || '/petstore';
 
 /** Lambda function configuration for pet status updater */
 export const STATUS_UPDATER_FUNCTION = {
@@ -211,7 +221,7 @@ export const TRAFFIC_GENERATOR_FUNCTION = {
     memorySize: 128,
     handler: 'handler',
     scheduleExpression: 'rate(2 minutes)',
-    enableSchedule: true,
+    enableSchedule: CONCURRENT_USERS > 0,
     timeout: Duration.seconds(90),
 };
 
@@ -296,6 +306,8 @@ export const AURORA_POSTGRES_VERSION = AuroraPostgresEngineVersion.VER_16_8;
 
 export const CUSTOM_ENABLE_WAF = process.env.CUSTOM_ENABLE_WAF == 'true' || false;
 export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON == 'true' || false;
+export const CUSTOM_ENABLE_NETWORKING_TRAIL = process.env.CUSTOM_ENABLE_NETWORKING_TRAIL == 'true' || false;
+export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
 
 /**
  * This section contains values that will affect the workshop deployment
@@ -303,7 +315,11 @@ export const CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON = process.env.CUSTOM_ENABLE_GUARD
  */
 
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
-export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_NAME || undefined;
-export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT || true;
-export const ENABLE_NETWORKING_TRAIL = process.env.ENABLE_NETWORKING_TRAIL == 'true' || false;
+export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
+/** Enables OpenSearch Application creation */
+export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLICATION == 'true' || false;
+
+/** CodeConnection ARN for GitHub integration (optional) */
+export const CODE_CONNECTION_ARN = process.env.CODE_CONNECTION_ARN || undefined;
+export const CONFIG_PARAM_NAME = process.env.CONFIG_PARAM_NAME || undefined;

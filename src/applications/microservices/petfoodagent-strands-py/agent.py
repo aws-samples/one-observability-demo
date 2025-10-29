@@ -2,12 +2,15 @@
 
 import os
 import boto3
+import logging
 from opentelemetry import trace
 from strands import Agent
 from strands_tools import http_request
 from strands.models import BedrockModel
 from strands.agent.conversation_manager import SummarizingConversationManager
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+logger = logging.getLogger(__name__)
 
 # Configuration
 PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_PREFIX")
@@ -24,6 +27,7 @@ def get_ssm_parameter(parameter_name: str) -> str:
     try:
         full_parameter_name = f"{PARAMETER_STORE_PREFIX}/{parameter_name}"
         response = ssm_client.get_parameter(Name=full_parameter_name)
+        logger.info(f"Retrieving SSM parameter: {full_parameter_name}")
         return response["Parameter"]["Value"]
     except ssm_client.exceptions.ParameterNotFound:
         raise RuntimeError(f"Required SSM parameter not found: {parameter_name}")

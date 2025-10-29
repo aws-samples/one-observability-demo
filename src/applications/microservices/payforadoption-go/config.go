@@ -6,25 +6,31 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"petadoptions/payforadoption"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/spf13/viper"
 )
 
+var refreshManager *RefreshManager
+
 func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config, error) {
+	if refreshManager == nil {
+		refreshManager = NewRefreshManager()
+	}
 
 	// fetch from env
 	viper.AutomaticEnv() // Bind automatically all env vars that have the same prefix
 
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		level.Error(logger).Log("aws", err)
+		ErrorWithTrace(ctx, "aws error: %v\n", err)
 	}
 
 	cfg := payforadoption.Config{
@@ -32,7 +38,7 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 		AWSCfg:    awsCfg,
 	}
 
-	return fetchConfigFromParameterStore(ctx, cfg, logger)
+	return refreshManager.fetchConfigIfNeeded(ctx, cfg)
 }
 
 func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config, logger log.Logger) (payforadoption.Config, error) {
@@ -64,13 +70,13 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 		fmt.Sprintf("%s/%s", prefix, envVars["SQS_QUEUE_URL_PARAMETER_NAME"]),
 	}
 
-	level.Info(logger).Log("msg", "fetching SSM parameters", "names", fmt.Sprintf("%v", paramNames))
+	InfoWithTrace(ctx, "fetching SSM parameters: %v\n", paramNames)
 
 	res, err := svc.GetParameters(ctx, &ssm.GetParametersInput{
 		Names: paramNames,
 	})
 	if err != nil {
-		level.Error(logger).Log("msg", "failed to fetch SSM parameters", "names", fmt.Sprintf("%v", paramNames), "error", err)
+		ErrorWithTrace(ctx, "failed to fetch SSM parameters %v: %v\n", paramNames, err)
 		return cfg, err
 	}
 
@@ -105,5 +111,33 @@ func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Confi
 
 // Call aws secrets manager and return parsed sql server query str
 func getRDSConnectionString(ctx context.Context, cfg payforadoption.Config) (string, error) {
+	if refreshManager != nil && !refreshManager.shouldRefreshSecret() {
+		if secret, ok := refreshManager.getCachedSecret(); ok {
+			InfoWithTrace(ctx, "Using cached database secret\n")
+			var dbConfig payforadoption.DatabaseConfig
+			if err := json.Unmarshal([]byte(secret), &dbConfig); err == nil {
+				u := &url.URL{
+					Scheme: dbConfig.Engine,
+					User:   url.UserPassword(dbConfig.Username, dbConfig.Password),
+					Host:   fmt.Sprintf("%s:%d", dbConfig.Host, dbConfig.Port),
+					Path:   dbConfig.Dbname,
+				}
+				connStr := u.String() + "?sslmode=disable"
+				return connStr, nil
+			}
+		}
+	}
+
+	InfoWithTrace(ctx, "Refreshing database secret from Secrets Manager\n")
+	dcs := payforadoption.NewDatabaseConfigService(cfg)
+	secret, err := dcs.GetSecretValue(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if refreshManager != nil {
+		refreshManager.cacheSecret(secret)
+	}
+
 	return payforadoption.GetRDSConnectionString(ctx, cfg)
 }

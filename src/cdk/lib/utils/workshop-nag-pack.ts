@@ -1,4 +1,4 @@
-import { CfnResource, Stack } from 'aws-cdk-lib';
+import { CfnResource, Stack, Token } from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
 import { NagPack, NagPackProps, NagRuleCompliance, NagRuleResult, NagMessageLevel, NagRules } from 'cdk-nag';
 
@@ -30,6 +30,16 @@ export class WorkshopNagPack extends NagPack {
                 explanation: 'Log groups without proper deletion policy may not be removed when stack is deleted.',
                 level: NagMessageLevel.ERROR,
                 rule: this.checkCloudWatchLogGroupDeletion,
+                node: node,
+            });
+
+            this.applyRule({
+                ruleSuffixOverride: 'CWL3',
+                info: 'CloudWatch Log Groups should use dynamically generated names',
+                explanation:
+                    'Log groups with static names may cause conflicts when redeploying the stack. Use dynamically generated names instead.',
+                level: NagMessageLevel.ERROR,
+                rule: this.checkCloudWatchLogGroupName,
                 node: node,
             });
 
@@ -85,6 +95,32 @@ export class WorkshopNagPack extends NagPack {
             if (!deletionPolicy || deletionPolicy.toString() !== 'Delete') {
                 return NagRuleCompliance.NON_COMPLIANT;
             }
+            return NagRuleCompliance.COMPLIANT;
+        }
+        return NagRuleCompliance.NOT_APPLICABLE;
+    };
+
+    private checkCloudWatchLogGroupName = (node: CfnResource): NagRuleResult => {
+        if (node.cfnResourceType === 'AWS::Logs::LogGroup') {
+            const nodeWithLogGroupName = node as CfnResource & { logGroupName?: unknown };
+
+            // If logGroupName property is not set at all, it's compliant (CDK generates name)
+            if (!('logGroupName' in nodeWithLogGroupName) || nodeWithLogGroupName.logGroupName === undefined) {
+                return NagRuleCompliance.COMPLIANT;
+            }
+
+            const rawLogGroupName = nodeWithLogGroupName.logGroupName;
+
+            // If logGroupName is a token/intrinsic function, it's compliant (dynamically generated)
+            if (Token.isUnresolved(rawLogGroupName)) {
+                return NagRuleCompliance.COMPLIANT;
+            }
+
+            // If it's a static string, it's non-compliant (hardcoded name)
+            if (typeof rawLogGroupName === 'string') {
+                return NagRuleCompliance.NON_COMPLIANT;
+            }
+
             return NagRuleCompliance.COMPLIANT;
         }
         return NagRuleCompliance.NOT_APPLICABLE;

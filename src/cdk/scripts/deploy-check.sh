@@ -45,16 +45,21 @@ if ! aws s3api head-bucket --bucket "$CONFIG_BUCKET" 2>/dev/null; then
         aws s3api put-bucket-versioning --bucket "$CONFIG_BUCKET" --versioning-configuration Status=Enabled
         echo "Bucket created successfully with versioning enabled."
     else
-        read -p "Bucket $CONFIG_BUCKET does not exist. Create it? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            aws s3 mb "s3://$CONFIG_BUCKET"
-            aws s3api put-bucket-versioning --bucket "$CONFIG_BUCKET" --versioning-configuration Status=Enabled
-            echo "Bucket created successfully with versioning enabled."
-        else
-            echo "Bucket creation cancelled."
-            exit 1
-        fi
+        while true; do
+            read -p "Bucket $CONFIG_BUCKET does not exist. Create it? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                aws s3 mb "s3://$CONFIG_BUCKET"
+                aws s3api put-bucket-versioning --bucket "$CONFIG_BUCKET" --versioning-configuration Status=Enabled
+                echo "Bucket created successfully with versioning enabled."
+                break
+            elif [[ $REPLY =~ ^[Nn]$ ]]; then
+                echo "Bucket creation cancelled."
+                exit 1
+            else
+                echo "Invalid input. Please enter 'y' or 'n'."
+            fi
+        done
     fi
 fi
 
@@ -73,18 +78,23 @@ if [[ "$PUSH_FLAG" == true ]] || ! aws s3api head-object --bucket "$CONFIG_BUCKE
         git remote remove "$TEMP_REMOTE"
         echo "Repository pushed to S3 successfully."
     else
-        read -p "Object $OBJECT_KEY does not exist. Create it? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            TEMP_REMOTE="temp-s3-remote"
-            git remote add "$TEMP_REMOTE" "s3+zip://${CONFIG_BUCKET}/repo"
-            git push "$TEMP_REMOTE" "$CURRENT_BRANCH"
-            git remote remove "$TEMP_REMOTE"
-            echo "Repository pushed to S3 successfully."
-        else
-            echo "Repository upload cancelled."
-            exit 1
-        fi
+        while true; do
+            read -p "Object $OBJECT_KEY does not exist. Create it? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                TEMP_REMOTE="temp-s3-remote"
+                git remote add "$TEMP_REMOTE" "s3+zip://${CONFIG_BUCKET}/repo"
+                git push "$TEMP_REMOTE" "$CURRENT_BRANCH"
+                git remote remove "$TEMP_REMOTE"
+                echo "Repository pushed to S3 successfully."
+                break
+            elif [[ $REPLY =~ ^[Nn]$ ]]; then
+                echo "Repository upload cancelled."
+                exit 1
+            else
+                echo "Invalid input. Please enter 'y' or 'n'."
+            fi
+        done
     fi
 fi
 

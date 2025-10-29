@@ -8,6 +8,8 @@ import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import {
+    CodeBuildAction,
+    CodeStarConnectionsSourceAction,
     EcrBuildAndPublishAction,
     RegistryType,
     S3SourceAction,
@@ -15,6 +17,85 @@ import {
 } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { CompositePrincipal, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { BuildSpec, LinuxArmBuildImage, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { ContainerArchitecture } from '../../bin/constants';
+
+/**
+ * Properties for EcrBuildAndPublishWithArchAction
+ */
+export interface EcrBuildAndPublishWithArchitectureActionProperties {
+    actionName: string;
+    repositoryName: string;
+    registryType: RegistryType;
+    dockerfileDirectoryPath: string;
+    input: Artifact;
+    imageTags: string[];
+    role: Role;
+    architecture: ContainerArchitecture;
+}
+
+/**
+ * Custom CodeBuildAction for building and publishing Docker images with architecture support
+ */
+export class EcrBuildAndPublishWithArchitectureAction extends CodeBuildAction {
+    constructor(properties: EcrBuildAndPublishWithArchitectureActionProperties) {
+        const buildImage =
+            properties.architecture === ContainerArchitecture.ARM64
+                ? LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0
+                : LinuxBuildImage.STANDARD_7_0;
+
+        const platform = properties.architecture === ContainerArchitecture.ARM64 ? 'linux/arm64' : 'linux/amd64';
+        const imageTagsString = properties.imageTags.join(' ');
+
+        const project = new PipelineProject(properties.role.stack, `${properties.actionName}-Project`, {
+            role: properties.role,
+            environment: {
+                buildImage,
+                privileged: true,
+            },
+            buildSpec: BuildSpec.fromObject({
+                version: '0.2',
+                phases: {
+                    pre_build: {
+                        commands: [
+                            'echo Logging in to Amazon ECR...',
+                            'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com',
+                        ],
+                    },
+                    build: {
+                        commands: [
+                            `echo Building Docker image with platform ${platform}...`,
+                            `cd ${properties.dockerfileDirectoryPath}`,
+                            `docker build --platform ${platform} -t $REPOSITORY_URI:${imageTagsString} .`,
+                        ],
+                    },
+                    post_build: {
+                        commands: ['echo Pushing Docker image...', `docker push $REPOSITORY_URI:${imageTagsString}`],
+                    },
+                },
+            }),
+            environmentVariables: {
+                AWS_ACCOUNT_ID: { value: properties.role.stack.account },
+                REPOSITORY_URI: {
+                    value: `${properties.role.stack.account}.dkr.ecr.${properties.role.stack.region}.amazonaws.com/${properties.repositoryName}`,
+                },
+            },
+        });
+
+        super({
+            actionName: properties.actionName,
+            project,
+            input: properties.input,
+        });
+
+        NagSuppressions.addResourceSuppressions(project, [
+            {
+                id: 'AwsSolutions-CB4',
+                reason: 'KMS key not needed for this container build project',
+            },
+        ]);
+    }
+}
 
 /**
  * Definition for an application to be built and deployed
@@ -24,6 +105,8 @@ export interface ContainerDefinition {
     name: string;
     /** Path to the Dockerfile for building the application */
     dockerFilePath: string;
+    /** Architecture */
+    architecture?: ContainerArchitecture;
 }
 
 /**
@@ -37,11 +120,27 @@ export interface S3SourceProperties {
 }
 
 /**
+ * Properties for CodeConnection source configuration
+ */
+export interface CodeConnectionSourceProperties {
+    /** CodeConnection ARN for GitHub integration */
+    connectionArn: string;
+    /** Organization/owner name */
+    organizationName: string;
+    /** Repository name */
+    repositoryName: string;
+    /** Branch name */
+    branchName: string;
+}
+
+/**
  * Properties for the Containers Pipeline Stage
  */
 export interface ContainersPipelineStageProperties extends StackProps {
-    /** S3 source configuration */
-    source: S3SourceProperties;
+    /** S3 source configuration (used when CodeConnection is not available) */
+    source?: S3SourceProperties;
+    /** CodeConnection source configuration */
+    codeConnectionSource?: CodeConnectionSourceProperties;
     /** List of applications to build and deploy */
     applicationList: ContainerDefinition[];
 }
@@ -81,8 +180,12 @@ export class ContainersStack extends Stack {
     constructor(scope: Construct, id: string, properties?: ContainersPipelineStageProperties) {
         super(scope, id, properties);
 
-        if (!properties?.source || !properties?.applicationList) {
-            throw new Error('Source and applicationList are required');
+        if (!properties?.applicationList) {
+            throw new Error('ApplicationList is required');
+        }
+
+        if (!properties?.source && !properties?.codeConnectionSource) {
+            throw new Error('Either S3 source or CodeConnection source is required');
         }
 
         const pipelineRole = new Role(this, 'PipelineRole', {
@@ -132,7 +235,6 @@ export class ContainersStack extends Stack {
         });
 
         const sourceOutput = new Artifact();
-        const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
 
         const pipelineLogArn = Arn.format(
             {
@@ -157,27 +259,59 @@ export class ContainersStack extends Stack {
             roles: [pipelineRole, codeBuildRole],
         });
 
-        sourceBucket.grantRead(pipelineRole);
+        // Determine source action based on available configuration
+        let sourceAction;
+
+        if (properties.codeConnectionSource) {
+            // Use CodeConnection as source
+            sourceAction = new CodeStarConnectionsSourceAction({
+                actionName: 'Source',
+                owner: properties.codeConnectionSource.organizationName,
+                repo: properties.codeConnectionSource.repositoryName,
+                branch: properties.codeConnectionSource.branchName,
+                connectionArn: properties.codeConnectionSource.connectionArn,
+                output: sourceOutput,
+            });
+        } else if (properties.source) {
+            // Fallback to S3 source
+            const sourceBucket = Bucket.fromBucketName(this, 'SourceBucket', properties.source.bucketName);
+            sourceBucket.grantRead(pipelineRole);
+
+            sourceAction = new S3SourceAction({
+                actionName: 'Source',
+                bucket: sourceBucket,
+                bucketKey: properties.source.bucketKey,
+                output: sourceOutput,
+                trigger: S3Trigger.POLL,
+            });
+        } else {
+            throw new Error('No valid source configuration provided');
+        }
 
         // Ensure CloudWatch policy is attached before pipeline actions
         this.pipeline.node.addDependency(cloudWatchPolicy);
-
-        const sourceAction = new S3SourceAction({
-            actionName: 'Source',
-            bucket: sourceBucket,
-            bucketKey: properties.source.bucketKey,
-            output: sourceOutput,
-            trigger: S3Trigger.POLL,
-        });
 
         this.pipeline.addStage({
             stageName: 'Source',
             actions: [sourceAction],
         });
 
-        // Create build steps for each application (parallel execution)
+        // Create build steps for all applications (parallel execution)
         const buildSteps = properties.applicationList.map((app) => {
             const repository = this.applicationRepositories.get(app.name)!;
+
+            if (app.architecture === ContainerArchitecture.ARM64) {
+                return new EcrBuildAndPublishWithArchitectureAction({
+                    actionName: `Build-${app.name}`,
+                    repositoryName: repository.repositoryName,
+                    registryType: RegistryType.PRIVATE,
+                    dockerfileDirectoryPath: app.dockerFilePath,
+                    input: sourceOutput,
+                    imageTags: ['latest'],
+                    role: codeBuildRole,
+                    architecture: ContainerArchitecture.ARM64,
+                });
+            }
 
             return new EcrBuildAndPublishAction({
                 actionName: `Build-${app.name}`,
@@ -192,7 +326,7 @@ export class ContainersStack extends Stack {
 
         // Add build stage with all steps running in parallel
         this.pipeline.addStage({
-            stageName: 'build',
+            stageName: 'Build',
             actions: buildSteps,
             onFailure: {
                 retryMode: RetryMode.FAILED_ACTIONS,

@@ -10,6 +10,7 @@ import { Utilities } from '../utils/utilities';
 import { AuroraDatabase, AuroraDBProperties } from '../constructs/database';
 import { WorkshopNetwork } from '../constructs/network';
 import { CodeBuildStep } from 'aws-cdk-lib/pipelines';
+import { BuildSpec } from 'aws-cdk-lib/aws-codebuild';
 import { ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
@@ -49,26 +50,30 @@ export class StorageStage extends Stage {
             roles: [seedingRole],
             statements: [
                 new PolicyStatement({
-                    actions: ['ssm:GetParameter'],
+                    actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
                     resources: ['*'],
                 }),
             ],
         });
 
-        // Seeding action role needs access to retrieve the table
-        // name from Parameter store, and full access to dynamodb
-
         const seedStep = new CodeBuildStep('DDBSeeding', {
             commands: [
                 'cd src/cdk',
-                `PET_ADOPTION_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME})`,
+                `PET_ADOPTION_TABLE_NAME=$(aws ssm get-parameter --name "${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME}" --query 'Parameter.Value' --output text)`,
+                'if [ -z "$PET_ADOPTION_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet adoption table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh pets $PET_ADOPTION_TABLE_NAME',
-                `PET_FOOD_TABLE_NAME=$(./scripts/get-parameter.sh ${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME})`,
+                `PET_FOOD_TABLE_NAME=$(aws ssm get-parameter --name "${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME}" --query 'Parameter.Value' --output text)`,
+                'if [ -z "$PET_FOOD_TABLE_NAME" ]; then echo "Error: Failed to retrieve pet food table name"; exit 1; fi',
                 './scripts/seed-dynamodb.sh petfood $PET_FOOD_TABLE_NAME',
             ],
             buildEnvironment: {
                 privileged: false,
             },
+            partialBuildSpec: BuildSpec.fromObject({
+                env: {
+                    shell: 'bash',
+                },
+            }),
             role: seedingRole,
         });
 

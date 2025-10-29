@@ -1,0 +1,18 @@
+# CDK Scripts Python Dependencies
+# Required for manage-exports.py script
+
+# AWS SDK for Python - CloudFormation, S3, STS operations
+boto3>=1.28.0
+
+# Template engine for HTML dashboard generation
+jinja2>=3.1.0
+
+# Environment variable loading from .env files
+# Matches the pattern used by CDK TypeScript code
+python-dotenv>=1.0.0
+
+# Additional dependencies that might be useful for future scripts
+# JSON handling is built into Python 3
+# argparse is built into Python 3
+# logging is built into Python 3
+# datetime is built into Python 3

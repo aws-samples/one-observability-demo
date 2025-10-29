@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { CfnOutput, Stack } from 'aws-cdk-lib';
-import { PolicyStatement, PolicyDocument, Role, ServicePrincipal, ManagedPolicy, Effect } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
 import { CfnRuntime } from 'aws-cdk-lib/aws-bedrockagentcore';
 // Note: BedrockAgentCore L2 constructs may not be available in all CDK versions
 // Using L1 constructs (CfnResource) as fallback
@@ -16,7 +16,7 @@ import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 
 export interface PetFoodAgentProperties {
     readonly ecrRepositoryUri: string; // ECR repository URI from containers pipeline
-    readonly securityGroup: ISecurityGroup;
+    readonly securityGroups: ISecurityGroup[];
     readonly vpc: IVpc;
 }
 
@@ -28,31 +28,96 @@ export class PetFoodAgentConstruct extends Construct {
 
         // Create IAM role for Agent Runtime
         const agentRuntimeRole = new Role(this, 'AgentRuntimeRole', {
-            assumedBy: new ServicePrincipal('bedrock.amazonaws.com'),
-            managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess')],
-            inlinePolicies: {
-                AgentRuntimePolicy: new PolicyDocument({
-                    statements: [
-                        new PolicyStatement({
-                            effect: Effect.ALLOW,
-                            actions: ['ssm:GetParameter', 'ssm:GetParameters'],
-                            resources: [
-                                `arn:aws:ssm:${Stack.of(this).region}:${Stack.of(this).account}:parameter${PARAMETER_STORE_PREFIX}/*`,
-                            ],
-                        }),
-                        new PolicyStatement({
-                            effect: Effect.ALLOW,
-                            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-                            resources: ['*'],
-                        }),
-                        new PolicyStatement({
-                            effect: Effect.ALLOW,
-                            actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-                            resources: ['*'],
-                        }),
+            assumedBy: new PrincipalWithConditions(new ServicePrincipal('bedrock-agentcore.amazonaws.com'), {
+                StringEquals: {
+                    'aws:SourceAccount': Stack.of(this).account,
+                },
+                ArnLike: {
+                    'aws:SourceArn': `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:*`,
+                },
+            }),
+        });
+
+        const petFoodAgentPolicy = new Policy(this, 'PetFoodAgentPolicy', {
+            statements: [
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+                    resources: [
+                        `arn:aws:ssm:${Stack.of(this).region}:${Stack.of(this).account}:parameter${PARAMETER_STORE_PREFIX}/*`,
                     ],
                 }),
-            },
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+                    resources: [
+                        `arn:aws:bedrock:*::foundation-model/*`,
+                        `arn:aws:bedrock:*:${Stack.of(this).account}:*`,
+                    ],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['logs:CreateLogGroup', 'logs:DescribeLogStreams'],
+                    resources: [
+                        `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/bedrock-agentcore/runtimes/*`,
+                    ],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['logs:DescribeLogGroups'],
+                    resources: [`arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:*`],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+                    resources: [
+                        `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*`,
+                    ],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'],
+                    resources: [`arn:aws:ecr:${Stack.of(this).region}:${Stack.of(this).account}:repository/*`],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['ecr:GetAuthorizationToken'],
+                    resources: ['*'],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: [
+                        'xray:PutTraceSegments',
+                        'xray:PutTelemetryRecords',
+                        'xray:GetSamplingRules',
+                        'xray:GetSamplingTargets',
+                    ],
+                    resources: ['*'],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['cloudwatch:PutMetricData'],
+                    resources: ['*'],
+                    conditions: {
+                        StringEquals: {
+                            'cloudwatch:namespace': 'bedrock-agentcore',
+                        },
+                    },
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: [
+                        'bedrock-agentcore:GetWorkloadAccessToken',
+                        'bedrock-agentcore:GetWorkloadAccessTokenForJWT',
+                        'bedrock-agentcore:GetWorkloadAccessTokenForUserId',
+                    ],
+                    resources: [
+                        `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:workload-identity-directory/default`,
+                        `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:workload-identity-directory/default/workload-identity/agentName-*`,
+                    ],
+                }),
+            ],
+            roles: [agentRuntimeRole],
         });
 
         this.agentRuntime = new CfnRuntime(this, 'PetFoodAgent', {
@@ -78,14 +143,15 @@ export class PetFoodAgentConstruct extends Construct {
         });
 
         this.agentRuntime.addOverride('Properties.NetworkConfiguration.NetworkModeConfig', {
-            SecurityGroups: [properties.securityGroup.securityGroupId],
+            SecurityGroups: properties.securityGroups.map((sg) => sg.securityGroupId),
             Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
         });
 
+        this.createOutputs(PARAMETER_STORE_PREFIX);
         // Apply NAG suppressions
 
         NagSuppressions.addResourceSuppressions(
-            agentRuntimeRole,
+            [agentRuntimeRole, petFoodAgentPolicy],
             [
                 {
                     id: 'AwsSolutions-IAM4',
@@ -116,16 +182,14 @@ export class PetFoodAgentConstruct extends Construct {
             parameterStorePrefix,
             new Map(
                 Object.entries({
-                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN]: this.agentRuntime
-                        .getAtt('AgentRuntimeArn')
-                        .toString(),
+                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN]: this.agentRuntime.attrAgentRuntimeArn,
                 }),
             ),
         );
 
         new CfnOutput(this, 'AgentRuntimeArn', {
             value: this.agentRuntime.attrAgentRuntimeArn,
-            description: 'Agent Runtime ARN',
+            description: 'ARN of the Bedrock Agent Runtime for pet food recommendations',
         });
     }
 }

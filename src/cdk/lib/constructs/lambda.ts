@@ -265,7 +265,6 @@ export abstract class WokshopLambdaFunction extends Construct {
         super(scope, id);
 
         const logGroup = new LogGroup(this, 'LogGroup', {
-            logGroupName: `/aws/lambda/${properties.name}`,
             retention: properties.logRetentionDays ?? RetentionDays.ONE_DAY,
             removalPolicy: RemovalPolicy.DESTROY,
         });

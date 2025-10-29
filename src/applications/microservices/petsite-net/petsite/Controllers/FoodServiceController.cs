@@ -19,13 +19,15 @@ namespace PetSite.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<FoodServiceController> _logger;
+        private readonly ParameterRefreshManager _refreshManager;
 
         public FoodServiceController(IHttpClientFactory httpClientFactory, IConfiguration configuration,
-            ILogger<FoodServiceController> logger)
+            ILogger<FoodServiceController> logger, ParameterRefreshManager refreshManager)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _refreshManager = refreshManager;
         }
 
         [HttpGet]
@@ -38,7 +40,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var foodApiUrl = ParameterNames.GetParameterValue(ParameterNames.FOOD_API_URL, _configuration);
+                var foodApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.FOOD_API_URL, _refreshManager);
                 var url = UrlHelper.BuildUrl(foodApiUrl, null, ("pettype", petType));
                 var response = await httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -74,7 +76,7 @@ namespace PetSite.Controllers
                 using var httpClient = _httpClientFactory.CreateClient();
 
                 // First API call - Add to cart
-                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
                 var addToCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] {  userId, "items" }, null);
                 var cartData = new { food_id = foodId, quantity = 1 };
                 var cartJson = JsonSerializer.Serialize(cartData);
@@ -109,7 +111,7 @@ namespace PetSite.Controllers
             try
             {
                 using var httpClient = _httpClientFactory.CreateClient();
-                var cartApiUrl = ParameterNames.GetParameterValue(ParameterNames.CART_API_URL, _configuration);
+                var cartApiUrl = await ParameterNames.GetParameterValueAsync(ParameterNames.CART_API_URL, _refreshManager);
                 var getCartUrl = UrlHelper.BuildUrl(cartApiUrl, new[] { userId }, null);
                 var getCartResponse = await httpClient.GetAsync(getCartUrl);
 

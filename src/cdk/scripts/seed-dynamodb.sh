@@ -76,6 +76,12 @@ find_tables_by_pattern() {
 # Function to seed pet adoption table
 seed_pet_table() {
     local table_name="$1"
+
+    if [[ -z "$table_name" || "$table_name" == "-1" ]]; then
+        echo "Error: Invalid or empty table name provided for pet adoption table"
+        exit 1
+    fi
+
     echo "Seeding pet adoption table: $table_name"
 
     # Read and process pet seed data
@@ -100,6 +106,12 @@ seed_pet_table() {
 # Function to seed petfood table
 seed_petfood_table() {
     local table_name="$1"
+
+    if [[ -z "$table_name" || "$table_name" == "-1" ]]; then
+        echo "Error: Invalid or empty table name provided for petfood table"
+        exit 1
+    fi
+
     echo "Seeding petfood table: $table_name"
 
     # Read and process petfood seed data
@@ -276,7 +288,7 @@ main() {
             done
             ;;
         "pets")
-            if [[ -n "$SPECIFIC_TABLE" ]]; then
+            if [[ -n "$SPECIFIC_TABLE" && "$SPECIFIC_TABLE" != "-1" ]]; then
                 seed_pet_table "$SPECIFIC_TABLE"
             else
                 local pet_tables=($(find_tables_by_pattern "Petadoption"))
@@ -290,7 +302,7 @@ main() {
             fi
             ;;
         "petfood")
-            if [[ -n "$SPECIFIC_TABLE" ]]; then
+            if [[ -n "$SPECIFIC_TABLE" && "$SPECIFIC_TABLE" != "-1" ]]; then
                 seed_petfood_table "$SPECIFIC_TABLE"
             else
                 local petfood_tables=($(find_tables_by_pattern "PetFoods"))

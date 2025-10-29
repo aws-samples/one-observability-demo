@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDK Stack Exports Dashboard - AWS Workshop</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amazon+Ember:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-green: #9DB4A6;
+            --secondary-green: #B8C9BC;
+            --accent-coral: #E8A598;
+            --card-background: #FDFCF8;
+            --text-primary: #3D4F42;
+            --text-secondary: #6B7B6E;
+            --gradient-bg: linear-gradient(135deg, #A8BFB0 0%, #9DB4A6 100%);
+            --button-gradient: linear-gradient(135deg, #9DB4A6 0%, #E8A598 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--gradient-bg);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .aws-logo {
+            max-height: 40px;
+            margin-right: 1rem;
+        }
+
+        .workshop-disclaimer {
+            background: var(--card-background);
+            border: 2px solid var(--accent-coral);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(157, 180, 166, 0.15);
+        }
+
+        .workshop-disclaimer .alert-icon {
+            color: var(--accent-coral);
+            font-size: 1.5rem;
+        }
+
+        .search-container {
+            background: var(--card-background);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 32px rgba(157, 180, 166, 0.15);
+            margin-bottom: 2rem;
+            border: none;
+        }
+
+        .search-input {
+            border: 2px solid var(--secondary-green);
+            border-radius: 15px;
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.8);
+            transition: all 0.3s ease;
+            color: var(--text-primary);
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 3px rgba(157, 180, 166, 0.2);
+            background: white;
+            outline: none;
+        }
+
+        .filter-buttons {
+            margin-top: 1.5rem;
+        }
+
+        .btn-filter {
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid var(--secondary-green);
+            color: var(--text-primary);
+            border-radius: 25px;
+            padding: 0.75rem 1.5rem;
+            margin: 0.25rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-filter:hover, .btn-filter.active {
+            background: var(--button-gradient);
+            border-color: var(--primary-green);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(157, 180, 166, 0.3);
+        }
+
+        .export-card {
+            background: var(--card-background);
+            border-radius: 20px;
+            border: none;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(157, 180, 166, 0.1);
+        }
+
+        .export-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(157, 180, 166, 0.2);
+        }
+
+        .export-header {
+            background: rgba(157, 180, 166, 0.08);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(157, 180, 166, 0.15);
+        }
+
+        .export-name {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .export-value {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: rgba(157, 180, 166, 0.05);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(157, 180, 166, 0.2);
+            word-break: break-all;
+            position: relative;
+            color: var(--text-primary);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: var(--button-gradient);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(157, 180, 166, 0.3);
+        }
+
+        .category-badge {
+            background: var(--primary-green);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stack-badge {
+            background: var(--text-secondary);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .region-badge {
+            background: var(--accent-coral);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .url-link {
+            color: var(--primary-green);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .url-link:hover {
+            color: var(--accent-coral);
+            text-decoration: underline;
+        }
+
+        .console-link {
+            background: var(--button-gradient);
+            color: white;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .console-link:hover {
+            color: white;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(157, 180, 166, 0.3);
+        }
+
+        .search-highlight {
+            background: rgba(232, 165, 152, 0.3);
+            font-weight: 600;
+            padding: 0 4px;
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .stats-card {
+            background: var(--card-background);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(157, 180, 166, 0.15);
+            margin-bottom: 1.5rem;
+            border: none;
+        }
+
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-green);
+        }
+
+        .stats-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            background: var(--card-background);
+            border-radius: 20px;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(157, 180, 166, 0.15);
+        }
+
+        .footer {
+            background: rgba(61, 79, 66, 0.95);
+            backdrop-filter: blur(10px);
+            color: var(--card-background);
+            padding: 3rem 0;
+            margin-top: 4rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Category-specific colors */
+        .category-Networking { background: #17a2b8; }
+        .category-Database { background: #28a745; }
+        .category-Storage { background: #ffc107; color: #212529; }
+        .category-Compute { background: #dc3545; }
+        .category-API { background: #6f42c1; }
+        .category-Security { background: #fd7e14; }
+        .category-Observability { background: #20c997; }
+        .category-Other { background: #6c757d; }
+
+        @media (max-width: 768px) {
+            .btn-filter {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.8rem;
+            }
+
+            .export-header {
+                padding: 1rem;
+            }
+
+            .stats-number {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        <img src="https://a0.awsstatic.com/libra-css/images/logos/aws_logo_smile_1200x630.png"
+                             alt="AWS Logo" class="aws-logo">
+                        <div>
+                            <h1 class="mb-0">CDK Stack Exports Dashboard</h1>
+                            <p class="mb-0 opacity-75">AWS One Observability Workshop</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <small class="opacity-75">
+                        Account: {{ account_id }}<br>
+                        Generated: {{ generated_at[:19] | replace('T', ' ') }} UTC
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Workshop Disclaimer -->
+        <div class="alert workshop-disclaimer" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle alert-icon me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Workshop Information Only</h5>
+                    <p class="mb-0">
+                        <strong>This information is for workshop purposes only.</strong>
+                        Nothing on this page should be considered production-ready or sensitive.
+                        All resources are created for educational purposes in a controlled environment.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ total_exports }}</div>
+                    <div class="stats-label">Total Exports</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ stacks | length }}</div>
+                    <div class="stats-label">CDK Stacks</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ regions | length }}</div>
+                    <div class="stats-label">AWS Regions</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stats-card text-center">
+                    <div class="stats-number">{{ categories | length }}</div>
+                    <div class="stats-label">Categories</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="search-container">
+            <h4 class="mb-3">
+                <i class="fas fa-search me-2"></i>Search Exports
+            </h4>
+            <div class="row">
+                <div class="col-12">
+                    <input type="text"
+                           class="form-control search-input"
+                           id="searchInput"
+                           placeholder="Search by export name, description, stack name, or value..."
+                           autocomplete="off">
+                </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="filter-buttons">
+                <h6 class="mb-2">Filter by Category:</h6>
+                <button class="btn btn-filter active" data-filter="all">Public Categories</button>
+                {% for category in categories | sort %}
+                    {% if category != 'Private' and category != 'internal-cdk' %}
+                <button class="btn btn-filter" data-filter="{{ category }}">{{ category }}</button>
+                    {% endif %}
+                {% endfor %}
+
+                <h6 class="mt-3 mb-2">Advanced Options:</h6>
+                <button class="btn btn-filter" id="toggleInternalBtn" data-toggle="internal">
+                    <i class="fas fa-eye-slash me-1"></i>Show Internal CDK Exports
+                </button>
+
+                <h6 class="mt-3 mb-2">Filter by Stack:</h6>
+                <button class="btn btn-filter active" data-filter="all-stacks">All Stacks</button>
+                {% for stack in stacks | sort %}
+                <button class="btn btn-filter" data-filter="{{ stack }}">{{ stack }}</button>
+                {% endfor %}
+            </div>
+
+            <!-- Results Count -->
+            <div class="mt-3">
+                <small class="text-muted">
+                    Showing <span id="resultsCount">{{ total_exports }}</span> of {{ total_exports }} exports
+                </small>
+            </div>
+        </div>
+
+        <!-- Exports Grid -->
+        <div id="exportsContainer">
+            {% for export in exports %}
+            <div class="export-card"
+                 data-category="{{ export.category }}"
+                 data-stack="{{ export.stackName }}"
+                 data-search="{{ export.exportName | lower }} {{ export.description | lower }} {{ export.stackName | lower }} {{ export.exportValue | lower }}">
+
+                <!-- Header -->
+                <div class="export-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="export-name">{{ export.displayName }}</div>
+                            <div class="mt-2">
+                                <span class="category-badge category-{{ export.category }}">
+                                    {{ export.category }}
+                                </span>
+                                <span class="stack-badge ms-1">{{ export.stackName }}</span>
+                                <span class="region-badge ms-1">{{ export.region }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            {% if export.consoleUrl %}
+                            <a href="{{ export.consoleUrl }}"
+                               target="_blank"
+                               class="console-link">
+                                <i class="fas fa-external-link-alt me-1"></i>
+                                View in Console
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="p-3">
+                    {% if export.description %}
+                    <div class="mb-3">
+                        <strong>Description:</strong> {{ export.description }}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-2">
+                        <strong>Export Value:</strong>
+                    </div>
+                    <div class="export-value">
+                        {% if export.isUrl %}
+                        <a href="{{ export.exportValue }}"
+                           target="_blank"
+                           class="url-link">{{ export.exportValue }}</a>
+                        {% else %}
+                        {{ export.exportValue }}
+                        {% endif %}
+                        <button class="copy-btn"
+                                onclick="copyToClipboard('{{ export.exportValue | replace("'", "\\'") }}', this)"
+                                title="Copy to clipboard">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+
+                    {% if export.tags %}
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Stack Tags:</strong>
+                            {% for key, value in export.tags.items() %}
+                            <span class="badge bg-light text-dark me-1">{{ key }}: {{ value }}</span>
+                            {% endfor %}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResults" class="no-results" style="display: none;">
+            <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+            <h4>No exports found</h4>
+            <p class="text-muted">Try adjusting your search criteria or filters.</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>AWS One Observability Workshop</h6>
+                    <p class="mb-0">This dashboard provides a comprehensive view of your CDK stack exports for easy reference and navigation.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small class="opacity-75">
+                        Generated by CDK Exports Manager<br>
+                        <a href="https://github.com/aws-samples/one-observability-demo"
+                           class="text-white-50">View Source Code</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Search and filter functionality
+        let allExports = document.querySelectorAll('.export-card');
+        let currentCategoryFilter = 'all';
+        let currentStackFilter = 'all-stacks';
+        let currentSearchTerm = '';
+        let showInternalExports = false;
+
+        // Search input handler
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            currentSearchTerm = e.target.value.toLowerCase();
+            filterExports();
+        });
+
+        // Internal exports toggle handler
+        document.getElementById('toggleInternalBtn').addEventListener('click', function() {
+            showInternalExports = !showInternalExports;
+            const icon = this.querySelector('i');
+            const text = this.childNodes[1];
+
+            if (showInternalExports) {
+                icon.className = 'fas fa-eye me-1';
+                text.textContent = 'Hide Internal CDK Exports';
+                this.classList.add('active');
+            } else {
+                icon.className = 'fas fa-eye-slash me-1';
+                text.textContent = 'Show Internal CDK Exports';
+                this.classList.remove('active');
+            }
+
+            filterExports();
+        });
+
+        // Category filter handlers
+        document.querySelectorAll('[data-filter]').forEach(button => {
+            button.addEventListener('click', function() {
+                const filterValue = this.getAttribute('data-filter');
+
+                // Skip the toggle button
+                if (this.getAttribute('data-toggle')) return;
+
+                // Handle category filters
+                if (filterValue === 'all' || document.querySelector('[data-filter="all"]') === this) {
+                    currentCategoryFilter = filterValue;
+                    // Remove active class from all category buttons
+                    document.querySelectorAll('[data-filter]').forEach(btn => {
+                        if (btn.getAttribute('data-filter') === 'all' ||
+                            (!btn.getAttribute('data-filter').includes('all-stacks') &&
+                             btn.getAttribute('data-filter') !== 'all-stacks' &&
+                             !btn.getAttribute('data-toggle'))) {
+                            btn.classList.remove('active');
+                        }
+                    });
+                    this.classList.add('active');
+                }
+                // Handle stack filters
+                else if (filterValue === 'all-stacks') {
+                    currentStackFilter = filterValue;
+                    // Remove active class from all stack buttons
+                    document.querySelectorAll('[data-filter]').forEach(btn => {
+                        const filter = btn.getAttribute('data-filter');
+                        if (filter === 'all-stacks' || (!filter.includes('all') && filter !== 'all' && !btn.getAttribute('data-toggle'))) {
+                            btn.classList.remove('active');
+                        }
+                    });
+                    this.classList.add('active');
+                }
+                // Handle individual category/stack buttons
+                else {
+                    const categories = {{ categories | tojson }};
+                    if (categories.includes(filterValue)) {
+                        currentCategoryFilter = filterValue;
+                        // Remove active from category buttons
+                        document.querySelectorAll('[data-filter]').forEach(btn => {
+                            const filter = btn.getAttribute('data-filter');
+                            if (filter === 'all' || (categories.includes(filter) && !btn.getAttribute('data-toggle'))) {
+                                btn.classList.remove('active');
+                            }
+                        });
+                        this.classList.add('active');
+                    } else {
+                        currentStackFilter = filterValue;
+                        // Remove active from stack buttons
+                        document.querySelectorAll('[data-filter]').forEach(btn => {
+                            const filter = btn.getAttribute('data-filter');
+                            if (filter === 'all-stacks' || (!categories.includes(filter) && filter !== 'all' && !btn.getAttribute('data-toggle'))) {
+                                btn.classList.remove('active');
+                            }
+                        });
+                        this.classList.add('active');
+                    }
+                }
+
+                filterExports();
+            });
+        });
+
+        function filterExports() {
+            let visibleCount = 0;
+
+            allExports.forEach(exportCard => {
+                const category = exportCard.getAttribute('data-category');
+                const stack = exportCard.getAttribute('data-stack');
+                const searchContent = exportCard.getAttribute('data-search');
+
+                // Apply visibility rules
+                let visible = true;
+
+                // Rule 1: Private exports are never shown
+                if (category === 'Private') {
+                    visible = false;
+                }
+                // Rule 2: Internal CDK exports only shown if toggle is enabled
+                else if (category === 'internal-cdk' && !showInternalExports) {
+                    visible = false;
+                }
+                // Rule 3: Check category filter (only for visible categories)
+                else if (currentCategoryFilter !== 'all' && category !== currentCategoryFilter) {
+                    visible = false;
+                }
+
+                // Rule 4: Check stack filter
+                if (visible && currentStackFilter !== 'all-stacks' && stack !== currentStackFilter) {
+                    visible = false;
+                }
+
+                // Rule 5: Check search term
+                if (visible && currentSearchTerm && !searchContent.includes(currentSearchTerm)) {
+                    visible = false;
+                }
+
+                if (visible) {
+                    exportCard.style.display = 'block';
+                    visibleCount++;
+
+                    // Highlight search terms
+                    if (currentSearchTerm) {
+                        highlightSearchTerm(exportCard, currentSearchTerm);
+                    } else {
+                        removeHighlights(exportCard);
+                    }
+                } else {
+                    exportCard.style.display = 'none';
+                }
+            });
+
+            // Update results count
+            document.getElementById('resultsCount').textContent = visibleCount;
+
+            // Show/hide no results message
+            const noResults = document.getElementById('noResults');
+            if (visibleCount === 0) {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        }
+
+        function highlightSearchTerm(element, term) {
+            // Remove existing highlights
+            removeHighlights(element);
+
+            // Find text nodes and highlight matches
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            let node;
+            let textNodes = [];
+            while (node = walker.nextNode()) {
+                if (node.nodeValue.toLowerCase().includes(term)) {
+                    textNodes.push(node);
+                }
+            }
+
+            textNodes.forEach(textNode => {
+                const parent = textNode.parentNode;
+                const text = textNode.nodeValue;
+                const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+
+                if (regex.test(text)) {
+                    const highlightedHTML = text.replace(regex, '<span class="search-highlight">$1</span>');
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = highlightedHTML;
+
+                    while (wrapper.firstChild) {
+                        parent.insertBefore(wrapper.firstChild, textNode);
+                    }
+                    parent.removeChild(textNode);
+                }
+            });
+        }
+
+        function removeHighlights(element) {
+            const highlights = element.querySelectorAll('.search-highlight');
+            highlights.forEach(highlight => {
+                highlight.outerHTML = highlight.innerHTML;
+            });
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Copy to clipboard functionality
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(function() {
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.style.background = '#28a745';
+
+                setTimeout(function() {
+                    button.innerHTML = originalHTML;
+                    button.style.background = '';
+                }, 1000);
+            }).catch(function(err) {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up initial filter states
+            filterExports();
+        });
+    </script>
+</body>
+</html>
