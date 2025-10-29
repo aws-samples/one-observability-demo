@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatMessage(message) {
         // Convert newlines to <br> tags
         let formatted = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
-        
+
         // Convert markdown-style formatting
         formatted = formatted
             // Headers (### Header, ## Header, # Header) - improved to handle emojis and special characters
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/  /g, '&nbsp;&nbsp;')
             // Add spacing after periods for better readability (but not after abbreviations)
             .replace(/\. ([A-Z][a-z])/g, '. <br><br>$1');
-        
+
         return formatted;
     }
 
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'message-bubble';
-        
+
         if (isUser) {
             // For user messages, keep as plain text
             bubbleDiv.textContent = message;

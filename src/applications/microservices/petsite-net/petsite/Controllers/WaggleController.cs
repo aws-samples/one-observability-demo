@@ -37,7 +37,7 @@ namespace PetSite.Controllers
         public async Task<IActionResult> SendMessage([FromBody] ChatRequest request)
         {
             var responseText = "";
-            
+
             try
             {
                 // Generate SessionId if not provided
@@ -49,9 +49,9 @@ namespace PetSite.Controllers
                 // Get Agent Runtime ARN from configuration
                 var agentRuntimeArn = await ParameterNames.GetParameterValueAsync(ParameterNames.PETFOOD_AGENT_RUNTIME_ARN, _refreshManager);
 
-                
+
                 _logger.LogInformation($"Agent ARN: {agentRuntimeArn}");
-                
+
                 if (string.IsNullOrEmpty(agentRuntimeArn))
                 {
                     _logger.LogError("BedrockAgentRuntimeArn not configured");
@@ -81,9 +81,9 @@ namespace PetSite.Controllers
                     Payload = payloadStream,
                     Qualifier = "DEFAULT"
                 };
-                
+
                 _logger.LogInformation("Invoking agent runtime");
-                
+
                 // Invoke the Bedrock AgentCore
                 var response = await _bedrockAgentCore.InvokeAgentRuntimeAsync(invokeRequest);
 
@@ -94,32 +94,32 @@ namespace PetSite.Controllers
                 {
                     using var reader = new System.IO.StreamReader(response.Response);
                     var responseBody = await reader.ReadToEndAsync();
-                    
+
                     _logger.LogInformation($"Raw response body: {responseBody}");
-                    
+
                     // Process Server-Sent Events (SSE) streaming response
                     if (responseBody.Contains("data: "))
                     {
                         var lines = responseBody.Split('\n');
                         var messageBuilder = new System.Text.StringBuilder();
-                        
+
                         foreach (var line in lines)
                         {
                             if (line.StartsWith("data: "))
                             {
                                 // Extract the content after "data: "
                                 var content = line.Substring(6); // Remove "data: " prefix
-                                
+
                                 // Remove quotes if present
                                 if (content.StartsWith("\"") && content.EndsWith("\""))
                                 {
                                     content = content.Substring(1, content.Length - 2);
                                 }
-                                
+
                                 messageBuilder.Append(content);
                             }
                         }
-                        
+
                         responseText = messageBuilder.ToString();
                         _logger.LogInformation($"Processed SSE response: {responseText}");
                     }
@@ -129,7 +129,7 @@ namespace PetSite.Controllers
                         try
                         {
                             var responseData = JsonSerializer.Deserialize<JsonElement>(responseBody);
-                            
+
                             // Try different possible response structures
                             if (responseData.TryGetProperty("response", out var responseProperty))
                             {
