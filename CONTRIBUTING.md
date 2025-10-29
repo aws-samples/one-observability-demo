@@ -278,12 +278,18 @@ The `src/cdk/scripts/redeploy-app.sh` script helps developers quickly redeploy i
 - AWS CLI configured with appropriate credentials
 - One of: Docker, Finch, or Podman installed
 - Deployed One Observability Demo infrastructure
+- `src/cdk/.env` file with `AWS_REGION` and `AWS_ACCOUNT_ID` configured
 
 **Usage:**
 
 ```bash
 ./src/cdk/scripts/redeploy-app.sh
 ```
+
+The script will prompt you to:
+1. Select the application to redeploy
+2. Choose the target platform (amd64 or arm64)
+3. Select ECS cluster and service (for ECS applications)
 
 See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
 
@@ -346,6 +352,17 @@ This retrieves the parameter `/petstore/database-endpoint` from Parameter Store.
 - Parameter value if found
 - `-1` if parameter not found or invalid key
 - `-2` if access denied
+
+### Accessing the EKS Pods
+
+Use the following commands on AWS Cloudshell to access the pods. Note that you must create an authorization for your user
+
+```
+mkdir -p ~/bin
+curl --silent --location "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz" | tar xz -C ~/bin
+aws eks update-kubeconfig --name PetsiteEKS-cluster
+k9s
+```
 
 ## Troubleshooting
 
