@@ -52,7 +52,7 @@ export class PayForAdoptionService extends EcsService {
         /** This policy is NOT required for the task. It's added here to show how
          * overpermissive policies can be blocked using VPCe policies
          */
-        new Policy(this, 'OverpermissivePolicy', {
+        const overpermissive = new Policy(this, 'OverpermissivePolicy', {
             policyName: 'OverpermissivePolicy',
             roles: [this.taskRole],
             document: new PolicyDocument({
@@ -83,7 +83,7 @@ export class PayForAdoptionService extends EcsService {
         properties.queue.grantSendMessages(this.taskRole);
 
         NagSuppressions.addResourceSuppressions(
-            taskPolicy,
+            [taskPolicy, overpermissive],
             [
                 {
                     id: 'AwsSolutions-IAM4',

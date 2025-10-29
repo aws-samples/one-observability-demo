@@ -47,10 +47,19 @@ if ! aws sts get-caller-identity &> /dev/null; then
     exit 1
 fi
 
-# Get AWS account and region
-AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-if [ -z "$AWS_REGION" ]; then
-    AWS_REGION="us-east-1"
+# Load AWS account and region from .env file
+ENV_FILE="$CDK_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${RED}Error: .env file not found at $ENV_FILE${NC}"
+    exit 1
+fi
+
+AWS_REGION=$(grep '^AWS_REGION=' "$ENV_FILE" | cut -d '=' -f2)
+AWS_ACCOUNT=$(grep '^AWS_ACCOUNT_ID=' "$ENV_FILE" | cut -d '=' -f2)
+
+if [ -z "$AWS_REGION" ] || [ -z "$AWS_ACCOUNT" ]; then
+    echo -e "${RED}Error: AWS_REGION or AWS_ACCOUNT_ID not found in .env file${NC}"
+    exit 1
 fi
 
 echo -e "${GREEN}Using AWS Account: $AWS_ACCOUNT${NC}"
@@ -120,6 +129,22 @@ echo -e "${GREEN}Docker path: $DOCKER_PATH${NC}"
 echo -e "${GREEN}Host type: $HOST_TYPE${NC}"
 echo
 
+# Select platform
+while true; do
+    read -p "Select platform (1=amd64 [default], 2=arm64): " platform_selection
+    if [ -z "$platform_selection" ] || [ "$platform_selection" = "1" ]; then
+        PLATFORM="linux/amd64"
+        break
+    elif [ "$platform_selection" = "2" ]; then
+        PLATFORM="linux/arm64"
+        break
+    fi
+    echo -e "${RED}Invalid selection. Enter 1 or 2${NC}"
+done
+
+echo -e "${GREEN}Platform: $PLATFORM${NC}"
+echo
+
 # Build and push container
 echo -e "${YELLOW}Building and pushing container...${NC}"
 ECR_REPO="$AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME"
@@ -130,9 +155,8 @@ aws ecr get-login-password --region "$AWS_REGION" | $OCI_RUNNER login --username
 # Build and push
 cd "$REPO_ROOT/$DOCKER_PATH"
 if [ "$OCI_RUNNER" = "docker" ]; then
-    # Use buildx for cross-platform build (ARM to x86/amd64)
-    echo -e "${BLUE}Executing: docker buildx build --platform linux/amd64 -t $ECR_REPO:latest --push .${NC}"
-    docker buildx build --platform linux/amd64 -t "$ECR_REPO:latest" --push .
+    echo -e "${BLUE}Executing: docker buildx build --platform $PLATFORM -t $ECR_REPO:latest --push .${NC}"
+    docker buildx build --platform "$PLATFORM" -t "$ECR_REPO:latest" --push .
 else
     # For finch/podman, setup QEMU emulation for cross-platform builds
     if [ "$OCI_RUNNER" = "podman" ]; then
@@ -144,13 +168,13 @@ else
             echo -e "${BLUE}Executing: $OCI_RUNNER build -t $APP_NAME:latest .${NC}"
             $OCI_RUNNER build -t "$APP_NAME:latest" .
         else
-            echo -e "${BLUE}Executing: $OCI_RUNNER build --platform linux/amd64 -t $APP_NAME:latest .${NC}"
-            $OCI_RUNNER build --platform linux/amd64 -t "$APP_NAME:latest" .
+            echo -e "${BLUE}Executing: $OCI_RUNNER build --platform $PLATFORM -t $APP_NAME:latest .${NC}"
+            $OCI_RUNNER build --platform "$PLATFORM" -t "$APP_NAME:latest" .
         fi
     else
         # For finch, use regular build with platform flag
-        echo -e "${BLUE}Executing: $OCI_RUNNER build --platform linux/amd64 -t $APP_NAME:latest .${NC}"
-        $OCI_RUNNER build --platform linux/amd64 -t "$APP_NAME:latest" .
+        echo -e "${BLUE}Executing: $OCI_RUNNER build --platform $PLATFORM -t $APP_NAME:latest .${NC}"
+        $OCI_RUNNER build --platform "$PLATFORM" -t "$APP_NAME:latest" .
     fi
 
     echo -e "${BLUE}Executing: $OCI_RUNNER tag $APP_NAME:latest $ECR_REPO:latest${NC}"

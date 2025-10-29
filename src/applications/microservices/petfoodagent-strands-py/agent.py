@@ -19,7 +19,8 @@ if not PARAMETER_STORE_PREFIX:
 MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
 # Initialize SSM client
-ssm_client = boto3.client("ssm")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
+ssm_client = boto3.client("ssm", region_name=REGION)
 
 
 def get_ssm_parameter(parameter_name: str) -> str:

@@ -22,6 +22,11 @@ The `redeploy-app.sh` script automates the process of:
   - Finch
   - Podman
 
+### Configuration File
+- **Environment File**: `src/cdk/.env` must exist with the following variables:
+  - `AWS_REGION`: Target AWS region
+  - `AWS_ACCOUNT_ID`: Your AWS account ID
+
 ### AWS Permissions
 Your AWS credentials must have permissions for:
 - ECR: `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `GetDownloadUrlForLayer`, `BatchGetImage`, `PutImage`
@@ -50,6 +55,7 @@ Your AWS credentials must have permissions for:
 
 3. Follow the interactive prompts:
    - Select the application to redeploy
+   - Select the target platform (amd64 or arm64)
    - For ECS applications: Select cluster and service
    - For EKS applications: Follow the provided kubectl instructions
 
@@ -65,12 +71,17 @@ The script automatically reads from `src/cdk/bin/environment.ts` and presents th
 | petsite | EKS | Frontend web application |
 | trafficgenerator | ECS | Load testing service |
 
-## Cross-Platform Building
+## Platform Selection
 
-The script automatically handles cross-platform builds for ARM development machines targeting x86/amd64 AWS instances:
+The script prompts you to select the target platform architecture:
 
-- **Docker**: Uses `buildx` with `--platform linux/amd64`
-- **Finch/Podman**: Uses `--platform linux/amd64` flag
+- **amd64 (default)**: For x86_64 AWS instances (most common)
+- **arm64**: For ARM-based AWS instances (Graviton)
+
+The script automatically handles cross-platform builds:
+
+- **Docker**: Uses `buildx` with `--platform` flag
+- **Finch/Podman**: Uses `--platform` flag with QEMU emulation
 
 ## ECS Deployment Process
 
@@ -158,6 +169,17 @@ docker buildx build --platform linux/amd64 \
 ```
 
 ## Script Configuration
+
+### Environment File
+
+The script reads AWS configuration from `src/cdk/.env`:
+
+```bash
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=123456789012
+```
+
+### Application Configuration
 
 The script reads application configurations from `src/cdk/bin/environment.ts`, specifically the `APPLICATION_LIST` constant. To add new applications:
 

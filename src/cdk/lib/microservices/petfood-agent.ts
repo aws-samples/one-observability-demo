@@ -42,7 +42,7 @@ export class PetFoodAgentConstruct extends Construct {
             statements: [
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+                    actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
                     resources: [
                         `arn:aws:ssm:${Stack.of(this).region}:${Stack.of(this).account}:parameter${PARAMETER_STORE_PREFIX}/*`,
                     ],
