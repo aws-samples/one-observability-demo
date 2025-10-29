@@ -182,7 +182,7 @@ export class PetFoodAgentConstruct extends Construct {
             parameterStorePrefix,
             new Map(
                 Object.entries({
-                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN]: this.agentRuntime.attrAgentRuntimeArn,
+                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN_NAME]: this.agentRuntime.attrAgentRuntimeArn,
                 }),
             ),
         );
