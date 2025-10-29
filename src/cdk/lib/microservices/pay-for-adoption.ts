@@ -6,7 +6,7 @@ import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
-import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Policy, PolicyDocument, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
@@ -48,6 +48,22 @@ export class PayForAdoptionService extends EcsService {
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {
         properties.secret?.grantRead(this.taskRole);
+
+        /** This policy is NOT required for the task. It's added here to show how
+         * overpermissive policies can be blocked using VPCe policies
+         */
+        new Policy(this, 'OverpermissivePolicy', {
+            policyName: 'OverpermissivePolicy',
+            roles: [this.taskRole],
+            document: new PolicyDocument({
+                statements: [
+                    new PolicyStatement({
+                        actions: ['secretsmanager:ListSecrets'],
+                        resources: ['*'],
+                    }),
+                ],
+            }),
+        });
 
         this.taskRole.addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
