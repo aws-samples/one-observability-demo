@@ -11,6 +11,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
+import { Stack } from 'aws-cdk-lib';
 
 export interface PetFoodProperties extends EcsServiceProperties {
     petFoodTable: ITable;
@@ -27,6 +28,7 @@ export class PetFoodECSService extends EcsService {
             PETFOOD_PET_ADOPTION_TABLE_NAME: SSM_PARAMETER_NAMES.PET_ADOPTION_TABLE_NAME,
             PETFOOD_FOODS_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_TABLE_NAME,
             PETFOOD_CARTS_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_CART_TABLE_NAME,
+            AWS_REGION: Stack.of(scope).region,
         };
         super(scope, id, {
             ...properties,

@@ -38,7 +38,11 @@ func fetchConfig(ctx context.Context, logger log.Logger) (payforadoption.Config,
 		AWSCfg:    awsCfg,
 	}
 
-	return refreshManager.fetchConfigIfNeeded(ctx, cfg)
+	fetchedCfg, err := refreshManager.fetchConfigIfNeeded(ctx, cfg)
+	if err == nil {
+		refreshManager.StartPeriodicRefresh(ctx, fetchedCfg)
+	}
+	return fetchedCfg, err
 }
 
 func fetchConfigFromParameterStore(ctx context.Context, cfg payforadoption.Config, logger log.Logger) (payforadoption.Config, error) {

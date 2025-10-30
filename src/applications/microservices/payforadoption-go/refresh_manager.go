@@ -156,3 +156,34 @@ func (rm *RefreshManager) fetchConfigIfNeeded(ctx context.Context, baseCfg payfo
 	rm.cacheConfig(cfg)
 	return cfg, nil
 }
+
+func (rm *RefreshManager) StartPeriodicRefresh(ctx context.Context, cfg payforadoption.Config) {
+	if rm.refreshInterval == -1 {
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(rm.refreshInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if rm.shouldRefreshParams() {
+					InfoWithTrace(ctx, "Background refresh: updating parameters\n")
+					if newCfg, err := fetchConfigFromParameterStore(ctx, cfg, nil); err == nil {
+						rm.cacheConfig(newCfg)
+					}
+				}
+				if rm.shouldRefreshSecret() {
+					InfoWithTrace(ctx, "Background refresh: updating secret\n")
+					if secret, err := payforadoption.NewDatabaseConfigService(cfg).GetSecretValue(ctx); err == nil {
+						rm.cacheSecret(secret)
+					}
+				}
+			}
+		}
+	}()
+}

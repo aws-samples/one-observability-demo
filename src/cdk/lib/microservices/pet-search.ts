@@ -14,6 +14,7 @@ import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { ApplicationSignalsIntegration, JavaInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
+import { Stack } from 'aws-cdk-lib';
 
 export interface PetSearchServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -31,6 +32,7 @@ export class PetSearchService extends EcsService {
             PETSEARCH_IMAGES_CDN_URL: SSM_PARAMETER_NAMES.IMAGES_CDN_URL,
             PETSEARCH_S3_BUCKET_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
             PETSEARCH_DYNAMODB_TABLE_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
+            AWS_REGION: Stack.of(scope).region,
         };
 
         super(scope, id, {
