@@ -27,7 +27,7 @@ import {
 } from 'aws-cdk-lib/aws-ecs-patterns';
 import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { RemovalPolicy, Stack, Fn } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, Fn, Annotations } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
@@ -200,13 +200,8 @@ export abstract class EcsService extends Microservice {
 
         // Add CloudWatch agent sidecar if explicitly enabled
         if (properties.enableCloudWatchAgent) {
-            // Add volume for Python auto-instrumentation
-            taskDefinition.addVolume({
-                name: 'opentelemetry-auto-instrumentation-python',
-            });
-
-            // Add ADOT Python init container
-            this.addAdotPythonInitContainer(taskDefinition, container);
+            // Add ADOT init container based on service language
+            this.addAdotInitContainer(taskDefinition, container, properties.name);
 
             // Add CloudWatch agent sidecar
             this.addCloudWatchAgentSidecar(taskDefinition);
@@ -535,27 +530,80 @@ export abstract class EcsService extends Microservice {
         }
     }
 
-    private addAdotPythonInitContainer(taskDefinition: TaskDefinition, mainContainer: ContainerDefinition): void {
-        // Add ADOT Python auto-instrumentation init container
+    private addAdotInitContainer(
+        taskDefinition: TaskDefinition,
+        mainContainer: ContainerDefinition,
+        serviceName: string,
+    ): void {
+        // Language to ADOT image version mapping
+        const languageConfig: { [key: string]: { image: string; volumeName: string; volumePath: string } } = {
+            java: {
+                image: 'public.ecr.aws/aws-observability/adot-autoinstrumentation-java:v2.11.5',
+                volumeName: 'opentelemetry-auto-instrumentation-java',
+                volumePath: '/otel-auto-instrumentation-java',
+            },
+            nodejs: {
+                image: 'public.ecr.aws/aws-observability/adot-autoinstrumentation-node:v0.8.0',
+                volumeName: 'opentelemetry-auto-instrumentation-node',
+                volumePath: '/otel-auto-instrumentation-nodejs',
+            },
+            python: {
+                image: 'public.ecr.aws/aws-observability/adot-autoinstrumentation-python:v0.12.2',
+                volumeName: 'opentelemetry-auto-instrumentation-python',
+                volumePath: '/otel-auto-instrumentation-python',
+            },
+            dotnet: {
+                image: 'public.ecr.aws/aws-observability/adot-autoinstrumentation-dotnet:v1.9.1',
+                volumeName: 'opentelemetry-auto-instrumentation-dotnet',
+                volumePath: '/otel-auto-instrumentation-dotnet',
+            },
+        };
+
+        // Detect language from service name
+        let language: string | undefined;
+        if (serviceName.includes('-java')) {
+            language = 'java';
+        } else if (serviceName.includes('-node') || serviceName.includes('-js')) {
+            language = 'nodejs';
+        } else if (serviceName.includes('-py')) {
+            language = 'python';
+        } else if (serviceName.includes('-net')) {
+            language = 'dotnet';
+        }
+
+        // If language is not supported, add warning annotation and return
+        if (!language) {
+            Annotations.of(this).addWarning(
+                `Unsupported language for auto-instrumentation in service: ${serviceName}. Supported languages: java, nodejs, python, dotnet`,
+            );
+            return;
+        }
+
+        const config = languageConfig[language];
+
+        // Add volume for auto-instrumentation
+        taskDefinition.addVolume({
+            name: config.volumeName,
+        });
+
+        // Add ADOT auto-instrumentation init container
         const initContainer = taskDefinition.addContainer('init', {
-            image: ContainerImage.fromRegistry(
-                'public.ecr.aws/aws-observability/adot-autoinstrumentation-python:v0.12.1',
-            ),
+            image: ContainerImage.fromRegistry(config.image),
             essential: false,
-            command: ['cp', '-a', '/autoinstrumentation/.', '/otel-auto-instrumentation-python'],
+            command: ['cp', '-a', '/autoinstrumentation/.', config.volumePath],
         });
 
         // Mount the volume in init container
         initContainer.addMountPoints({
-            sourceVolume: 'opentelemetry-auto-instrumentation-python',
-            containerPath: '/otel-auto-instrumentation-python',
+            sourceVolume: config.volumeName,
+            containerPath: config.volumePath,
             readOnly: false,
         });
 
         // Mount the volume in main container
         mainContainer.addMountPoints({
-            sourceVolume: 'opentelemetry-auto-instrumentation-python',
-            containerPath: '/otel-auto-instrumentation-python',
+            sourceVolume: config.volumeName,
+            containerPath: config.volumePath,
             readOnly: false,
         });
 
