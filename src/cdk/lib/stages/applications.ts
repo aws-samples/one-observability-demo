@@ -274,6 +274,7 @@ export class MicroservicesStack extends Stack {
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
+                        enableCloudWatchAgent: false,
                         table: imports.dynamodbExports.table,
                         bucket: imports.assetsBucket,
                         additionalEnvironment: {

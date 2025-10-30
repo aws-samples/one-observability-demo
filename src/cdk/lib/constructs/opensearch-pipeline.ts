@@ -110,7 +110,7 @@ export class OpenSearchPipeline extends Construct {
         const indexTemplate = properties.indexTemplate || `${pipelineName}-logs`;
         const capacityLimits = {
             min: properties.capacityLimits?.min || 1,
-            max: properties.capacityLimits?.max || 4,
+            max: properties.capacityLimits?.max || 2,
         };
 
         // Extract collection information
