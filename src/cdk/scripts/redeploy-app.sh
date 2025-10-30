@@ -26,20 +26,27 @@ if ! command -v aws &> /dev/null; then
     exit 1
 fi
 
-# Detect OCI runner
-OCI_RUNNER=""
-if command -v docker &> /dev/null; then
-    OCI_RUNNER="docker"
-elif command -v finch &> /dev/null; then
-    OCI_RUNNER="finch"
-elif command -v podman &> /dev/null; then
-    OCI_RUNNER="podman"
+# Detect or use specified OCI runner
+OCI_RUNNER="$1"
+if [ -n "$OCI_RUNNER" ]; then
+    if ! command -v "$OCI_RUNNER" &> /dev/null; then
+        echo -e "${RED}Error: Specified OCI tool '$OCI_RUNNER' not found${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Using specified OCI runner: $OCI_RUNNER${NC}"
 else
-    echo -e "${RED}Error: No OCI runner found. Please install docker, finch, or podman${NC}"
-    exit 1
+    if command -v docker &> /dev/null; then
+        OCI_RUNNER="docker"
+    elif command -v finch &> /dev/null; then
+        OCI_RUNNER="finch"
+    elif command -v podman &> /dev/null; then
+        OCI_RUNNER="podman"
+    else
+        echo -e "${RED}Error: No OCI runner found. Please install docker, finch, or podman${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Auto-detected OCI runner: $OCI_RUNNER${NC}"
 fi
-
-echo -e "${GREEN}Using OCI runner: $OCI_RUNNER${NC}"
 
 # Check if logged in
 if ! aws sts get-caller-identity &> /dev/null; then
