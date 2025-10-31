@@ -17,10 +17,12 @@ The `redeploy-app.sh` script automates the process of:
 
 ### Required Tools
 - **AWS CLI**: Configured with credentials for your target account
-- **Container Runtime**: One of the following (checked in priority order):
+- **Container Runtime**: One of the following:
   - Docker (recommended)
   - Finch
   - Podman
+
+  The script will auto-detect available tools in priority order (docker → finch → podman), or you can specify your preferred tool as the first argument to the script.
 
 ### Configuration File
 - **Environment File**: `src/cdk/.env` must exist with the following variables:
@@ -50,7 +52,13 @@ Your AWS credentials must have permissions for:
 
 2. Run the script:
    ```bash
+   # Auto-detect OCI tool (docker, finch, or podman)
    ./src/cdk/scripts/redeploy-app.sh
+
+   # Or specify a specific OCI tool
+   ./src/cdk/scripts/redeploy-app.sh docker
+   ./src/cdk/scripts/redeploy-app.sh finch
+   ./src/cdk/scripts/redeploy-app.sh podman
    ```
 
 3. Follow the interactive prompts:
