@@ -129,7 +129,7 @@ func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
 
 	ctx, parentSpan := s.tracer.Start(ctx, "PG drop user transactions")
 	defer parentSpan.End()
-	if err := s.repository.DropTransactions(ctx, userID); err != nil {
+	if err := s.repository.DropTransactions(ctx); err != nil {
 		ErrorWithTrace(ctx, logger, "err", err)
 		return err
 	}
