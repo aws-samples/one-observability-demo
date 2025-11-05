@@ -124,6 +124,7 @@ impl EventEmitter {
                         event_type = %payload.detail_type,
                         resource_count = payload.resources.len(),
                         attempt = attempts + 1,
+                        event_bus = %self.config.event_bus_name,
                         "Event successfully emitted to EventBridge"
                     );
                     return Ok(());
@@ -235,7 +236,8 @@ impl EventEmitter {
             .source(&payload.source)
             .detail_type(&payload.detail_type)
             .detail(detail_json)
-            .time(aws_time);
+            .time(aws_time)
+            .event_bus_name(&self.config.event_bus_name);
 
         // Add resources one by one
         for resource in &payload.resources {
@@ -248,6 +250,7 @@ impl EventEmitter {
         let put_events_span = self.create_eventbridge_span("PutEvents");
 
         let response = async {
+            info!("Sending event to EventBridge bus: {}", self.config.event_bus_name);
             let result = self.client.put_events().entries(entry).send().await;
 
             // Record additional span attributes based on response
