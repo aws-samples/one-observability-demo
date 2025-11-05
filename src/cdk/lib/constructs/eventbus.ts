@@ -90,7 +90,7 @@ export class EventBusResources extends Construct {
     }
 
     /**
-     * Creates SSM parameters for queue resources
+     * Creates SSM parameters for event bus
      */
     private createSsmParameters(): void {
         if (this.eventBus) {
