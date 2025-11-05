@@ -131,8 +131,8 @@ export class PetfoodStockProcessorFunction extends WokshopLambdaFunction {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     getBundling(_properties: WorkshopLambdaFunctionProperties): BundlingOptions {
         return {
-            // Node.js Lambda functions typically don't need special bundling options
-            // The source code is already in the correct format
+            externalModules: [],
+            nodeModules: ['aws-xray-sdk-core', '@aws-sdk/client-dynamodb', '@aws-sdk/lib-dynamodb'],
         };
     }
 }
