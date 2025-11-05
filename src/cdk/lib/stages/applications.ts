@@ -41,6 +41,7 @@ import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator
 import { NagSuppressions } from 'cdk-nag';
 import { PetfoodCleanupProcessorFunction } from '../serverless/functions/petfood/cleanup-processor';
 import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/image-generator';
+import { PetfoodStockProcessorFunction } from '../serverless/functions/petfood/stock-processor';
 import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
@@ -454,6 +455,13 @@ export class MicroservicesStack extends Stack {
                 new PetfoodImageGeneratorFunction(this, name, {
                     ...lambdafunction,
                     imageBucket: imports.assetsBucket,
+                    eventBridgeBus: imports.eventBusExports.eventBus,
+                    petfoodTable: imports.dynamodbExports.petFoodsTable,
+                });
+            }
+            if (name == LambdaFunctionNames.PetfoodStockProcessor) {
+                new PetfoodStockProcessorFunction(this, name, {
+                    ...lambdafunction,
                     eventBridgeBus: imports.eventBusExports.eventBus,
                     petfoodTable: imports.dynamodbExports.petFoodsTable,
                 });

@@ -245,6 +245,16 @@ export const PETFOOD_CLEANUP_PROCESSOR_FUNCTION = {
     enableSchedule: false,
 };
 
+export const PETFOOD_STOCK_PROCESSOR_FUNCTION = {
+    name: 'petfood-stock-processor-node',
+    runtime: Runtime.NODEJS_22_X,
+    depsLockFilePath: '../applications/lambda/petfood-stock-processor-node/package-lock.json',
+    entry: '../applications/lambda/petfood-stock-processor-node/index.js',
+    memorySize: 128,
+    handler: 'handler',
+    enableSchedule: false,
+};
+
 export const RDS_SEEDER_FUNCTION = {
     name: 'rds-seeder',
     runtime: Runtime.PYTHON_3_13,

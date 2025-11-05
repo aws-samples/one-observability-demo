@@ -19,7 +19,7 @@ import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Stack } from 'aws-cdk-lib';
 
-export interface StockProcessorProperties extends WorkshopLambdaFunctionProperties {    
+export interface PetfoodStockProcessorProperties extends WorkshopLambdaFunctionProperties {
     eventBridgeBus: IEventBus;
     petfoodTable: ITable;
 }
@@ -27,11 +27,12 @@ export interface StockProcessorProperties extends WorkshopLambdaFunctionProperti
 /**
  * Lambda function that processes StockPurchased events and decreases stock quantities
  */
-export class StockProcessorFunction extends WokshopLambdaFunction {
-    constructor(scope: Construct, id: string, properties: StockProcessorProperties) {
+export class PetfoodStockProcessorFunction extends WokshopLambdaFunction {
+    constructor(scope: Construct, id: string, properties: PetfoodStockProcessorProperties) {
         const enhancedProperties = {
             ...properties,
-            description: 'Processes StockPurchased events to decrease food item stock quantities'};
+            description: 'Processes StockPurchased events to decrease food item stock quantities',
+        };
 
         super(scope, id, enhancedProperties);
 
@@ -43,40 +44,29 @@ export class StockProcessorFunction extends WokshopLambdaFunction {
                 detailType: ['StockPurchased'],
             },
             targets: [new LambdaFunction(this.function, {})],
-            description: 'Triggers stock processor when items are purchased'
-        });        
+            description: 'Triggers stock processor when items are purchased',
+        });
     }
 
-    addFunctionPermissions(properties: StockProcessorProperties): void {
+    addFunctionPermissions(properties: PetfoodStockProcessorProperties): void {
         const functionPolicy = new Policy(this, 'StockProcessorPolicy', {
             statements: [
                 // DynamoDB permissions for reading and updating food items
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'dynamodb:GetItem',
-                        'dynamodb:UpdateItem',
-                        'dynamodb:ConditionCheckItem'
-                    ],
+                    actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:ConditionCheckItem'],
                     resources: [properties.petfoodTable.tableArn],
                 }),
                 // CloudWatch Logs permissions for detailed logging
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'logs:CreateLogGroup',
-                        'logs:CreateLogStream',
-                        'logs:PutLogEvents'
-                    ],
+                    actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
                     resources: ['*'],
                 }),
                 // X-Ray permissions for distributed tracing
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: [
-                        'xray:PutTraceSegments',
-                        'xray:PutTelemetryRecords'
-                    ],
+                    actions: ['xray:PutTraceSegments', 'xray:PutTelemetryRecords'],
                     resources: ['*'],
                 }),
             ],
@@ -102,7 +92,7 @@ export class StockProcessorFunction extends WokshopLambdaFunction {
 
     createOutputs(): void {}
     getEnvironmentVariables(properties: WorkshopLambdaFunctionProperties): { [key: string]: string } | undefined {
-        const stockProperties = properties as StockProcessorProperties;
+        const stockProperties = properties as PetfoodStockProcessorProperties;
         return {
             FOODS_TABLE_NAME: stockProperties.petfoodTable.tableName,
             AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1', // Improve performance
@@ -119,7 +109,8 @@ export class StockProcessorFunction extends WokshopLambdaFunction {
     /**
      * Get Lambda layers for the function
      */
-    getLayers(properties: WorkshopLambdaFunctionProperties): ILayerVersion[] {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    getLayers(_properties: WorkshopLambdaFunctionProperties): ILayerVersion[] {
         return [
             LayerVersion.fromLayerVersionArn(
                 this,
@@ -137,7 +128,8 @@ export class StockProcessorFunction extends WokshopLambdaFunction {
     /**
      * Get bundling options for the Lambda function
      */
-    getBundling(properties: WorkshopLambdaFunctionProperties): BundlingOptions {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    getBundling(_properties: WorkshopLambdaFunctionProperties): BundlingOptions {
         return {
             // Node.js Lambda functions typically don't need special bundling options
             // The source code is already in the correct format
