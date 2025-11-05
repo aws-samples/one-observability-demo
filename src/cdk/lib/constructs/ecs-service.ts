@@ -35,6 +35,29 @@ import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
 import { CloudWatchAgentTraceMode } from '../../bin/constants';
 
+/**
+ * CloudWatch agent configuration interface
+ * Defines the structure for CloudWatch agent configuration JSON
+ */
+interface CloudWatchAgentConfig {
+    /** Trace collection configuration */
+    traces: {
+        traces_collected: {
+            /** AWS Application Signals trace collection configuration */
+            application_signals?: Record<string, unknown>;
+            /** OpenTelemetry Protocol (OTLP) trace collection configuration */
+            otlp?: Record<string, unknown>;
+        };
+    };
+    /** Log and metrics collection configuration */
+    logs: {
+        metrics_collected: {
+            /** AWS Application Signals metrics collection configuration */
+            application_signals?: Record<string, unknown>;
+        };
+    };
+}
+
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
@@ -626,8 +649,8 @@ export abstract class EcsService extends Microservice {
      * @param traceMode The trace collection mode to configure
      * @returns CloudWatch agent configuration object
      */
-    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): any {
-        const config: any = {
+    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): CloudWatchAgentConfig {
+        const config: CloudWatchAgentConfig = {
             traces: {
                 traces_collected: {},
             },
