@@ -84,6 +84,34 @@ impl EventEmitter {
         self.emit_with_retry(payload).await
     }
 
+    /// Emit a stock purchase event to EventBridge with retry logic
+    #[instrument(
+        skip(self, event),
+        fields(
+            event_type = %event.event_type,
+            order_id = %event.order_id,
+            user_id = %event.user_id,
+            item_count = event.items.len(),
+            event_bus = %self.config.event_bus_name,
+            source = %self.config.source_name,
+            span.kind = "client"
+        )
+    )]
+    pub async fn emit_stock_purchase_event(
+        &self,
+        event: crate::models::StockPurchaseEvent,
+    ) -> Result<(), EventEmitterError> {
+        if !self.config.enabled {
+            warn!("Event emission is disabled, skipping event");
+            return Err(EventEmitterError::Disabled);
+        }
+
+        let payload: EventPayload = event.into();
+
+        // Emit with retry logic
+        self.emit_with_retry(payload).await
+    }
+
     /// Emit event with exponential backoff retry logic
     async fn emit_with_retry(&self, payload: EventPayload) -> Result<(), EventEmitterError> {
         let mut attempts = 0;
@@ -94,7 +122,7 @@ impl EventEmitter {
                 Ok(_) => {
                     info!(
                         event_type = %payload.detail_type,
-                        food_id = %payload.detail.food_id,
+                        resource_count = payload.resources.len(),
                         attempt = attempts + 1,
                         "Event successfully emitted to EventBridge"
                     );
@@ -106,7 +134,7 @@ impl EventEmitter {
                     if attempts >= max_attempts {
                         error!(
                             event_type = %payload.detail_type,
-                            food_id = %payload.detail.food_id,
+                            resource_count = payload.resources.len(),
                             attempts = attempts,
                             error = %e,
                             "Failed to emit event after maximum retry attempts"
@@ -117,7 +145,7 @@ impl EventEmitter {
                     let delay = Duration::from_millis(100 * 2_u64.pow(attempts - 1));
                     warn!(
                         event_type = %payload.detail_type,
-                        food_id = %payload.detail.food_id,
+                        resource_count = payload.resources.len(),
                         attempt = attempts,
                         delay_ms = delay.as_millis(),
                         error = %e,
@@ -194,7 +222,7 @@ impl EventEmitter {
         fields(
             event_source = %payload.source,
             event_type = %payload.detail_type,
-            food_id = %payload.detail.food_id
+            resource_count = payload.resources.len()
         )
     )]
     async fn send_to_eventbridge(&self, payload: &EventPayload) -> Result<(), EventEmitterError> {

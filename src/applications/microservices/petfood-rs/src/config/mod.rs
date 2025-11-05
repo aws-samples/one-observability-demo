@@ -102,7 +102,7 @@ pub struct ObservabilityConfig {
 pub struct EventsConfig {
     #[serde(default = "default_events_enabled")]
     pub enabled: bool,
-    #[serde(default = "default_event_bus_name")]
+    #[serde(default)]
     pub event_bus_name: String,
     #[serde(default = "default_source_name")]
     pub source_name: String,
@@ -133,7 +133,7 @@ impl Config {
         let server = ServerConfig::from_env()?;
         let mut database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
-        let events = EventsConfig::from_env()?;
+        let mut events = EventsConfig::from_env()?;
 
         // Initialize AWS configuration with timeout and retry settings
         println!(
@@ -210,6 +210,19 @@ impl Config {
         println!(
             "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
             database.foods_table_name, database.carts_table_name, database.images_cdn_url
+        );
+
+        // Resolve event bus name through ssm
+        events.event_bus_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.param_prefix,
+                "PETFOOD_EVENT_BUS_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        println!(
+            "events configuration resolved: event_bus={}",
+            events.event_bus_name
         );
 
         let aws = AwsConfig {
@@ -611,10 +624,6 @@ pub(crate) fn default_events_enabled() -> bool {
     std::env::var("PETFOOD_EVENTS_ENABLED")
         .map(|v| v.to_lowercase() == "true")
         .unwrap_or(true)
-}
-
-pub(crate) fn default_event_bus_name() -> String {
-    "default".to_string()
 }
 
 pub(crate) fn default_source_name() -> String {

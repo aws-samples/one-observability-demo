@@ -4,14 +4,16 @@ use tracing::{info, instrument, warn};
 
 use crate::models::{
     AddCartItemRequest, Cart, CartItem, CartItemResponse, CartResponse, ServiceError,
-    ServiceResult, UpdateCartItemRequest,
+    ServiceResult, StockPurchaseEvent, StockPurchaseItem, UpdateCartItemRequest,
 };
 use crate::repositories::{CartRepository, FoodRepository};
+use crate::services::EventEmitter;
 
 /// Service for managing shopping carts
 pub struct CartService {
     cart_repository: Arc<dyn CartRepository>,
     food_repository: Arc<dyn FoodRepository>,
+    event_emitter: Arc<EventEmitter>,
     assets_cdn_url: String,
 }
 
@@ -20,11 +22,13 @@ impl CartService {
     pub fn new(
         cart_repository: Arc<dyn CartRepository>,
         food_repository: Arc<dyn FoodRepository>,
+        event_emitter: Arc<EventEmitter>,
         assets_cdn_url: String,
     ) -> Self {
         Self {
             cart_repository,
             food_repository,
+            event_emitter,
             assets_cdn_url,
         }
     }
@@ -535,6 +539,7 @@ impl CartService {
 
             // Check stock availability
             if food.stock_quantity < cart_item.quantity {
+                //TODO: emit event to replenish stock
                 return Err(ServiceError::InsufficientStock {
                     requested: cart_item.quantity,
                     available: food.stock_quantity,
@@ -581,6 +586,20 @@ impl CartService {
         // Calculate estimated delivery (3-5 business days)
         let estimated_delivery = Some(chrono::Utc::now() + chrono::Duration::days(4));
 
+        // Create stock purchase items for the event (before moving order_items)
+        let stock_purchase_items: Vec<StockPurchaseItem> = order_items
+            .iter()
+            .map(|order_item| {
+                StockPurchaseItem {
+                    food_id: order_item.food_id.clone(),
+                    food_name: order_item.food_name.clone(),
+                    quantity: order_item.quantity as i32, // Convert u32 to i32
+                    unit_price: order_item.unit_price,
+                    total_price: order_item.total_price,
+                }
+            })
+            .collect();
+
         // Create checkout response
         let checkout_response = CheckoutResponse {
             order_id: order_id.clone(),
@@ -596,6 +615,35 @@ impl CartService {
             estimated_delivery,
         };
 
+        // Emit stock purchase event for async stock processing
+        let span_context = crate::services::EventEmitter::extract_span_context();
+        let stock_event = StockPurchaseEvent::stock_purchased(
+            order_id.clone(),
+            user_id.to_string(),
+            stock_purchase_items,
+            total_amount,
+            span_context,
+        );
+
+        // Emit the event (don't fail checkout if event emission fails)
+        if let Err(e) = self
+            .event_emitter
+            .emit_stock_purchase_event(stock_event)
+            .await
+        {
+            warn!(
+                order_id = %order_id,
+                error = %e,
+                "Failed to emit stock purchase event, but checkout completed successfully"
+            );
+        } else {
+            info!(
+                order_id = %order_id,
+                item_count = cart.items.len(),
+                "Stock purchase event emitted successfully"
+            );
+        }
+
         // Clear the cart after successful checkout
         let mut empty_cart = cart.clone();
         empty_cart.clear();
@@ -609,11 +657,27 @@ impl CartService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CreateFoodRequest, Food, FoodType, PetType, RepositoryError};
+    use crate::models::{CreateFoodRequest, EventConfig, Food, FoodType, PetType, RepositoryError};
     use crate::repositories::{CartRepository, FoodRepository};
+    use crate::services::EventEmitter;
     use async_trait::async_trait;
     use mockall::mock;
     use rust_decimal_macros::dec;
+
+    // Helper function to create a mock event emitter for tests
+    fn create_mock_event_emitter() -> Arc<EventEmitter> {
+        let config = aws_sdk_eventbridge::Config::builder()
+            .region(aws_sdk_eventbridge::config::Region::new("us-east-1"))
+            .build();
+        let client = aws_sdk_eventbridge::Client::from_conf(config);
+
+        let event_config = EventConfig {
+            enabled: false, // Disable for tests
+            ..Default::default()
+        };
+
+        Arc::new(EventEmitter::new(client, event_config).unwrap())
+    }
 
     // Mock repositories for testing
     mock! {
@@ -696,6 +760,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -722,6 +787,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -757,6 +823,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -788,6 +855,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -823,6 +891,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -870,6 +939,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -899,6 +969,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -924,6 +995,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -952,6 +1024,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -983,6 +1056,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -1001,6 +1075,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "https://test-cdn.example.com".to_string(),
         );
 
@@ -1048,6 +1123,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             cdn_url.to_string(),
         );
 
@@ -1085,6 +1161,7 @@ mod tests {
         let service = CartService::new(
             Arc::new(mock_cart_repo),
             Arc::new(mock_food_repo),
+            create_mock_event_emitter(),
             "".to_string(), // Empty CDN URL
         );
 

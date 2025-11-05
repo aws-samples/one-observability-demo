@@ -20,6 +20,23 @@ export enum ContainerArchitecture {
     AMD64,
 }
 
+/**
+ * Defines the CloudWatch agent trace collection mode
+ */
+export enum CloudWatchAgentTraceMode {
+    /**
+     * Use AWS Application Signals for trace collection
+     * Provides automatic service maps and metrics
+     */
+    APPLICATION_SIGNALS = 'application_signals',
+
+    /**
+     * Use OpenTelemetry Protocol (OTLP) for trace collection
+     * For services using OTEL that don't support Application Signals
+     */
+    OTLP = 'otlp',
+}
+
 // VPC Export Names
 export const VPC_ID_EXPORT_NAME = 'public:WorkshopVPC';
 export const VPC_CIDR_EXPORT_NAME = 'public:WorkshopVPCCidr';
@@ -161,6 +178,9 @@ export const SSM_PARAMETER_NAMES = {
 
     // SQS Queue
     SQS_QUEUE_URL: 'queueurl',
+
+    // event bridge
+    EVENT_BUS_NAME: 'eventbusname',
 
     // PetFood Agent parameters
     PETFOOD_AGENT_RUNTIME_ARN_NAME: 'petfoodagent-runtime-arn',

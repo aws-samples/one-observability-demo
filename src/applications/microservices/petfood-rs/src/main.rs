@@ -20,11 +20,7 @@ use petfood_rs::{
     shutdown_observability, Config,
 };
 
-fn create_food_service(
-    config: Config,
-    food_repository: Arc<DynamoDbFoodRepository>,
-) -> Arc<FoodService> {
-    // Initialize event emitter if enabled
+fn create_event_emitter(config: &Config) -> Option<Arc<EventEmitter>> {
     if config.events.enabled {
         let event_config = EventConfig {
             event_bus_name: config.events.event_bus_name.clone(),
@@ -42,23 +38,47 @@ fn create_food_service(
                     "Events bus_name={}, source_name={}",
                     config.events.event_bus_name, config.events.source_name
                 );
-                Arc::new(FoodService::new_with_event_emitter(
-                    food_repository.clone(),
-                    Arc::new(event_emitter),
-                ))
+                Some(Arc::new(event_emitter))
             }
             Err(e) => {
                 warn!(
                     "Failed to initialize event emitter: {}, continuing without events",
                     e
                 );
-                Arc::new(FoodService::new(food_repository.clone()))
+                None
             }
         }
     } else {
         info!("Event emission disabled");
-        Arc::new(FoodService::new(food_repository.clone()))
+        None
     }
+}
+
+fn create_food_service(
+    food_repository: Arc<DynamoDbFoodRepository>,
+    event_emitter: Option<Arc<EventEmitter>>,
+) -> Arc<FoodService> {
+    match event_emitter {
+        Some(emitter) => Arc::new(FoodService::new_with_event_emitter(
+            food_repository.clone(),
+            emitter,
+        )),
+        None => Arc::new(FoodService::new(food_repository.clone())),
+    }
+}
+
+fn create_cart_service(
+    cart_repository: Arc<DynamoDbCartRepository>,
+    food_repository: Arc<DynamoDbFoodRepository>,
+    event_emitter: Arc<EventEmitter>,
+    assets_cdn_url: String,
+) -> Arc<CartService> {
+    Arc::new(CartService::new(
+        cart_repository,
+        food_repository,
+        event_emitter,
+        assets_cdn_url,
+    ))
 }
 
 #[tokio::main]
@@ -111,14 +131,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     info!("Repositories initialized successfully");
 
-    // Configure services
-    let food_service = create_food_service(config.clone(), food_repository.clone());
+    // Initialize event emitter
+    let event_emitter = create_event_emitter(&config);
 
-    let cart_service = Arc::new(CartService::new(
+    // Create a default event emitter if none exists (for services that require it)
+    let default_event_emitter = match &event_emitter {
+        Some(emitter) => emitter.clone(),
+        None => {
+            let dummy_config = EventConfig {
+                enabled: false,
+                ..Default::default()
+            };
+            Arc::new(
+                EventEmitter::new(config.aws.eventbridge_client.clone(), dummy_config)
+                    .expect("Failed to create default event emitter"),
+            )
+        }
+    };
+
+    // Configure services
+    let food_service = create_food_service(food_repository.clone(), event_emitter.clone());
+    let cart_service = create_cart_service(
         cart_repository,
         food_repository,
+        default_event_emitter,
         config.database.images_cdn_url.clone(),
-    ));
+    );
     info!("Services initialized successfully");
 
     // Build the application router

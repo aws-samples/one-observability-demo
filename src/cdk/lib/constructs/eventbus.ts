@@ -5,7 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import { EventBus, IEventBus } from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
-import { EVENTBUS_ARN_EXPORT_NAME, EVENTBUS_NAME_EXPORT_NAME } from '../../bin/constants';
+import { EVENTBUS_ARN_EXPORT_NAME, EVENTBUS_NAME_EXPORT_NAME, SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
 /**
  * Properties for configuring EventBusResources construct
@@ -52,6 +54,9 @@ export class EventBusResources extends Construct {
 
         // Create CloudFormation outputs for EventBus resources
         this.createEventBusOutputs();
+
+        // Create SSM parameters for queue resources
+        this.createSsmParameters();
     }
 
     /**
@@ -82,5 +87,24 @@ export class EventBusResources extends Construct {
             exportName: EVENTBUS_NAME_EXPORT_NAME,
             description: 'Name of the EventBridge event bus',
         });
+    }
+
+    /**
+     * Creates SSM parameters for event bus
+     */
+    private createSsmParameters(): void {
+        if (this.eventBus) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(
+                    Object.entries({
+                        [SSM_PARAMETER_NAMES.EVENT_BUS_NAME]: this.eventBus.eventBusName,
+                    }),
+                ),
+            );
+        } else {
+            throw new Error('Queue is not available');
+        }
     }
 }
