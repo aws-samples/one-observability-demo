@@ -3,20 +3,21 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import { RemovalPolicy, Stack, CfnOutput, Fn, Duration } from 'aws-cdk-lib';
-import { Bucket, IBucket } from 'aws-cdk-lib/aws-s3';
+import { Bucket, IBucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import {
     Distribution,
-    OriginAccessIdentity,
     ViewerProtocolPolicy,
     CachePolicy,
     PriceClass,
+    S3OriginAccessControl,
+    Signing,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import {
     ASSETS_BUCKET_NAME_EXPORT_NAME,
     ASSETS_BUCKET_ARN_EXPORT_NAME,
@@ -145,10 +146,10 @@ export class WorkshopAssets extends Construct {
      */
     private createCloudFrontDistribution(properties?: AssetsProperties): void {
         // Create Origin Access Identity for secure S3 access
-        const originAccessIdentity = new OriginAccessIdentity(this, 'AssetsOAI', {
-            comment: 'OAI for Pet Store Assets',
-        });
 
+        const originAccesControl = new S3OriginAccessControl(this, 'AssetsBucketOAC', {
+            signing: Signing.SIGV4_ALWAYS,
+        });
         /** A log group will be created, but is not associated with the Cloudfront
          * distribution. This configuration must be done in the console.
          * https://github.com/aws/aws-cdk/issues/32279
@@ -158,23 +159,41 @@ export class WorkshopAssets extends Construct {
             removalPolicy: RemovalPolicy.DESTROY,
         });
 
-        // Grant read permissions to CloudFront
-        this.bucket.grantRead(originAccessIdentity);
+        const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
+            removalPolicy: RemovalPolicy.RETAIN,
+            enforceSSL: true,
+            objectOwnership: ObjectOwnership.BUCKET_OWNER_PREFERRED,
+            autoDeleteObjects: false, // TODO: Autodelete is not working for this bucket
+            lifecycleRules: [
+                {
+                    enabled: true,
+                    expiration: Duration.days(DEFAULT_RETENTION_DAYS),
+                    id: 'ExpireAfterOneWeek',
+                },
+            ],
+        });
+
+        const origin = S3BucketOrigin.withOriginAccessControl(this.bucket, {
+            originAccessControl: originAccesControl,
+            customHeaders: {
+                'X-Custom-Header': 'petsite-asset-validation-string',
+            },
+        });
 
         // Create CloudFront distribution
         this.distribution = new Distribution(this, 'AssetsDistribution', {
             defaultBehavior: {
-                origin: S3BucketOrigin.withOriginAccessIdentity(this.bucket, {
-                    originAccessIdentity: originAccessIdentity,
-                }),
+                origin: origin,
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cachePolicy: CachePolicy.CACHING_OPTIMIZED,
                 compress: true,
             },
             comment: 'Pet Store Assets CDN',
-            enableIpv6: true,
+            enableIpv6: false,
             priceClass: PriceClass.PRICE_CLASS_ALL,
             webAclId: properties?.globalWebACLArn,
+            enableLogging: true,
+            logBucket: cloudfrontAccessBucket,
         });
 
         // Add CDK-nag suppressions for CloudFront
@@ -200,6 +219,21 @@ export class WorkshopAssets extends Construct {
                 reason: 'Using OAC instead of OAI is acceptable for this workshop',
             },
         ]);
+
+        NagSuppressions.addResourceSuppressions(
+            cloudfrontAccessBucket,
+            [
+                {
+                    id: 'AwsSolutions-S1',
+                    reason: 'Cloudfront access log bucket',
+                },
+                {
+                    id: 'Workshop-S3-1',
+                    reason: 'Auto-delete is failing for cloudfront buckets',
+                },
+            ],
+            true,
+        );
     }
 
     /**
