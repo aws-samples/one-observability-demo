@@ -162,6 +162,9 @@ export const SSM_PARAMETER_NAMES = {
     // SQS Queue
     SQS_QUEUE_URL: 'queueurl',
 
+    // event bridge
+    EVENT_BUS_NAME: 'eventbusname',
+
     // PetFood Agent parameters
     PETFOOD_AGENT_RUNTIME_ARN_NAME: 'petfoodagent-runtime-arn',
 } as const;

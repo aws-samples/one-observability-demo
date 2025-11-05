@@ -133,7 +133,7 @@ impl Config {
         let server = ServerConfig::from_env()?;
         let mut database = DatabaseConfig::from_env()?;
         let observability = ObservabilityConfig::from_env()?;
-        let events = EventsConfig::from_env()?;
+        let mut events = EventsConfig::from_env()?;
 
         // Initialize AWS configuration with timeout and retry settings
         println!(
@@ -211,6 +211,16 @@ impl Config {
             "Database configuration resolved: foods_table={}, carts_table={}, assets_cdn_url={}",
             database.foods_table_name, database.carts_table_name, database.images_cdn_url
         );
+
+        // Resolve event bus name through ssm
+        events.event_bus_name = parameter_store
+            .resolve_parameter_with_prefix(
+                &database.param_prefix,
+                "PETFOOD_EVENT_BUS_NAME", // Env var (value becomes SSM param name)
+            )
+            .await;
+
+        println!("events configuration resolved: event_bus={}", events.event_bus_name);
 
         let aws = AwsConfig {
             region: database.region.clone(),
