@@ -102,7 +102,7 @@ pub struct ObservabilityConfig {
 pub struct EventsConfig {
     #[serde(default = "default_events_enabled")]
     pub enabled: bool,
-    #[serde(default = "default_event_bus_name")]
+    #[serde(default)]
     pub event_bus_name: String,
     #[serde(default = "default_source_name")]
     pub source_name: String,
@@ -621,10 +621,6 @@ pub(crate) fn default_events_enabled() -> bool {
     std::env::var("PETFOOD_EVENTS_ENABLED")
         .map(|v| v.to_lowercase() == "true")
         .unwrap_or(true)
-}
-
-pub(crate) fn default_event_bus_name() -> String {
-    "default".to_string()
 }
 
 pub(crate) fn default_source_name() -> String {
