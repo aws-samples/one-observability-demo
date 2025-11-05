@@ -220,10 +220,7 @@ impl Config {
             )
             .await;
 
-        println!(
-            "events configuration resolved: event_bus={}",
-            events.event_bus_name
-        );
+        println!("events configuration resolved: event_bus={}", events.event_bus_name);
 
         let aws = AwsConfig {
             region: database.region.clone(),
