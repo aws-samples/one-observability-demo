@@ -33,6 +33,7 @@ import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
+import { CloudWatchAgentTraceMode } from '../../bin/constants';
 
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
@@ -63,6 +64,11 @@ export interface EcsServiceProperties extends MicroserviceProperties {
      * When enabled, adds a CloudWatch agent container that listens on port 4317
      */
     enableCloudWatchAgent?: boolean;
+    /**
+     * CloudWatch agent trace collection mode
+     * @default CloudWatchAgentTraceMode.APPLICATION_SIGNALS
+     */
+    cloudWatchAgentTraceMode?: CloudWatchAgentTraceMode;
 }
 
 export abstract class EcsService extends Microservice {
@@ -203,8 +209,9 @@ export abstract class EcsService extends Microservice {
             // Add ADOT init container based on service language
             this.addAdotInitContainer(taskDefinition, container, properties.name);
 
-            // Add CloudWatch agent sidecar
-            this.addCloudWatchAgentSidecar(taskDefinition);
+            // Add CloudWatch agent sidecar with specified trace mode
+            const traceMode = properties.cloudWatchAgentTraceMode || CloudWatchAgentTraceMode.APPLICATION_SIGNALS;
+            this.addCloudWatchAgentSidecar(taskDefinition, traceMode);
         }
 
         if (!properties.disableService) {
@@ -614,20 +621,57 @@ export abstract class EcsService extends Microservice {
         });
     }
 
-    private addCloudWatchAgentSidecar(taskDefinition: TaskDefinition): void {
-        // CloudWatch agent configuration for Application Signals
-        const cloudWatchConfig = {
+    /**
+     * Build CloudWatch agent configuration based on the specified trace mode
+     * @param traceMode The trace collection mode to configure
+     * @returns CloudWatch agent configuration object
+     */
+    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): any {
+        const config: any = {
             traces: {
-                traces_collected: {
-                    application_signals: {},
-                },
+                traces_collected: {},
             },
             logs: {
-                metrics_collected: {
-                    application_signals: {},
-                },
+                metrics_collected: {},
             },
         };
+
+        switch (traceMode) {
+            case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
+                // AWS Application Signals configuration - provides automatic service maps and metrics
+                config.traces.traces_collected.application_signals = {};
+                config.logs.metrics_collected.application_signals = {};
+                break;
+            }
+
+            case CloudWatchAgentTraceMode.OTLP: {
+                // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
+                config.traces.traces_collected.otlp = {};
+                // Note: OTLP mode doesn't include Application Signals metrics collection
+                break;
+            }
+
+            default: {
+                // Default to Application Signals for backward compatibility
+                config.traces.traces_collected.application_signals = {};
+                config.logs.metrics_collected.application_signals = {};
+            }
+        }
+
+        return config;
+    }
+
+    /**
+     * Add CloudWatch agent sidecar container to the task definition
+     * @param taskDefinition The ECS task definition to add the sidecar to
+     * @param traceMode The trace collection mode (defaults to 'application_signals' for backward compatibility)
+     */
+    private addCloudWatchAgentSidecar(
+        taskDefinition: TaskDefinition,
+        traceMode: CloudWatchAgentTraceMode = CloudWatchAgentTraceMode.APPLICATION_SIGNALS,
+    ): void {
+        // Build CloudWatch agent configuration based on trace mode
+        const cloudWatchConfig = this.buildCloudWatchConfig(traceMode);
 
         // Add CloudWatch agent container
         taskDefinition.addContainer('cloudwatch-agent', {

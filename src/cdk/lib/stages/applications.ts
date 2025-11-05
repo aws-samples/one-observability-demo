@@ -16,6 +16,7 @@ import {
     HostType,
     PARAMETER_STORE_PREFIX,
 } from '../../bin/environment';
+import { CloudWatchAgentTraceMode } from '../../bin/constants';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
 import { DynamoDatabase } from '../constructs/dynamodb';
@@ -327,6 +328,7 @@ export class MicroservicesStack extends Stack {
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
                         enableCloudWatchAgent: true,
+                        cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         // Use pipeline if available, otherwise fall back to direct collection access
                         ...(imports.ecsExports.openSearchPipeline
                             ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }

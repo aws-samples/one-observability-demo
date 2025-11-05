@@ -5,11 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import { EventBus, IEventBus } from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
-import {
-    EVENTBUS_ARN_EXPORT_NAME,
-    EVENTBUS_NAME_EXPORT_NAME,
-    SSM_PARAMETER_NAMES,
-} from '../../bin/constants';
+import { EVENTBUS_ARN_EXPORT_NAME, EVENTBUS_NAME_EXPORT_NAME, SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 
@@ -93,7 +89,7 @@ export class EventBusResources extends Construct {
         });
     }
 
-     /**
+    /**
      * Creates SSM parameters for queue resources
      */
     private createSsmParameters(): void {
