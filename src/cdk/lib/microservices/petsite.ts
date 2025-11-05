@@ -99,6 +99,9 @@ export class PetSite extends EKSDeployment {
             defaultBehavior: {
                 origin: new LoadBalancerV2Origin(this.loadBalancer, {
                     protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
+                    customHeaders: {
+                        'X-Custom-Header': 'petsite-asset-validation-string',
+                    },
                 }),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
@@ -112,11 +115,11 @@ export class PetSite extends EKSDeployment {
             errorResponses: [
                 {
                     httpStatus: 404,
-                    ttl: Duration.minutes(5),
+                    ttl: Duration.minutes(1),
                 },
                 {
                     httpStatus: 403,
-                    ttl: Duration.minutes(5),
+                    ttl: Duration.minutes(1),
                 },
             ],
             enableIpv6: false,
