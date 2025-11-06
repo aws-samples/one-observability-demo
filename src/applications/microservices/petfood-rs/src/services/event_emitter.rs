@@ -250,7 +250,10 @@ impl EventEmitter {
         let put_events_span = self.create_eventbridge_span("PutEvents");
 
         let response = async {
-            info!("Sending event to EventBridge bus: {}", self.config.event_bus_name);
+            info!(
+                "Sending event to EventBridge bus: {}",
+                self.config.event_bus_name
+            );
             let result = self.client.put_events().entries(entry).send().await;
 
             // Record additional span attributes based on response
