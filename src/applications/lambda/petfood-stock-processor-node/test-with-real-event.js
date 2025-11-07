@@ -57,9 +57,7 @@ jest.doMock('@aws-sdk/lib-dynamodb', () => ({
     },
 }));
 
-jest.doMock('aws-xray-sdk-core', () => ({
-    captureAWSv3Client: jest.fn((client) => client),
-}));
+// No X-Ray SDK mocking needed - using Application Signals auto-instrumentation
 
 // Set environment variables
 process.env.FOODS_TABLE_NAME = 'test-foods-table';

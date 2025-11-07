@@ -20,7 +20,6 @@
     "author": "",
     "license": "Apache-2.0",
     "dependencies": {
-        "aws-xray-sdk-core": "^3.10.3",
         "@aws-sdk/client-dynamodb": "^3.0.0",
         "@aws-sdk/lib-dynamodb": "^3.0.0"
     },

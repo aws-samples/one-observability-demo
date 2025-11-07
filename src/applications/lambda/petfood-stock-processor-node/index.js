@@ -2,13 +2,10 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
-
-const AWSXRay = require('aws-xray-sdk-core');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 
-// Instrument AWS SDK with X-Ray
-const client = AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
+const client = new DynamoDBClient({});
 const documentClient = DynamoDBDocumentClient.from(client);
 
 /**

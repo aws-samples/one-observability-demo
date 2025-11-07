@@ -8,9 +8,12 @@ This Lambda function is triggered by EventBridge events when customers purchase 
 
 ## Dependencies
 
-- **aws-xray-sdk-core**: AWS X-Ray tracing integration
 - **@aws-sdk/client-dynamodb**: AWS SDK v3 DynamoDB client
 - **@aws-sdk/lib-dynamodb**: AWS SDK v3 DynamoDB document client
+
+## Observability
+
+This Lambda function uses **AWS Application Signals auto-instrumentation** for tracing and monitoring. No manual X-Ray SDK integration is required - Application Signals automatically instruments the AWS SDK calls and provides distributed tracing.
 
 ## Environment Variables
 
@@ -50,7 +53,7 @@ The function expects EventBridge events with the following structure:
 - **Event Processing**: Handles both direct EventBridge events and SQS-wrapped events
 - **Stock Management**: Decreases inventory quantities with validation
 - **Error Handling**: Comprehensive error handling with context logging
-- **Observability**: AWS X-Ray tracing and structured logging
+- **Observability**: Application Signals auto-instrumentation for distributed tracing
 - **Monitoring**: Custom alerts for out-of-stock and low-stock conditions
 - **Race Condition Protection**: Uses conditional updates to prevent race conditions
 
