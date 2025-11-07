@@ -132,7 +132,7 @@ export class PetfoodStockProcessorFunction extends WokshopLambdaFunction {
     getBundling(_properties: WorkshopLambdaFunctionProperties): BundlingOptions {
         return {
             externalModules: [],
-            nodeModules: ['aws-xray-sdk-core', '@aws-sdk/client-dynamodb', '@aws-sdk/lib-dynamodb'],
+            nodeModules: ['@aws-sdk/client-dynamodb', '@aws-sdk/lib-dynamodb'],
         };
     }
 }
