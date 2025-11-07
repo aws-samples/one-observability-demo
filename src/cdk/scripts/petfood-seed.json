@@ -8,7 +8,7 @@
     "food_type": "wet",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 25,
+    "stock_quantity": 10000,
     "description": "A fresh mix of vegetables perfect for bunny nutrition.",
     "image": "petfood/fresh-veggie-mix.jpg",
     "ingredients": [
@@ -36,7 +36,7 @@
     "food_type": "dry",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 50,
+    "stock_quantity": 10000,
     "description": "A nutritious blend of beef and turkey, specially formulated for growing puppies.",
     "image": "petfood/beef-and-turkey-kibbles.jpg",
     "ingredients": [
@@ -64,7 +64,7 @@
     "food_type": "dry",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 45,
+    "stock_quantity": 10000,
     "description": "Crunchy carrot and herb treats, specially designed for bunnies.",
     "image": "petfood/carrot-and-herb-crunchies.jpg",
     "ingredients": [
@@ -92,7 +92,7 @@
     "food_type": "treats",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 80,
+    "stock_quantity": 10000,
     "description": "Irresistible catnip-infused treats that kittens love.",
     "image": "petfood/catnip-kitten-treats.jpg",
     "ingredients": [
@@ -119,7 +119,7 @@
     "food_type": "wet",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 30,
+    "stock_quantity": 10000,
     "description": "Tender raw chicken bites, ideal for puppies who love a meaty treat.",
     "image": "petfood/raw-chicken-bites.jpg",
     "ingredients": [
@@ -146,7 +146,7 @@
     "food_type": "wet",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 40,
+    "stock_quantity": 10000,
     "description": "A delectable mix of salmon and tuna, perfect for kittens.",
     "image": "petfood/salmon-and-tuna-delight.jpg",
     "ingredients": [
@@ -174,7 +174,7 @@
     "food_type": "treats",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 75,
+    "stock_quantity": 10000,
     "description": "Small, soft treats perfect for training sessions with puppies.",
     "image": "petfood/puppy-training-treats.jpg",
     "ingredients": [
@@ -201,7 +201,7 @@
     "food_type": "dry",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 35,
+    "stock_quantity": 10000,
     "description": "High-fiber timothy hay pellets essential for bunny digestive health.",
     "image": "petfood/timothy-hay-pellets.jpg",
     "ingredients": [
@@ -229,7 +229,7 @@
     "food_type": "dry",
     "availability_status": "in_stock",
     "is_active": true,
-    "stock_quantity": 60,
+    "stock_quantity": 10000,
     "description": "High-protein dry food specially formulated for kitten growth and development.",
     "image": "petfood/kitten-growth-formula.jpg",
     "ingredients": [
