@@ -7,7 +7,6 @@ package payforadoption
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -93,11 +92,6 @@ type cleanupAdoptionsRequest struct {
 	UserID string `json:"userid"`
 }
 
-var (
-	ErrNotFound   = errors.New("not found")
-	ErrBadRequest = errors.New("Bad request parameters")
-)
-
 func decodeEmptyRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return nil, nil
 }
@@ -155,6 +149,12 @@ func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 }
 
 func codeFrom(err error) int {
+	// Check if error implements HTTPStatusCode method
+	if svcErr, ok := err.(ServiceError); ok {
+		return svcErr.HTTPStatusCode()
+	}
+
+	// Legacy error handling for backward compatibility
 	switch err {
 	case ErrNotFound:
 		return http.StatusNotFound

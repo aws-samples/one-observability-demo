@@ -84,7 +84,7 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 	if err != nil {
 		span.RecordError(err)
 		ErrorWithTrace(ctx, r.logger, "error", "failed to create transaction", "err", err)
-		return err
+		return NewInternalError("failed to create transaction in database", err)
 	}
 
 	InfoWithTrace(ctx, r.logger,
@@ -115,7 +115,7 @@ func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 	messageBody, err := json.Marshal(historyMessage)
 	if err != nil {
 		ErrorWithTrace(ctx, r.logger, "error", "failed to marshal history message", "err", err)
-		return err
+		return NewInternalError("failed to marshal history message", err)
 	}
 
 	// Send message to SQS
@@ -141,7 +141,7 @@ func (r *repo) SendHistoryMessage(ctx context.Context, a Adoption) error {
 	result, err := sqsClient.SendMessage(ctx, input)
 	if err != nil {
 		ErrorWithTrace(ctx, r.logger, "error", "failed to send history message to SQS", "err", err, "queueUrl", r.cfg.SQSQueueURL)
-		return err
+		return NewServiceUnavailableError("failed to send history message to SQS", err)
 	}
 
 	InfoWithTrace(ctx, r.logger,
@@ -166,7 +166,7 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 	if err != nil {
 		span.RecordError(err)
 		ErrorWithTrace(ctx, r.logger, "error", "failed to delete all transactions", "err", err)
-		return err
+		return NewInternalError("failed to delete transactions from database", err)
 	}
 
 	rowsAffected, _ := result.RowsAffected()
@@ -264,11 +264,12 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 	if err != nil {
 		ErrorWithTrace(ctx, logger, "err", err)
 		span.RecordError(err)
-		return err
+		return NewServiceUnavailableError("pet search service unavailable", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Petid: %s - Pettype: %s, not available", a.PetID, a.PetType)
+		err := fmt.Errorf("Petid: %s - Pettype: %s, not available", a.PetID, a.PetType)
+		return NewBadRequestError("pet not available", err)
 	}
 
 	defer resp.Body.Close()
@@ -276,28 +277,29 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 	if err != nil {
 		ErrorWithTrace(ctx, logger, "err", err)
 		span.RecordError(err)
-		return err
+		return NewInternalError("failed to read pet validation response", err)
 	}
 
 	sb := string(body)
 	LogWithTrace(ctx, logger, "response_body", sb)
 
-	// parse into slice of Pet, if slice is empty, return error - petid/pettype not found, if len = 1 return nil to indicate no error
 	var pets []Pet
 	if err := json.Unmarshal(body, &pets); err != nil {
 		ErrorWithTrace(ctx, logger, "err", err)
 		span.RecordError(err)
-		return fmt.Errorf("failed to parse pet validation response: %w", err)
+		return NewInternalError("failed to parse pet validation response", err)
 	}
 
 	if len(pets) == 0 {
-		return fmt.Errorf("pet not found: petId=%s, petType=%s", a.PetID, a.PetType)
+		err := fmt.Errorf("pet not found: petId=%s, petType=%s", a.PetID, a.PetType)
+		return NewNotFoundError("pet not found", err)
 	}
 
 	// Check if pet is available for adoption
 	pet := pets[0]
 	if pet.Availability != "yes" {
-		return fmt.Errorf("pet not available for adoption: petId=%s, availability=%s", a.PetID, pet.Availability)
+		err := fmt.Errorf("pet not available for adoption: petId=%s, availability=%s", a.PetID, pet.Availability)
+		return NewBadRequestError("pet not available for adoption", err)
 	}
 
 	return nil
