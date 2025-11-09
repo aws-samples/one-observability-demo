@@ -258,6 +258,8 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 
 	params := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
 	req, _ := sling.New().Get(r.cfg.PetSearchURL).QueryStruct(params).Request()
+
+	InfoWithTrace(ctx, logger, "url", req.URL.String())
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		ErrorWithTrace(ctx, logger, "err", err)

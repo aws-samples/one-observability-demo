@@ -84,9 +84,9 @@ type errorer interface {
 }
 
 type completeAdoptionRequest struct {
-	PetId   string `json:"petid"`
-	PetType string `json:"pettype"`
-	UserID  string `json:"userid"`
+	PetId   string `json:"petid" url:"petid"`
+	PetType string `json:"pettype" url:"pettype"`
+	UserID  string `json:"userid" url:"userid"`
 }
 
 type cleanupAdoptionsRequest struct {
