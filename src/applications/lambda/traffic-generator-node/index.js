@@ -104,7 +104,9 @@ exports.handler = async (event) => {
  * @returns {Promise<{userId: string, success: boolean, message?: string}>}
  */
 async function simulateUserJourney(petsiteBaseUrl, userIndex) {
-    const userId = `user${String(userIndex).padStart(5, '0')}`;
+    // Generate random userId between user30000 and user40000
+    const randomUserId = Math.floor(Math.random() * (40000 - 30000 + 1)) + 30000;
+    const userId = `user${String(randomUserId).padStart(5, '0')}`;
     const petId = `00${Math.floor(Math.random() * 10)}`;
     const petType = ['puppy', 'kitten', 'bunny'][Math.floor(Math.random() * 3)];
     const petColor = ['brown', 'black', 'white'][Math.floor(Math.random() * 3)];
@@ -126,10 +128,10 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
     let failedRequests = 0;
 
     // Helper function to make request and track results
-    const makeTrackedRequest = async (url, method, description, data) => {
+    const makeTrackedRequest = async (url, method, description, data, contentType = 'json') => {
         try {
             console.log(`Making ${method} request to ${url} for ${userId}...`);
-            const result = await makeHttpRequest(url, method, description, data);
+            const result = await makeHttpRequest(url, method, description, data, contentType);
             requests.push({ url, method, statusCode: result.statusCode, duration: result.duration });
             return result;
         } catch (error) {
@@ -144,9 +146,10 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
     };
 
     try {
-        // 1. Homepage request - establish session
+        // 1. Homepage request - establish session (include userId to avoid redirect)
         try {
-            await makeTrackedRequest(petsiteBaseUrl, 'GET', `Homepage for ${userId}`);
+            const homepageUrl = `${petsiteBaseUrl}/?userId=${userId}`;
+            await makeTrackedRequest(homepageUrl, 'GET', `Homepage for ${userId}`);
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -186,8 +189,8 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
         // 6. Add food items to cart
         try {
             const addToCartUrl = `${petsiteBaseUrl}/FoodService/AddToCart`;
-            const addToCartData = JSON.stringify({ foodId: randomFoodId, userId: userId });
-            await makeTrackedRequest(addToCartUrl, 'POST', `Add To Cart for ${userId}`, addToCartData);
+            const addToCartData = `foodId=${encodeURIComponent(randomFoodId)}&userId=${encodeURIComponent(userId)}`;
+            await makeTrackedRequest(addToCartUrl, 'POST', `Add To Cart for ${userId}`, addToCartData, 'form');
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -212,8 +215,8 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
         // 9. Add different food items to cart
         try {
             const addToCartUrl2 = `${petsiteBaseUrl}/FoodService/AddToCart`;
-            const addToCartData2 = JSON.stringify({ foodId: randomFoodId, userId: userId });
-            await makeTrackedRequest(addToCartUrl2, 'POST', `Add To Cart (2nd time) for ${userId}`, addToCartData2);
+            const addToCartData2 = `foodId=${encodeURIComponent(randomFoodId)}&userId=${encodeURIComponent(userId)}`;
+            await makeTrackedRequest(addToCartUrl2, 'POST', `Add To Cart (2nd time) for ${userId}`, addToCartData2, 'form');
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -221,8 +224,8 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
         // 10. Clear entire cart (simulate starting over)
         try {
             const clearCartUrl = `${petsiteBaseUrl}/Checkout/ClearCart`;
-            const clearCartData = JSON.stringify({ userId: userId });
-            await makeTrackedRequest(clearCartUrl, 'POST', `Clear Cart for ${userId}`, clearCartData);
+            const clearCartData = `userId=${encodeURIComponent(userId)}`;
+            await makeTrackedRequest(clearCartUrl, 'POST', `Clear Cart for ${userId}`, clearCartData, 'form');
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -230,8 +233,8 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
         // 11. Reorder items (fresh start with new selection)
         try {
             const addToCartUrl3 = `${petsiteBaseUrl}/FoodService/AddToCart`;
-            const addToCartData3 = JSON.stringify({ foodId: randomFoodId, userId: userId });
-            await makeTrackedRequest(addToCartUrl3, 'POST', `Reorder Items for ${userId}`, addToCartData3);
+            const addToCartData3 = `foodId=${encodeURIComponent(randomFoodId)}&userId=${encodeURIComponent(userId)}`;
+            await makeTrackedRequest(addToCartUrl3, 'POST', `Reorder Items for ${userId}`, addToCartData3, 'form');
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -295,15 +298,24 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
 
 /**
  * Makes an HTTP request with proper error handling and timeouts
+ * Follows redirects (302, 303, etc.) to get the final response
  * @param {string} url - The URL to request
  * @param {string} method - The HTTP method (default: GET)
  * @param {string} description - Description for logging
  * @param {string} data - Request body data (for POST requests)
+ * @param {string} contentType - Content type: 'json' or 'form' (default: 'json')
+ * @param {number} redirectCount - Internal counter for redirect following (max 5)
  * @returns {Promise<{statusCode: number, description: string, data: string}>}
  */
-function makeHttpRequest(url, method = 'GET', description = 'Request', data) {
+function makeHttpRequest(url, method = 'GET', description = 'Request', data, contentType = 'json', redirectCount = 0) {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
+        const maxRedirects = 5;
+
+        if (redirectCount > maxRedirects) {
+            reject(new Error(`${description} exceeded maximum redirect limit (${maxRedirects})`));
+            return;
+        }
 
         const headers = {
             'User-Agent': 'CloudWatchSynthetics/TrafficGenerator',
@@ -316,7 +328,11 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data) {
 
         // Add Content-Type and Content-Length for POST requests
         if (method === 'POST' && data) {
-            headers['Content-Type'] = 'application/json';
+            if (contentType === 'form') {
+                headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            } else {
+                headers['Content-Type'] = 'application/json';
+            }
             headers['Content-Length'] = Buffer.byteLength(data);
         }
 
@@ -327,21 +343,48 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data) {
         };
 
         const request = https.request(url, options, (response) => {
-            let data = '';
+            let responseData = '';
             response.on('data', (chunk) => {
-                data += chunk;
+                responseData += chunk;
             });
             response.on('end', () => {
                 const endTime = Date.now();
                 const duration = endTime - startTime;
 
+                // Handle redirects (301, 302, 303, 307, 308)
+                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                    const redirectUrl = response.headers.location;
+                    let newUrl;
+                    
+                    // Handle relative and absolute URLs
+                    if (redirectUrl.startsWith('http://') || redirectUrl.startsWith('https://')) {
+                        newUrl = redirectUrl;
+                    } else if (redirectUrl.startsWith('/')) {
+                        // Absolute path - construct full URL
+                        const urlObj = new URL(url);
+                        newUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
+                    } else {
+                        // Relative path
+                        const urlObj = new URL(url);
+                        const pathParts = urlObj.pathname.split('/').slice(0, -1);
+                        newUrl = `${urlObj.protocol}//${urlObj.host}${pathParts.join('/')}/${redirectUrl}`;
+                    }
+
+                    console.log(`${description} redirecting (${response.statusCode}) to: ${newUrl}`);
+                    // Follow redirect with GET method (POST redirects should use GET)
+                    return makeHttpRequest(newUrl, 'GET', description, null, contentType, redirectCount + 1)
+                        .then(result => resolve(result))
+                        .catch(err => reject(err));
+                }
+
+                // Accept 200-299 (success) as valid responses
                 if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
                     console.log(`${description} completed with status: ${response.statusCode} in ${duration}ms`);
                     resolve({
                         statusCode: response.statusCode,
                         description: description,
                         duration: duration,
-                        data: data.slice(0, 100),
+                        data: responseData.slice(0, 100),
                     });
                 } else {
                     console.error(`${description} failed with status: ${response.statusCode} in ${duration}ms`);
