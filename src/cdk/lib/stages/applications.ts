@@ -185,10 +185,9 @@ export class MicroservicesStack extends Stack {
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
+                        cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         additionalEnvironment: {
                             PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
-                            OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=payforadoption-api-go,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                     });
                 } else {
