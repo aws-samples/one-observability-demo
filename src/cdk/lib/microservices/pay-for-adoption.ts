@@ -34,7 +34,7 @@ export class PayForAdoptionService extends EcsService {
             DYNAMODB_TABLE_PARAMETER_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
             SQS_QUEUE_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SQS_QUEUE_URL,
             AWS_REGION: Stack.of(scope).region,
-            OTEL_EXPORTER_OTLP_ENDPOINT: 'localhost:4315',
+            OTEL_EXPORTER_OTLP_ENDPOINT: 'localhost:4317',
         };
         super(scope, id, {
             ...properties,
