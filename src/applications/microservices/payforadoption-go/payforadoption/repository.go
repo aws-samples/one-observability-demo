@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -32,6 +33,7 @@ type Repository interface {
 	SendHistoryMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
+	ValidatePet(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
 	CreateSQLTables(ctx context.Context) error
 	ErrorModeOn(ctx context.Context) bool
@@ -40,6 +42,7 @@ type Repository interface {
 
 type Config struct {
 	UpdateAdoptionURL    string
+	PetSearchURL         string
 	RDSSecretArn         string
 	S3BucketName         string
 	DynamoDBTable        string
@@ -240,6 +243,59 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
+	// r.cfg.PetSearchURL
+	logger := log.With(r.logger, "method", "ValidatePet")
+	ctx, span := r.cfg.Tracer.Start(ctx, "ValidatePet")
+	defer span.End()
+	// using xray as a wrapper for http client
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
+
+	params := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
+	req, _ := sling.New().Get(r.cfg.PetSearchURL).QueryStruct(params).Request()
+	resp, err := client.Do(req.WithContext(ctx))
+	if err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		span.RecordError(err)
+		return err
+	}
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Petid: %s - Pettype: %s, not available", a.PetID, a.PetType)
+	}
+
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		span.RecordError(err)
+		return err
+	}
+
+	sb := string(body)
+	LogWithTrace(ctx, logger, "response_body", sb)
+
+	// parse into slice of Pet, if slice is empty, return error - petid/pettype not found, if len = 1 return nil to indicate no error
+	var pets []Pet
+	if err := json.Unmarshal(body, &pets); err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		span.RecordError(err)
+		return fmt.Errorf("failed to parse pet validation response: %w", err)
+	}
+
+	if len(pets) == 0 {
+		return fmt.Errorf("pet not found: petId=%s, petType=%s", a.PetID, a.PetType)
+	}
+
+	// Check if pet is available for adoption
+	pet := pets[0]
+	if pet.Availability != "yes" {
+		return fmt.Errorf("pet not available for adoption: petId=%s, availability=%s", a.PetID, pet.Availability)
 	}
 
 	return nil

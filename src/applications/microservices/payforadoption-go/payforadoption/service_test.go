@@ -31,12 +31,16 @@ func (m *mockRepository) SendHistoryMessage(ctx context.Context, a Adoption) err
 	return m.sendHistoryMessageErr
 }
 
-func (m *mockRepository) DropTransactions(ctx context.Context, userID string) error {
+func (m *mockRepository) DropTransactions(ctx context.Context) error {
 	return nil
 }
 
 func (m *mockRepository) UpdateAvailability(ctx context.Context, a Adoption) error {
 	return m.updateAvailabilityErr
+}
+
+func (m *mockRepository) ValidatePet(ctx context.Context, a Adoption) error {
+	return nil
 }
 
 func (m *mockRepository) TriggerSeeding(ctx context.Context) error {

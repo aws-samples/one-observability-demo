@@ -63,6 +63,11 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		AdoptionDate:  time.Now(),
 	}
 
+	if err := s.repository.ValidatePet(ctx, a); err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		return Adoption{}, ErrBadRequest
+	}
+
 	// Log the start of the adoption process
 	InfoWithTrace(ctx, logger,
 		"action", "adoption_process_started",
