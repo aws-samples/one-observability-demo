@@ -291,8 +291,9 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 		span.AddEvent("Pet not available")
 		span.RecordError(err)
 		if resp.StatusCode == 404 {
-			LogWithTrace(ctx, logger, "status", resp.Status, "message", "Pet not available")
-			return NewNotFoundError("pet not available", err)
+			reason := fmt.Sprintf("Petid: %s - Pettype: %s, doesn't exist", a.PetID, a.PetType)
+			LogWithTrace(ctx, logger, "status", resp.Status, "message", reason)
+			return NewNotFoundError(reason, err)
 		}
 		err := fmt.Errorf("Petid: %s - Pettype: %s, not available", a.PetID, a.PetType)
 		return NewBadRequestError("pet not available", err)
