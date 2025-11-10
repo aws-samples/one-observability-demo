@@ -33,6 +33,7 @@ type Repository interface {
 	SendHistoryMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
+	ResetPetsAvailability(ctx context.Context) error
 	ValidatePet(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
 	CreateSQLTables(ctx context.Context) error
@@ -77,10 +78,10 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("creating transaction in PG DB")
 
-	sql := `INSERT INTO transactions (pet_id, adoption_date, transaction_id, user_id) VALUES ($1, $2, $3, $4)`
+	sql := `INSERT INTO transactions (pet_id, pet_type, adoption_date, transaction_id, user_id) VALUES ($1, $2, $3, $4, $5)`
 
 	r.logger.Log("sql", sql)
-	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.AdoptionDate, a.TransactionID, a.UserID)
+	_, err := r.db.ExecContext(ctx, sql, a.PetID, a.PetType, a.AdoptionDate, a.TransactionID, a.UserID)
 	if err != nil {
 		span.RecordError(err)
 		ErrorWithTrace(ctx, r.logger, "error", "failed to create transaction", "err", err)
@@ -91,6 +92,7 @@ func (r *repo) CreateTransaction(ctx context.Context, a Adoption) error {
 		"action", "transaction_created",
 		"transactionId", a.TransactionID,
 		"petId", a.PetID,
+		"petType", a.PetType,
 		"userId", a.UserID,
 	)
 
@@ -179,6 +181,35 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 	return nil
 }
 
+// callPetUpdater makes an HTTP call to the pet updater service to update pet availability
+// req.PetAvailability: "yes" to make pet available, "no" to mark as adopted, empty string uses default behavior
+func (r *repo) callPetUpdater(ctx context.Context, req completeAdoptionRequest) error {
+	logger := log.With(r.logger, "method", "callPetUpdater")
+	ctx, span := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
+	defer span.End()
+
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
+	httpReq, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(&req).Request()
+
+	resp, err := client.Do(httpReq.WithContext(ctx))
+	if err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		span.RecordError(err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		span.RecordError(err)
+		return err
+	}
+
+	LogWithTrace(ctx, logger, "response_body", string(respBody), "availability", req.PetAvailability)
+	return nil
+}
+
 func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 	logger := log.With(r.logger, "method", "UpdateAvailability")
 	ctx, parentSpan := r.cfg.Tracer.Start(ctx, "UpdateAvailability")
@@ -188,35 +219,20 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// using xray as a wrapper for http client
-	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
-
+	// Call pet updater service (empty availability = mark as adopted)
 	go func() {
 		defer wg.Done()
-		updateAdoptionStatusCtx, updateAdoptionStatusSpan := r.cfg.Tracer.Start(ctx, "Update Adoption Status")
-		defer updateAdoptionStatusSpan.End()
-
-		body := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
-		req, _ := sling.New().Put(r.cfg.UpdateAdoptionURL).BodyJSON(body).Request()
-		resp, err := client.Do(req.WithContext(updateAdoptionStatusCtx))
-		if err != nil {
-			ErrorWithTrace(updateAdoptionStatusCtx, logger, "err", err)
-			updateAdoptionStatusSpan.RecordError(err)
-			errs <- err
-			return
+		req := completeAdoptionRequest{
+			PetId:   a.PetID,
+			PetType: a.PetType,
+			UserID:  a.UserID,
 		}
-
-		defer resp.Body.Close()
-		if body, err := io.ReadAll(resp.Body); err != nil {
-			ErrorWithTrace(updateAdoptionStatusCtx, logger, "err", err)
-			updateAdoptionStatusSpan.RecordError(err)
+		if err := r.callPetUpdater(ctx, req); err != nil {
 			errs <- err
-		} else {
-			sb := string(body)
-			LogWithTrace(updateAdoptionStatusCtx, logger, "response_body", sb)
 		}
 	}()
 
+	// Dummy availability check
 	go func() {
 		defer wg.Done()
 		availabilityCtx, availabilitySpan := r.cfg.Tracer.Start(ctx, "Invoking Availability API")
@@ -228,9 +244,9 @@ func (r *repo) UpdateAvailability(ctx context.Context, a Adoption) error {
 			ErrorWithTrace(availabilityCtx, logger, "err", err)
 			availabilitySpan.RecordError(err)
 			errs <- err
+			return
 		}
 		client.Do(request)
-
 	}()
 
 	go func() {
@@ -256,7 +272,11 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 	// using xray as a wrapper for http client
 	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: 5 * time.Second}
 
-	params := &completeAdoptionRequest{a.PetID, a.PetType, a.UserID}
+	params := &completeAdoptionRequest{
+		PetId:   a.PetID,
+		PetType: a.PetType,
+		UserID:  a.UserID,
+	}
 	req, _ := sling.New().Get(r.cfg.PetSearchURL).QueryStruct(params).Request()
 
 	InfoWithTrace(ctx, logger, "url", req.URL.String())
@@ -268,6 +288,12 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 	}
 
 	if resp.StatusCode != 200 {
+		span.AddEvent("Pet not available")
+		span.RecordError(err)
+		if resp.StatusCode == 404 {
+			LogWithTrace(ctx, logger, "status", resp.Status, "message", "Pet not available")
+			return NewNotFoundError("pet not available", err)
+		}
 		err := fmt.Errorf("Petid: %s - Pettype: %s, not available", a.PetID, a.PetType)
 		return NewBadRequestError("pet not available", err)
 	}
@@ -302,6 +328,90 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 		return NewBadRequestError("pet not available for adoption", err)
 	}
 
+	return nil
+}
+
+// ResetPetsAvailability updates every adopted pet to availability = yes
+// through pet updater using concurrent goroutines
+func (r *repo) ResetPetsAvailability(ctx context.Context) error {
+	logger := log.With(r.logger, "method", "ResetPetsAvailability")
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("resetting pet availability for all adopted pets")
+
+	// Query distinct pet_id and pet_type from transactions
+	sql := "SELECT DISTINCT pet_id, pet_type FROM transactions"
+	rows, err := r.db.QueryContext(ctx, sql)
+	if err != nil {
+		span.RecordError(err)
+		ErrorWithTrace(ctx, logger, "error", "failed to query distinct pets", "err", err)
+		return NewInternalError("failed to query distinct pets from database", err)
+	}
+	defer rows.Close()
+
+	// Collect all unique pets
+	type petInfo struct {
+		petID   string
+		petType string
+	}
+	var pets []petInfo
+
+	for rows.Next() {
+		var p petInfo
+		if err := rows.Scan(&p.petID, &p.petType); err != nil {
+			span.RecordError(err)
+			ErrorWithTrace(ctx, logger, "error", "failed to scan pet row", "err", err)
+			return NewInternalError("failed to scan pet data", err)
+		}
+		pets = append(pets, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		span.RecordError(err)
+		ErrorWithTrace(ctx, logger, "error", "error iterating pet rows", "err", err)
+		return NewInternalError("error iterating pet rows", err)
+	}
+
+	InfoWithTrace(ctx, logger, "action", "pets_to_reset", "count", len(pets))
+
+	// Use goroutines to reset availability for each pet concurrently
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(pets))
+
+	for _, pet := range pets {
+		wg.Add(1)
+		go func(p petInfo) {
+			defer wg.Done()
+			// Reset availability to "yes" to make pets available again
+			req := completeAdoptionRequest{
+				PetId:           p.petID,
+				PetType:         p.petType,
+				PetAvailability: "yes",
+			}
+			if err := r.callPetUpdater(ctx, req); err != nil {
+				ErrorWithTrace(ctx, logger, "error", "failed to reset pet availability", "petID", p.petID, "petType", p.petType, "err", err)
+				errChan <- err
+			} else {
+				InfoWithTrace(ctx, logger, "action", "pet_availability_reset", "petID", p.petID, "petType", p.petType)
+			}
+		}(pet)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errChan)
+
+	// Check if any errors occurred
+	var resetErrors []error
+	for err := range errChan {
+		resetErrors = append(resetErrors, err)
+	}
+
+	if len(resetErrors) > 0 {
+		ErrorWithTrace(ctx, logger, "error", "some pets failed to reset", "errorCount", len(resetErrors))
+		return NewInternalError(fmt.Sprintf("failed to reset %d pets", len(resetErrors)), resetErrors[0])
+	}
+
+	InfoWithTrace(ctx, logger, "action", "all_pets_reset_successfully", "count", len(pets))
 	return nil
 }
 
@@ -397,6 +507,7 @@ func (r *repo) CreateSQLTables(ctx context.Context) error {
 	sql := `CREATE TABLE IF NOT EXISTS transactions (
 		id SERIAL PRIMARY KEY,
 		pet_id VARCHAR,
+		pet_type VARCHAR,
 		adoption_date DATE,
 		transaction_id VARCHAR,
 		user_id VARCHAR

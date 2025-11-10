@@ -39,6 +39,10 @@ func (m *mockRepository) UpdateAvailability(ctx context.Context, a Adoption) err
 	return m.updateAvailabilityErr
 }
 
+func (m *mockRepository) ResetPetsAvailability(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockRepository) ValidatePet(ctx context.Context, a Adoption) error {
 	return nil
 }

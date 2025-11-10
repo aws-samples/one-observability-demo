@@ -132,10 +132,20 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
 	logger := log.With(s.logger, "method", "CleanupAdoptions", "userID", userID)
 
-	ctx, parentSpan := s.tracer.Start(ctx, "PG drop user transactions")
+	ctx, parentSpan := s.tracer.Start(ctx, "Cleanup Adoptions")
 	defer parentSpan.End()
+
+	// Step 1: Reset pet availability in DynamoDB via pet updater
+	InfoWithTrace(ctx, logger, "action", "resetting_pet_availability")
+	if err := s.repository.ResetPetsAvailability(ctx); err != nil {
+		ErrorWithTrace(ctx, logger, "err", err, "action", "reset_availability_failed")
+		return err
+	}
+
+	// Step 2: Drop all transactions from PostgreSQL
+	InfoWithTrace(ctx, logger, "action", "dropping_transactions")
 	if err := s.repository.DropTransactions(ctx); err != nil {
-		ErrorWithTrace(ctx, logger, "err", err)
+		ErrorWithTrace(ctx, logger, "err", err, "action", "drop_transactions_failed")
 		return err
 	}
 

@@ -83,9 +83,10 @@ type errorer interface {
 }
 
 type completeAdoptionRequest struct {
-	PetId   string `json:"petid" url:"petid"`
-	PetType string `json:"pettype" url:"pettype"`
-	UserID  string `json:"userid" url:"userid"`
+	PetId           string `json:"petid" url:"petid"`
+	PetType         string `json:"pettype" url:"pettype"`
+	UserID          string `json:"userid,omitempty" url:"userid,omitempty"`
+	PetAvailability string `json:"petavailability,omitempty" url:"petavailability,omitempty"`
 }
 
 type cleanupAdoptionsRequest struct {
@@ -106,7 +107,11 @@ func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interfac
 		return nil, ErrBadRequest
 	}
 
-	return completeAdoptionRequest{petId, petType, userID}, nil
+	return completeAdoptionRequest{
+		PetId:   petId,
+		PetType: petType,
+		UserID:  userID,
+	}, nil
 }
 
 func decodeCleanupAdoptionsRequest(_ context.Context, r *http.Request) (interface{}, error) {
