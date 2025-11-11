@@ -7,7 +7,6 @@ package payforadoption
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -84,19 +83,15 @@ type errorer interface {
 }
 
 type completeAdoptionRequest struct {
-	PetId   string `json:"petid"`
-	PetType string `json:"pettype"`
-	UserID  string `json:"userid"`
+	PetId           string `json:"petid" url:"petid"`
+	PetType         string `json:"pettype" url:"pettype"`
+	UserID          string `json:"userid,omitempty" url:"userid,omitempty"`
+	PetAvailability string `json:"petavailability,omitempty" url:"petavailability,omitempty"`
 }
 
 type cleanupAdoptionsRequest struct {
 	UserID string `json:"userid"`
 }
-
-var (
-	ErrNotFound   = errors.New("not found")
-	ErrBadRequest = errors.New("Bad request parameters")
-)
 
 func decodeEmptyRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return nil, nil
@@ -112,7 +107,11 @@ func decodeCompleteAdoptionRequest(_ context.Context, r *http.Request) (interfac
 		return nil, ErrBadRequest
 	}
 
-	return completeAdoptionRequest{petId, petType, userID}, nil
+	return completeAdoptionRequest{
+		PetId:   petId,
+		PetType: petType,
+		UserID:  userID,
+	}, nil
 }
 
 func decodeCleanupAdoptionsRequest(_ context.Context, r *http.Request) (interface{}, error) {
@@ -155,6 +154,12 @@ func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 }
 
 func codeFrom(err error) int {
+	// Check if error implements HTTPStatusCode method
+	if svcErr, ok := err.(ServiceError); ok {
+		return svcErr.HTTPStatusCode()
+	}
+
+	// Legacy error handling for backward compatibility
 	switch err {
 	case ErrNotFound:
 		return http.StatusNotFound
