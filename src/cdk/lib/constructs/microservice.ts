@@ -107,6 +107,8 @@ export abstract class Microservice extends Construct {
                         Service: serviceName,
                     },
                     metricType: 'AVAILABILITY',
+                    operationName: '*', // Monitor all operations
+                    periodSeconds: 300, // 5-minute evaluation period
                 },
                 comparisonOperator: 'GreaterThanOrEqualTo',
                 metricThreshold: config.availabilityTarget,
@@ -133,6 +135,8 @@ export abstract class Microservice extends Construct {
                         Service: serviceName,
                     },
                     metricType: 'LATENCY',
+                    operationName: '*', // Monitor all operations
+                    periodSeconds: 300, // 5-minute evaluation period
                     statistic: 'p99',
                 },
                 comparisonOperator: 'LessThan',
