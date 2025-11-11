@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, StackProps, Stage, Fn } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { WorkshopNetwork } from '../constructs/network';
@@ -44,7 +44,7 @@ import { PetfoodImageGeneratorFunction } from '../serverless/functions/petfood/i
 import { PetfoodStockProcessorFunction } from '../serverless/functions/petfood/stock-processor';
 import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
-import { SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { SSM_PARAMETER_NAMES, CloudWatchAgentMetricsMode } from '../../bin/constants';
 import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
@@ -71,6 +71,10 @@ interface ImportedResources {
     baseURI: string;
     regionalAclArn?: string;
     globalAclArn?: string;
+    ampExports?: {
+        workspaceId: string;
+        workspaceEndpoint: string;
+    };
 }
 
 export interface MicroserviceApplicationsProperties extends StackProps {
@@ -129,6 +133,9 @@ export class MicroservicesStack extends Stack {
         const regionalAclArn = CUSTOM_ENABLE_WAF ? RegionalWaf.regionalAclArnFromParameter() : undefined;
         const globalAclArn = CUSTOM_ENABLE_WAF ? GlobalWaf.globalAclArnFromParameter() : undefined;
 
+        // Import AMP workspace details from Storage stage
+        const ampExports = this.importAmpWorkspace();
+
         return {
             vpcExports,
             ecsExports,
@@ -144,7 +151,20 @@ export class MicroservicesStack extends Stack {
             baseURI,
             regionalAclArn,
             globalAclArn,
+            ampExports,
         };
+    }
+
+    private importAmpWorkspace() {
+        try {
+            return {
+                workspaceId: Fn.importValue('AMPWorkspaceId'),
+                workspaceEndpoint: Fn.importValue('AMPWorkspaceEndpoint'),
+            };
+        } catch (error) {
+            // AMP workspace may not be deployed yet, return undefined
+            return undefined;
+        }
     }
 
     private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
@@ -329,6 +349,17 @@ export class MicroservicesStack extends Stack {
                         containerPort: 8080,
                         enableCloudWatchAgent: true,
                         cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
+                        // Configure Prometheus metrics collection to AMP if workspace is available
+                        cloudWatchAgentMetricsMode: imports.ampExports
+                            ? CloudWatchAgentMetricsMode.PROMETHEUS_AMP
+                            : CloudWatchAgentMetricsMode.NONE,
+                        ampWorkspaceEndpoint: imports.ampExports?.workspaceEndpoint,
+                        ampWorkspaceId: imports.ampExports?.workspaceId,
+                        prometheusMetricsPath: '/metrics',
+                        prometheusMetricsPort: 8080,
+                        // Enable EMF processor to send metrics to both AMP and CloudWatch (default: true)
+                        // Set to false to only send metrics to AMP
+                        enablePrometheusEmfProcessor: true,
                         // Use pipeline if available, otherwise fall back to direct collection access
                         ...(imports.ecsExports.openSearchPipeline
                             ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }

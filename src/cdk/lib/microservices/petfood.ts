@@ -6,7 +6,7 @@ import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { SSM_PARAMETER_NAMES } from '../../bin/constants';
+import { SSM_PARAMETER_NAMES, CloudWatchAgentMetricsMode } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
@@ -17,6 +17,8 @@ export interface PetFoodProperties extends EcsServiceProperties {
     petFoodTable: ITable;
     petFoodCartTable: ITable;
     assetsBucket: IBucket;
+    ampWorkspaceEndpoint?: string;
+    ampWorkspaceId?: string;
 }
 
 export class PetFoodECSService extends EcsService {
