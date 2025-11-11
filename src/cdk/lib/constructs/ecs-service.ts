@@ -1008,8 +1008,8 @@ export abstract class EcsService extends Microservice {
             goal: {
                 interval: {
                     rollingInterval: {
-                        duration: Duration.days(30).toSeconds(),
-                        durationUnit: 'Second',
+                        duration: 30,
+                        durationUnit: 'DAY',
                     },
                 },
                 attainmentGoal: availabilityTarget,
@@ -1034,8 +1034,8 @@ export abstract class EcsService extends Microservice {
             goal: {
                 interval: {
                     rollingInterval: {
-                        duration: Duration.days(30).toSeconds(),
-                        durationUnit: 'Second',
+                        duration: 30,
+                        durationUnit: 'DAY',
                     },
                 },
                 attainmentGoal: 99, // 99% of requests should meet latency target
