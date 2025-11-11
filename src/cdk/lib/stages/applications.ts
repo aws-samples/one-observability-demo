@@ -360,6 +360,12 @@ export class MicroservicesStack extends Stack {
                         // Enable EMF processor to send metrics to both AMP and CloudWatch (default: true)
                         // Set to false to only send metrics to AMP
                         enablePrometheusEmfProcessor: true,
+                        // Define SLO targets for this service
+                        sloConfig: {
+                            availabilityTarget: 99.9, // Tier 2 service
+                            latencyP99Target: 500, // 500ms
+                            tier: 2,
+                        },
                         // Use pipeline if available, otherwise fall back to direct collection access
                         ...(imports.ecsExports.openSearchPipeline
                             ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }

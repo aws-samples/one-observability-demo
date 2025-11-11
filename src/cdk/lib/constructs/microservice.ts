@@ -18,7 +18,8 @@ import {
     PETFOODAGENT_STRANDS_PY,
 } from '../../bin/environment';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Stack } from 'aws-cdk-lib';
+import { Stack, Duration } from 'aws-cdk-lib';
+import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export const MicroservicesNames = {
     PayForAdoption: PAYFORADOPTION_GO.name,
@@ -28,6 +29,18 @@ export const MicroservicesNames = {
     PetFood: PETFOOD_RS.name,
     PetFoodAgent: PETFOODAGENT_STRANDS_PY.name,
 } as const;
+
+/**
+ * SLO configuration for a microservice
+ */
+export interface SLOConfig {
+    /** Availability target percentage (e.g., 99.9 for 99.9%) */
+    availabilityTarget: number;
+    /** P99 latency target in milliseconds */
+    latencyP99Target: number;
+    /** Service tier (1, 2, or 3) for documentation purposes */
+    tier: 1 | 2 | 3;
+}
 
 export interface MicroserviceProperties {
     hostType: HostType;
@@ -47,6 +60,8 @@ export interface MicroserviceProperties {
     listenerPort?: number;
     containerPort?: number;
     createLoadBalancer?: boolean;
+    /** SLO configuration for this service */
+    sloConfig?: SLOConfig;
 }
 
 export abstract class Microservice extends Construct {
@@ -59,6 +74,72 @@ export abstract class Microservice extends Construct {
         if (properties.hostType == HostType.EKS && !properties.eksCluster) {
             throw new Error('eksCluster is required if host type is EKS');
         }
+
+        // Create SLO definitions if configured
+        if (properties.sloConfig) {
+            this.createSLOs(properties.name, properties.sloConfig);
+        }
+    }
+
+    /**
+     * Create SLO definitions for this microservice using AWS Application Signals
+     */
+    private createSLOs(serviceName: string, config: SLOConfig): void {
+        const sloName = serviceName.replace(/[^a-zA-Z0-9-]/g, '-');
+        const tierDescription = `Tier ${config.tier}`;
+
+        // Create availability SLO
+        new CfnServiceLevelObjective(this, 'AvailabilitySLO', {
+            name: `${sloName}-availability`,
+            description: `${tierDescription}: ${serviceName} availability`,
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: Duration.days(30).toSeconds(),
+                        durationUnit: 'Second',
+                    },
+                },
+                attainmentGoal: config.availabilityTarget,
+                warningThreshold: config.availabilityTarget - 0.5, // Alert when within 0.5% of target
+            },
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Service: serviceName,
+                    },
+                    metricType: 'AVAILABILITY',
+                },
+                comparisonOperator: 'GreaterThanOrEqualTo',
+                metricThreshold: config.availabilityTarget,
+            },
+        });
+
+        // Create latency SLO
+        new CfnServiceLevelObjective(this, 'LatencySLO', {
+            name: `${sloName}-latency`,
+            description: `${tierDescription}: ${serviceName} P99 latency`,
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: Duration.days(30).toSeconds(),
+                        durationUnit: 'Second',
+                    },
+                },
+                attainmentGoal: 99.0, // 99% of requests should meet latency target
+                warningThreshold: 98.5,
+            },
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Service: serviceName,
+                    },
+                    metricType: 'LATENCY',
+                    statistic: 'p99',
+                },
+                comparisonOperator: 'LessThan',
+                metricThreshold: config.latencyP99Target,
+            },
+        });
     }
 
     abstract configureEKSService(properties: MicroserviceProperties): void;

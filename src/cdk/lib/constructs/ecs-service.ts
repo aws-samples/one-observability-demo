@@ -34,6 +34,8 @@ import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
 import { CloudWatchAgentTraceMode, CloudWatchAgentMetricsMode } from '../../bin/constants';
+import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
+import { Duration } from 'aws-cdk-lib';
 
 /**
  * CloudWatch agent configuration interface
@@ -79,6 +81,18 @@ export interface EcsServiceProperties extends MicroserviceProperties {
     memoryLimitMiB: number;
     desiredTaskCount: number;
     cloudMapNamespace?: IPrivateDnsNamespace;
+    /**
+     * Service Level Objective (SLO) configuration
+     * Defines availability and latency targets for the service
+     */
+    sloConfig?: {
+        /** Availability target percentage (e.g., 99.9 for 99.9%) */
+        availabilityTarget: number;
+        /** P99 latency target in milliseconds */
+        latencyP99Target: number;
+        /** Service tier for documentation (1, 2, or 3) */
+        tier: 1 | 2 | 3;
+    };
     openSearchCollection?:
         | OpenSearchCollection
         | {
@@ -169,6 +183,11 @@ export abstract class EcsService extends Microservice {
 
         this.addPermissions(properties);
         this.createOutputs(properties);
+
+        // Create SLO definitions if configured
+        if (properties.sloConfig) {
+            this.createServiceSLOs(properties);
+        }
     }
 
     configureEKSService(): void {
@@ -968,6 +987,72 @@ export abstract class EcsService extends Microservice {
             ],
             true,
         );
+    }
+
+    /**
+     * Create AWS Application Signals SLO definitions for the service
+     * @param properties Service properties including SLO configuration
+     */
+    private createServiceSLOs(properties: EcsServiceProperties): void {
+        if (!properties.sloConfig) {
+            return;
+        }
+
+        const { availabilityTarget, latencyP99Target, tier } = properties.sloConfig;
+        const serviceName = properties.name;
+
+        // Create availability SLO
+        new CfnServiceLevelObjective(this, 'AvailabilitySLO', {
+            name: `${serviceName}-availability`,
+            description: `Tier ${tier}: ${serviceName} availability SLO (${availabilityTarget}%)`,
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: Duration.days(30).toSeconds(),
+                        durationUnit: 'Second',
+                    },
+                },
+                attainmentGoal: availabilityTarget,
+                warningThreshold: availabilityTarget - 0.5, // Alert when within 0.5% of target
+            },
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Service: serviceName,
+                    },
+                    metricType: 'AVAILABILITY',
+                },
+                comparisonOperator: 'GreaterThanOrEqualTo',
+                metricThreshold: availabilityTarget,
+            },
+        });
+
+        // Create latency SLO
+        new CfnServiceLevelObjective(this, 'LatencySLO', {
+            name: `${serviceName}-latency`,
+            description: `Tier ${tier}: ${serviceName} P99 latency SLO (<${latencyP99Target}ms)`,
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: Duration.days(30).toSeconds(),
+                        durationUnit: 'Second',
+                    },
+                },
+                attainmentGoal: 99.0, // 99% of requests should meet latency target
+                warningThreshold: 98.5,
+            },
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Service: serviceName,
+                    },
+                    metricType: 'LATENCY',
+                    statistic: 'p99',
+                },
+                comparisonOperator: 'LessThan',
+                metricThreshold: latencyP99Target,
+            },
+        });
     }
 
 }
