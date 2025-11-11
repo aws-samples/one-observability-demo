@@ -18,7 +18,7 @@ import {
     PETFOODAGENT_STRANDS_PY,
 } from '../../bin/environment';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Stack, Duration } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
 import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export const MicroservicesNames = {
