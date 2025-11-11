@@ -103,9 +103,9 @@ exports.handler = async (event) => {
  * @param {number} userIndex - The user index (1-based)
  * @returns {Promise<{userId: string, success: boolean, message?: string}>}
  */
-async function simulateUserJourney(petsiteBaseUrl, userIndex) {
+async function simulateUserJourney(petsiteBaseUrl) {
     // Generate random userId between user30000 and user40000
-    const randomUserId = Math.floor(Math.random() * (40000 - 30000 + 1)) + 30000;
+    const randomUserId = Math.floor(Math.random() * (40_000 - 30_000 + 1)) + 30_000;
     const userId = `user${String(randomUserId).padStart(5, '0')}`;
     const petId = `00${Math.floor(Math.random() * 10)}`;
     const petType = ['puppy', 'kitten', 'bunny'][Math.floor(Math.random() * 3)];
@@ -216,7 +216,13 @@ async function simulateUserJourney(petsiteBaseUrl, userIndex) {
         try {
             const addToCartUrl2 = `${petsiteBaseUrl}/FoodService/AddToCart`;
             const addToCartData2 = `foodId=${encodeURIComponent(randomFoodId)}&userId=${encodeURIComponent(userId)}`;
-            await makeTrackedRequest(addToCartUrl2, 'POST', `Add To Cart (2nd time) for ${userId}`, addToCartData2, 'form');
+            await makeTrackedRequest(
+                addToCartUrl2,
+                'POST',
+                `Add To Cart (2nd time) for ${userId}`,
+                addToCartData2,
+                'form',
+            );
         } catch {
             // Error already handled by makeTrackedRequest
         }
@@ -328,11 +334,7 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data, con
 
         // Add Content-Type and Content-Length for POST requests
         if (method === 'POST' && data) {
-            if (contentType === 'form') {
-                headers['Content-Type'] = 'application/x-www-form-urlencoded';
-            } else {
-                headers['Content-Type'] = 'application/json';
-            }
+            headers['Content-Type'] = contentType === 'form' ? 'application/x-www-form-urlencoded' : 'application/json';
             headers['Content-Length'] = Buffer.byteLength(data);
         }
 
@@ -355,26 +357,26 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data, con
                 if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                     const redirectUrl = response.headers.location;
                     let newUrl;
-                    
+
                     // Handle relative and absolute URLs
                     if (redirectUrl.startsWith('http://') || redirectUrl.startsWith('https://')) {
                         newUrl = redirectUrl;
                     } else if (redirectUrl.startsWith('/')) {
                         // Absolute path - construct full URL
-                        const urlObj = new URL(url);
-                        newUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
+                        const urlObject = new URL(url);
+                        newUrl = `${urlObject.protocol}//${urlObject.host}${redirectUrl}`;
                     } else {
                         // Relative path
-                        const urlObj = new URL(url);
-                        const pathParts = urlObj.pathname.split('/').slice(0, -1);
-                        newUrl = `${urlObj.protocol}//${urlObj.host}${pathParts.join('/')}/${redirectUrl}`;
+                        const urlObject = new URL(url);
+                        const pathParts = urlObject.pathname.split('/').slice(0, -1);
+                        newUrl = `${urlObject.protocol}//${urlObject.host}${pathParts.join('/')}/${redirectUrl}`;
                     }
 
                     console.log(`${description} redirecting (${response.statusCode}) to: ${newUrl}`);
                     // Follow redirect with GET method (POST redirects should use GET)
-                    return makeHttpRequest(newUrl, 'GET', description, null, contentType, redirectCount + 1)
-                        .then(result => resolve(result))
-                        .catch(err => reject(err));
+                    return makeHttpRequest(newUrl, 'GET', description, undefined, contentType, redirectCount + 1)
+                        .then((result) => resolve(result))
+                        .catch((error) => reject(error));
                 }
 
                 // Accept 200-299 (success) as valid responses
