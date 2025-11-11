@@ -33,13 +33,17 @@ import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
 import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
-import { CloudWatchAgentTraceMode } from '../../bin/constants';
+import { CloudWatchAgentTraceMode, CloudWatchAgentMetricsMode } from '../../bin/constants';
 
 /**
  * CloudWatch agent configuration interface
  * Defines the structure for CloudWatch agent configuration JSON
  */
 interface CloudWatchAgentConfig {
+    /** Agent configuration */
+    agent?: {
+        region: string;
+    };
     /** Trace collection configuration */
     traces: {
         traces_collected: {
@@ -54,6 +58,18 @@ interface CloudWatchAgentConfig {
         metrics_collected: {
             /** AWS Application Signals metrics collection configuration */
             application_signals?: Record<string, unknown>;
+            /** Prometheus metrics collection configuration */
+            prometheus?: {
+                prometheus_config_path: string;
+                emf_processor?: {
+                    metric_declaration: Array<{
+                        source_labels: string[];
+                        label_matcher: string;
+                        dimensions: string[][];
+                        metric_selectors: string[];
+                    }>;
+                };
+            };
         };
     };
 }
@@ -92,6 +108,39 @@ export interface EcsServiceProperties extends MicroserviceProperties {
      * @default CloudWatchAgentTraceMode.APPLICATION_SIGNALS
      */
     cloudWatchAgentTraceMode?: CloudWatchAgentTraceMode;
+    /**
+     * CloudWatch agent metrics collection mode
+     * @default CloudWatchAgentMetricsMode.CLOUDWATCH_EMF (when using APPLICATION_SIGNALS trace mode)
+     * @default CloudWatchAgentMetricsMode.NONE (when using OTLP trace mode)
+     */
+    cloudWatchAgentMetricsMode?: CloudWatchAgentMetricsMode;
+    /**
+     * Amazon Managed Prometheus (AMP) workspace endpoint
+     * Required when cloudWatchAgentMetricsMode is PROMETHEUS_AMP
+     */
+    ampWorkspaceEndpoint?: string;
+    /**
+     * Amazon Managed Prometheus (AMP) workspace ID
+     * Required when cloudWatchAgentMetricsMode is PROMETHEUS_AMP
+     */
+    ampWorkspaceId?: string;
+    /**
+     * Prometheus metrics path to scrape
+     * @default /metrics
+     */
+    prometheusMetricsPath?: string;
+    /**
+     * Prometheus metrics port to scrape
+     * @default 8080
+     */
+    prometheusMetricsPort?: number;
+    /**
+     * Enable EMF processor to send Prometheus metrics to CloudWatch
+     * When enabled, selected metrics are sent to both AMP and CloudWatch
+     * When disabled, metrics only go to AMP
+     * @default true
+     */
+    enablePrometheusEmfProcessor?: boolean;
 }
 
 export abstract class EcsService extends Microservice {
@@ -232,9 +281,30 @@ export abstract class EcsService extends Microservice {
             // Add ADOT init container based on service language
             this.addAdotInitContainer(taskDefinition, container, properties.name);
 
-            // Add CloudWatch agent sidecar with specified trace mode
+            // Add CloudWatch agent sidecar with specified trace and metrics modes
             const traceMode = properties.cloudWatchAgentTraceMode || CloudWatchAgentTraceMode.APPLICATION_SIGNALS;
-            this.addCloudWatchAgentSidecar(taskDefinition, traceMode);
+            const metricsMode = properties.cloudWatchAgentMetricsMode;
+
+            // Build AMP config if using Prometheus metrics mode
+            let ampConfig;
+            if (metricsMode === CloudWatchAgentMetricsMode.PROMETHEUS_AMP) {
+                if (!properties.ampWorkspaceEndpoint || !properties.ampWorkspaceId) {
+                    throw new Error(
+                        'ampWorkspaceEndpoint and ampWorkspaceId are required when using PROMETHEUS_AMP metrics mode',
+                    );
+                }
+
+                ampConfig = {
+                    workspaceEndpoint: properties.ampWorkspaceEndpoint,
+                    workspaceArn: `arn:aws:aps:${Stack.of(this).region}:${Stack.of(this).account}:workspace/${properties.ampWorkspaceId}`,
+                    metricsPath: properties.prometheusMetricsPath || '/metrics',
+                    metricsPort: properties.prometheusMetricsPort || 8080,
+                    jobName: properties.name,
+                    enableEmfProcessor: properties.enablePrometheusEmfProcessor,
+                };
+            }
+
+            this.addCloudWatchAgentSidecar(taskDefinition, traceMode, metricsMode, ampConfig);
         }
 
         if (!properties.disableService) {
@@ -645,11 +715,22 @@ export abstract class EcsService extends Microservice {
     }
 
     /**
-     * Build CloudWatch agent configuration based on the specified trace mode
+     * Build CloudWatch agent configuration based on the specified trace and metrics modes
      * @param traceMode The trace collection mode to configure
+     * @param metricsMode The metrics collection mode to configure
+     * @param prometheusConfig Optional Prometheus configuration for PROMETHEUS_AMP mode
      * @returns CloudWatch agent configuration object
      */
-    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): CloudWatchAgentConfig {
+    private buildCloudWatchConfig(
+        traceMode: CloudWatchAgentTraceMode,
+        metricsMode?: CloudWatchAgentMetricsMode,
+        prometheusConfig?: {
+            metricsPath: string;
+            metricsPort: number;
+            jobName: string;
+            enableEmfProcessor?: boolean;
+        },
+    ): CloudWatchAgentConfig {
         const config: CloudWatchAgentConfig = {
             traces: {
                 traces_collected: {},
@@ -659,25 +740,93 @@ export abstract class EcsService extends Microservice {
             },
         };
 
+        // Configure trace collection
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
                 // AWS Application Signals configuration - provides automatic service maps and metrics
                 config.traces.traces_collected.application_signals = {};
-                config.logs.metrics_collected.application_signals = {};
                 break;
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
                 // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
                 config.traces.traces_collected.otlp = {};
-                // Note: OTLP mode doesn't include Application Signals metrics collection
                 break;
             }
 
             default: {
                 // Default to Application Signals for backward compatibility
                 config.traces.traces_collected.application_signals = {};
+            }
+        }
+
+        // Configure metrics collection
+        // Default metrics mode based on trace mode if not specified
+        const effectiveMetricsMode =
+            metricsMode ||
+            (traceMode === CloudWatchAgentTraceMode.APPLICATION_SIGNALS
+                ? CloudWatchAgentMetricsMode.CLOUDWATCH_EMF
+                : CloudWatchAgentMetricsMode.NONE);
+
+        switch (effectiveMetricsMode) {
+            case CloudWatchAgentMetricsMode.CLOUDWATCH_EMF: {
+                // CloudWatch EMF with Application Signals
                 config.logs.metrics_collected.application_signals = {};
+                break;
+            }
+
+            case CloudWatchAgentMetricsMode.PROMETHEUS_AMP: {
+                // Prometheus scraping with remote write to AMP
+                if (!prometheusConfig) {
+                    throw new Error('Prometheus configuration is required for PROMETHEUS_AMP metrics mode');
+                }
+
+                config.agent = {
+                    region: Stack.of(this).region,
+                };
+
+                const prometheusMetricsConfig: {
+                    prometheus_config_path: string;
+                    emf_processor?: {
+                        metric_declaration: Array<{
+                            source_labels: string[];
+                            label_matcher: string;
+                            dimensions: string[][];
+                            metric_selectors: string[];
+                        }>;
+                    };
+                } = {
+                    prometheus_config_path: 'env:PROMETHEUS_CONFIG_CONTENT',
+                };
+
+                // Add EMF processor only if enabled (default: true)
+                // This sends selected metrics to CloudWatch in addition to AMP
+                if (prometheusConfig.enableEmfProcessor !== false) {
+                    prometheusMetricsConfig.emf_processor = {
+                        metric_declaration: [
+                            {
+                                source_labels: ['job'],
+                                label_matcher: `^${prometheusConfig.jobName}.*`,
+                                dimensions: [['job']],
+                                metric_selectors: [
+                                    '^http_requests_total$',
+                                    '^http_request_duration_seconds.*$',
+                                    '^cart_operations_total$',
+                                    '^food_operations_total$',
+                                    '^database_operation_duration_seconds.*$',
+                                ],
+                            },
+                        ],
+                    };
+                }
+
+                config.logs.metrics_collected.prometheus = prometheusMetricsConfig;
+                break;
+            }
+
+            case CloudWatchAgentMetricsMode.NONE: {
+                // No metrics collection
+                break;
             }
         }
 
@@ -688,19 +837,81 @@ export abstract class EcsService extends Microservice {
      * Add CloudWatch agent sidecar container to the task definition
      * @param taskDefinition The ECS task definition to add the sidecar to
      * @param traceMode The trace collection mode (defaults to 'application_signals' for backward compatibility)
+     * @param metricsMode The metrics collection mode (defaults based on trace mode)
+     * @param ampConfig Optional AMP configuration for PROMETHEUS_AMP metrics mode
      */
     private addCloudWatchAgentSidecar(
         taskDefinition: TaskDefinition,
         traceMode: CloudWatchAgentTraceMode = CloudWatchAgentTraceMode.APPLICATION_SIGNALS,
+        metricsMode?: CloudWatchAgentMetricsMode,
+        ampConfig?: {
+            workspaceEndpoint: string;
+            workspaceArn: string;
+            metricsPath: string;
+            metricsPort: number;
+            jobName: string;
+            enableEmfProcessor?: boolean;
+        },
     ): void {
-        // Build CloudWatch agent configuration based on trace mode
-        const cloudWatchConfig = this.buildCloudWatchConfig(traceMode);
+        // Build CloudWatch agent configuration based on trace and metrics modes
+        const prometheusConfig = ampConfig
+            ? {
+                  metricsPath: ampConfig.metricsPath,
+                  metricsPort: ampConfig.metricsPort,
+                  jobName: ampConfig.jobName,
+                  enableEmfProcessor: ampConfig.enableEmfProcessor,
+              }
+            : undefined;
+
+        const cloudWatchConfig = this.buildCloudWatchConfig(traceMode, metricsMode, prometheusConfig);
+
+        // Build environment variables
+        const environment: { [key: string]: string } = {
+            CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
+            AWS_REGION: Stack.of(this).region,
+        };
+
+        // Add Prometheus scrape configuration if using PROMETHEUS_AMP mode
+        if (metricsMode === CloudWatchAgentMetricsMode.PROMETHEUS_AMP && ampConfig) {
+            const prometheusScrapConfig = {
+                global: {
+                    scrape_interval: '15s',
+                    evaluation_interval: '15s',
+                },
+                scrape_configs: [
+                    {
+                        job_name: ampConfig.jobName,
+                        static_configs: [
+                            {
+                                targets: [`localhost:${ampConfig.metricsPort}`],
+                            },
+                        ],
+                        metrics_path: ampConfig.metricsPath,
+                    },
+                ],
+                remote_write: [
+                    {
+                        url: `${ampConfig.workspaceEndpoint}api/v1/remote_write`,
+                        queue_config: {
+                            max_samples_per_send: 1000,
+                            max_shards: 200,
+                            capacity: 2500,
+                        },
+                        sigv4: {
+                            region: Stack.of(this).region,
+                        },
+                    },
+                ],
+            };
+
+            environment.PROMETHEUS_CONFIG_CONTENT = JSON.stringify(prometheusScrapConfig);
+        }
 
         // Add CloudWatch agent container
         taskDefinition.addContainer('cloudwatch-agent', {
             image: ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
-            memoryLimitMiB: 256,
-            cpu: 128,
+            memoryLimitMiB: metricsMode === CloudWatchAgentMetricsMode.PROMETHEUS_AMP ? 512 : 256,
+            cpu: metricsMode === CloudWatchAgentMetricsMode.PROMETHEUS_AMP ? 256 : 128,
             essential: true,
             logging: new AwsLogDriver({
                 streamPrefix: 'cloudwatch-agent',
@@ -709,30 +920,54 @@ export abstract class EcsService extends Microservice {
                     retention: RetentionDays.ONE_WEEK,
                 }),
             }),
-            environment: {
-                CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
-                AWS_REGION: Stack.of(this).region,
-            },
+            environment,
         });
+
+        // Build IAM permissions based on metrics mode
+        const actions = [
+            'ec2:DescribeVolumes',
+            'ec2:DescribeTags',
+            'logs:PutLogEvents',
+            'logs:CreateLogGroup',
+            'logs:CreateLogStream',
+            'logs:DescribeLogStreams',
+            'logs:DescribeLogGroups',
+            'xray:PutTraceSegments',
+            'xray:PutTelemetryRecords',
+        ];
+
+        const resources: string[] = ['*'];
+
+        // Add CloudWatch metrics permissions for EMF mode
+        if (metricsMode === CloudWatchAgentMetricsMode.CLOUDWATCH_EMF || !metricsMode) {
+            actions.push('cloudwatch:PutMetricData');
+        }
+
+        // Add AMP permissions for Prometheus mode
+        if (metricsMode === CloudWatchAgentMetricsMode.PROMETHEUS_AMP && ampConfig) {
+            actions.push('aps:RemoteWrite', 'aps:GetSeries', 'aps:GetLabels', 'aps:GetMetricMetadata');
+            resources.push(ampConfig.workspaceArn);
+        }
 
         // Add necessary permissions for CloudWatch agent
         taskDefinition.taskRole.addToPrincipalPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: [
-                    'cloudwatch:PutMetricData',
-                    'ec2:DescribeVolumes',
-                    'ec2:DescribeTags',
-                    'logs:PutLogEvents',
-                    'logs:CreateLogGroup',
-                    'logs:CreateLogStream',
-                    'logs:DescribeLogStreams',
-                    'logs:DescribeLogGroups',
-                    'xray:PutTraceSegments',
-                    'xray:PutTelemetryRecords',
-                ],
-                resources: ['*'],
+                actions,
+                resources,
             }),
         );
+
+        NagSuppressions.addResourceSuppressions(
+            taskDefinition.taskRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'CloudWatch agent needs permissions for metrics, logs, and traces collection',
+                },
+            ],
+            true,
+        );
     }
+
 }
