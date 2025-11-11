@@ -45,7 +45,7 @@ export class StorageStage extends Stage {
     /**
      * Import AMP workspace details from CloudFormation exports
      */
-    public static importAmpWorkspaceFromExports(scope: Construct, id: string) {
+    public static importAmpWorkspaceFromExports() {
         return {
             workspaceId: Fn.importValue('AMPWorkspaceId'),
             workspaceEndpoint: Fn.importValue('AMPWorkspaceEndpoint'),
@@ -250,12 +250,7 @@ export class StorageStack extends Stack {
 
         cwAgentRole.addToPolicy(
             new PolicyStatement({
-                actions: [
-                    'aps:RemoteWrite',
-                    'aps:GetSeries',
-                    'aps:GetLabels',
-                    'aps:GetMetricMetadata',
-                ],
+                actions: ['aps:RemoteWrite', 'aps:GetSeries', 'aps:GetLabels', 'aps:GetMetricMetadata'],
                 resources: [ampWorkspace.attrArn],
             }),
         );

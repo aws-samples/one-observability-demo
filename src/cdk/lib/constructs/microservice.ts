@@ -85,12 +85,11 @@ export abstract class Microservice extends Construct {
      * Create SLO definitions for this microservice using AWS Application Signals
      */
     private createSLOs(serviceName: string, config: SLOConfig): void {
-        const sloName = serviceName.replace(/[^a-zA-Z0-9-]/g, '-');
         const tierDescription = `Tier ${config.tier}`;
 
         // Create availability SLO
-        new CfnServiceLevelObjective(this, 'AvailabilitySLO', {
-            name: `${sloName}-availability`,
+        new CfnServiceLevelObjective(this, `${serviceName}-AvailabilitySLO`, {
+            name: `${serviceName}-availability`,
             description: `${tierDescription}: ${serviceName} availability`,
             goal: {
                 interval: {
@@ -115,8 +114,8 @@ export abstract class Microservice extends Construct {
         });
 
         // Create latency SLO
-        new CfnServiceLevelObjective(this, 'LatencySLO', {
-            name: `${sloName}-latency`,
+        new CfnServiceLevelObjective(this, `${serviceName}-LatencySLO`, {
+            name: `${serviceName}-latency`,
             description: `${tierDescription}: ${serviceName} P99 latency`,
             goal: {
                 interval: {
@@ -125,7 +124,7 @@ export abstract class Microservice extends Construct {
                         durationUnit: 'Second',
                     },
                 },
-                attainmentGoal: 99.0, // 99% of requests should meet latency target
+                attainmentGoal: 99, // 99% of requests should meet latency target
                 warningThreshold: 98.5,
             },
             sli: {

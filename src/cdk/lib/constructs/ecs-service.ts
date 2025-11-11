@@ -1038,7 +1038,7 @@ export abstract class EcsService extends Microservice {
                         durationUnit: 'Second',
                     },
                 },
-                attainmentGoal: 99.0, // 99% of requests should meet latency target
+                attainmentGoal: 99, // 99% of requests should meet latency target
                 warningThreshold: 98.5,
             },
             sli: {
@@ -1054,5 +1054,4 @@ export abstract class EcsService extends Microservice {
             },
         });
     }
-
 }

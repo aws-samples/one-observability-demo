@@ -161,9 +161,9 @@ export class MicroservicesStack extends Stack {
                 workspaceId: Fn.importValue('AMPWorkspaceId'),
                 workspaceEndpoint: Fn.importValue('AMPWorkspaceEndpoint'),
             };
-        } catch (error) {
+        } catch {
             // AMP workspace may not be deployed yet, return undefined
-            return undefined;
+            return;
         }
     }
 
