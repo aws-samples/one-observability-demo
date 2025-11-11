@@ -448,3 +448,9 @@ cdk.context.json
 
 # Generated images temporary folder
 generated_images/
+
+# js compiled
+*.d.ts
+
+# Ignore compiled JS files in CDK folder
+src/cdk/**/*.js
