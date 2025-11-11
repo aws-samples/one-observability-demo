@@ -94,8 +94,8 @@ export abstract class Microservice extends Construct {
             goal: {
                 interval: {
                     rollingInterval: {
-                        duration: Duration.days(30).toSeconds(),
-                        durationUnit: 'Second',
+                        duration: 30,
+                        durationUnit: 'DAY',
                     },
                 },
                 attainmentGoal: config.availabilityTarget,
@@ -120,8 +120,8 @@ export abstract class Microservice extends Construct {
             goal: {
                 interval: {
                     rollingInterval: {
-                        duration: Duration.days(30).toSeconds(),
-                        durationUnit: 'Second',
+                        duration: 30,
+                        durationUnit: 'DAY',
                     },
                 },
                 attainmentGoal: 99, // 99% of requests should meet latency target
