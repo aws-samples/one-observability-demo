@@ -37,6 +37,29 @@ export enum CloudWatchAgentTraceMode {
     OTLP = 'otlp',
 }
 
+/**
+ * Defines the CloudWatch agent metrics collection mode
+ */
+export enum CloudWatchAgentMetricsMode {
+    /**
+     * Use CloudWatch Embedded Metric Format (EMF) for metrics
+     * Metrics are sent directly to CloudWatch
+     */
+    CLOUDWATCH_EMF = 'cloudwatch_emf',
+
+    /**
+     * Use Prometheus remote write to Amazon Managed Prometheus (AMP)
+     * Metrics are scraped from Prometheus endpoints and sent to AMP
+     */
+    PROMETHEUS_AMP = 'prometheus_amp',
+
+    /**
+     * No metrics collection
+     * Only traces will be collected
+     */
+    NONE = 'none',
+}
+
 // VPC Export Names
 export const VPC_ID_EXPORT_NAME = 'public:WorkshopVPC';
 export const VPC_CIDR_EXPORT_NAME = 'public:WorkshopVPCCidr';
@@ -184,4 +207,8 @@ export const SSM_PARAMETER_NAMES = {
 
     // PetFood Agent parameters
     PETFOOD_AGENT_RUNTIME_ARN_NAME: 'petfoodagent-runtime-arn',
+
+    // Amazon Managed Prometheus (AMP) parameters
+    AMP_WORKSPACE_ID: 'amp-workspace-id',
+    AMP_WORKSPACE_ENDPOINT: 'amp-workspace-endpoint',
 } as const;

@@ -19,6 +19,9 @@ import { Function } from 'aws-cdk-lib/aws-lambda';
 import { SecurityGroup, Port, IVpc, Peer } from 'aws-cdk-lib/aws-ec2';
 import { PARAMETER_STORE_PREFIX, RDS_SEEDER_FUNCTION } from '../../bin/environment';
 import { RdsSeederFunction } from '../serverless/functions/rds-seeder/rds-seeder';
+import { CfnWorkspace } from 'aws-cdk-lib/aws-aps';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { CfnOutput, Fn } from 'aws-cdk-lib';
 
 export interface StorageProperties extends StackProps {
     assetsProperties?: AssetsProperties;
@@ -37,6 +40,17 @@ export class StorageStage extends Stage {
         if (properties.tags) {
             Utilities.TagConstruct(this.stack, properties.tags);
         }
+    }
+
+    /**
+     * Import AMP workspace details from CloudFormation exports
+     */
+    public static importAmpWorkspaceFromExports(scope: Construct, id: string) {
+        return {
+            workspaceId: Fn.importValue('AMPWorkspaceId'),
+            workspaceEndpoint: Fn.importValue('AMPWorkspaceEndpoint'),
+            cloudWatchAgentRoleArn: Fn.importValue('CloudWatchAgentAMPRoleArn'),
+        };
     }
     public getDDBSeedingStep(scope: Stack, artifactBucket: IBucket) {
         const seedingRole = new Role(scope, 'DDBSeedingRole', {
@@ -148,6 +162,9 @@ export class StorageStack extends Stack {
     public readonly auroraDatabase: AuroraDatabase;
     public readonly workshopAssets: WorkshopAssets;
     public readonly rdsSeederLambda: Function;
+    public readonly ampWorkspace: CfnWorkspace;
+    public readonly ampWorkspaceId: string;
+    public readonly ampWorkspaceEndpoint: string;
 
     constructor(scope: Construct, id: string, properties: StorageProperties) {
         super(scope, id, properties);
@@ -185,6 +202,11 @@ export class StorageStack extends Stack {
         });
         this.rdsSeederLambda = rdsSeederFunction.function;
 
+        /** Add Amazon Managed Prometheus (AMP) workspace */
+        this.ampWorkspace = this.createAmpWorkspace();
+        this.ampWorkspaceId = this.ampWorkspace.attrWorkspaceId;
+        this.ampWorkspaceEndpoint = this.ampWorkspace.attrPrometheusEndpoint;
+
         Utilities.SuppressLogRetentionNagWarnings(this);
     }
 
@@ -207,5 +229,81 @@ export class StorageStack extends Stack {
         lambdaSecurityGroup.addEgressRule(Peer.anyIpv4(), Port.tcp(443), 'HTTPS outbound for AWS API calls');
 
         return lambdaSecurityGroup;
+    }
+
+    private createAmpWorkspace(): CfnWorkspace {
+        // Create Amazon Managed Prometheus workspace
+        // Note: No alias specified - CDK will generate a unique workspace ID
+        // This avoids deletion/creation conflicts during stack updates
+        const ampWorkspace = new CfnWorkspace(this, 'AMPWorkspace', {
+            loggingConfiguration: {
+                logGroupArn: `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/vendedlogs/amp:*`,
+            },
+        });
+
+        // Create IAM role for CloudWatch agent sidecar to write metrics to AMP
+        // This role is assumed by ECS tasks running the CloudWatch agent container
+        const cwAgentRole = new Role(this, 'CloudWatchAgentAMPRole', {
+            assumedBy: new ServicePrincipal('ecs-tasks.amazonaws.com'),
+            description: 'Role for CloudWatch agent to write Prometheus metrics to AMP',
+        });
+
+        cwAgentRole.addToPolicy(
+            new PolicyStatement({
+                actions: [
+                    'aps:RemoteWrite',
+                    'aps:GetSeries',
+                    'aps:GetLabels',
+                    'aps:GetMetricMetadata',
+                ],
+                resources: [ampWorkspace.attrArn],
+            }),
+        );
+
+        // Store AMP workspace endpoint in Parameter Store for service discovery
+        new StringParameter(this, 'AMPWorkspaceEndpointParameter', {
+            parameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.AMP_WORKSPACE_ENDPOINT}`,
+            stringValue: ampWorkspace.attrPrometheusEndpoint,
+            description: 'Amazon Managed Prometheus workspace endpoint for metrics ingestion',
+        });
+
+        new StringParameter(this, 'AMPWorkspaceIdParameter', {
+            parameterName: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.AMP_WORKSPACE_ID}`,
+            stringValue: ampWorkspace.attrWorkspaceId,
+            description: 'Amazon Managed Prometheus workspace ID',
+        });
+
+        // Export AMP workspace details as CloudFormation outputs
+        new CfnOutput(this, 'AMPWorkspaceIdOutput', {
+            value: ampWorkspace.attrWorkspaceId,
+            exportName: 'AMPWorkspaceId',
+            description: 'Amazon Managed Prometheus workspace ID',
+        });
+
+        new CfnOutput(this, 'AMPWorkspaceEndpointOutput', {
+            value: ampWorkspace.attrPrometheusEndpoint,
+            exportName: 'AMPWorkspaceEndpoint',
+            description: 'Amazon Managed Prometheus workspace endpoint',
+        });
+
+        new CfnOutput(this, 'CloudWatchAgentAMPRoleArnOutput', {
+            value: cwAgentRole.roleArn,
+            exportName: 'CloudWatchAgentAMPRoleArn',
+            description: 'IAM role ARN for CloudWatch agent to write to AMP',
+        });
+
+        // Add CDK-nag suppressions for IAM role
+        NagSuppressions.addResourceSuppressions(
+            cwAgentRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'CloudWatch agent needs permissions to write metrics to AMP workspace',
+                },
+            ],
+            true,
+        );
+
+        return ampWorkspace;
     }
 }
