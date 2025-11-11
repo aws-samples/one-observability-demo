@@ -236,9 +236,7 @@ export class StorageStack extends Stack {
         // Note: No alias specified - CDK will generate a unique workspace ID
         // This avoids deletion/creation conflicts during stack updates
         const ampWorkspace = new CfnWorkspace(this, 'AMPWorkspace', {
-            loggingConfiguration: {
-                logGroupArn: `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/vendedlogs/amp:*`,
-            },
+            // Logging configuration omitted - AMP will use default logging
         });
 
         // Create IAM role for CloudWatch agent sidecar to write metrics to AMP
