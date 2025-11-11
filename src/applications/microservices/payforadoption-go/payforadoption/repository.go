@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,13 +28,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// PetIdentifier represents a unique pet that was successfully reset
+type PetIdentifier struct {
+	PetID   string
+	PetType string
+}
+
 // Repository as an interface to define data store interactions
 type Repository interface {
 	CreateTransaction(ctx context.Context, a Adoption) error
 	SendHistoryMessage(ctx context.Context, a Adoption) error
 	DropTransactions(ctx context.Context) error
+	DropTransactionsByPets(ctx context.Context, pets []PetIdentifier) error
 	UpdateAvailability(ctx context.Context, a Adoption) error
-	ResetPetsAvailability(ctx context.Context) error
+	ResetPetsAvailability(ctx context.Context) ([]PetIdentifier, error)
 	ValidatePet(ctx context.Context, a Adoption) error
 	TriggerSeeding(ctx context.Context) error
 	CreateSQLTables(ctx context.Context) error
@@ -175,6 +183,49 @@ func (r *repo) DropTransactions(ctx context.Context) error {
 	InfoWithTrace(ctx, r.logger,
 		"action", "user_transactions_deleted",
 		"sql", sql,
+		"rowsAffected", rowsAffected,
+	)
+
+	return nil
+}
+
+// DropTransactionsByPets deletes transactions only for the specified pets
+// This ensures we only delete transactions for pets that were successfully reset
+func (r *repo) DropTransactionsByPets(ctx context.Context, pets []PetIdentifier) error {
+	logger := log.With(r.logger, "method", "DropTransactionsByPets")
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("removing transactions for specific pets")
+
+	if len(pets) == 0 {
+		InfoWithTrace(ctx, logger, "action", "no_transactions_to_delete", "count", 0)
+		return nil
+	}
+
+	// Build the WHERE clause with pet_id and pet_type pairs
+	// DELETE FROM transactions WHERE (pet_id = $1 AND pet_type = $2) OR (pet_id = $3 AND pet_type = $4) ...
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	for _, pet := range pets {
+		conditions = append(conditions, fmt.Sprintf("(pet_id = $%d AND pet_type = $%d)", argIndex, argIndex+1))
+		args = append(args, pet.PetID, pet.PetType)
+		argIndex += 2
+	}
+
+	sql := fmt.Sprintf("DELETE FROM transactions WHERE %s", strings.Join(conditions, " OR "))
+
+	result, err := r.db.ExecContext(ctx, sql, args...)
+	if err != nil {
+		span.RecordError(err)
+		ErrorWithTrace(ctx, logger, "error", "failed to delete pet transactions", "err", err, "petCount", len(pets))
+		return NewInternalError("failed to delete pet transactions from database", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	InfoWithTrace(ctx, logger,
+		"action", "pet_transactions_deleted",
+		"petCount", len(pets),
 		"rowsAffected", rowsAffected,
 	)
 
@@ -333,8 +384,9 @@ func (r *repo) ValidatePet(ctx context.Context, a Adoption) error {
 }
 
 // ResetPetsAvailability updates every adopted pet to availability = yes
-// through pet updater using concurrent goroutines
-func (r *repo) ResetPetsAvailability(ctx context.Context) error {
+// through pet updater using concurrent goroutines.
+// Returns the list of successfully reset pets so only those transactions can be deleted.
+func (r *repo) ResetPetsAvailability(ctx context.Context) ([]PetIdentifier, error) {
 	logger := log.With(r.logger, "method", "ResetPetsAvailability")
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("resetting pet availability for all adopted pets")
@@ -345,7 +397,7 @@ func (r *repo) ResetPetsAvailability(ctx context.Context) error {
 	if err != nil {
 		span.RecordError(err)
 		ErrorWithTrace(ctx, logger, "error", "failed to query distinct pets", "err", err)
-		return NewInternalError("failed to query distinct pets from database", err)
+		return nil, NewInternalError("failed to query distinct pets from database", err)
 	}
 	defer rows.Close()
 
@@ -361,7 +413,7 @@ func (r *repo) ResetPetsAvailability(ctx context.Context) error {
 		if err := rows.Scan(&p.petID, &p.petType); err != nil {
 			span.RecordError(err)
 			ErrorWithTrace(ctx, logger, "error", "failed to scan pet row", "err", err)
-			return NewInternalError("failed to scan pet data", err)
+			return nil, NewInternalError("failed to scan pet data", err)
 		}
 		pets = append(pets, p)
 	}
@@ -369,14 +421,15 @@ func (r *repo) ResetPetsAvailability(ctx context.Context) error {
 	if err := rows.Err(); err != nil {
 		span.RecordError(err)
 		ErrorWithTrace(ctx, logger, "error", "error iterating pet rows", "err", err)
-		return NewInternalError("error iterating pet rows", err)
+		return nil, NewInternalError("error iterating pet rows", err)
 	}
 
 	InfoWithTrace(ctx, logger, "action", "pets_to_reset", "count", len(pets))
 
 	// Use goroutines to reset availability for each pet concurrently
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(pets))
+	successChan := make(chan PetIdentifier, len(pets))
+	errorChan := make(chan error, len(pets))
 
 	for _, pet := range pets {
 		wg.Add(1)
@@ -390,30 +443,44 @@ func (r *repo) ResetPetsAvailability(ctx context.Context) error {
 			}
 			if err := r.callPetUpdater(ctx, req); err != nil {
 				ErrorWithTrace(ctx, logger, "error", "failed to reset pet availability", "petID", p.petID, "petType", p.petType, "err", err)
-				errChan <- err
+				errorChan <- err
 			} else {
 				InfoWithTrace(ctx, logger, "action", "pet_availability_reset", "petID", p.petID, "petType", p.petType)
+				successChan <- PetIdentifier{PetID: p.petID, PetType: p.petType}
 			}
 		}(pet)
 	}
 
 	// Wait for all goroutines to complete
 	wg.Wait()
-	close(errChan)
+	close(successChan)
+	close(errorChan)
 
-	// Check if any errors occurred
+	// Collect successfully reset pets
+	var successfulResets []PetIdentifier
+	for pet := range successChan {
+		successfulResets = append(successfulResets, pet)
+	}
+
+	// Collect errors
 	var resetErrors []error
-	for err := range errChan {
+	for err := range errorChan {
 		resetErrors = append(resetErrors, err)
 	}
 
 	if len(resetErrors) > 0 {
-		ErrorWithTrace(ctx, logger, "error", "some pets failed to reset", "errorCount", len(resetErrors))
-		return NewInternalError(fmt.Sprintf("failed to reset %d pets", len(resetErrors)), resetErrors[0])
+		WarnWithTrace(ctx, logger, "warning", "some pets failed to reset",
+			"errorCount", len(resetErrors),
+			"successCount", len(successfulResets),
+			"totalCount", len(pets))
 	}
 
-	InfoWithTrace(ctx, logger, "action", "all_pets_reset_successfully", "count", len(pets))
-	return nil
+	InfoWithTrace(ctx, logger, "action", "pets_reset_completed",
+		"successCount", len(successfulResets),
+		"failedCount", len(resetErrors),
+		"totalCount", len(pets))
+
+	return successfulResets, nil
 }
 
 type Pet struct {

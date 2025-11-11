@@ -136,20 +136,28 @@ func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
 	defer parentSpan.End()
 
 	// Step 1: Reset pet availability in DynamoDB via pet updater
+	// This returns only the pets that were successfully reset
 	InfoWithTrace(ctx, logger, "action", "resetting_pet_availability")
-	if err := s.repository.ResetPetsAvailability(ctx); err != nil {
+	successfulResets, err := s.repository.ResetPetsAvailability(ctx)
+	if err != nil {
 		ErrorWithTrace(ctx, logger, "err", err, "action", "reset_availability_failed")
 		return err
 	}
 
-	// Step 2: Drop all transactions from PostgreSQL
-	InfoWithTrace(ctx, logger, "action", "dropping_transactions")
-	if err := s.repository.DropTransactions(ctx); err != nil {
-		ErrorWithTrace(ctx, logger, "err", err, "action", "drop_transactions_failed")
-		return err
+	// Step 2: Drop transactions ONLY for pets that were successfully reset
+	// This prevents data inconsistency - if a pet failed to reset, we keep its transaction
+	// so it can be retried later or investigated
+	InfoWithTrace(ctx, logger, "action", "dropping_transactions", "petCount", len(successfulResets))
+	if len(successfulResets) > 0 {
+		if err := s.repository.DropTransactionsByPets(ctx, successfulResets); err != nil {
+			ErrorWithTrace(ctx, logger, "err", err, "action", "drop_transactions_failed")
+			return err
+		}
+	} else {
+		WarnWithTrace(ctx, logger, "warning", "no_pets_reset_successfully", "message", "no transactions deleted")
 	}
 
-	InfoWithTrace(ctx, logger, "action", "user_transactions_cleaned", "userID", userID)
+	InfoWithTrace(ctx, logger, "action", "user_transactions_cleaned", "userID", userID, "petsReset", len(successfulResets))
 	return nil
 }
 

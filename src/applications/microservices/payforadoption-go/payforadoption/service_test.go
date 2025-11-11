@@ -39,7 +39,12 @@ func (m *mockRepository) UpdateAvailability(ctx context.Context, a Adoption) err
 	return m.updateAvailabilityErr
 }
 
-func (m *mockRepository) ResetPetsAvailability(ctx context.Context) error {
+func (m *mockRepository) ResetPetsAvailability(ctx context.Context) ([]PetIdentifier, error) {
+	// Mock returns empty list for successful reset
+	return []PetIdentifier{}, nil
+}
+
+func (m *mockRepository) DropTransactionsByPets(ctx context.Context, pets []PetIdentifier) error {
 	return nil
 }
 
