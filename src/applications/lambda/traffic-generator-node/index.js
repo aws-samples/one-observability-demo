@@ -103,7 +103,7 @@ exports.handler = async (event) => {
  * @param {number} userIndex - The user index (1-based)
  * @returns {Promise<{userId: string, success: boolean, message?: string}>}
  */
-async function simulateUserJourney(petsiteBaseUrl, userIndex) {
+async function simulateUserJourney(petsiteBaseUrl) {
     // Generate random userId between user30000 and user40000
     const randomUserId = Math.floor(Math.random() * (40_000 - 30_000 + 1)) + 30_000;
     const userId = `user${String(randomUserId).padStart(5, '0')}`;
@@ -374,7 +374,7 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data, con
 
                     console.log(`${description} redirecting (${response.statusCode}) to: ${newUrl}`);
                     // Follow redirect with GET method (POST redirects should use GET)
-                    return makeHttpRequest(newUrl, 'GET', description, null, contentType, redirectCount + 1)
+                    return makeHttpRequest(newUrl, 'GET', description, undefined, contentType, redirectCount + 1)
                         .then((result) => resolve(result))
                         .catch((error) => reject(error));
                 }

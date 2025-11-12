@@ -63,6 +63,11 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 		AdoptionDate:  time.Now(),
 	}
 
+	if err := s.repository.ValidatePet(ctx, a); err != nil {
+		ErrorWithTrace(ctx, logger, "err", err)
+		return Adoption{}, err
+	}
+
 	// Log the start of the adoption process
 	InfoWithTrace(ctx, logger,
 		"action", "adoption_process_started",
@@ -127,14 +132,32 @@ func (s service) CompleteAdoption(ctx context.Context, petId, petType, userID st
 func (s service) CleanupAdoptions(ctx context.Context, userID string) error {
 	logger := log.With(s.logger, "method", "CleanupAdoptions", "userID", userID)
 
-	ctx, parentSpan := s.tracer.Start(ctx, "PG drop user transactions")
+	ctx, parentSpan := s.tracer.Start(ctx, "Cleanup Adoptions")
 	defer parentSpan.End()
-	if err := s.repository.DropTransactions(ctx); err != nil {
-		ErrorWithTrace(ctx, logger, "err", err)
+
+	// Step 1: Reset pet availability in DynamoDB via pet updater
+	// This returns only the pets that were successfully reset
+	InfoWithTrace(ctx, logger, "action", "resetting_pet_availability")
+	successfulResets, err := s.repository.ResetPetsAvailability(ctx)
+	if err != nil {
+		ErrorWithTrace(ctx, logger, "err", err, "action", "reset_availability_failed")
 		return err
 	}
 
-	InfoWithTrace(ctx, logger, "action", "user_transactions_cleaned", "userID", userID)
+	// Step 2: Drop transactions ONLY for pets that were successfully reset
+	// This prevents data inconsistency - if a pet failed to reset, we keep its transaction
+	// so it can be retried later or investigated
+	InfoWithTrace(ctx, logger, "action", "dropping_transactions", "petCount", len(successfulResets))
+	if len(successfulResets) > 0 {
+		if err := s.repository.DropTransactionsByPets(ctx, successfulResets); err != nil {
+			ErrorWithTrace(ctx, logger, "err", err, "action", "drop_transactions_failed")
+			return err
+		}
+	} else {
+		WarnWithTrace(ctx, logger, "warning", "no_pets_reset_successfully", "message", "no transactions deleted")
+	}
+
+	InfoWithTrace(ctx, logger, "action", "user_transactions_cleaned", "userID", userID, "petsReset", len(successfulResets))
 	return nil
 }
 
