@@ -1018,7 +1018,9 @@ export abstract class EcsService extends Microservice {
             sli: {
                 sliMetric: {
                     keyAttributes: {
-                        Service: serviceName,
+                        Type: 'Service',
+                        Name: serviceName,
+                        Environment: `ecs:${properties.ecsCluster?.clusterName || 'default'}`,
                     },
                     metricType: 'AVAILABILITY',
                     operationName: '*', // Monitor all operations
@@ -1046,7 +1048,9 @@ export abstract class EcsService extends Microservice {
             sli: {
                 sliMetric: {
                     keyAttributes: {
-                        Service: serviceName,
+                        Type: 'Service',
+                        Name: serviceName,
+                        Environment: `ecs:${properties.ecsCluster?.clusterName || 'default'}`,
                     },
                     metricType: 'LATENCY',
                     operationName: '*', // Monitor all operations

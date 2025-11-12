@@ -104,7 +104,9 @@ export abstract class Microservice extends Construct {
             sli: {
                 sliMetric: {
                     keyAttributes: {
-                        Service: serviceName,
+                        Type: 'Service',
+                        Name: serviceName,
+                        Environment: 'default',
                     },
                     metricType: 'AVAILABILITY',
                     operationName: '*', // Monitor all operations
@@ -132,7 +134,9 @@ export abstract class Microservice extends Construct {
             sli: {
                 sliMetric: {
                     keyAttributes: {
-                        Service: serviceName,
+                        Type: 'Service',
+                        Name: serviceName,
+                        Environment: 'default',
                     },
                     metricType: 'LATENCY',
                     operationName: '*', // Monitor all operations
