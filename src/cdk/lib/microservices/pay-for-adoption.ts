@@ -14,7 +14,6 @@ import { NagSuppressions } from 'cdk-nag';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IQueue } from 'aws-cdk-lib/aws-sqs';
 import { Stack } from 'aws-cdk-lib';
-import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;

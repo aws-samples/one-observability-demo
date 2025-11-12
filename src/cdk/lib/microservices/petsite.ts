@@ -33,7 +33,6 @@ import { SSM_PARAMETER_NAMES, PETSITE_URL_EXPORT_NAME } from '../../bin/constant
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
-import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface PetSetProperties extends EKSDeploymentProperties {
     globalWebACLArn?: string;
@@ -206,11 +205,11 @@ export class PetSite extends EKSDeployment {
         // Get EKS cluster name for environment attribute
         // Note: Based on OTEL_RESOURCE_ATTRIBUTES in deployment manifest, environment is 'workshop'
         // If eks: format doesn't work, try just 'workshop'
-        const eksClusterName = properties.eksCluster?.clusterName || 'workshop';
-        const eksNamespace = this.namespace || 'petsite';
-        const eksEnvironment = `eks:${eksClusterName}/${eksNamespace}`;
+        // const eksClusterName = properties.eksCluster?.clusterName || 'workshop';
+        // const eksNamespace = this.namespace || 'petsite';
+        // const eksEnvironment = `eks:${eksClusterName}/${eksNamespace}`;
         // Try 'workshop' first as it matches OTEL_RESOURCE_ATTRIBUTES
-        const environmentAttribute = 'workshop';
+        // const environmentAttribute = 'workshop';
 
         // TODO: Re-enable after confirming correct environment attribute format
         // The service/operation exists in console but API says it doesn't exist - likely environment format issue
