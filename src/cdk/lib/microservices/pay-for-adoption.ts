@@ -14,6 +14,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IQueue } from 'aws-cdk-lib/aws-sqs';
 import { Stack } from 'aws-cdk-lib';
+import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -47,6 +48,35 @@ export class PayForAdoptionService extends EcsService {
             'app:computType': properties.computeType,
             'app:hostType:': properties.hostType,
         });
+
+        // TODO: Re-enable after payforadoption-api-go service and GET /health/status operation are discovered by ApplicationSignals
+        // new CfnServiceLevelObjective(this, 'PayForAdoptionApiSLO', {
+        //     name: 'PayForAdoptionApiSLO',
+        //     description: 'SLO for GET /health/status endpoint latency <= 5000ms',
+        //     sli: {
+        //         sliMetric: {
+        //             keyAttributes: {
+        //                 Type: 'Service',
+        //                 Name: 'payforadoption-api-go',
+        //                 Environment: 'ecs:PetsiteECS-cluster',
+        //             },
+        //             operationName: 'GET /health/status',
+        //             metricType: 'LATENCY',
+        //             periodSeconds: 60,
+        //         },
+        //         metricThreshold: 5000,
+        //         comparisonOperator: 'LessThan',
+        //     },
+        //     goal: {
+        //         interval: {
+        //             rollingInterval: {
+        //                 duration: 1,
+        //                 durationUnit: 'DAY',
+        //             },
+        //         },
+        //         attainmentGoal: 90.0,
+        //     },
+        // });
     }
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {
