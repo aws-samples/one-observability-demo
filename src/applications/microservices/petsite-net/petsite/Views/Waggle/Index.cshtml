@@ -16,6 +16,7 @@
                     <div class="chat-avatar">🐕</div>
                     <h4 class="mb-0">Waggle AI</h4>
                     <div class="online-status"></div>
+                    <div id="session-id-display" class="session-id-text"></div>
                 </div>
                 <div id="chat-messages" class="chat-messages">
                     <!-- Initial message will be added by JavaScript -->
@@ -50,6 +51,7 @@
         background: #000000;
         padding: 20px;
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 15px;
     }
@@ -80,11 +82,36 @@
         animation: pulse 2s infinite;
     }
 
+    .session-id-text {
+        font-size: 11px;
+        color: #999999;
+        font-weight: 400;
+        width: 100%;
+        text-align: right;
+        margin-top: 5px;
+    }
+
     .chat-messages {
-        height: 500px;
+        height: calc(100vh - 400px);
+        min-height: 500px;
+        max-height: 800px;
         overflow-y: auto;
         padding: 20px;
         background: #ffffff;
+    }
+
+    @@media (max-height: 900px) {
+        .chat-messages {
+            height: calc(100vh - 350px);
+            min-height: 400px;
+        }
+    }
+
+    @@media (max-height: 700px) {
+        .chat-messages {
+            height: calc(100vh - 300px);
+            min-height: 300px;
+        }
     }
 
     .message {
@@ -286,12 +313,55 @@
         to { transform: translateX(0); opacity: 1; }
     }
 
+    @@keyframes tailWag {
+        0% { transform: rotate(0deg); }
+        25% { transform: rotate(15deg); }
+        50% { transform: rotate(0deg); }
+        75% { transform: rotate(-15deg); }
+        100% { transform: rotate(0deg); }
+    }
+
+    @@keyframes pawBounce {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-8px) scale(1.1); }
+    }
+
     .animate-in {
         animation: slideInLeft 0.5s ease-out;
     }
 
     .animate-in-user {
         animation: slideInRight 0.5s ease-out;
+    }
+
+    .thinking-message {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #2d7f83;
+        font-weight: 500;
+        font-size: 15px;
+    }
+
+    .thinking-message .paw {
+        display: inline-block;
+        font-size: 18px;
+        animation: pawBounce 0.6s ease-in-out infinite;
+    }
+
+    .thinking-message .paw:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .thinking-message .paw:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    .thinking-message .tail {
+        display: inline-block;
+        font-size: 20px;
+        animation: tailWag 1s ease-in-out infinite;
+        transform-origin: center;
     }
 </style>
 
@@ -302,6 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatMessages = document.getElementById('chat-messages');
     const userId = '@ViewBag.UserId';
     let sessionId = null;
+    let isProcessing = false;
 
     function formatMessage(message) {
         // Convert newlines to <br> tags
@@ -331,9 +402,14 @@ document.addEventListener('DOMContentLoaded', function() {
         return formatted;
     }
 
-    function addMessage(message, isUser = false) {
+    function addMessage(message, isUser = false, skipAnimation = false) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${isUser ? 'user-message animate-in-user' : 'bot-message animate-in'}`;
+        messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+        // Only add animation class if not skipping
+        if (!skipAnimation) {
+            messageDiv.className += isUser ? ' animate-in-user' : ' animate-in';
+        }
 
         const senderDiv = document.createElement('div');
         senderDiv.className = 'sender-name';
@@ -361,9 +437,32 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    function addThinkingMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message animate-in';
+        messageDiv.id = 'thinking-message';
+
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'sender-name';
+        senderDiv.textContent = 'Waggle';
+
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'message-bubble';
+        bubbleDiv.innerHTML = '<div class="thinking-message"><span class="paw">🐾</span><span class="paw">🐾</span><span class="paw">🐾</span><span class="tail">🦴</span></div>';
+
+        messageDiv.appendChild(senderDiv);
+        messageDiv.appendChild(bubbleDiv);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        return messageDiv;
+    }
+
     function sendMessage() {
         const message = messageInput.value.trim();
-        if (!message) return;
+        if (!message || isProcessing) return;
+
+        isProcessing = true;
 
         // Add user message to chat
         addMessage(message, true);
@@ -371,6 +470,9 @@ document.addEventListener('DOMContentLoaded', function() {
         sendButton.disabled = true;
         sendButton.querySelector('.send-icon').style.display = 'none';
         sendButton.querySelector('.spinner').style.display = 'block';
+
+        // Add thinking message
+        const thinkingMsg = addThinkingMessage();
 
         // Send AJAX request
         fetch('/Waggle/SendMessage', {
@@ -386,16 +488,31 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            // Remove thinking message
+            if (thinkingMsg && thinkingMsg.parentNode) {
+                thinkingMsg.remove();
+            }
+
             if (data.sessionId) {
                 sessionId = data.sessionId;
+                // Update session ID display
+                document.getElementById('session-id-display').textContent = `Session ID: ${sessionId}`;
             }
-            addMessage(data.message, false);
+            // Add message without animation to avoid jarring transition
+            addMessage(data.message, false, true);
         })
         .catch(error => {
+            // Remove thinking message
+            if (thinkingMsg && thinkingMsg.parentNode) {
+                thinkingMsg.remove();
+            }
+
             console.error('Error:', error);
-            addMessage('Sorry, there was an error sending your message. Please try again.', false);
+            // Add error message without animation
+            addMessage('Sorry, there was an error sending your message. Please try again.', false, true);
         })
         .finally(() => {
+            isProcessing = false;
             sendButton.disabled = false;
             sendButton.querySelector('.send-icon').style.display = 'block';
             sendButton.querySelector('.spinner').style.display = 'none';

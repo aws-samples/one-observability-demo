@@ -18,6 +18,9 @@ namespace PetSite.Controllers
         private readonly IConfiguration _configuration;
         private readonly ParameterRefreshManager _refreshManager;
 
+        // Limit concurrent Bedrock requests to prevent connection exhaustion
+        private static readonly System.Threading.SemaphoreSlim _bedrockSemaphore = new System.Threading.SemaphoreSlim(2, 2);
+
         public WaggleController(ILogger<WaggleController> logger, IAmazonBedrockAgentCore bedrockAgentCore,
             IConfiguration configuration, ParameterRefreshManager refreshManager)
         {
@@ -72,92 +75,112 @@ namespace PetSite.Controllers
                 // Create the invoke agent runtime request
                 var payloadJson = JsonSerializer.Serialize(payload);
                 var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payloadJson);
-                var payloadStream = new System.IO.MemoryStream(payloadBytes);
 
-                var invokeRequest = new InvokeAgentRuntimeRequest
+                // Wait for semaphore to limit concurrent requests
+                _logger.LogInformation("Waiting for available Bedrock connection slot...");
+                await _bedrockSemaphore.WaitAsync();
+
+                try
                 {
-                    AgentRuntimeArn = agentRuntimeArn,
-                    RuntimeSessionId = request.SessionId,
-                    Payload = payloadStream,
-                    Qualifier = "DEFAULT"
-                };
-
-                _logger.LogInformation("Invoking agent runtime");
-
-                // Invoke the Bedrock AgentCore
-                var response = await _bedrockAgentCore.InvokeAgentRuntimeAsync(invokeRequest);
-
-                _logger.LogInformation("Received response from agent runtime");
-
-                // Process the response
-                if (response.Response != null)
-                {
-                    using var reader = new System.IO.StreamReader(response.Response);
-                    var responseBody = await reader.ReadToEndAsync();
-
-                    _logger.LogInformation($"Raw response body: {responseBody}");
-
-                    // Process Server-Sent Events (SSE) streaming response
-                    if (responseBody.Contains("data: "))
+                    // Use using statements to ensure proper disposal of all resources
+                    using (var payloadStream = new System.IO.MemoryStream(payloadBytes))
                     {
-                        var lines = responseBody.Split('\n');
-                        var messageBuilder = new System.Text.StringBuilder();
-
-                        foreach (var line in lines)
+                        var invokeRequest = new InvokeAgentRuntimeRequest
                         {
-                            if (line.StartsWith("data: "))
-                            {
-                                // Extract the content after "data: "
-                                var content = line.Substring(6); // Remove "data: " prefix
+                            AgentRuntimeArn = agentRuntimeArn,
+                            RuntimeSessionId = request.SessionId,
+                            Payload = payloadStream,
+                            Qualifier = "DEFAULT"
+                        };
 
-                                // Remove quotes if present
-                                if (content.StartsWith("\"") && content.EndsWith("\""))
+                        _logger.LogInformation("Invoking agent runtime");
+
+                        // Invoke the Bedrock AgentCore and ensure response is disposed
+                        using (var response = await _bedrockAgentCore.InvokeAgentRuntimeAsync(invokeRequest))
+                        {
+                            _logger.LogInformation("Received response from agent runtime");
+
+                            // Process the response
+                            if (response.Response != null)
+                            {
+                                using (var reader = new System.IO.StreamReader(response.Response))
                                 {
-                                    content = content.Substring(1, content.Length - 2);
+                                    var responseBody = await reader.ReadToEndAsync();
+
+                                    _logger.LogInformation($"Raw response body: {responseBody}");
+
+                                    // Process Server-Sent Events (SSE) streaming response
+                                    if (responseBody.Contains("data: "))
+                                    {
+                                        var lines = responseBody.Split('\n');
+                                        var messageBuilder = new System.Text.StringBuilder();
+
+                                        foreach (var line in lines)
+                                        {
+                                            if (line.StartsWith("data: "))
+                                            {
+                                                // Extract the content after "data: "
+                                                var content = line.Substring(6); // Remove "data: " prefix
+
+                                                // Remove quotes if present
+                                                if (content.StartsWith("\"") && content.EndsWith("\""))
+                                                {
+                                                    content = content.Substring(1, content.Length - 2);
+                                                }
+
+                                                messageBuilder.Append(content);
+                                            }
+                                        }
+
+                                        responseText = messageBuilder.ToString();
+                                        _logger.LogInformation($"Processed SSE response: {responseText}");
+                                    }
+                                    else
+                                    {
+                                        // Try to parse as JSON if it's not SSE format
+                                        try
+                                        {
+                                            var responseData = JsonSerializer.Deserialize<JsonElement>(responseBody);
+
+                                            // Try different possible response structures
+                                            if (responseData.TryGetProperty("response", out var responseProperty))
+                                            {
+                                                responseText = responseProperty.GetString() ?? responseBody;
+                                            }
+                                            else if (responseData.TryGetProperty("output", out var outputProperty))
+                                            {
+                                                responseText = outputProperty.GetString() ?? responseBody;
+                                            }
+                                            else if (responseData.TryGetProperty("message", out var messageProperty))
+                                            {
+                                                responseText = messageProperty.GetString() ?? responseBody;
+                                            }
+                                            else
+                                            {
+                                                responseText = responseBody;
+                                            }
+                                        }
+                                        catch (JsonException ex)
+                                        {
+                                            _logger.LogWarning(
+                                                $"Response is not valid JSON: {ex.Message}. Using raw response.");
+                                            responseText = responseBody;
+                                        }
+                                    }
                                 }
-
-                                messageBuilder.Append(content);
-                            }
-                        }
-
-                        responseText = messageBuilder.ToString();
-                        _logger.LogInformation($"Processed SSE response: {responseText}");
-                    }
-                    else
-                    {
-                        // Try to parse as JSON if it's not SSE format
-                        try
-                        {
-                            var responseData = JsonSerializer.Deserialize<JsonElement>(responseBody);
-
-                            // Try different possible response structures
-                            if (responseData.TryGetProperty("response", out var responseProperty))
-                            {
-                                responseText = responseProperty.GetString() ?? responseBody;
-                            }
-                            else if (responseData.TryGetProperty("output", out var outputProperty))
-                            {
-                                responseText = outputProperty.GetString() ?? responseBody;
-                            }
-                            else if (responseData.TryGetProperty("message", out var messageProperty))
-                            {
-                                responseText = messageProperty.GetString() ?? responseBody;
                             }
                             else
                             {
-                                responseText = responseBody;
+                                responseText = "No response received from agent.";
                             }
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.LogWarning($"Response is not valid JSON: {ex.Message}. Using raw response.");
-                            responseText = responseBody;
-                        }
+                        } // Response disposed here
                     }
-                }
-                else
+                } // PayloadStream disposed here
+                finally
                 {
-                    responseText = "No response received from agent.";
+                    // Always release the semaphore
+                    _bedrockSemaphore.Release();
+                    _logger.LogInformation("Released Bedrock connection slot");
                 }
 
                 return Json(new ChatResponse
@@ -167,12 +190,22 @@ namespace PetSite.Controllers
                     Success = true
                 });
             }
+            catch (Amazon.BedrockAgentCore.Model.ServiceException ex)
+            {
+                _logger.LogWarning(ex, $"Bedrock service error: {ex.Message}");
+                return Json(new ChatResponse
+                {
+                    Message = "The service is currently busy. Please wait a moment and try again.",
+                    SessionId = request.SessionId,
+                    Success = false
+                });
+            }
             catch (System.Exception ex)
             {
                 _logger.LogError(ex, $"Error invoking Bedrock agent for user: {request.UserId}");
                 return Json(new ChatResponse
                 {
-                    Message = $"{ex.Message} - Sorry, I'm having trouble connecting right now. Please try again later.",
+                    Message = "Sorry, I'm having trouble connecting right now. Please try again later.",
                     SessionId = request.SessionId,
                     Success = false
                 });
