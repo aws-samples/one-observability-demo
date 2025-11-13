@@ -15,6 +15,7 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { ApplicationSignalsIntegration, JavaInstrumentationVersion } from '@aws-cdk/aws-applicationsignals-alpha';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Stack } from 'aws-cdk-lib';
+import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface PetSearchServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -58,6 +59,34 @@ export class PetSearchService extends EcsService {
                 enableLogging: true,
                 cpu: 256,
                 memoryLimitMiB: 512,
+            },
+        });
+
+        new CfnServiceLevelObjective(this, 'PetSearchApiSearchSLO', {
+            name: 'PetSearchApiSearchSLO',
+            description: 'SLO for /api/search GET endpoint latency <= 8000ms',
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Type: 'Service',
+                        Name: 'petsearch-api-java',
+                        Environment: 'ecs:PetsiteECS-cluster',
+                    },
+                    operationName: 'GET /api/search',
+                    metricType: 'LATENCY',
+                    periodSeconds: 60,
+                },
+                metricThreshold: 8000,
+                comparisonOperator: 'LessThan',
+            },
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: 1,
+                        durationUnit: 'DAY',
+                    },
+                },
+                attainmentGoal: 90,
             },
         });
 

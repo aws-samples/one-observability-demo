@@ -12,6 +12,7 @@ import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { Stack } from 'aws-cdk-lib';
+import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
     database: IDatabaseCluster;
@@ -63,6 +64,34 @@ export class ListAdoptionsService extends EcsService {
             'app:name': properties.name,
             'app:computType': properties.computeType,
             'app:hostType:': properties.hostType,
+        });
+
+        new CfnServiceLevelObjective(this, 'PetListAdoptionsHealthStatusSLO', {
+            name: 'PetListAdoptionsHealthStatusSLO',
+            description: 'SLO for GET /health/status endpoint latency <= 5000ms',
+            sli: {
+                sliMetric: {
+                    keyAttributes: {
+                        Type: 'Service',
+                        Name: 'petlistadoptions-api-py',
+                        Environment: 'ecs:PetsiteECS-cluster',
+                    },
+                    operationName: 'GET /health/status',
+                    metricType: 'LATENCY',
+                    periodSeconds: 60,
+                },
+                metricThreshold: 5000,
+                comparisonOperator: 'LessThan',
+            },
+            goal: {
+                interval: {
+                    rollingInterval: {
+                        duration: 1,
+                        durationUnit: 'DAY',
+                    },
+                },
+                attainmentGoal: 90,
+            },
         });
     }
 

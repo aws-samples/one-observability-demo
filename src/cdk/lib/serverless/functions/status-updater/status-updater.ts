@@ -21,6 +21,7 @@ import { IVpcEndpoint } from 'aws-cdk-lib/aws-ec2';
 import { Utilities } from '../../../utils/utilities';
 import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 import { SSM_PARAMETER_NAMES, STATUS_UPDATER_API_URL_EXPORT_NAME } from '../../../../bin/constants';
+// import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
     table: ITable;
@@ -110,6 +111,36 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         );
 
         this.createOutputs();
+
+        // TODO: Re-enable after Lambda services are discovered by ApplicationSignals
+        // Lambda SLO temporarily removed - services need to be invoked first for discovery
+        // new CfnServiceLevelObjective(this, 'PetUpdaterLambdaServiceSLO', {
+        //     name: 'PetUpdaterLambdaServiceSLO',
+        //     description: 'SLO for petupdater-node/LambdaService latency <= 5000ms',
+        //     sli: {
+        //         sliMetric: {
+        //             keyAttributes: {
+        //                 Type: 'Service',
+        //                 Name: 'petupdater-node',
+        //                 Environment: 'lambda:default',
+        //             },
+        //             operationName: 'petupdater-node/FunctionHandler',
+        //             metricType: 'LATENCY',
+        //             periodSeconds: 60,
+        //         },
+        //         metricThreshold: 5000,
+        //         comparisonOperator: 'LessThan',
+        //     },
+        //     goal: {
+        //         interval: {
+        //             rollingInterval: {
+        //                 duration: 1,
+        //                 durationUnit: 'DAY',
+        //             },
+        //         },
+        //         attainmentGoal: 90.0,
+        //     },
+        // });
     }
     addFunctionPermissions(properties: StatusUpdaterServiceProperties): void {
         if (this.function) {

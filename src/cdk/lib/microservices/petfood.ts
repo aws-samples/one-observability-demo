@@ -64,6 +64,35 @@ export class PetFoodECSService extends EcsService {
         //     'app:computType': properties.computeType,
         //     'app:hostType:': properties.hostType,
         // });
+
+        // TODO: Re-enable after petfood-api-rs service and GET /health/status operation are discovered by ApplicationSignals
+        // new CfnServiceLevelObjective(this, 'PetFoodApiSLO', {
+        //     name: 'PetFoodApiSLO',
+        //     description: 'SLO for GET /health/status endpoint latency <= 4000ms',
+        //     sli: {
+        //         sliMetric: {
+        //             keyAttributes: {
+        //                 Type: 'Service',
+        //                 Name: 'petfood-api-rs',
+        //                 Environment: 'ecs:PetsiteECS-cluster',
+        //             },
+        //             operationName: 'GET /health/status',
+        //             metricType: 'LATENCY',
+        //             periodSeconds: 60,
+        //         },
+        //         metricThreshold: 4000,
+        //         comparisonOperator: 'LessThan',
+        //     },
+        //     goal: {
+        //         interval: {
+        //             rollingInterval: {
+        //                 duration: 1,
+        //                 durationUnit: 'DAY',
+        //             },
+        //         },
+        //         attainmentGoal: 90.0,
+        //     },
+        // });
     }
 
     addPermissions(properties: PetFoodProperties): void {

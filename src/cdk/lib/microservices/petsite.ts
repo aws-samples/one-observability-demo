@@ -201,6 +201,46 @@ export class PetSite extends EKSDeployment {
             'app:computType': properties.computeType,
             'app:hostType:': properties.hostType,
         });
+
+        // Get EKS cluster name for environment attribute
+        // Note: Based on OTEL_RESOURCE_ATTRIBUTES in deployment manifest, environment is 'workshop'
+        // If eks: format doesn't work, try just 'workshop'
+        // const eksClusterName = properties.eksCluster?.clusterName || 'workshop';
+        // const eksNamespace = this.namespace || 'petsite';
+        // const eksEnvironment = `eks:${eksClusterName}/${eksNamespace}`;
+        // Try 'workshop' first as it matches OTEL_RESOURCE_ATTRIBUTES
+        // const environmentAttribute = 'workshop';
+
+        // TODO: Re-enable after confirming correct environment attribute format
+        // The service/operation exists in console but API says it doesn't exist - likely environment format issue
+        // Try checking ApplicationSignals console for exact service key attributes
+        // new CfnServiceLevelObjective(this, 'PetSiteHealthStatusSLO', {
+        //     name: 'PetSiteHealthStatusSLO',
+        //     description: 'SLO for GET health/status endpoint latency < 5000ms',
+        //     sli: {
+        //         sliMetric: {
+        //             keyAttributes: {
+        //                 Type: 'Service',
+        //                 Name: 'petsite-frontend-dotnet',
+        //                 Environment: environmentAttribute, // Try 'workshop' or check console for exact value
+        //             },
+        //             operationName: 'GET health/status',
+        //             metricType: 'LATENCY',
+        //             periodSeconds: 60,
+        //         },
+        //         metricThreshold: 5000,
+        //         comparisonOperator: 'LessThan',
+        //     },
+        //     goal: {
+        //         interval: {
+        //             rollingInterval: {
+        //                 duration: 1,
+        //                 durationUnit: 'DAY',
+        //             },
+        //         },
+        //         attainmentGoal: 90.0,
+        //     },
+        // });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- this is how KubnernetesManifests defines it

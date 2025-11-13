@@ -17,6 +17,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
 import { Stack } from 'aws-cdk-lib';
 import { CONCURRENT_USERS, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
+// import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
@@ -24,6 +25,36 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
         super(scope, id, properties);
 
         this.createOutputs();
+
+        // TODO: Re-enable after Lambda services are discovered by ApplicationSignals
+        // Lambda SLO temporarily removed - services need to be invoked first for discovery
+        // new CfnServiceLevelObjective(this, 'TrafficGeneratorLambdaServiceSLO', {
+        //     name: 'TrafficGeneratorLambdaServiceSLO',
+        //     description: 'SLO for traffic-generator-node/LambdaService latency <= 5000ms',
+        //     sli: {
+        //         sliMetric: {
+        //             keyAttributes: {
+        //                 Type: 'Service',
+        //                 Name: 'traffic-generator-node',
+        //                 Environment: 'lambda:default',
+        //             },
+        //             operationName: 'traffic-generator-node/FunctionHandler',
+        //             metricType: 'LATENCY',
+        //             periodSeconds: 60,
+        //         },
+        //         metricThreshold: 5000,
+        //         comparisonOperator: 'LessThan',
+        //     },
+        //     goal: {
+        //         interval: {
+        //             rollingInterval: {
+        //                 duration: 1,
+        //                 durationUnit: 'DAY',
+        //             },
+        //         },
+        //         attainmentGoal: 90.0,
+        //     },
+        // });
     }
     addFunctionPermissions(): void {
         if (this.function) {
