@@ -30,6 +30,7 @@ export class PetFoodECSService extends EcsService {
             PETFOOD_CARTS_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_CART_TABLE_NAME,
             PETFOOD_EVENT_BUS_NAME: SSM_PARAMETER_NAMES.EVENT_BUS_NAME,
             AWS_REGION: Stack.of(scope).region,
+            AWS_PAGER: '',
         };
         super(scope, id, {
             ...properties,

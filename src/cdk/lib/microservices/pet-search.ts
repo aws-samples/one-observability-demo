@@ -34,6 +34,7 @@ export class PetSearchService extends EcsService {
             PETSEARCH_S3_BUCKET_NAME: SSM_PARAMETER_NAMES.S3_BUCKET_NAME,
             PETSEARCH_DYNAMODB_TABLE_NAME: SSM_PARAMETER_NAMES.DYNAMODB_TABLE_NAME,
             AWS_REGION: Stack.of(scope).region,
+            AWS_PAGER: '',
         };
 
         super(scope, id, {

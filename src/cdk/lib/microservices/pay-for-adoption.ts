@@ -35,6 +35,7 @@ export class PayForAdoptionService extends EcsService {
             SQS_QUEUE_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SQS_QUEUE_URL,
             AWS_REGION: Stack.of(scope).region,
             OTEL_EXPORTER_OTLP_ENDPOINT: 'localhost:4317',
+            AWS_PAGER: '',
         };
         super(scope, id, {
             ...properties,

@@ -25,7 +25,7 @@ import {
     CLOUDFRONT_DISTRIBUTION_ID_EXPORT_NAME,
     SSM_PARAMETER_NAMES,
 } from '../../bin/constants';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 /**
  * Properties for configuring Assets construct
@@ -149,14 +149,6 @@ export class WorkshopAssets extends Construct {
 
         const originAccesControl = new S3OriginAccessControl(this, 'AssetsBucketOAC', {
             signing: Signing.SIGV4_ALWAYS,
-        });
-        /** A log group will be created, but is not associated with the Cloudfront
-         * distribution. This configuration must be done in the console.
-         * https://github.com/aws/aws-cdk/issues/32279
-         */
-        new LogGroup(this, 'CloudFrontLogGroup', {
-            retention: properties?.logRetentionDays || RetentionDays.ONE_WEEK,
-            removalPolicy: RemovalPolicy.DESTROY,
         });
 
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {

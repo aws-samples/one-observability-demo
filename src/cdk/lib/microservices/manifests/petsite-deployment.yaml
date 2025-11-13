@@ -78,6 +78,8 @@ spec:
                         value: {{ PETFOOD_AGENT_RUNTIME_ARN_NAME }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
+                      - name: AWS_PAGER
+                        value: ''
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
