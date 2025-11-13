@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function addMessage(message, isUser = false, skipAnimation = false) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
-        
+
         // Only add animation class if not skipping
         if (!skipAnimation) {
             messageDiv.className += isUser ? ' animate-in-user' : ' animate-in';

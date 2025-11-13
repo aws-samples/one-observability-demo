@@ -17,7 +17,7 @@ namespace PetSite.Controllers
         private readonly IAmazonBedrockAgentCore _bedrockAgentCore;
         private readonly IConfiguration _configuration;
         private readonly ParameterRefreshManager _refreshManager;
-        
+
         // Limit concurrent Bedrock requests to prevent connection exhaustion
         private static readonly System.Threading.SemaphoreSlim _bedrockSemaphore = new System.Threading.SemaphoreSlim(2, 2);
 

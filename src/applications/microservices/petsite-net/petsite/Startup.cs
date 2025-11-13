@@ -38,7 +38,7 @@ namespace PetSite
 
             // Configure AWS Services - using default credential chain for Pod Identity
             services.AddAWSService<Amazon.SimpleSystemsManagement.IAmazonSimpleSystemsManagement>();
-            
+
             // Register Bedrock Agent Core as Singleton to reuse connections
             services.AddSingleton<Amazon.BedrockAgentCore.IAmazonBedrockAgentCore>(sp =>
             {
