@@ -11,6 +11,7 @@ import { WorkshopEcs } from '../constructs/ecs';
 import { Microservice, MicroservicesNames } from '../constructs/microservice';
 import {
     ComputeType,
+    CUSTOM_ENABLE_SLO,
     CUSTOM_ENABLE_WAF,
     ENABLE_PET_FOOD_AGENT,
     HostType,
@@ -189,6 +190,7 @@ export class MicroservicesStack extends Stack {
                         additionalEnvironment: {
                             PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
                         },
+                        enableSLO: CUSTOM_ENABLE_SLO,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -241,6 +243,7 @@ export class MicroservicesStack extends Stack {
                             OTEL_PYTHON_CONFIGURATOR: 'aws_configurator',
                             OTEL_PYTHON_DISTRO: 'aws_distro',
                         },
+                        enableSLO: CUSTOM_ENABLE_SLO,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -283,6 +286,7 @@ export class MicroservicesStack extends Stack {
                             OTEL_RESOURCE_ATTRIBUTES:
                                 'service.name=petsearch-api-java,deployment.environment=ecs:PetsiteECS-cluster',
                         },
+                        enableSLO: CUSTOM_ENABLE_SLO,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -333,6 +337,7 @@ export class MicroservicesStack extends Stack {
                         ...(imports.ecsExports.openSearchPipeline
                             ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }
                             : { openSearchCollection: imports.openSearchExports }),
+                        enableSLO: CUSTOM_ENABLE_SLO,
                     });
                 } else {
                     throw new Error(`EKS is not supported for ${name}`);
@@ -363,6 +368,7 @@ export class MicroservicesStack extends Stack {
                         listenerPort: 80,
                         healthCheck: '/health/status',
                         globalWebACLArn: CUSTOM_ENABLE_WAF ? imports.globalAclArn : undefined,
+                        enableSLO: CUSTOM_ENABLE_SLO,
                     });
                     svc.node.addDependency(albEKSCheck);
                 } else {

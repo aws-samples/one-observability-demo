@@ -48,7 +48,7 @@
         "@aws-sdk/client-secrets-manager": "^3.914.0",
         "@aws-sdk/client-ssm": "^3.914.0",
         "@types/yaml": "^1.9.7",
-        "aws-cdk": "^2.1030.0",
+        "aws-cdk": "^2.1031.2",
         "aws-cdk-lib": "2.220.0",
         "cdk-nag": "^2.37.55",
         "constructs": "^10.4.2",

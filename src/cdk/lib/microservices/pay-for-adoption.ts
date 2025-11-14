@@ -35,6 +35,7 @@ export class PayForAdoptionService extends EcsService {
             SQS_QUEUE_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SQS_QUEUE_URL,
             AWS_REGION: Stack.of(scope).region,
             OTEL_EXPORTER_OTLP_ENDPOINT: 'localhost:4317',
+            AWS_PAGER: '',
         };
         super(scope, id, {
             ...properties,
@@ -50,6 +51,7 @@ export class PayForAdoptionService extends EcsService {
         });
 
         // TODO: Re-enable after payforadoption-api-go service and GET /health/status operation are discovered by ApplicationSignals
+        //if (properties.enableSLO) {
         // new CfnServiceLevelObjective(this, 'PayForAdoptionApiSLO', {
         //     name: 'PayForAdoptionApiSLO',
         //     description: 'SLO for GET /health/status endpoint latency <= 5000ms',
@@ -77,6 +79,7 @@ export class PayForAdoptionService extends EcsService {
         //         attainmentGoal: 90.0,
         //     },
         // });
+        //}
     }
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {

@@ -47,6 +47,7 @@ export interface MicroserviceProperties {
     listenerPort?: number;
     containerPort?: number;
     createLoadBalancer?: boolean;
+    enableSLO?: boolean;
 }
 
 export abstract class Microservice extends Construct {

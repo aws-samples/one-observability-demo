@@ -30,6 +30,7 @@ export class PetFoodECSService extends EcsService {
             PETFOOD_CARTS_TABLE_NAME: SSM_PARAMETER_NAMES.PET_FOODS_CART_TABLE_NAME,
             PETFOOD_EVENT_BUS_NAME: SSM_PARAMETER_NAMES.EVENT_BUS_NAME,
             AWS_REGION: Stack.of(scope).region,
+            AWS_PAGER: '',
         };
         super(scope, id, {
             ...properties,
@@ -66,6 +67,7 @@ export class PetFoodECSService extends EcsService {
         // });
 
         // TODO: Re-enable after petfood-api-rs service and GET /health/status operation are discovered by ApplicationSignals
+        //if (properties.enableSLO) {
         // new CfnServiceLevelObjective(this, 'PetFoodApiSLO', {
         //     name: 'PetFoodApiSLO',
         //     description: 'SLO for GET /health/status endpoint latency <= 4000ms',
@@ -93,6 +95,7 @@ export class PetFoodECSService extends EcsService {
         //         attainmentGoal: 90.0,
         //     },
         // });
+        //xw}
     }
 
     addPermissions(properties: PetFoodProperties): void {

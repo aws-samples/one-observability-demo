@@ -12,18 +12,23 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 
-import { Annotations, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Annotations, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
 import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { WorkshopNetwork } from '../constructs/network';
-import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { WorkshopCloudTrail } from '../constructs/cloudtrail';
 import { QueueResources, QueueResourcesProperties } from '../constructs/queue';
 import { EventBusResources, EventBusResourcesProperties } from '../constructs/eventbus';
 import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
-import { CUSTOM_ENABLE_NETWORKING_TRAIL, CUSTOM_ENABLE_WAF, DEFAULT_RETENTION_DAYS } from '../../bin/environment';
+import {
+    CUSTOM_ENABLE_CLOUDFRONT_LOGS,
+    CUSTOM_ENABLE_NETWORKING_TRAIL,
+    CUSTOM_ENABLE_WAF,
+    DEFAULT_RETENTION_DAYS,
+} from '../../bin/environment';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 
 /**
@@ -71,21 +76,35 @@ export class CoreStage extends Stage {
         super(scope, id);
 
         this.coreStack = new CoreStack(this, `Stack`, properties);
-        if (CUSTOM_ENABLE_WAF && properties.env?.region != 'us-east-1') {
-            const globalWafStack = new Stack(this, 'GlobalWafStack', {
+        if ((CUSTOM_ENABLE_WAF || CUSTOM_ENABLE_CLOUDFRONT_LOGS) && properties.env?.region != 'us-east-1') {
+            const globalStack = new Stack(this, 'GlobalStack', {
                 crossRegionReferences: true,
                 env: {
                     region: 'us-east-1',
                     account: properties.env?.account,
                 },
             });
-            const globalWaf = new GlobalWaf(globalWafStack, 'GlobalWaf', {
-                logRetention: DEFAULT_RETENTION_DAYS,
-            });
+            if (CUSTOM_ENABLE_WAF) {
+                const globalWaf = new GlobalWaf(globalStack, 'GlobalWaf', {
+                    logRetention: DEFAULT_RETENTION_DAYS,
+                });
+                globalWaf.replicateParameterToRegion(this.coreStack);
+            }
+
+            if (CUSTOM_ENABLE_CLOUDFRONT_LOGS) {
+                /** A log group will be created, but is not associated with the Cloudfront
+                 * distribution. This configuration must be done in the console.
+                 * https://github.com/aws/aws-cdk/issues/32279
+                 */
+                new LogGroup(globalStack, 'CloudFrontLogGroup', {
+                    retention: properties?.defaultRetentionDays || RetentionDays.ONE_WEEK,
+                    removalPolicy: RemovalPolicy.DESTROY,
+                });
+            }
+
             // Replicate parameter to deployment region for cross-region access
-            globalWaf.replicateParameterToRegion(this.coreStack);
             if (properties.tags) {
-                Utilities.TagConstruct(globalWafStack, properties.tags);
+                Utilities.TagConstruct(globalStack, properties.tags);
             }
         }
         if (properties.tags) {
