@@ -659,7 +659,7 @@ Resources:
                   curl -o ./config.env "$CONFIG_FILE_URL"
                 - cat ./config.env >> ${WORKING_FOLDER}/.env
                 # Run account validation script
-                - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env
+                - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env --clean
                 - |
                   CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
                   echo "Parameter path: ${CONFIG_PARAM_NAME}"

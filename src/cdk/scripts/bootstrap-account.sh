@@ -29,6 +29,14 @@ cleanup_resources() {
 
 if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
   echo "CDK bootstrap stack exists with status: $STACK_STATUS"
+  bucket="cdk-petsite-assets-${ACCOUNT_ID}-${REGION}"
+  if ! aws s3api head-bucket --bucket "$bucket" --region "$REGION" 2>/dev/null; then
+    echo "Bucket $bucket does not exist. Deleting stack and re-bootstrapping..."
+    aws cloudformation delete-stack --stack-name CDKToolkitPetsite --region "$REGION"
+    aws cloudformation wait stack-delete-complete --stack-name CDKToolkitPetsite --region "$REGION"
+    cleanup_resources
+    cdk bootstrap aws://${ACCOUNT_ID}/${REGION} --toolkit-stack-name CDKToolkitPetsite --qualifier petsite
+  fi
 elif [ "$STACK_STATUS" = "DELETE_COMPLETE" ]; then
   echo "CDK bootstrap stack in DELETE_COMPLETE state, cleaning up resources..."
   cleanup_resources

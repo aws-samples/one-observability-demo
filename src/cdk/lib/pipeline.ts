@@ -450,6 +450,9 @@ export class CDKPipeline extends Stack {
         if (pipeline.pipeline.crossRegionSupport) {
             const supportStacks = pipeline.pipeline.crossRegionSupport;
             for (const stack of Object.values(supportStacks)) {
+                if (properties.tags) {
+                    Utilities.TagConstruct(stack.stack, properties.tags);
+                }
                 NagSuppressions.addResourceSuppressions(
                     [stack.stack, stack.replicationBucket],
                     [
