@@ -66,33 +66,35 @@ export class ListAdoptionsService extends EcsService {
             'app:hostType:': properties.hostType,
         });
 
-        new CfnServiceLevelObjective(this, 'PetListAdoptionsHealthStatusSLO', {
-            name: 'PetListAdoptionsHealthStatusSLO',
-            description: 'SLO for GET /health/status endpoint latency <= 5000ms',
-            sli: {
-                sliMetric: {
-                    keyAttributes: {
-                        Type: 'Service',
-                        Name: 'petlistadoptions-api-py',
-                        Environment: 'ecs:PetsiteECS-cluster',
+        if (properties.enableSLO) {
+            new CfnServiceLevelObjective(this, 'PetListAdoptionsHealthStatusSLO', {
+                name: 'PetListAdoptionsHealthStatusSLO',
+                description: 'SLO for GET /health/status endpoint latency <= 5000ms',
+                sli: {
+                    sliMetric: {
+                        keyAttributes: {
+                            Type: 'Service',
+                            Name: 'petlistadoptions-api-py',
+                            Environment: 'ecs:PetsiteECS-cluster',
+                        },
+                        operationName: 'GET /health/status',
+                        metricType: 'LATENCY',
+                        periodSeconds: 60,
                     },
-                    operationName: 'GET /health/status',
-                    metricType: 'LATENCY',
-                    periodSeconds: 60,
+                    metricThreshold: 5000,
+                    comparisonOperator: 'LessThan',
                 },
-                metricThreshold: 5000,
-                comparisonOperator: 'LessThan',
-            },
-            goal: {
-                interval: {
-                    rollingInterval: {
-                        duration: 1,
-                        durationUnit: 'DAY',
+                goal: {
+                    interval: {
+                        rollingInterval: {
+                            duration: 1,
+                            durationUnit: 'DAY',
+                        },
                     },
+                    attainmentGoal: 90,
                 },
-                attainmentGoal: 90,
-            },
-        });
+            });
+        }
     }
 
     addPermissions(properties: ListAdoptionsServiceProperties): void {

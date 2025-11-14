@@ -63,33 +63,35 @@ export class PetSearchService extends EcsService {
             },
         });
 
-        new CfnServiceLevelObjective(this, 'PetSearchApiSearchSLO', {
-            name: 'PetSearchApiSearchSLO',
-            description: 'SLO for /api/search GET endpoint latency <= 8000ms',
-            sli: {
-                sliMetric: {
-                    keyAttributes: {
-                        Type: 'Service',
-                        Name: 'petsearch-api-java',
-                        Environment: 'ecs:PetsiteECS-cluster',
+        if (properties.enableSLO) {
+            new CfnServiceLevelObjective(this, 'PetSearchApiSearchSLO', {
+                name: 'PetSearchApiSearchSLO',
+                description: 'SLO for /api/search GET endpoint latency <= 8000ms',
+                sli: {
+                    sliMetric: {
+                        keyAttributes: {
+                            Type: 'Service',
+                            Name: 'petsearch-api-java',
+                            Environment: 'ecs:PetsiteECS-cluster',
+                        },
+                        operationName: 'GET /api/search',
+                        metricType: 'LATENCY',
+                        periodSeconds: 60,
                     },
-                    operationName: 'GET /api/search',
-                    metricType: 'LATENCY',
-                    periodSeconds: 60,
+                    metricThreshold: 8000,
+                    comparisonOperator: 'LessThan',
                 },
-                metricThreshold: 8000,
-                comparisonOperator: 'LessThan',
-            },
-            goal: {
-                interval: {
-                    rollingInterval: {
-                        duration: 1,
-                        durationUnit: 'DAY',
+                goal: {
+                    interval: {
+                        rollingInterval: {
+                            duration: 1,
+                            durationUnit: 'DAY',
+                        },
                     },
+                    attainmentGoal: 90,
                 },
-                attainmentGoal: 90,
-            },
-        });
+            });
+        }
 
         NagSuppressions.addResourceSuppressions(
             this.taskDefinition,

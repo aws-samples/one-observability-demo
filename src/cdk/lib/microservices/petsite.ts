@@ -214,6 +214,7 @@ export class PetSite extends EKSDeployment {
         // TODO: Re-enable after confirming correct environment attribute format
         // The service/operation exists in console but API says it doesn't exist - likely environment format issue
         // Try checking ApplicationSignals console for exact service key attributes
+        //if (properties.enableSLO) {
         // new CfnServiceLevelObjective(this, 'PetSiteHealthStatusSLO', {
         //     name: 'PetSiteHealthStatusSLO',
         //     description: 'SLO for GET health/status endpoint latency < 5000ms',
@@ -241,6 +242,7 @@ export class PetSite extends EKSDeployment {
         //         attainmentGoal: 90.0,
         //     },
         // });
+        //}
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- this is how KubnernetesManifests defines it

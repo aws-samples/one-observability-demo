@@ -67,6 +67,7 @@ export class PetFoodECSService extends EcsService {
         // });
 
         // TODO: Re-enable after petfood-api-rs service and GET /health/status operation are discovered by ApplicationSignals
+        //if (properties.enableSLO) {
         // new CfnServiceLevelObjective(this, 'PetFoodApiSLO', {
         //     name: 'PetFoodApiSLO',
         //     description: 'SLO for GET /health/status endpoint latency <= 4000ms',
@@ -94,6 +95,7 @@ export class PetFoodECSService extends EcsService {
         //         attainmentGoal: 90.0,
         //     },
         // });
+        //xw}
     }
 
     addPermissions(properties: PetFoodProperties): void {

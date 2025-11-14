@@ -51,6 +51,7 @@ export class PayForAdoptionService extends EcsService {
         });
 
         // TODO: Re-enable after payforadoption-api-go service and GET /health/status operation are discovered by ApplicationSignals
+        //if (properties.enableSLO) {
         // new CfnServiceLevelObjective(this, 'PayForAdoptionApiSLO', {
         //     name: 'PayForAdoptionApiSLO',
         //     description: 'SLO for GET /health/status endpoint latency <= 5000ms',
@@ -78,6 +79,7 @@ export class PayForAdoptionService extends EcsService {
         //         attainmentGoal: 90.0,
         //     },
         // });
+        //}
     }
 
     addPermissions(properties: PayForAdoptionServiceProperties): void {
