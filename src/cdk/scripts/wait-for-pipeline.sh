@@ -15,7 +15,7 @@ fi
 
 echo "Waiting for pipeline ${PIPELINE_NAME} execution to complete..."
 
-TIMEOUT=3600
+TIMEOUT=5100 # 85 min
 ELAPSED=0
 SLEEP_INTERVAL=30
 RETRY_LOOP_COUNT=0
