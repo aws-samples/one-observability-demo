@@ -122,7 +122,15 @@ export class MicroservicesStack extends Stack {
         const dynamodbExports = DynamoDatabase.importFromExports(this, 'DynamoDatabase');
         const vpcEndpoints = VpcEndpoints.importFromExports(this, 'VpcEndpoints');
         const cloudMap = WorkshopNetwork.importCloudMapNamespaceFromExports(this, 'CloudMapNamespace');
-        const openSearchExports = OpenSearchCollection.importFromExports();
+
+        // Import OpenSearch exports only if OpenSearch is enabled
+        let openSearchExports: any;
+        try {
+            openSearchExports = OpenSearchCollection.importFromExports();
+        } catch {
+            // OpenSearch is disabled - exports don't exist
+            openSearchExports = undefined;
+        }
         const assetsBucket = WorkshopAssets.importBucketFromExports(this, 'WorkshopAssets');
         const eventBusExports = EventBusResources.importFromExports(this, 'EventBusResources');
         const queueExports = QueueResources.importFromExports(this, 'QueueResources');
@@ -334,9 +342,15 @@ export class MicroservicesStack extends Stack {
                         enableCloudWatchAgent: true,
                         cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         // Use pipeline if available, otherwise fall back to direct collection access
-                        ...(imports.ecsExports.openSearchPipeline
-                            ? { openSearchPipeline: imports.ecsExports.openSearchPipeline }
-                            : { openSearchCollection: imports.openSearchExports }),
+                        ...(() => {
+                            if (imports.ecsExports.openSearchPipeline) {
+                                return { openSearchPipeline: imports.ecsExports.openSearchPipeline };
+                            } else if (imports.openSearchExports) {
+                                return { openSearchCollection: imports.openSearchExports };
+                            } else {
+                                return {};
+                            }
+                        })(),
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
                 } else {
