@@ -12,7 +12,7 @@ import { WorkshopEks } from '../constructs/eks';
 import { OpenSearchCollection, OpenSearchCollectionProperties } from '../constructs/opensearch-collection';
 import { OpenSearchPipeline } from '../constructs/opensearch-pipeline';
 import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
-import { ENABLE_OPENSEARCH_APPLICATION } from '../../bin/environment';
+import { ENABLE_OPENSEARCH } from '../../bin/environment';
 
 export interface ComputeProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
@@ -47,7 +47,7 @@ export class ComputeStack extends Stack {
     /** EKS construct */
     public eks: WorkshopEks;
     /** OpenSearch ingestion pipeline */
-    public openSearchPipeline: OpenSearchPipeline;
+    public openSearchPipeline: OpenSearchPipeline | undefined;
 
     /**
      * Creates a new ComputeStack
@@ -61,32 +61,38 @@ export class ComputeStack extends Stack {
         const vpc = WorkshopNetwork.importVpcFromExports(this, 'WorkshopVpc');
         const { topic } = QueueResources.importFromExports(this, 'ImportedQueueResources');
 
-        /** Add OpenSearch Collection resource */
-        const openSearchCollection = new OpenSearchCollection(
-            this,
-            'OpenSearchCollection',
-            properties.opensearchCollectionProperties,
-        );
+        let openSearchCollection: OpenSearchCollection | undefined;
+        let openSearchPipeline: OpenSearchPipeline | undefined;
 
-        /** Add OpenSearch Application resource */
-        if (ENABLE_OPENSEARCH_APPLICATION) {
+        /** Add OpenSearch components only if enabled */
+        if (ENABLE_OPENSEARCH) {
+            /** Add OpenSearch Collection resource */
+            openSearchCollection = new OpenSearchCollection(
+                this,
+                'OpenSearchCollection',
+                properties.opensearchCollectionProperties,
+            );
+
+            /** Add OpenSearch Application resource */
             new OpenSearchApplication(this, 'OpenSearchUiApplication', {
                 collection: openSearchCollection,
                 ...properties.opensearchApplicationProperties,
             });
+
+            // Create OpenSearch ingestion pipeline
+            openSearchPipeline = new OpenSearchPipeline(this, 'LogsIngestionPipeline', {
+                pipelineName: 'petsite-logs-pipeline',
+                openSearchCollection: openSearchCollection,
+                indexTemplate: 'pet-collection-logs',
+            });
         }
 
-        // Create OpenSearch ingestion pipeline
-        this.openSearchPipeline = new OpenSearchPipeline(this, 'LogsIngestionPipeline', {
-            pipelineName: 'petsite-logs-pipeline',
-            openSearchCollection: openSearchCollection,
-            indexTemplate: 'pet-collection-logs',
-        });
+        this.openSearchPipeline = openSearchPipeline;
 
         this.ecs = new WorkshopEcs(this, 'PetsiteECS', {
             vpc,
             topic,
-            openSearchPipeline: this.openSearchPipeline,
+            openSearchPipeline: openSearchPipeline,
             ecsEc2Capacity: properties?.ecsEc2Capacity,
             ecsEc2InstanceType: properties?.ecsEc2InstanceType,
         });
