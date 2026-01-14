@@ -2,7 +2,7 @@ use prometheus::{
     CounterVec, Encoder, Gauge, GaugeVec, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
 };
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Debug, Error)]
 pub enum MetricsError {
