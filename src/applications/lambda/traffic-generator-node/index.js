@@ -108,7 +108,7 @@ async function simulateUserJourney(petsiteBaseUrl) {
     const randomUserId = Math.floor(Math.random() * (40_000 - 30_000 + 1)) + 30_000;
     const userId = `user${String(randomUserId).padStart(5, '0')}`;
     const petId = `00${Math.floor(Math.random() * 10)}`;
-    const petType = ['puppy', 'kitten', 'bunny'][Math.floor(Math.random() * 3)];
+    const petType = ['puppy', 'kitten', 'bunny','lizard'][Math.floor(Math.random() * 4)];
     const petColor = ['brown', 'black', 'white'][Math.floor(Math.random() * 3)];
     const price = Math.floor(Math.random() * 200) + 50;
     const cutenessRate = Math.floor(Math.random() * 5) + 1;
@@ -118,6 +118,7 @@ async function simulateUserJourney(petsiteBaseUrl) {
         puppy: ['F233c473c', 'Fc7f447a1'],
         kitten: ['Ffb5ef0e2', 'F36a222eb', 'F3585a442'],
         bunny: ['F046a4eca', 'F57580f2e'],
+        lizard: ["123","456"],
     };
 
     // Select random food ID based on pet type

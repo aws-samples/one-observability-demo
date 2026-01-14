@@ -331,8 +331,8 @@ export const CUSTOM_ENABLE_SLO = process.env.CUSTOM_ENABLE_SLO == 'true' || fals
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
 export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
-/** Enables OpenSearch Application creation */
-export const ENABLE_OPENSEARCH_APPLICATION = process.env.ENABLE_OPENSEARCH_APPLICATION == 'true' || false;
+/** Enables OpenSearch components (collection, pipeline, and application) creation */
+export const ENABLE_OPENSEARCH = process.env.ENABLE_OPENSEARCH == 'true' || false;
 
 /** CodeConnection ARN for GitHub integration (optional) */
 export const CODE_CONNECTION_ARN = process.env.CODE_CONNECTION_ARN || undefined;
