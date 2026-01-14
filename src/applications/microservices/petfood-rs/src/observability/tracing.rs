@@ -6,7 +6,7 @@ use opentelemetry_sdk::{
 };
 use std::time::Duration;
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
     fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,

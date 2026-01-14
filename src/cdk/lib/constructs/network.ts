@@ -163,10 +163,16 @@ export class WorkshopNetwork extends Construct {
             name: 'ResolverQueryLogConfig',
         });
 
-        new CfnResolverQueryLoggingConfigAssociation(this, 'ResolverQueryLogConfigAssociation', {
-            resolverQueryLogConfigId: cfnResolverQueryConfig.ref,
-            resourceId: this.vpc.vpcId,
-        });
+        const cfnResolverAssociation = new CfnResolverQueryLoggingConfigAssociation(
+            this,
+            'ResolverQueryLogConfigAssociation',
+            {
+                resolverQueryLogConfigId: cfnResolverQueryConfig.ref,
+                resourceId: this.vpc.vpcId,
+            },
+        );
+        cfnResolverAssociation.node.addDependency(resolverLogGroup);
+        cfnResolverAssociation.node.addDependency(this.vpc);
 
         return cfnResolverQueryConfig;
     }
