@@ -6,6 +6,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    jq \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 #
@@ -27,6 +29,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
+    jq \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder
@@ -38,6 +42,7 @@ COPY --from=builder /app .
 
 # Make start script executable
 RUN chmod +x start.sh
+RUN chmod +x ./dbload-simulation-scripts/*.sh
 
 # Create non-root user for future use (but run as root for port 80 access)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
