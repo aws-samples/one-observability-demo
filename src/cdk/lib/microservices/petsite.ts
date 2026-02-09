@@ -354,7 +354,7 @@ export class PetSite extends EKSDeployment {
                 new Map(
                     Object.entries({
                         [SSM_PARAMETER_NAMES.PETSITE_URL]: `https://${this.distribution.distributionDomainName}`,
-                        [SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER]: '', // Empty by default, can be populated manually with RUM script
+                        [SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER]: ' ', // Empty by default, can be populated manually with RUM script
                     }),
                 ),
             );
