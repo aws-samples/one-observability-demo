@@ -293,7 +293,9 @@ export class CDKPipeline extends Stack {
 
         backendWave.addStage(storageStage, {
             post: [
-                ...(configBucket ? [storageStage.getDDBSeedingStep(this, configBucket as Bucket)] : []),
+                // Use configBucket if available (S3 source), otherwise use pipelineArtifactBucket
+                // This ensures DDB seeding works with both CodeConnection and S3 sources
+                storageStage.getDDBSeedingStep(this, configBucket || pipelineArtifactBucket),
                 storageStage.getRDSSeedingStep(this),
             ],
         });
