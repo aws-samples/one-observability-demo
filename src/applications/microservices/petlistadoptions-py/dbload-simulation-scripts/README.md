@@ -1,6 +1,8 @@
 # Database Load Simulation Scripts
 
-Scripts to simulate database load, deadlock, performance issues, and error conditions for demonstrating observability and monitoring in CloudWatch DBInsights.
+Scripts to simulate database load, deadlocks, performance issues, lock tree analysis, and error conditions for demonstrating observability and monitoring in CloudWatch DBInsights. These scripts are tested and verified against Amazon Aurora PostgreSQL database clusters and instances.
+
+Note: The scripts added in this directory are for simplicity and convenience to access the database cluster and instances. Accessing the database cluster from this microservice environment provides a secure and privte connection to demonstrate the simulation exercises. These scripts are not related to microservices operation or for their deployment and this is not a recommended pattern. 
 
 ## Scripts Overview
 
@@ -8,6 +10,7 @@ Scripts to simulate database load, deadlock, performance issues, and error condi
 - `deadlock-simulator.sh` - Generates database deadlocks through concurrent conflicting transactions (20 cycles)
 - `unique-violation-simulator.sh` - Triggers unique constraint violations by inserting duplicate records (2 cycles)
 - `slow-query-simulator.sh` - Generates slow database queries without indexes to demonstrate performance issues (50 cycles)
+- `lock-blocking-simulator.sh` - Creates blocking sessions where locks are held while other sessions wait (10 cycles)
 
 ### Performance Demo Scripts
 - `setup-performance-demo.sh` - Loads CustomerOrders table with 1M records and removes optimization indexes
@@ -18,6 +21,7 @@ Scripts to simulate database load, deadlock, performance issues, and error condi
 - `deadlock-simulator-debug.sh` - Verbose version of deadlock simulator with detailed execution steps
 - `unique-violation-simulator-debug.sh` - Verbose version of unique violation simulator with error details
 - `slow-query-simulator-debug.sh` - Verbose version of slow query simulator with timing information
+- `lock-blocking-simulator-debug.sh` - Verbose version of lock blocking simulator with session tracking
 
 ## Prerequisites
 
@@ -38,6 +42,7 @@ export RDS_SECRET_ARN_NAME="your-secret-name"
 ./deadlock-simulator.sh
 ./unique-violation-simulator.sh
 ./slow-query-simulator.sh
+./lock-blocking-simulator.sh
 ```
 
 ### Performance Demo Workflow
@@ -67,6 +72,7 @@ For detailed output and troubleshooting, use the debug versions:
 ./deadlock-simulator-debug.sh
 ./unique-violation-simulator-debug.sh
 ./slow-query-simulator-debug.sh
+./lock-blocking-simulator-debug.sh
 ```
 
 ## Script Details
@@ -92,6 +98,16 @@ For detailed output and troubleshooting, use the debug versions:
 - Detects if optimization indexes exist and adjusts behavior
 - 2-second delay between cycles (configurable via `DELAY` env var)
 - Demonstrates full table scans and missing index performance issues
+
+### lock-blocking-simulator.sh
+- Creates temporary `InventoryItems` table with 5 products
+- Runs 10 cycles of lock blocking scenarios (configurable via `CYCLES` env var)
+- Each cycle: 1 blocking session holds lock for 5 seconds (configurable via `LOCK_DURATION` env var)
+- 3 blocked sessions wait for lock release per cycle
+- Alternates between different rows to create varied blocking scenarios
+- Automatically cleans up temporary table
+- Demonstrates blocking objects and SQL for Performance Insights analysis
+- Check CloudWatch Database Insights for Lock Analysis details
 
 ### setup-performance-demo.sh
 - Creates `CustomerOrders` table with realistic schema
@@ -127,6 +143,9 @@ export NUM_RECORDS=1000000    # Number of records to generate
 export BATCH_SIZE=10000       # Batch size for inserts
 export CYCLES=50              # Number of query cycles
 export DELAY=2                # Delay between cycles in seconds
+
+# Lock blocking configuration (optional)
+export LOCK_DURATION=5        # Duration to hold locks in seconds
 ```
 
 ## Monitoring
