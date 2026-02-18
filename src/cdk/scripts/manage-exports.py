@@ -21,7 +21,7 @@ import sys
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+
 from botocore.exceptions import ClientError, NoCredentialsError, BotoCoreError
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -175,7 +175,7 @@ class CDKExportsManager:
             logger.error(f"Unexpected error validating AWS environment: {e}")
             raise
 
-    def get_target_regions(self) -> List[str]:
+    def get_target_regions(self) -> list[str]:
         """Determine which regions to scan for exports based on WAF configuration."""
         logger.debug("Determining target regions for export scanning...")
 
@@ -229,11 +229,11 @@ class CDKExportsManager:
 
     def extract_exports(
         self,
-        filter_prefix: Optional[str] = None,
+        filter_prefix: str | None = None,
         exclude_internal: bool = True,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Extract CloudFormation exports from all target regions with
         comprehensive error handling.
@@ -259,16 +259,16 @@ class CDKExportsManager:
         logger.info(f"Exclude internal: {exclude_internal}")
         logger.info(f"Max retries: {max_retries}")
 
-        all_exports: List[Dict] = []
+        all_exports: list[dict] = []
         regions = self.get_target_regions()
-        extraction_stats: Dict[str, int] = {
+        extraction_stats: dict[str, int] = {
             "regions_scanned": 0,
             "regions_failed": 0,
             "total_raw_exports": 0,
             "filtered_exports": 0,
             "internal_excluded": 0,
         }
-        errors_encountered: List[str] = []
+        errors_encountered: list[str] = []
 
         for region_idx, region in enumerate(regions, 1):
             logger.info(f"[{region_idx}/{len(regions)}] Processing region: {region}")
@@ -519,7 +519,7 @@ class CDKExportsManager:
 
         # Show breakdown by category
         if all_exports:
-            category_counts: Dict[str, int] = {}
+            category_counts: dict[str, int] = {}
             for export in all_exports:
                 category = export["category"]
                 category_counts[category] = category_counts.get(category, 0) + 1
@@ -711,7 +711,7 @@ class CDKExportsManager:
         # Return empty string for unknown services (will hide the link in template)
         return ""
 
-    def _get_stack_info_safe(self, cf_client, stack_name: str, region: str) -> Dict:
+    def _get_stack_info_safe(self, cf_client, stack_name: str, region: str) -> dict:
         """Get additional information about a CloudFormation stack with
         enhanced error handling.
         """
@@ -768,7 +768,7 @@ class CDKExportsManager:
             )
             return {}
 
-    def _get_stack_info(self, cf_client, stack_name: str) -> Dict:
+    def _get_stack_info(self, cf_client, stack_name: str) -> dict:
         """Get additional information about a CloudFormation stack."""
         try:
             response = cf_client.describe_stacks(StackName=stack_name)
@@ -794,7 +794,7 @@ class CDKExportsManager:
             logger.debug(f"Could not get stack info for {stack_name}: {e}")
             return {}
 
-    def generate_html(self, template_path: Optional[str] = None) -> str:
+    def generate_html(self, template_path: str | None = None) -> str:
         """
         Generate HTML dashboard from exports data.
 
@@ -851,7 +851,7 @@ class CDKExportsManager:
 
         return html_content
 
-    def upload_to_s3(self, html_content: str, bucket_name: Optional[str] = None) -> str:
+    def upload_to_s3(self, html_content: str, bucket_name: str | None = None) -> str:
         """
         Upload HTML dashboard to S3.
 
@@ -906,7 +906,7 @@ class CDKExportsManager:
             logger.error(f"Failed to upload to S3: {e}")
             raise
 
-    def _get_assets_bucket_name(self) -> Optional[str]:
+    def _get_assets_bucket_name(self) -> str | None:
         """Try to determine the assets bucket name from exports or environment."""
         # Check environment variable first
         bucket_name = os.environ.get("ASSETS_BUCKET_NAME")
@@ -936,7 +936,7 @@ class CDKExportsManager:
         # If not an ARN, assume it's already a bucket name
         return bucket_identifier
 
-    def _get_cloudfront_url(self, bucket_name: str, key: str) -> Optional[str]:
+    def _get_cloudfront_url(self, bucket_name: str, key: str) -> str | None:
         """Try to get CloudFront distribution URL for the S3 bucket."""
         try:
             # Look specifically for WorkshopCloudFrontDomain export first

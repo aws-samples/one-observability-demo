@@ -10,7 +10,7 @@ import os
 import random
 import time
 from typing import Any
-from typing import Dict
+
 from strands import tool
 
 import boto3
@@ -102,7 +102,7 @@ def is_retryable_error(error: Exception) -> bool:
 
 
 @tool
-def generate_image_with_bedrock(prompt: str, food_id: str) -> Dict[str, Any]:
+def generate_image_with_bedrock(prompt: str, food_id: str) -> dict[str, Any]:
     """Generate image using Amazon Bedrock with retry logic."""
 
     # Add random initial delay to spread out concurrent requests
@@ -214,7 +214,7 @@ def generate_image_with_bedrock(prompt: str, food_id: str) -> Dict[str, Any]:
 
 
 @tool
-def store_image_in_s3(image_data: str, food_id: str, food_name: str) -> Dict[str, Any]:
+def store_image_in_s3(image_data: str, food_id: str, food_name: str) -> dict[str, Any]:
     """Store generated image in S3."""
     try:
         # Generate image path with petfood/ prefix
@@ -250,7 +250,7 @@ def store_image_in_s3(image_data: str, food_id: str, food_name: str) -> Dict[str
 
 
 @tool
-def update_food_record(food_id: str, image_key: str) -> Dict[str, Any]:
+def update_food_record(food_id: str, image_key: str) -> dict[str, Any]:
     """Update food record in DynamoDB with S3 image key."""
     try:
         table = dynamodb.Table(FOOD_TABLE_NAME)
@@ -276,7 +276,7 @@ def update_food_record(food_id: str, image_key: str) -> Dict[str, Any]:
 
 
 @tool
-def extract_event_fields(event: Dict[str, Any]) -> Dict[str, Any]:
+def extract_event_fields(event: dict[str, Any]) -> dict[str, Any]:
     """Safely extract and validate event fields from EventBridge event."""
     try:
         # Extract the detail section
@@ -322,7 +322,7 @@ def extract_event_fields(event: Dict[str, Any]) -> Dict[str, Any]:
         raise
 
 
-def handler(event: Dict[str, Any], _context) -> str:
+def handler(event: dict[str, Any], _context) -> dict[str, object]:
     # weather_agent = Agent(
     #     system_prompt=WEATHER_SYSTEM_PROMPT,
     #     tools=[http_request],
