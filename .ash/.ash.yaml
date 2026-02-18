@@ -29,6 +29,12 @@ global_settings:
         - rule_id: SECRET-SECRET-KEYWORD
           path: '.secrets.baseline'
           reason: 'Secret Baseline file includes the word secret'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: 'src/applications/microservices/petlistadoptions-py/dbload-simulation-scripts/*.sh'
+          reason: 'Scripts retrieve secrets from AWS Secrets Manager via environment variables, not hardcoded secrets'
+        - rule_id: SECRET-PASSWORD-KEYWORD
+          path: 'src/applications/microservices/petlistadoptions-py/dbload-simulation-scripts/*.sh'
+          reason: 'PGPASSWORD is a PostgreSQL environment variable populated from AWS Secrets Manager, not a hardcoded password'
         - rule_id: 'SECRET-BASE64-HIGH-ENTROPY-STRING'
           path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
           line_start: 8
