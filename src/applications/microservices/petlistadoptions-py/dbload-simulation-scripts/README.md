@@ -2,7 +2,7 @@
 
 Scripts to simulate database load, deadlocks, performance issues, lock tree analysis, and error conditions for demonstrating observability and monitoring in CloudWatch DBInsights. These scripts are tested and verified against Amazon Aurora PostgreSQL database clusters and instances.
 
-Note: The scripts added in this directory are for simplicity and convenience to access the database cluster and instances. Accessing the database cluster from this microservice environment provides a secure and privte connection to demonstrate the simulation exercises. These scripts are not related to microservices operation or for their deployment and this is not a recommended pattern.
+Note: The scripts added in this directory are for simplicity and convenience to access the database cluster and instances. Accessing the database cluster from this microservice environment provides a secure and private connection to demonstrate the simulation exercises. These scripts are not related to microservices operation or for their deployment and this is not a recommended pattern.
 
 ## Scripts Overview
 
