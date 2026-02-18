@@ -23,7 +23,7 @@
 #
 #------------------------------------------------------------------------------
 ---
-AWSTemplateFormatVersion: '2023-10-10'
+AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation template to launch an EC2 instance with required IAM permissions. Written for Observability getting started workshop Februray 2023. **WARNING** This template creates a VPC, public subnet, Internet Gateway, 1 EC2 with Apache installed, and associated route tables and permissions. You will be billed for the AWS resources used if you create a stack from this template.
 
 #-----------------------------------------------------------
