@@ -9,13 +9,13 @@ RDS_SECRET_ARN_NAME=${RDS_SECRET_ARN_NAME:-}
 # Function to retrieve database credentials from AWS Secrets Manager
 get_db_credentials() {
     # echo "Retrieving database credentials from AWS Secrets Manager..."
-    
+
     # Check if AWS CLI is installed
     if ! command -v aws > /dev/null 2>&1; then
         echo "Error: AWS CLI is not installed. Please install it first."
         exit 1
     fi
-    
+
     # Check if required environment variables are set
     if [ -z "$PETSTORE_PARAM_PREFIX" ] || [ -z "$RDS_SECRET_ARN_NAME" ]; then
         echo "Error: Required environment variables not set"
@@ -23,16 +23,16 @@ get_db_credentials() {
         echo "RDS_SECRET_ARN_NAME: ${RDS_SECRET_ARN_NAME:-not set}"
         exit 1
     fi
-    
+
     # Concatenate to form Parameter Store name
     PARAM_STORE_NAME="${PETSTORE_PARAM_PREFIX}/${RDS_SECRET_ARN_NAME}"
-    
+
     # Get the Secrets Manager ARN from Parameter Store
     SECRET_ARN=$(aws ssm get-parameter \
         --name "$PARAM_STORE_NAME" \
         --query 'Parameter.Value' \
         --output text 2>/dev/null)
-    
+
     if [ $? -ne 0 ] || [ -z "$SECRET_ARN" ]; then
         echo "Error: Failed to retrieve parameter '$PARAM_STORE_NAME' from Parameter Store"
         echo "Please ensure:"
@@ -40,13 +40,13 @@ get_db_credentials() {
         echo "  2. You have ssm:GetParameter permission"
         exit 1
     fi
-    
+
     # Retrieve secret from AWS Secrets Manager using the ARN
     SECRET_JSON=$(aws secretsmanager get-secret-value \
         --secret-id "$SECRET_ARN" \
         --query SecretString \
         --output text 2>/dev/null)
-    
+
     if [ $? -ne 0 ] || [ -z "$SECRET_JSON" ]; then
         echo "Error: Failed to retrieve secret '$SECRET_ARN' from AWS Secrets Manager"
         echo "Please ensure:"
@@ -54,14 +54,14 @@ get_db_credentials() {
         echo "  2. You have secretsmanager:GetSecretValue permission"
         exit 1
     fi
-    
+
     # Parse JSON and extract database connection details
     export PGHOST=$(echo "$SECRET_JSON" | jq -r '.host // empty')
     export PGPORT=$(echo "$SECRET_JSON" | jq -r '.port // "5432"')
     export PGDATABASE=$(echo "$SECRET_JSON" | jq -r '.dbname // empty')
     export PGUSER=$(echo "$SECRET_JSON" | jq -r '.username // empty')
     export PGPASSWORD=$(echo "$SECRET_JSON" | jq -r '.password // empty')
-    
+
     # Validate required fields
     if [ -z "$PGHOST" ] || [ -z "$PGDATABASE" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ]; then
         echo "Error: Missing required database connection details in secret"
@@ -107,13 +107,13 @@ run_transaction() {
     local session_id=$2
     local row1=$3
     local row2=$4
-    
-    psql -c "BEGIN; 
-             UPDATE CustomerOrders SET value = value + 1 WHERE id = $row1; 
-             SELECT pg_sleep(0.3); 
-             UPDATE CustomerOrders SET value = value + 1 WHERE id = $row2; 
+
+    psql -c "BEGIN;
+             UPDATE CustomerOrders SET value = value + 1 WHERE id = $row1;
+             SELECT pg_sleep(0.3);
+             UPDATE CustomerOrders SET value = value + 1 WHERE id = $row2;
              COMMIT;" > /tmp/session${session_id}.log 2>&1
-    
+
     if grep -qi "deadlock" /tmp/session${session_id}.log; then
         # Write to a counter file instead of incrementing variable
         echo "1" >> /tmp/deadlock_counter.txt
@@ -128,16 +128,16 @@ for i in $(seq 1 $CYCLES); do
     run_transaction $i 2 2 1 &
     run_transaction $i 3 3 4 &
     run_transaction $i 4 4 3 &
-    
+
     # Wait for all sessions
     wait
-    
+
     # Show progress every 5 cycles
     if [ $((i % 5)) -eq 0 ]; then
         CURRENT_COUNT=$(wc -l < /tmp/deadlock_counter.txt 2>/dev/null || echo "0")
         echo "Progress: Cycle $i/$CYCLES completed, $CURRENT_COUNT deadlocks detected so far"
     fi
-    
+
     if [ $i -lt $CYCLES ]; then
         sleep $DELAY
     fi

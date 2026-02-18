@@ -6,9 +6,6 @@ import os
 import time
 from contextlib import contextmanager
 from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
 
 import boto3
 import psycopg2
@@ -46,21 +43,21 @@ REQUEST_LATENCY = Histogram(
 
 # Pydantic models for type safety
 class Adoption(BaseModel):
-    transactionid: Optional[str] = None
-    adoptiondate: Optional[str] = None
-    availability: Optional[str] = None
-    cuteness_rate: Optional[str] = None
-    petcolor: Optional[str] = None
-    petid: Optional[str] = None
-    pettype: Optional[str] = None
-    peturl: Optional[str] = None
-    price: Optional[str] = None
+    transactionid: str | None = None
+    adoptiondate: str | None = None
+    availability: str | None = None
+    cuteness_rate: str | None = None
+    petcolor: str | None = None
+    petid: str | None = None
+    pettype: str | None = None
+    peturl: str | None = None
+    price: str | None = None
     # User information from database join
-    user_id: Optional[str] = None
-    user_name: Optional[str] = None
-    user_email: Optional[str] = None
-    name_length: Optional[int] = None
-    email_lower: Optional[str] = None
+    user_id: str | None = None
+    user_name: str | None = None
+    user_email: str | None = None
+    name_length: int | None = None
+    email_lower: str | None = None
 
 
 class HealthResponse(BaseModel):
@@ -197,7 +194,7 @@ class PetAdoptionsService:
         finally:
             conn.close()
 
-    def _get_latest_adoptions(self) -> List[Dict[str, Any]]:
+    def _get_latest_adoptions(self) -> list[dict[str, Any]]:
         """
         Get latest adoptions from database with user information -
         intentionally slow for observability workshop
@@ -251,7 +248,7 @@ class PetAdoptionsService:
                     for row in rows
                 ]
 
-    def _search_pet_info(self, pet_id: str) -> List[Dict[str, Any]]:
+    def _search_pet_info(self, pet_id: str) -> list[dict[str, Any]]:
         """Search for pet information by pet_id"""
         self._refresh_parameters_if_needed()
         url = f"{self.pet_search_url}petid={pet_id}"
@@ -268,7 +265,7 @@ class PetAdoptionsService:
         """Health check endpoint"""
         return "alive"
 
-    def list_adoptions(self) -> List[Adoption]:
+    def list_adoptions(self) -> list[Adoption]:
         """List adoptions with pet information"""
         start_time = time.time()
 
@@ -345,7 +342,7 @@ async def health_check():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/adoptionlist/", response_model=List[Adoption], tags=["adoptions"])
+@app.get("/api/adoptionlist/", response_model=list[Adoption], tags=["adoptions"])
 async def list_adoptions():
     """List adoptions endpoint"""
     try:

@@ -13,7 +13,7 @@ get_db_credentials() {
         echo "Error: AWS CLI is not installed. Please install it first."
         exit 1
     fi
-    
+
     # Check if required environment variables are set
     if [ -z "$PETSTORE_PARAM_PREFIX" ] || [ -z "$RDS_SECRET_ARN_NAME" ]; then
         echo "Error: Required environment variables not set"
@@ -21,39 +21,39 @@ get_db_credentials() {
         echo "RDS_SECRET_ARN_NAME: ${RDS_SECRET_ARN_NAME:-not set}"
         exit 1
     fi
-    
+
     # Concatenate to form Parameter Store name
     PARAM_STORE_NAME="${PETSTORE_PARAM_PREFIX}/${RDS_SECRET_ARN_NAME}"
-    
+
     # Get the Secrets Manager ARN from Parameter Store
     SECRET_ARN=$(aws ssm get-parameter \
         --name "$PARAM_STORE_NAME" \
         --query 'Parameter.Value' \
         --output text 2>/dev/null)
-    
+
     if [ $? -ne 0 ] || [ -z "$SECRET_ARN" ]; then
         echo "Error: Failed to retrieve parameter '$PARAM_STORE_NAME' from Parameter Store"
         exit 1
     fi
-    
+
     # Retrieve secret from AWS Secrets Manager using the ARN
     SECRET_JSON=$(aws secretsmanager get-secret-value \
         --secret-id "$SECRET_ARN" \
         --query SecretString \
         --output text 2>/dev/null)
-    
+
     if [ $? -ne 0 ] || [ -z "$SECRET_JSON" ]; then
         echo "Error: Failed to retrieve secret '$SECRET_ARN' from AWS Secrets Manager"
         exit 1
     fi
-    
+
     # Parse JSON and extract database connection details
     export PGHOST=$(echo "$SECRET_JSON" | jq -r '.host // empty')
     export PGPORT=$(echo "$SECRET_JSON" | jq -r '.port // "5432"')
     export PGDATABASE=$(echo "$SECRET_JSON" | jq -r '.dbname // empty')
     export PGUSER=$(echo "$SECRET_JSON" | jq -r '.username // empty')
     export PGPASSWORD=$(echo "$SECRET_JSON" | jq -r '.password // empty')
-    
+
     # Validate required fields
     if [ -z "$PGHOST" ] || [ -z "$PGDATABASE" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ]; then
         echo "Error: Missing required database connection details in secret"
@@ -106,16 +106,16 @@ TOTAL_BATCHES=$(( (NUM_RECORDS + BATCH_SIZE - 1) / BATCH_SIZE ))
 for batch in $(seq 1 $TOTAL_BATCHES); do
     START_ID=$(( (batch - 1) * BATCH_SIZE + 1 ))
     END_ID=$(( batch * BATCH_SIZE ))
-    
+
     if [ $END_ID -gt $NUM_RECORDS ]; then
         END_ID=$NUM_RECORDS
     fi
-    
+
     RECORDS_IN_BATCH=$(( END_ID - START_ID + 1 ))
-    
+
     psql -c "
     INSERT INTO CustomerOrders (customerid, orderdate, amount, status)
-    SELECT 
+    SELECT
         10000 + (random() * 10000)::int AS customerid,
         '2024-01-01'::date + (random() * 365)::int AS orderdate,
         (random() * 1000)::numeric(10,2) AS amount,
@@ -128,12 +128,12 @@ for batch in $(seq 1 $TOTAL_BATCHES); do
         END AS status
     FROM generate_series(1, $RECORDS_IN_BATCH);
     " > /dev/null 2>&1
-    
+
     if [ $? -ne 0 ]; then
         echo "Error: Failed to insert batch $batch"
         exit 1
     fi
-    
+
     # Progress indicator every 10%
     if [ $((batch % (TOTAL_BATCHES / 10))) -eq 0 ] || [ $batch -eq $TOTAL_BATCHES ]; then
         PROGRESS=$(( batch * 100 / TOTAL_BATCHES ))
@@ -141,7 +141,7 @@ for batch in $(seq 1 $TOTAL_BATCHES); do
         if [ $RECORDS_INSERTED -gt $NUM_RECORDS ]; then
             RECORDS_INSERTED=$NUM_RECORDS
         fi
-        
+
         echo "Progress: $PROGRESS% ($RECORDS_INSERTED / $NUM_RECORDS records)"
     fi
 done
