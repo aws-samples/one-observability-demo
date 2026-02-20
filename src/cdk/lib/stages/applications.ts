@@ -55,6 +55,7 @@ import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
+import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/DynamoDBWriteTestConstruct';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
@@ -523,6 +524,11 @@ export class MicroservicesStack extends Stack {
                     securityGroups: [
                         this.createUserCreatorSecurityGroup(imports.vpcExports, imports.rdsExports.securityGroup),
                     ],
+                });
+            }
+            if (name == LambdaFunctionNames.DynamoCapacityTest) {
+                new DynamoDBWriteTestConstruct(this, name, {
+                    ...lambdafunction,
                 });
             }
         }

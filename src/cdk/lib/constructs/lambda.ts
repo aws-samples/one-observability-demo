@@ -241,6 +241,7 @@ export const LambdaFunctionNames = {
     PetfoodStockProcessor: PETFOOD_STOCK_PROCESSOR_FUNCTION.name,
     RdsSeeder: 'rds-seeder',
     UserCreator: 'user-creator',
+    DynamoCapacityTest: 'dynamo-capacity-test',
 } as const;
 
 /**
