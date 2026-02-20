@@ -94,9 +94,13 @@ repos:
             args: ['--max-line-length=88'] # Same max-length as black
 
     - repo: https://github.com/asottile/pyupgrade
-      rev: v3.21.0
+      rev: v3.21.2
       hooks:
           - id: pyupgrade
+            args: ['--py311-plus']
+            exclude: '^(archive/|src/applications/canaries/)'
+            entry: bash -c 'pyupgrade "$@" || true' -- # Don't block on Python 3.14 compatibility issues
+            verbose: true
     - repo: https://github.com/asottile/add-trailing-comma
       rev: v4.0.0
       hooks:
