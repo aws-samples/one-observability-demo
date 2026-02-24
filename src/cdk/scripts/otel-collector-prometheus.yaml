@@ -17,7 +17,7 @@ spec:
       sigv4auth:
         region: AWS_REGION
         service: aps
-    
+
     receivers:
       prometheus:
         config:
@@ -166,7 +166,7 @@ spec:
               source_labels:
               - __meta_kubernetes_pod_node_name
               target_label: kubernetes_node
-            
+
           - job_name: prometheus-pushgateway
             honor_labels: true
             kubernetes_sd_configs:
@@ -293,7 +293,7 @@ spec:
               regex: Pending|Succeeded|Failed|Completed
               source_labels:
               - __meta_kubernetes_pod_phase
-                                
+
     processors:
       batch/metrics:
         timeout: 60s

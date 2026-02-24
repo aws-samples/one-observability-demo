@@ -36,7 +36,7 @@ cat > config.yaml <<EOF
 extensions:
   sigv4auth:
     region: $REGION
-        
+
 receivers:
   # Prometheus scraping
   prometheus:
@@ -51,7 +51,7 @@ receivers:
         static_configs:
         - targets: [ "127.0.0.1:8080" ]
         metrics_path: "/metrics"
-  
+
   # ECS container metrics
   awsecscontainermetrics:
     collection_interval: 15s
@@ -87,7 +87,7 @@ service:
       receivers: [prometheus]
       processors: [resourcedetection, batch/metrics]
       exporters: [prometheusremotewrite, debug]
-    
+
     # ECS container metrics pipeline
     metrics/ecs:
       receivers: [awsecscontainermetrics]
