@@ -78,6 +78,8 @@ spec:
                         value: {{ PETFOOD_AGENT_RUNTIME_ARN_NAME }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
+                      - name: RESOURCE_DETECTORS_ENABLED
+                        value: 'false'
                       - name: AWS_PAGER
                         value: ''
 ---

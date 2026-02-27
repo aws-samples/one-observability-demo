@@ -184,6 +184,63 @@ python3 scripts/manage-exports.py generate-html --input exports.json
 
 This tool is part of the AWS One Observability Workshop and follows the same Apache 2.0 license.
 
+## Resource Cleanup
+
+The `cleanup-resources.ts` script helps identify and delete AWS resources tagged with workshop tags that may not have been properly cleaned up when stacks were deleted.
+
+### Usage
+
+```bash
+# Discover all workshop stack names
+npm run cleanup -- --discover
+
+# Preview cleanup for a specific stack (recommended first step)
+npm run cleanup -- --stack-name MyWorkshopStack --dry-run
+
+# Actually perform the cleanup
+npm run cleanup -- --stack-name MyWorkshopStack
+
+# Clean up resources without valid stackName tags
+npm run cleanup -- --cleanup-missing-tags --dry-run
+
+# Clean up in a specific region
+npm run cleanup -- --stack-name MyWorkshopStack --region us-west-2
+```
+
+### Options
+
+- `--stack-name <name>`: Specific stack name to clean up
+- `--discover`: List all found workshop stack names
+- `--dry-run`: Preview what would be deleted (recommended)
+- `--region <region>`: AWS region (default: us-east-1 or AWS_REGION)
+- `--cleanup-missing-tags`: Clean up resources without valid stackName tags
+- `--skip-confirmation`: Skip confirmation prompts (use with caution)
+- `--help`: Show help message
+
+### Resources Cleaned
+
+The script identifies and removes orphaned resources that may persist after stack deletion:
+
+- **CloudWatch Log Groups**: Logs that weren't automatically deleted
+- **EBS Volumes**: Unattached volumes (only if in 'available' state)
+- **EBS Snapshots**: Snapshots created during stack lifecycle
+- **RDS Backups**: DB snapshots and cluster snapshots
+- **ECS Task Definitions**: Deregisters task definitions
+- **S3 Buckets**: Empties and deletes buckets
+
+All resources are identified by workshop tags (`environment`, `application`, `stackName`).
+
+### Safety Features
+
+- **Dry run mode**: Always test with `--dry-run` first to preview deletions
+- **Confirmation prompts**: Requires explicit "yes" confirmation before deletion
+- **Tag-based filtering**: Only deletes resources with workshop tags
+- **State checking**: Validates resource state before deletion (e.g., EBS volumes must be unattached)
+
+### Warning
+
+This script performs destructive operations that cannot be undone. Always run with `--dry-run` first to verify what will be deleted.
+
 ## Contributing
 
 When contributing improvements:

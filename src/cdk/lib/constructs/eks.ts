@@ -155,6 +155,60 @@ export class WorkshopEks extends Construct {
             },
         ]);
 
+        // Custom CloudWatch agent configuration for Application Signals service name mapping
+        // Note: When providing ConfigurationValues, we must include the full config structure
+        // as it replaces (not merges with) the default configuration
+        const cloudwatchConfig = {
+            agent: {
+                config: {
+                    logs: {
+                        metrics_collected: {
+                            application_signals: {
+                                hosted_in: this.cluster.clusterName,
+                                rules: [
+                                    {
+                                        selectors: [{ dimension: 'RemoteService', match: '*petfood-rs*' }],
+                                        replacements: [
+                                            { target_dimension: 'RemoteService', value: 'petfood-api-rs' },
+                                            { target_dimension: 'RemoteEnvironment', value: 'generic:default' },
+                                        ],
+                                        action: 'replace',
+                                    },
+                                    {
+                                        selectors: [{ dimension: 'RemoteService', match: '*petsearch-java*' }],
+                                        replacements: [
+                                            { target_dimension: 'RemoteService', value: 'petsearch-api-java' },
+                                            { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
+                                        ],
+                                        action: 'replace',
+                                    },
+                                    {
+                                        selectors: [{ dimension: 'RemoteService', match: '*payforadoption-go*' }],
+                                        replacements: [
+                                            { target_dimension: 'RemoteService', value: 'payforadoption-api-go' },
+                                            { target_dimension: 'RemoteEnvironment', value: 'generic:default' },
+                                        ],
+                                        action: 'replace',
+                                    },
+                                ],
+                            },
+                            kubernetes: {
+                                cluster_name: this.cluster.clusterName,
+                                enhanced_container_insights: true,
+                            },
+                        },
+                    },
+                    traces: {
+                        traces_collected: {
+                            application_signals: {},
+                        },
+                    },
+                },
+            },
+        };
+
+        cfnCloudWatchAddon.addPropertyOverride('ConfigurationValues', JSON.stringify(cloudwatchConfig));
+
         const iamRoleNetworkFlowAgent = new Role(this, 'NetworkFlowAgentRole', {
             description: 'Allows pods running in Amazon EKS cluster to access AWS resources.',
             managedPolicies: [
