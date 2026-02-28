@@ -122,10 +122,12 @@ console.error('Failed to delete S3 object:', { bucket, key, error: error.message
 1. `src/applications/microservices/payforadoption-go/Dockerfile`
    - Added non-root user `appuser` (UID 1000)
    - Set proper file ownership
+   - Changed GOPROXY from goproxy.io to direct to avoid 502 Bad Gateway errors
 
 2. `src/applications/microservices/payforadoption-go/benchmark/Dockerfile`
    - Added non-root user `appuser` (UID 1000)
    - Set proper file ownership
+   - Fixed user creation commands for Debian-based Rust image (groupadd/useradd instead of addgroup/adduser)
 
 3. `src/applications/microservices/petlistadoptions-py/Dockerfile`
    - Enabled existing `appuser` (was created but not used)
@@ -135,6 +137,7 @@ console.error('Failed to delete S3 object:', { bucket, key, error: error.message
 4. `src/applications/microservices/petsearch-java/Dockerfile`
    - Added non-root user `appuser` (UID 1000)
    - Set proper file ownership
+   - Installed shadow-utils package for useradd command on Amazon Linux 2
 
 **Fix Applied**: Added USER directive to run containers as non-root users.
 
@@ -145,6 +148,11 @@ RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 ```
+
+**Build Issues Resolved**:
+- Java container: Added shadow-utils installation for Amazon Linux 2 minimal image
+- Go container: Changed GOPROXY to direct to avoid proxy failures
+- Go benchmark: Fixed user creation commands for Debian-based image
 
 ---
 
