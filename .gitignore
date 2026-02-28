@@ -448,3 +448,5 @@ cdk.context.json
 
 # Generated images temporary folder
 generated_images/
+
+**/node_modules/**

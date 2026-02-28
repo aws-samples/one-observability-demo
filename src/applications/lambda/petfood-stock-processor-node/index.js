@@ -128,7 +128,8 @@ async function updateFoodStock(item, orderId, spanContext) {
 
         const result = await documentClient.send(new UpdateCommand(updateParameters));
 
-        console.log(`Stock updated successfully for ${food_name}:`, {
+        console.log('Stock updated successfully:', {
+            foodName: food_name,
             foodId: food_id,
             previousStock: currentStock,
             newStock: result.Attributes.stock_quantity,
@@ -138,16 +139,18 @@ async function updateFoodStock(item, orderId, spanContext) {
 
         // Add custom metrics for monitoring
         if (result.Attributes.stock_quantity === 0) {
-            console.warn(`ALERT: ${food_name} (${food_id}) is now out of stock!`);
+            console.warn('ALERT: Product is now out of stock!', { foodName: food_name, foodId: food_id });
         } else if (result.Attributes.stock_quantity < 10) {
-            console.warn(
-                `LOW STOCK: ${food_name} (${food_id}) has only ${result.Attributes.stock_quantity} items remaining`,
-            );
+            console.warn('LOW STOCK: Product has low inventory', {
+                foodName: food_name,
+                foodId: food_id,
+                remainingStock: result.Attributes.stock_quantity,
+            });
         }
 
         return result.Attributes;
     } catch (error) {
-        console.error(`Failed to update stock for ${food_name} (${food_id}):`, error);
+        console.error('Failed to update stock:', { foodName: food_name, foodId: food_id, error });
 
         // Add context to error for better debugging
         error.context = {

@@ -10,7 +10,7 @@
     "author": "",
     "license": "Apache-2.0",
     "dependencies": {
-        "@aws-sdk/client-ssm": "^3.899.0"
+        "@aws-sdk/client-ssm": "^3.700.0"
     },
     "devDependencies": {
         "jest": "^29.0.0"

@@ -21,4 +21,8 @@ RUN yum install -y curl unzip && \
 ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
 
+# Create non-root user
+RUN useradd -r -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 ENTRYPOINT ["java","-jar","/app/app.jar"]

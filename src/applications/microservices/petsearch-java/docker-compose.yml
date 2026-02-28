@@ -5,6 +5,8 @@ version: "3.8"
 services:
   localstack:
     image: localstack/localstack:latest
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_DEFAULT_REGION=eu-central-1
       - EDGE_PORT=4566
@@ -17,6 +19,8 @@ services:
 
   setup:
     image: mesosphere/aws-cli
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_ACCESS_KEY_ID=dummyaccess
       - AWS_SECRET_ACCESS_KEY=dummysecret
@@ -38,6 +42,8 @@ services:
 
   collector:
     image: public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
+    security_opt:
+      - no-new-privileges:true
     command: ["--config=/etc/ecs/ecs-default-config.yaml", "--log-level=INFO"]
     environment:
       - AWS_DEFAULT_REGION=us-east-1
@@ -52,6 +58,8 @@ services:
 
   pet-search:
     build: .
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_REGION=eu-central-1
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:55680

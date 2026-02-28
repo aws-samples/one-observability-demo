@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Pet List Adoptions Service Startup Script
-# Note: Running as root for port 80 access
 
 echo "Starting Pet List Adoptions Service..."
 

@@ -6,6 +6,8 @@ services:
     # PostgreSQL database for local testing
     postgres:
         image: postgres:15
+        security_opt:
+            - no-new-privileges:true
         environment:
             POSTGRES_DB: adoptions
             POSTGRES_USER: petstore
@@ -24,6 +26,8 @@ services:
     # Pet List Adoptions Service
     petlistadoptions:
         build: .
+        security_opt:
+            - no-new-privileges:true
         ports:
             - '80:80'
         environment:
@@ -40,6 +44,8 @@ services:
     # Mock Pet Search Service (for testing)
     petsearch-mock:
         image: mockserver/mockserver:latest
+        security_opt:
+            - no-new-privileges:true
         ports:
             - '8080:1080'
         environment:
