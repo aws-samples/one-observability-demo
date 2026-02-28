@@ -4,6 +4,9 @@ on:
     pull_request:
         branches: [main, feat/cdkpipeline, staging]
 
+permissions:
+    contents: read
+
 jobs:
     pre-commit:
         runs-on: ubuntu-latest

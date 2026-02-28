@@ -215,6 +215,23 @@ global_settings:
           path: 'src/templates/codebuild-deployment-template.yaml'
           resource_id: 'rCDKStackListerFunction'
           reason: 'Function is executed only once, no need for concurrency configurations'
+        # CKV_AWS_111 - IAM policy wildcard for cross-region cleanup Lambda
+        - rule_id: CKV_AWS_111
+          path: 'src/templates/codebuild-deployment-template.yaml'
+          line_start: 1458
+          line_end: 1481
+          resource_id: 'rCrossRegionStackOperationRole'
+          reason: 'Wildcard resource needed for cleanup Lambda to delete dynamically-named CDK stacks across regions. Limited to DescribeStacks and DeleteStack actions only.'
+        # Dockerfile suppressions for benchmark tool
+        - rule_id: CKV_DOCKER_7
+          path: 'src/applications/microservices/payforadoption-go/benchmark/Dockerfile'
+          line_start: 3
+          reason: 'Benchmark/testing tool - using latest Rust image is acceptable for non-production testing utilities'
+        - rule_id: CKV_DOCKER_2
+          path: 'src/applications/microservices/payforadoption-go/benchmark/Dockerfile'
+          line_start: 1
+          line_end: 10
+          reason: 'Benchmark tool runs once and exits - HEALTHCHECK not applicable for short-lived testing utilities'
         # NPM dependency vulnerabilities - transitive dependencies from aws-cdk-lib
         - rule_id: GHSA-7r86-cg39-jmmj-minimatch
           path: 'src/cdk/package-lock.json'
