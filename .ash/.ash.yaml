@@ -38,16 +38,44 @@ global_settings:
         - rule_id: SECRET-PASSWORD-KEYWORD
           path: 'src/applications/microservices/petlistadoptions-py/dbload-simulation-scripts/*.sh'
           reason: 'PGPASSWORD is a PostgreSQL environment variable populated from AWS Secrets Manager, not a hardcoded password'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: '.github/workflows/tests.yml'
+          line_start: 53
+          reason: 'GitHub Actions workflow uses secrets context to access GitHub secrets, not hardcoded secrets'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: 'src/applications/microservices/payforadoption-go/payforadoption/database.go'
+          line_start: 47
+          reason: 'Variable name for secret retrieved from AWS Secrets Manager, not a hardcoded secret'
+        - rule_id: SECRET-SECRET-KEYWORD
+          path: 'src/applications/microservices/payforadoption-go/refresh_manager.go'
+          line_start: 79
+          reason: 'Variable name for secret retrieved from AWS Secrets Manager, not a hardcoded secret'
+        - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+          path: 'src/applications/microservices/petfood-rs/API_DOCUMENTATION.md'
+          reason: 'API documentation with example UUIDs and request IDs, not real secrets'
+        - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+          path: 'src/applications/microservices/petfood-rs/postman_collection.json'
+          reason: 'Postman collection with example UUIDs for API testing, not real secrets'
+        - rule_id: SECRET-HEX-HIGH-ENTROPY-STRING
+          path: 'src/applications/microservices/petfood-rs/tests/common/mod.rs'
+          line_start: 217
+          reason: 'Test file with mock data UUIDs, not real secrets'
+        - rule_id: SECRET-BASE64-HIGH-ENTROPY-STRING
+          path: 'src/applications/microservices/petsite-net/petsite/wwwroot/lib/jquery-validation/dist/additional-methods.js'
+          reason: 'Third-party jQuery validation library, not application secrets'
+        - rule_id: SECRET-BASE64-HIGH-ENTROPY-STRING
+          path: 'src/applications/microservices/petsite-net/petsite/wwwroot/lib/jquery-validation/dist/additional-methods.min.js'
+          reason: 'Third-party jQuery validation library (minified), not application secrets'
         - rule_id: 'SECRET-BASE64-HIGH-ENTROPY-STRING'
           path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
-          line_start: 8
-          line_end: 11
-          reason: 'Dependency hash for verification, false positive'
+          line_start: 7
+          line_end: 8
+          reason: 'Subresource Integrity (SRI) hashes for CDN resources, not secrets'
         - rule_id: 'SECRET-HEX-HIGH-ENTROPY-STRING'
           path: 'src/applications/microservices/petsite-net/petsite/Views/Adoption/Index.cshtml'
-          line_start: 8
-          line_end: 11
-          reason: 'Dependency hash for verification, false positive'
+          line_start: 7
+          line_end: 8
+          reason: 'Subresource Integrity (SRI) hashes for CDN resources, not secrets'
         # CDK-Nag suppressions moved from inline in codebuild-deployment-template.yaml
         - rule_id: AwsSolutions-S1
           path: 'src/templates/codebuild-deployment-template.yaml'
@@ -196,8 +224,8 @@ global_settings:
           reason: 'Transitive dependency, waiting for upstream fix'
           expires: '2026-03-28'
 
-#ash_plugin_modules:
-#    - automated_security_helper.plugin_modules.ash_trivy_plugins
+ash_plugin_modules:
+   - automated_security_helper.plugin_modules.ash_trivy_plugins
 build: null
 converters:
     archive:
@@ -322,14 +350,14 @@ scanners:
             exclude: []
             additional_outputs:
                 - syft-table
-    # trivy-repo:
-    #     enabled: false
-    #     options:
-    #         scanners: ['vuln', 'misconfig', 'secret', 'license']
-    #         severity: 'MEDIUM'
-    #         ignore_unfixed: false
-    #         license_full: false
-    #         disable_telemetry: true
+    trivy-repo:
+        enabled: false
+        options:
+            scanners: ['vuln', 'misconfig', 'secret', 'license']
+            severity: 'MEDIUM'
+            ignore_unfixed: false
+            license_full: false
+            disable_telemetry: true
 reporters:
     csv:
         name: csv
