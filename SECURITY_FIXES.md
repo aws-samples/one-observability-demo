@@ -6,8 +6,9 @@ This document tracks security vulnerabilities identified by the Automated Securi
 
 **Scan Date**: 2026-02-28
 **Initial Findings**: 950 total (142 actionable at MEDIUM+ severity)
-**Current Status**: ~75 actionable findings remaining (estimated)
+**Current Status**: ~60 actionable findings remaining (estimated, with 11 suppressed)
 **Fixes Applied**: 67+ critical issues resolved
+**Suppressions**: 11 transitive dependency issues (expire 2026-03-28)
 
 ---
 
@@ -315,6 +316,35 @@ COPY --from=build --chown=appuser:appuser /app/publish .
 
 ---
 
+### 12. CDK Dependency Updates and Suppressions (11 suppressions)
+
+**Risk**: Transitive dependency vulnerabilities in CDK packages that cannot be fixed without upstream updates.
+
+**Scanner**: Grype, Trivy
+**Severity**: HIGH
+**CVEs/GHSAs**: GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74, GHSA-3ppc-4f35-3m26, CVE-2026-25128, CVE-2026-25896, CVE-2026-26278, CVE-2026-26996, CVE-2026-27903, CVE-2026-27904
+
+**Files Updated**:
+- `src/cdk/package.json` - Updated CDK from 2.220.0 to 2.240.0
+- `src/cdk/package-lock.json` - Updated 602 npm packages
+- `.ash/.ash.yaml` - Added 11 suppressions with 1-month expiration
+
+**Fix Applied**:
+- Updated aws-cdk-lib to latest version (2.240.0)
+- Updated alpha packages to match CDK version
+- Added ASH suppressions with expiration date (2026-03-28) for transitive dependencies
+
+**Rationale**:
+The vulnerabilities are in `minimatch` (requires >= 10.2.3/10.2.4) which is a transitive dependency of aws-cdk-lib. The current CDK version includes minimatch 10.2.2. Overriding the version could break CDK functionality. Suppressions expire in 1 month to ensure we revisit when CDK releases an update.
+
+**Key Updates**:
+- aws-cdk-lib: 2.220.0 → 2.240.0
+- @aws-cdk/aws-applicationsignals-alpha: 2.220.0-alpha.0 → 2.240.0-alpha.0
+- @aws-cdk/aws-lambda-python-alpha: 2.220.0-alpha.0 → 2.240.0-alpha.0
+- 602 npm packages updated via npm update
+
+---
+
 ## 🔄 In Progress - None
 
 All planned fixes have been completed!
@@ -382,9 +412,11 @@ After applying these fixes, test the following:
 8. ✅ **Completed**: Rust dependency updates (Cargo.lock - 219 packages)
 9. ✅ **Completed**: Docker HEALTHCHECK directives (6 Dockerfiles)
 10. ✅ **Completed**: Docker COPY --chown optimization
-11. 🔄 **Recommended**: Address remaining NPM/CDK dependency vulnerabilities
-12. 🔄 **Recommended**: Review and address infrastructure misconfigurations (Checkov findings)
-13. 🔄 **Optional**: Address remaining low-severity findings
+11. ✅ **Completed**: CDK dependency updates (2.220.0 → 2.240.0, 602 packages)
+12. ✅ **Completed**: Transitive dependency suppressions (11 with expiration dates)
+13. 🔄 **Recommended**: Review and address infrastructure misconfigurations (Checkov findings)
+14. 🔄 **Optional**: Address remaining low-severity findings
+15. 📅 **Scheduled**: Review suppressed vulnerabilities before 2026-03-28
 
 ---
 
