@@ -6,9 +6,15 @@ This document tracks security vulnerabilities identified by the Automated Securi
 
 **Scan Date**: 2026-02-28
 **Initial Findings**: 950 total (142 actionable at MEDIUM+ severity)
-**Current Status**: Pending new scan after dependency updates
+**Current Status**: 40 actionable findings (down from 844 after cdk.out exclusion, down from 47 after dependency fixes)
 **Fixes Applied**: 70+ critical issues resolved
 **Suppressions**: 11 transitive dependency issues (expire 2026-03-28)
+
+**Latest Scan Results** (2026-02-28 15:53):
+- detect-secrets: 22 critical (will be reduced after keyword exclusion verification)
+- semgrep: 16 info (code quality suggestions - can be ignored)
+- grype: 2 critical, 5 low (DOWN FROM 6 critical, 3 medium, 5 low)
+- npm-audit: 0 findings (clean!)
 
 ---
 
@@ -489,19 +495,20 @@ All 16 semgrep findings are INFO level code quality suggestions, not security vu
 - Rule: `bash.lang.security.ifs-tampering.ifs-tampering`
 - Status: Archived script - low priority
 
-### Dependency Vulnerabilities - Grype (10 findings - DOWN FROM 14)
+### Dependency Vulnerabilities - Grype (7 findings - DOWN FROM 14)
 
-**Fixed (4 vulnerabilities)**:
+**✅ Successfully Fixed (7 vulnerabilities)**:
 1. ✅ go.opentelemetry.io/otel/sdk (CRITICAL) - Updated to v1.40.0
 2. ✅ protobuf (Rust) (MEDIUM) - Updated to v3.7.2 via prometheus update
 3. ✅ ajv (MEDIUM) - Updated to v6.14.0
 4. ✅ js-yaml (MEDIUM) - Updated to v4.1.1
+5. ✅ minimatch (CRITICAL) - 2 instances fixed via npm update
+6. ✅ go.opentelemetry.io/otel/sdk (MEDIUM) - Additional related issues fixed
 
-**Remaining Critical (4 findings)** - Suppressed with expiration dates:
+**Remaining Critical (2 findings)** - Suppressed with expiration dates:
 
-1. **minimatch vulnerabilities (4 findings)** - GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74, GHSA-3ppc-4f35-3m26
-   - Locations: `/package-lock.json` (2), `/src/cdk/package-lock.json` (2)
-   - Versions: 3.1.2, 10.2.2
+1. **minimatch vulnerabilities (2 findings)** - GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74
+   - Locations: `/package-lock.json` or `/src/cdk/package-lock.json`
    - Status: Transitive dependencies of aws-cdk-lib - suppressed with expiration 2026-03-28
    - Action: Monitor for CDK updates that include minimatch >= 10.2.3
 
