@@ -25,6 +25,11 @@ out/
 gradle-app.setting
 !gradle-wrapper.jar
 
+### CDK ###
+# CDK synthesized output
+cdk.out/
+**/cdk.out/
+
 # Go binaries
 # cspell:ignore petadoptions
 PetAdoptions/payforadoption-go/petadoptions

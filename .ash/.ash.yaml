@@ -8,8 +8,10 @@ external_reports_to_include: []
 global_settings:
     severity_threshold: MEDIUM
     ignore_paths:
-        - path: src/cdk/cdk.out
-          reason: 'CDK Code is being reviewed by CDK Nag using the AWS Security best practices compliance pack. Additional tools will require duplicated suppressions'
+        - path: '**/cdk.out/**'
+          reason: 'CDK synthesized CloudFormation templates - build artifacts that should not be scanned'
+        - path: cdk.out
+          reason: 'CDK synthesized output directory'
         - path: src/cdk/node_modules
           reason: 'Skip node_modules folder'
         - path: src/cdk/wiki-docs
