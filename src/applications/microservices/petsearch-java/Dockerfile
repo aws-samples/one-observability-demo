@@ -25,4 +25,7 @@ COPY --from=build /app/${JAR_FILE} ./app.jar
 RUN useradd -r -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:80/actuator/health || exit 1
+
 ENTRYPOINT ["java","-jar","/app/app.jar"]

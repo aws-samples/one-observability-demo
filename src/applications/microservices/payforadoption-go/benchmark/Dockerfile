@@ -1,3 +1,5 @@
+# nosemgrep: dockerfile.security.missing-healthcheck.missing-healthcheck
+# This is a benchmark/testing tool, not a long-running service - HEALTHCHECK not applicable
 FROM public.ecr.aws/docker/library/rust:latest as builder
 WORKDIR /app
 COPY . .

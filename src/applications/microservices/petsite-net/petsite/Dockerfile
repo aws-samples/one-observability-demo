@@ -18,9 +18,11 @@ RUN apt-get update && apt-get install -y curl unzip && \
     apt-get remove -y unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/publish .
-# Create non-root user and set ownership
-RUN groupadd -r appuser && useradd -r -g appuser appuser && \
-    chown -R appuser:appuser /app
+# Create non-root user first
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Copy with ownership set
+COPY --from=build --chown=appuser:appuser /app/publish .
 USER appuser
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:80/health || exit 1
 ENTRYPOINT ["dotnet", "PetSite.dll"]
