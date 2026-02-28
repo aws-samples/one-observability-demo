@@ -351,17 +351,29 @@ All planned fixes have been completed!
 
 ---
 
-## ⚠️ Remaining Critical Issues (90)
+## ⚠️ Remaining Critical Issues
 
-### Scan Results Summary (Latest: 2026-02-28 09:48)
+### Scan Results Summary (Latest: 2026-02-28 15:34)
 
-**Actionable Findings**: 90 (down from 142)
-- Semgrep: 18 critical (down from 39)
-- Grype: 16 actionable (down from 28)
-- Trivy: 45 actionable (down from 60)
-- Checkov: 11 critical (down from 15)
+**Actionable Findings**: 47 (down from 844 after excluding cdk.out)
+- detect-secrets: 22 critical (will be reduced after keyword exclusion)
+- semgrep: 16 info (code quality suggestions)
+- grype: 6 critical, 3 medium, 5 low (dependency vulnerabilities)
+- npm-audit: 0 findings (clean!)
 
-### High Priority - Remaining Semgrep Issues (~7 findings)
+### Configuration Improvements
+
+**CDK Build Artifacts Exclusion**:
+- Added `cdk.out/` and `**/cdk.out/` to `.gitignore`
+- Updated ASH config to ignore all `cdk.out` directories with glob pattern
+- Result: 93% reduction in false positives (844 → 47 findings)
+
+**detect-secrets Keyword Exclusion**:
+- Updated `.secrets.baseline` to exclude "secretsmanager" keyword
+- Prevents false positives from AWS Secrets Manager service name in SDK imports
+- Applied via KeywordDetector plugin configuration
+
+### High Priority - Remaining Semgrep Issues (~16 findings)
 
 **Location**: Docker Compose files
 
