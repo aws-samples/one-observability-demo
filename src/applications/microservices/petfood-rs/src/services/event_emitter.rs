@@ -19,7 +19,7 @@ pub enum EventEmitterError {
     EventBridge(#[from] EventBridgeError),
     #[error("EventBridge SDK error: {0}")]
     EventBridgeSdk(
-        #[from] SdkError<aws_sdk_eventbridge::operation::put_events::PutEventsError, Response>,
+        Box<SdkError<aws_sdk_eventbridge::operation::put_events::PutEventsError, Response>>,
     ),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
@@ -294,7 +294,7 @@ impl EventEmitter {
                 }
             }
 
-            result.map_err(EventEmitterError::EventBridgeSdk)
+            result.map_err(|e| EventEmitterError::EventBridgeSdk(Box::new(e)))
         }
         .instrument(put_events_span)
         .await?;
