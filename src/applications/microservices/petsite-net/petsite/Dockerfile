@@ -19,4 +19,8 @@ RUN apt-get update && apt-get install -y curl unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
+# Create non-root user and set ownership
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 ENTRYPOINT ["dotnet", "PetSite.dll"]

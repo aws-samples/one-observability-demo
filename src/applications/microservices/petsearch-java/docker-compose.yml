@@ -3,6 +3,8 @@
 version: "3.8"
 
 services:
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # LocalStack requires writable filesystem for emulating AWS services and storing state
   localstack:
     image: localstack/localstack:latest
     security_opt:
@@ -15,8 +17,13 @@ services:
       - '4566:4566'
     volumes:
       - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      # nosemgrep: yaml.docker-compose.security.exposing-docker-socket-volume.exposing-docker-socket-volume
+      # LocalStack requires Docker socket access to emulate AWS services that use containers
+      # This is acceptable for local development/testing only - never use in production
       - "/var/run/docker.sock:/var/run/docker.sock"
 
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # Setup container needs writable filesystem for AWS CLI operations
   setup:
     image: mesosphere/aws-cli
     security_opt:
@@ -40,6 +47,8 @@ services:
     depends_on:
       - localstack
 
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # OTEL collector requires writable filesystem for metrics and trace buffering
   collector:
     image: public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
     security_opt:

@@ -4,6 +4,8 @@ version: '3.8'
 
 services:
     # PostgreSQL database for local testing
+    # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+    # Database requires writable filesystem for data persistence
     postgres:
         image: postgres:15
         security_opt:
@@ -42,6 +44,8 @@ services:
         command: ['python', 'app.py']
 
     # Mock Pet Search Service (for testing)
+    # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+    # MockServer requires writable filesystem for request/response logging and state management
     petsearch-mock:
         image: mockserver/mockserver:latest
         security_opt:
