@@ -31,7 +31,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.22"
 
 # Metrics - Prometheus
-prometheus = "0.13"
+prometheus = "0.14"
 
 # Error handling
 thiserror = "1.0"
