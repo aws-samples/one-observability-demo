@@ -22,7 +22,10 @@ ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
 
 # Create non-root user
-RUN useradd -r -u 1000 appuser && chown -R appuser:appuser /app
+RUN yum install -y shadow-utils && \
+    useradd -r -u 1000 appuser && \
+    chown -R appuser:appuser /app && \
+    yum clean all
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
