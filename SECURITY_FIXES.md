@@ -123,6 +123,7 @@ console.error('Failed to delete S3 object:', { bucket, key, error: error.message
    - Added non-root user `appuser` (UID 1000)
    - Set proper file ownership
    - Changed GOPROXY from goproxy.io to direct to avoid 502 Bad Gateway errors
+   - Changed port from 80 to 8080 (non-privileged port for non-root user)
 
 2. `src/applications/microservices/payforadoption-go/benchmark/Dockerfile`
    - Added non-root user `appuser` (UID 1000)
@@ -133,13 +134,25 @@ console.error('Failed to delete S3 object:', { bucket, key, error: error.message
    - Enabled existing `appuser` (was created but not used)
    - Removed comment about needing root for port 80
    - Updated `start.sh` to remove root requirement comment
+   - Changed port from 80 to 8080 (non-privileged port for non-root user)
 
 4. `src/applications/microservices/petsearch-java/Dockerfile`
    - Added non-root user `appuser` (UID 1000)
    - Set proper file ownership
    - Installed shadow-utils package for useradd command on Amazon Linux 2
+   - Changed port from 80 to 8080 (non-privileged port for non-root user)
 
-**Fix Applied**: Added USER directive to run containers as non-root users.
+**Fix Applied**: Added USER directive to run containers as non-root users and changed application ports from 80 to 8080.
+
+**Port Changes Required**: Non-root users cannot bind to privileged ports (< 1024). All services updated to use port 8080.
+
+**Additional Files Updated**:
+- `src/applications/microservices/payforadoption-go/main.go` - Changed default port to 8080
+- `src/applications/microservices/petlistadoptions-py/app.py` - Changed default port to 8080
+- `src/applications/microservices/petsearch-java/src/main/resources/application.yml` - Changed server.port to 8080
+- `src/applications/microservices/petsite-net/petsite/Dockerfile` - Changed port to 8080
+- `src/cdk/lib/stages/applications.ts` - Added containerPort: 8080 for payforadoption-go, petlistadoptions-py, and petsearch-java services
+- `src/cdk/lib/microservices/manifests/petsite-deployment.yaml` - Changed all port references from 80 to 8080
 
 **Example**:
 ```dockerfile
@@ -147,6 +160,7 @@ console.error('Failed to delete S3 object:', { bucket, key, error: error.message
 RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser
+EXPOSE 8080
 ```
 
 **Build Issues Resolved**:

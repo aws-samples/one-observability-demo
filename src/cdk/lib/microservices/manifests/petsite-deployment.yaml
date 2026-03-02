@@ -22,9 +22,9 @@ metadata:
         prometheus.io/scrape: 'true'
 spec:
     ports:
-        - port: 80
+        - port: 8080
           nodePort: 30300
-          targetPort: 80
+          targetPort: 8080
           protocol: TCP
     type: NodePort
     selector:
@@ -53,7 +53,7 @@ spec:
                   imagePullPolicy: Always
                   name: petsite
                   ports:
-                      - containerPort: 80
+                      - containerPort: 8080
                         protocol: TCP
                   env:
                       - name: PARAMETER_STORE_PREFIX
@@ -91,6 +91,6 @@ metadata:
 spec:
   serviceRef:
     name: service-petsite
-    port: 80
+    port: 8080
   targetGroupARN: {{ TARGET_GROUP_ARN }}
   targetType: ip

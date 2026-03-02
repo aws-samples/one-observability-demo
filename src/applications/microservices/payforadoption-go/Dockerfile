@@ -13,7 +13,7 @@ COPY --from=builder /go/src/app/app .
 COPY --from=builder /go/src/app/seed.json .
 RUN chown -R appuser:appuser /app
 USER appuser
-EXPOSE 80
+EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 CMD ["./app"]

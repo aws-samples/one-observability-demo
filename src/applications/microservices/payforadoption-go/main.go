@@ -109,7 +109,7 @@ func main() {
 	ctx := context.Background()
 
 	var (
-		httpAddr = flag.String("http.addr", ":80", "HTTP Port binding")
+		httpAddr = flag.String("http.addr", ":8080", "HTTP Port binding")
 	)
 
 	flag.Parse()

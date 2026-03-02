@@ -47,9 +47,9 @@ RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/health/status || exit 1
+    CMD curl -f http://localhost:8080/health/status || exit 1
 
-EXPOSE 80
+EXPOSE 8080
 
 # Switch to non-root user
 USER appuser

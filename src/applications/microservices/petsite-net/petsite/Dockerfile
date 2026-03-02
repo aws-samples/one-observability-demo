@@ -7,8 +7,8 @@ RUN dotnet publish "PetSite.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-EXPOSE 80
-ENV ASPNETCORE_HTTP_PORTS=80
+EXPOSE 8080
+ENV ASPNETCORE_HTTP_PORTS=8080
 # Install AWS CLI and curl for troubleshooting
 RUN apt-get update && apt-get install -y curl unzip && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
@@ -24,5 +24,5 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY --from=build --chown=appuser:appuser /app/publish .
 USER appuser
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 ENTRYPOINT ["dotnet", "PetSite.dll"]
