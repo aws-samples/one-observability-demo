@@ -620,7 +620,11 @@ export abstract class EcsService extends Microservice {
         const initContainer = taskDefinition.addContainer('init', {
             image: ContainerImage.fromRegistry(config.image),
             essential: false,
-            command: ['cp', '-a', '/autoinstrumentation/.', config.volumePath],
+            command: [
+                'sh',
+                '-c',
+                `cp -a /autoinstrumentation/. ${config.volumePath} && chmod -R 755 ${config.volumePath} && chown -R 1000:1000 ${config.volumePath}`,
+            ],
         });
 
         // Mount the volume in init container

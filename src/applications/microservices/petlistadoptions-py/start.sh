@@ -8,7 +8,7 @@
 echo "Starting Pet List Adoptions Service..."
 
 # Set default values
-export PORT=${PORT:-80}
+export PORT=${PORT:-8080}
 
 # Check if running in Docker/ECS
 if [ -f /.dockerenv ] || [ -n "$ECS_CONTAINER_METADATA_URI" ]; then
