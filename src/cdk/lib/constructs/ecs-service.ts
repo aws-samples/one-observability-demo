@@ -27,7 +27,7 @@ import {
 } from 'aws-cdk-lib/aws-ecs-patterns';
 import { Construct } from 'constructs';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { RemovalPolicy, Stack, Fn, Annotations, Duration } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, Fn, Annotations } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
 import { Port, Peer, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { IPrivateDnsNamespace } from 'aws-cdk-lib/aws-servicediscovery';
@@ -236,10 +236,10 @@ export abstract class EcsService extends Microservice {
             const traceMode = properties.cloudWatchAgentTraceMode || CloudWatchAgentTraceMode.APPLICATION_SIGNALS;
             const cwAgentContainer = this.addCloudWatchAgentSidecar(taskDefinition, traceMode);
 
-            // Add container dependency so main container waits for CloudWatch agent to be healthy
+            // Add container dependency so main container waits for CloudWatch agent to start
             container.addContainerDependencies({
                 container: cwAgentContainer,
-                condition: ContainerDependencyCondition.HEALTHY,
+                condition: ContainerDependencyCondition.START,
             });
         }
 
@@ -723,13 +723,6 @@ export abstract class EcsService extends Microservice {
             environment: {
                 CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
                 AWS_REGION: Stack.of(this).region,
-            },
-            healthCheck: {
-                command: ['CMD-SHELL', 'curl -f http://localhost:4316/v1/traces || exit 1'],
-                interval: Duration.seconds(10),
-                timeout: Duration.seconds(5),
-                retries: 3,
-                startPeriod: Duration.seconds(10),
             },
         });
 
