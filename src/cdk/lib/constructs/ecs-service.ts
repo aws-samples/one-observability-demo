@@ -659,35 +659,41 @@ export abstract class EcsService extends Microservice {
      * @param traceMode The trace collection mode to configure
      * @returns CloudWatch agent configuration object
      */
-    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): CloudWatchAgentConfig {
-        const config: CloudWatchAgentConfig = {
-            traces: {
-                traces_collected: {},
-            },
-            logs: {
-                metrics_collected: {},
+    private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): Record<string, unknown> {
+        const config: Record<string, unknown> = {
+            agent: {
+                config: {
+                    traces: {
+                        traces_collected: {},
+                    },
+                    logs: {
+                        metrics_collected: {},
+                    },
+                },
             },
         };
+
+        const agentConfig = config.agent as { config: CloudWatchAgentConfig };
 
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
                 // AWS Application Signals configuration - provides automatic service maps and metrics
-                config.traces.traces_collected.application_signals = {};
-                config.logs.metrics_collected.application_signals = {};
+                agentConfig.config.traces.traces_collected.application_signals = {};
+                agentConfig.config.logs.metrics_collected.application_signals = {};
                 break;
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
                 // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
-                config.traces.traces_collected.otlp = {};
+                agentConfig.config.traces.traces_collected.otlp = {};
                 // Note: OTLP mode doesn't include Application Signals metrics collection
                 break;
             }
 
             default: {
                 // Default to Application Signals for backward compatibility
-                config.traces.traces_collected.application_signals = {};
-                config.logs.metrics_collected.application_signals = {};
+                agentConfig.config.traces.traces_collected.application_signals = {};
+                agentConfig.config.logs.metrics_collected.application_signals = {};
             }
         }
 
