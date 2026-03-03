@@ -3,8 +3,12 @@
 version: "3.8"
 
 services:
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # LocalStack requires writable filesystem for emulating AWS services and storing state
   localstack:
     image: localstack/localstack:latest
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_DEFAULT_REGION=eu-central-1
       - EDGE_PORT=4566
@@ -13,10 +17,17 @@ services:
       - '4566:4566'
     volumes:
       - "${TMPDIR:-/tmp/localstack}:/tmp/localstack"
+      # nosemgrep: yaml.docker-compose.security.exposing-docker-socket-volume.exposing-docker-socket-volume
+      # LocalStack requires Docker socket access to emulate AWS services that use containers
+      # This is acceptable for local development/testing only - never use in production
       - "/var/run/docker.sock:/var/run/docker.sock"
 
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # Setup container needs writable filesystem for AWS CLI operations
   setup:
     image: mesosphere/aws-cli
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_ACCESS_KEY_ID=dummyaccess
       - AWS_SECRET_ACCESS_KEY=dummysecret
@@ -36,8 +47,12 @@ services:
     depends_on:
       - localstack
 
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service
+  # OTEL collector requires writable filesystem for metrics and trace buffering
   collector:
     image: public.ecr.aws/aws-observability/aws-otel-collector:v0.17.1
+    security_opt:
+      - no-new-privileges:true
     command: ["--config=/etc/ecs/ecs-default-config.yaml", "--log-level=INFO"]
     environment:
       - AWS_DEFAULT_REGION=us-east-1
@@ -52,6 +67,8 @@ services:
 
   pet-search:
     build: .
+    security_opt:
+      - no-new-privileges:true
     environment:
       - AWS_REGION=eu-central-1
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:55680

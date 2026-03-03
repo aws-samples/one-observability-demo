@@ -55,10 +55,10 @@ async function deleteS3Object(bucket, key, s3ClientParameter = s3Client) {
             })
         );
 
-        console.log(`Successfully deleted S3 object: s3://${bucket}/${key}`);
+        console.log('Successfully deleted S3 object:', { bucket, key });
         return true;
     } catch (error) {
-        console.error(`Failed to delete S3 object s3://${bucket}/${key}:`, error.message);
+        console.error('Failed to delete S3 object:', { bucket, key, error: error.message });
         throw error;
     }
 }
@@ -76,10 +76,13 @@ async function deleteDynamoDBRecord(foodId, documentClientParameter = documentCl
 
         const result = await documentClientParameter.send(new DeleteCommand(deleteParameters));
 
-        console.log(`Successfully deleted DynamoDB record for food ${foodId}`);
+        console.log('Successfully deleted DynamoDB record for food:', { foodId });
         return result;
     } catch (error) {
-        console.error(`Failed to delete DynamoDB record for food ${foodId}:`, error.message);
+        console.error('Failed to delete DynamoDB record for food:', {
+            foodId,
+            error: error.message
+        });
         throw error;
     }
 }
@@ -105,7 +108,11 @@ async function retryWithBackoff(
             }
 
             const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
-            console.log(`Attempt ${attempt} failed, retrying in ${delay}ms:`, error.message);
+            console.log('Attempt failed, retrying:', {
+                attempt,
+                delayMs: delay,
+                error: error.message
+            });
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
@@ -130,7 +137,8 @@ async function processCleanupEvent(event) {
         timestamp: event.time || new Date().toISOString()
     };
 
-    console.log(`Processing cleanup event for food ${eventData.foodId}`, {
+    console.log('Processing cleanup event for food:', {
+        foodId: eventData.foodId,
         eventType: eventData.eventType,
         status: eventData.status,
         metadata: eventData.metadata
@@ -178,10 +186,10 @@ async function processCleanupEvent(event) {
         });
         cleanupSummary.databaseRecordDeleted = true;
 
-        console.log(
-            `Cleanup processing completed successfully for food ${eventData.foodId}`,
-            cleanupSummary
-        );
+        console.log('Cleanup processing completed successfully for food:', {
+            foodId: eventData.foodId,
+            ...cleanupSummary
+        });
         return cleanupSummary;
     } catch (error) {
         cleanupSummary.errors.push({
@@ -189,11 +197,11 @@ async function processCleanupEvent(event) {
             timestamp: new Date().toISOString()
         });
 
-        console.error(
-            `Cleanup processing failed for food ${eventData.foodId}:`,
-            error.message,
-            cleanupSummary
-        );
+        console.error('Cleanup processing failed for food:', {
+            foodId: eventData.foodId,
+            error: error.message,
+            ...cleanupSummary
+        });
         throw error;
     }
 }

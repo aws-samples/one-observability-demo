@@ -361,7 +361,7 @@ async def metrics():
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", 80))
+    port = int(os.environ.get("PORT", 8080))
     # Use localhost for production security, 0.0.0.0 only for containerized environments
     host = os.environ.get("HOST", "127.0.0.1")
     uvicorn.run(app, host=host, port=port)

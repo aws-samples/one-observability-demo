@@ -48,7 +48,7 @@ exports.handler = async (event) => {
             const result = await simulateUserJourney(petsiteBaseUrl, index + 1);
             allRequestResults.push(...result.requests);
         } catch (error) {
-            console.error(`User journey ${index + 1} failed:`, error.message);
+            console.error('User journey failed:', { userIndex: index + 1, error: error.message });
         }
     }
 
@@ -136,7 +136,7 @@ async function simulateUserJourney(petsiteBaseUrl) {
             requests.push({ url, method, statusCode: result.statusCode, duration: result.duration });
             return result;
         } catch (error) {
-            console.error(`${description} failed:`, error.message);
+            console.error('Request failed:', { description, error: error.message });
             const statusCode = error.message.includes('status:')
                 ? Number.parseInt(error.message.match(/status: (\d+)/)?.[1])
                 : 0;
@@ -295,10 +295,10 @@ async function simulateUserJourney(petsiteBaseUrl) {
             return { userId, success: false, message: `${failedRequests} requests failed`, requests };
         }
 
-        console.log(`User ${userId} journey completed successfully.`);
+        console.log('User journey completed successfully.', { userId });
         return { userId, success: true, requests };
     } catch (error) {
-        console.error(`User ${userId} journey failed:`, error.message);
+        console.error('User journey failed:', { userId, error: error.message });
         return { userId, success: false, message: error.message, requests };
     }
 }
@@ -399,14 +399,14 @@ function makeHttpRequest(url, method = 'GET', description = 'Request', data, con
         request.on('error', (error) => {
             const endTime = Date.now();
             const duration = endTime - startTime;
-            console.error(`${description} failed after ${duration}ms:`, error.message);
+            console.error('Request failed:', { description, durationMs: duration, error: error.message });
             reject(error);
         });
 
         request.on('timeout', () => {
             const endTime = Date.now();
             const duration = endTime - startTime;
-            console.error(`${description} timeout after ${duration}ms (60 second limit)`);
+            console.error('Request timeout:', { description, durationMs: duration, timeoutLimit: '60 seconds' });
             request.destroy();
             reject(new Error(`${description} timeout after ${duration}ms`));
         });

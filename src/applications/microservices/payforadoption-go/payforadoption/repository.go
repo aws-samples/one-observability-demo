@@ -213,6 +213,9 @@ func (r *repo) DropTransactionsByPets(ctx context.Context, pets []PetIdentifier)
 		argIndex += 2
 	}
 
+	// nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
+	// Safe: SQL string is built from parameterized placeholders ($1, $2, etc.), not user input
+	// All actual values are passed via args slice using parameterized queries
 	sql := fmt.Sprintf("DELETE FROM transactions WHERE %s", strings.Join(conditions, " OR "))
 
 	result, err := r.db.ExecContext(ctx, sql, args...)

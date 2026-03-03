@@ -6,6 +6,9 @@ on:
   push:
     branches: [ main, staging, feat/cdkpipeline ]
 
+permissions:
+  contents: read
+
 jobs:
   cdk-synth-test:
     runs-on: ubuntu-latest

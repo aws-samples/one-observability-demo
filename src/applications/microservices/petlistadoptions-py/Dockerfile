@@ -42,14 +42,17 @@ COPY --from=builder /app .
 RUN chmod +x start.sh
 RUN chmod +x ./dbload-simulation-scripts/*.sh
 
-# Create non-root user for future use (but run as root for port 80 access)
+# Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/health/status || exit 1
+    CMD curl -f http://localhost:8080/health/status || exit 1
 
-EXPOSE 80
+EXPOSE 8080
 
-# Use startup script (running as root for port 80 access)
+# Switch to non-root user
+USER appuser
+
+# Use startup script
 CMD ["./start.sh"]

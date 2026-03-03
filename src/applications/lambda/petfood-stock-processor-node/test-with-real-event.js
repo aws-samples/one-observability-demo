@@ -15,7 +15,7 @@ const mockDynamoDBResponses = new Map();
 const mockDocumentClient = {
     send: async (command) => {
         const commandName = command.constructor.name;
-        console.log(`Mock DynamoDB ${commandName}:`, command.input);
+        console.log('Mock DynamoDB command:', { commandName, input: command.input });
 
         if (commandName === 'GetCommand') {
             const foodId = command.input.Key.id;

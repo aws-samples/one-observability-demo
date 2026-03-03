@@ -21,4 +21,14 @@ RUN yum install -y curl unzip && \
 ARG JAR_FILE=build/libs/\*.jar
 COPY --from=build /app/${JAR_FILE} ./app.jar
 
+# Create non-root user
+RUN yum install -y shadow-utils && \
+    useradd -r -u 1000 appuser && \
+    chown -R appuser:appuser /app && \
+    yum clean all
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
 ENTRYPOINT ["java","-jar","/app/app.jar"]
