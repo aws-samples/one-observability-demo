@@ -409,7 +409,7 @@ export class MicroservicesStack extends Stack {
                         manifestPath: service.manifestPath,
                         vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-                        listenerPort: 80,
+                        listenerPort: 8080,
                         healthCheck: '/health/status',
                         globalWebACLArn: CUSTOM_ENABLE_WAF ? imports.globalAclArn : undefined,
                         enableSLO: CUSTOM_ENABLE_SLO,
