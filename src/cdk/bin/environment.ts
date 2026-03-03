@@ -273,6 +273,16 @@ export const USER_CREATOR_FUNCTION = {
     handler: 'lambda_handler',
 };
 
+export const DYNAMO_CAPACITY_TEST_FUNCTION = {
+    name: 'dynamo-capacity-test',
+    runtime: Runtime.PYTHON_3_13,
+    entry: '../applications/lambda/dynamo-capacity-test-python',
+    index: 'lambda_function.py',
+    memorySize: 128,
+    handler: 'lambda_handler',
+    timeout: Duration.seconds(60),
+};
+
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
@@ -282,6 +292,7 @@ export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties
     [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],
     [RDS_SEEDER_FUNCTION.name, RDS_SEEDER_FUNCTION],
     [USER_CREATOR_FUNCTION.name, USER_CREATOR_FUNCTION],
+    [DYNAMO_CAPACITY_TEST_FUNCTION.name, DYNAMO_CAPACITY_TEST_FUNCTION],
 ]);
 
 export const PETSITE_CANARY = {
