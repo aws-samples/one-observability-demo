@@ -262,6 +262,7 @@ export class MicroservicesStack extends Stack {
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
                         additionalEnvironment: {
+                            PORT: '8080',
                             PYTHONPATH:
                                 '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
                             OTEL_RESOURCE_ATTRIBUTES:
