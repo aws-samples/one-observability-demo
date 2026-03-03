@@ -6,10 +6,11 @@ package payforadoption
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"runtime"
 	"sync"
 	"time"
@@ -46,7 +47,14 @@ func simulateHighCPU(duration time.Duration) {
 
 // simulateNetworkLatency adds artificial network-like delays with jitter
 func simulateNetworkLatency(baseMs, jitterMs int) {
-	delay := time.Duration(baseMs+rand.Intn(jitterMs)) * time.Millisecond
+	// Use crypto/rand for secure random number generation
+	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(jitterMs)))
+	if err != nil {
+		// Fallback to base delay if random generation fails
+		time.Sleep(time.Duration(baseMs) * time.Millisecond)
+		return
+	}
+	delay := time.Duration(baseMs+int(jitter.Int64())) * time.Millisecond
 	time.Sleep(delay)
 }
 
@@ -192,8 +200,14 @@ func defaultDegradation(ctx context.Context, logger log.Logger, adoption Adoptio
 // handleDefaultDegradation - Cascading slowness scenario
 func handleDefaultDegradation(ctx context.Context, logger log.Logger, adoption Adoption, startTime time.Time, repository Repository) DegradationResult {
 
-	// randomly choose between scenarios: defaultDegradation, circuitBreakerDegradation, systemStressDegradation, databaseConnectionDegradation
-	switch rand.Intn(10) {
+	// randomly choose between scenarios using crypto/rand
+	randNum, err := rand.Int(rand.Reader, big.NewInt(10))
+	if err != nil {
+		// Fallback to default degradation if random generation fails
+		return defaultDegradation(ctx, logger, adoption, startTime)
+	}
+
+	switch randNum.Int64() {
 	case 0, 1:
 		return circuitBreakerDegradation(ctx, logger, adoption, startTime)
 	case 2, 3:

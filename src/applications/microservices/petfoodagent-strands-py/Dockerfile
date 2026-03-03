@@ -35,6 +35,9 @@ EXPOSE 8000
 # Copy entire project (respecting .dockerignore)
 COPY . .
 
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
 # Use the full module path
 
 CMD ["opentelemetry-instrument", "python", "-m", "agent"]

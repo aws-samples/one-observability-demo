@@ -9,4 +9,4 @@ cloud:
             static: eu-west-1
             auto: false
 server:
-    port: 80
+    port: 8080

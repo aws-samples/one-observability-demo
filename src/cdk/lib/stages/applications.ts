@@ -217,6 +217,7 @@ export class MicroservicesStack extends Stack {
                         healthCheck: '/health/status',
                         vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        containerPort: 8080,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
@@ -257,10 +258,12 @@ export class MicroservicesStack extends Stack {
                         healthCheck: '/health/status',
                         vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        containerPort: 8080,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: true,
                         additionalEnvironment: {
+                            PORT: '8080',
                             PYTHONPATH:
                                 '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
                             OTEL_RESOURCE_ATTRIBUTES:
@@ -310,6 +313,7 @@ export class MicroservicesStack extends Stack {
                         healthCheck: '/health/status',
                         vpc: imports.vpcExports,
                         subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        containerPort: 8080,
                         createLoadBalancer: true,
                         cloudMapNamespace: imports.cloudMap,
                         enableCloudWatchAgent: false,
