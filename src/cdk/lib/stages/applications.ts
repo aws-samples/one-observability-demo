@@ -55,7 +55,7 @@ import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
-import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/DynamoDBWriteTestConstruct';
+import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
 
 export interface MicroserviceApplicationPlacement {
     hostType: HostType;
