@@ -35,29 +35,6 @@ import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
 import { CloudWatchAgentTraceMode } from '../../bin/constants';
 
-/**
- * CloudWatch agent configuration interface
- * Defines the structure for CloudWatch agent configuration JSON
- */
-interface CloudWatchAgentConfig {
-    /** Trace collection configuration */
-    traces: {
-        traces_collected: {
-            /** AWS Application Signals trace collection configuration */
-            application_signals?: Record<string, unknown>;
-            /** OpenTelemetry Protocol (OTLP) trace collection configuration */
-            otlp?: Record<string, unknown>;
-        };
-    };
-    /** Log and metrics collection configuration */
-    logs: {
-        metrics_collected: {
-            /** AWS Application Signals metrics collection configuration */
-            application_signals?: Record<string, unknown>;
-        };
-    };
-}
-
 export interface EcsServiceProperties extends MicroserviceProperties {
     cpu: number;
     memoryLimitMiB: number;
@@ -623,14 +600,14 @@ export abstract class EcsService extends Microservice {
         });
 
         // Add ADOT auto-instrumentation init container
+        // Note: Python uses direct command (no shell), Java uses shell wrapper for jar copy
         const initContainer = taskDefinition.addContainer('init', {
             image: ContainerImage.fromRegistry(config.image),
             essential: false,
-            command: [
-                'sh',
-                '-c',
-                `cp -a /autoinstrumentation/. ${config.volumePath} && chmod -R 755 ${config.volumePath} && chown -R 1000:1000 ${config.volumePath}`,
-            ],
+            command:
+                language === 'java'
+                    ? ['cp', '/javaagent.jar', `${config.volumePath}/javaagent.jar`]
+                    : ['cp', '-a', '/autoinstrumentation/.', config.volumePath],
         });
 
         // Mount the volume in init container
@@ -661,39 +638,36 @@ export abstract class EcsService extends Microservice {
      */
     private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): Record<string, unknown> {
         const config: Record<string, unknown> = {
-            agent: {
-                config: {
-                    traces: {
-                        traces_collected: {},
-                    },
-                    logs: {
-                        metrics_collected: {},
-                    },
-                },
+            traces: {
+                traces_collected: {},
+            },
+            logs: {
+                metrics_collected: {},
             },
         };
 
-        const agentConfig = config.agent as { config: CloudWatchAgentConfig };
+        const tracesCollected = (config.traces as { traces_collected: Record<string, unknown> }).traces_collected;
+        const metricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
 
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
                 // AWS Application Signals configuration - provides automatic service maps and metrics
-                agentConfig.config.traces.traces_collected.application_signals = {};
-                agentConfig.config.logs.metrics_collected.application_signals = {};
+                tracesCollected.application_signals = {};
+                metricsCollected.application_signals = {};
                 break;
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
                 // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
-                agentConfig.config.traces.traces_collected.otlp = {};
+                tracesCollected.otlp = {};
                 // Note: OTLP mode doesn't include Application Signals metrics collection
                 break;
             }
 
             default: {
                 // Default to Application Signals for backward compatibility
-                agentConfig.config.traces.traces_collected.application_signals = {};
-                agentConfig.config.logs.metrics_collected.application_signals = {};
+                tracesCollected.application_signals = {};
+                metricsCollected.application_signals = {};
             }
         }
 
