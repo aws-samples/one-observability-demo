@@ -8,7 +8,7 @@ This folder contains CloudFormation templates for the One Observability Demo pro
 
 ## Templates
 
-- **[codebuild-deployment-template-simplified.yaml](./codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
+- **[codebuild-deployment-template.yaml](./codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
 
 ## Documentation
 
@@ -30,12 +30,13 @@ This documentation includes:
 ```bash
 aws cloudformation create-stack \
   --stack-name MyWorkshop-CDK-Deployment \
-  --template-body file://codebuild-deployment-template-simplified.yaml \
+  --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
-    ParameterKey=pOrganizationName,ParameterValue=my-org \
-    ParameterKey=pRepositoryName,ParameterValue=my-cdk-project \
-    ParameterKey=pBranchName,ParameterValue=main
+    ParameterKey=pOrganizationName,ParameterValue=aws-samples \
+    ParameterKey=pRepositoryName,ParameterValue=one-observability-demo \
+    ParameterKey=pBranchName,ParameterValue=feat/cdkpipeline \
+    ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
 
 For detailed parameter descriptions and advanced usage, refer to the [full documentation](../../docs/codebuild-cdk-deployment-template.md).
