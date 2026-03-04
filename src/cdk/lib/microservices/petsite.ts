@@ -262,6 +262,7 @@ export class PetSite extends EKSDeployment {
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
             PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
             AWS_REGION: Stack.of(this).region,
+            LISTENER_PORT: properties.listenerPort || 80,
 
             // Parameter names (not values) - these environment variables tell the app which parameter names to look up
             PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
