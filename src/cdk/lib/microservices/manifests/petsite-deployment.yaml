@@ -22,7 +22,7 @@ metadata:
         prometheus.io/scrape: 'true'
 spec:
     ports:
-        - port: {{ LISTENER_PORT }}
+        - port: {{ CONTAINER_PORT }}
           nodePort: 30300
           targetPort: 8080
           protocol: TCP
