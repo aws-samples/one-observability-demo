@@ -64,7 +64,7 @@ export class PetSite extends EKSDeployment {
         );
 
         this.targetGroup = new ApplicationTargetGroup(scope, 'targetGroup', {
-            port: properties.listenerPort || 8080,
+            port: properties.containerPort || 8080,
             vpc: properties.vpc!,
             protocol: ApplicationProtocol.HTTP,
             targetGroupName: `TG-${properties.name}`,
@@ -129,7 +129,7 @@ export class PetSite extends EKSDeployment {
         // Allow load balancer to reach EKS nodes
         this.loadBalancer.connections.allowTo(
             properties.eksCluster!.clusterSecurityGroup,
-            Port.tcp(properties.listenerPort || 80),
+            Port.tcp(properties.containerPort || 8080),
             'Allow Load Balancer to EKS nodes',
         );
 
@@ -262,7 +262,7 @@ export class PetSite extends EKSDeployment {
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
             PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
             AWS_REGION: Stack.of(this).region,
-            LISTENER_PORT: properties.listenerPort || 80,
+            CONTAINER_PORT: properties.containerPort || 8080,
 
             // Parameter names (not values) - these environment variables tell the app which parameter names to look up
             PET_HISTORY_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_HISTORY_URL,
