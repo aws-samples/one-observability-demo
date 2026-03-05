@@ -64,7 +64,7 @@ export class PetSite extends EKSDeployment {
         );
 
         this.targetGroup = new ApplicationTargetGroup(scope, 'targetGroup', {
-            port: properties.listenerPort || 80,
+            port: properties.listenerPort || 8080,
             vpc: properties.vpc!,
             protocol: ApplicationProtocol.HTTP,
             targetGroupName: `TG-${properties.name}`,
