@@ -155,11 +155,18 @@ aws cloudformation create-stack \
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `pConfigFileUrl` | URL to the initial configuration file | `https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/typedoc.json` | Yes |
+| `pConfigFileUrl` | URL to the initial configuration file | `https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/src/presets/default.env` | Yes |
 | `pOrganizationName` | GitHub/CodeCommit organization name | `aws-samples` | Yes |
 | `pRepositoryName` | Repository containing the CDK code | `one-observability-demo` | Yes |
 | `pBranchName` | Branch to deploy from | `feat/cdkpipeline` | Yes |
+| `pCodeConnectionArn` | Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source | `` (empty) | No |
 | `pWorkingFolder` | Working folder for deployment | `src/cdk` | Yes |
+| `pApplicationName` | Application name used for tagging deployed stacks | `One Observability Workshop` | Yes |
+| `pDisableCleanup` | Disable cleanup in post_build stage if deployment fails | `false` | No |
+| `pCDKStackName` | CDK stack name to retrieve outputs from | `Microservices-Microservice` | Yes |
+| `pParameterStoreBasePath` | Base path in Parameter Store for storing configuration | `/petstore` | Yes |
+| `pWaitForDeployment` | Wait for deployment completion using CloudFormation wait condition. Set to 'false' to mark stack complete without waiting for pipeline (useful when manually fixing pipeline issues) | `true` | No |
+| `pVpcCidr` | CIDR block for the VPC | `10.0.0.0/16` | Yes |
 | `pUserDefinedTagKey1-5` | Custom tag keys for resource tagging | Various | No |
 | `pUserDefinedTagValue1-5` | Custom tag values for resource tagging | Various | No |
 
@@ -380,6 +387,18 @@ fi
 - Verify CodeBuild service role has `AdministratorAccess`
 - Check S3 bucket policies
 - Ensure proper IAM role trust relationships
+
+#### 5. **Manual Pipeline Fixes**
+If you need to manually fix pipeline issues and want the CloudFormation stack to complete without waiting:
+```bash
+# Update the stack with pWaitForDeployment set to false
+aws cloudformation update-stack \
+  --stack-name {StackName} \
+  --use-previous-template \
+  --parameters ParameterKey=pWaitForDeployment,ParameterValue=false \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+This allows the stack to reach CREATE_COMPLETE or UPDATE_COMPLETE status while you manually resolve pipeline issues.
 
 ### Debug Commands
 

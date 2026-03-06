@@ -8,7 +8,11 @@
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
-  Automates CDK project deployment for workshop environments. Provisions S3 storage, CodeBuild project, and monitoring resources to bootstrap AWS accounts and deploy CDK applications consistently. Includes error handling and cleanup mechanisms for failed deployments. For more details, see: https://github.com/aws-samples/one-observability-demo
+  Automates CDK project deployment for workshop environments. Provisions S3 storage, CodeBuild project, and monitoring resources to bootstrap AWS accounts and deploy CDK applications consistently. Includes error handling and cleanup mechanisms for failed deployments.
+
+  The pWaitForDeployment parameter controls whether CloudFormation waits for the CDK pipeline to complete before marking the stack as CREATE_COMPLETE. Set to 'false' when manually fixing pipeline issues to allow the stack to complete without waiting for pipeline execution.
+
+  For more details, see: https://github.com/aws-samples/one-observability-demo
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -26,6 +30,7 @@ Metadata:
           - pDisableCleanup
           - pCDKStackName
           - pParameterStoreBasePath
+          - pWaitForDeployment
       - Label:
           default: Network Configuration
         Parameters:
@@ -207,6 +212,15 @@ Parameters:
     AllowedPattern: '^/[a-zA-Z0-9/_-]+$'
     ConstraintDescription: Must be a valid Parameter Store path starting with /
 
+  pWaitForDeployment:
+    Type: String
+    Description: Wait for deployment completion using CloudFormation wait condition. Set to 'false' to mark stack complete without waiting for pipeline (useful when manually fixing pipeline issues).
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either 'true' or 'false'
+
 
 
 Conditions:
@@ -260,6 +274,10 @@ Conditions:
       - !Equals
         - !Ref pUserDefinedTagValue5
         - ''
+
+  cWaitForDeployment: !Equals
+    - !Ref pWaitForDeployment
+    - 'true'
 
 Resources:
   # Lambda execution role for resource cleanup
@@ -476,10 +494,12 @@ Resources:
   # Create wait condition handle for signaling completion
   rCDKDeploymentWaitConditionHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
+    Condition: cWaitForDeployment
 
   # Create wait condition to ensure CodeBuild project completes successfully
   rCDKDeploymentWaitCondition:
     Type: AWS::CloudFormation::WaitCondition
+    Condition: cWaitForDeployment
     Properties:
       Handle: !Ref rCDKDeploymentWaitConditionHandle
       Timeout: 3600
@@ -569,10 +589,14 @@ Resources:
 
   rCDKOutputs:
     Type: AWS::CloudFormation::CustomResource
-    DependsOn: rCDKDeploymentWaitCondition
     Properties:
       ServiceToken: !GetAtt rCDKOutputRetrieverFunction.Arn
       StackName: !Ref pCDKStackName
+      # This ensures the custom resource waits for the wait condition if it exists
+      WaitConditionData: !If
+        - cWaitForDeployment
+        - !GetAtt rCDKDeploymentWaitCondition.Data
+        - 'NoWait'
 
   # Create CodeBuild project to orchestrate CDK deployment
   rCDKDeploymentProject:
@@ -628,6 +652,9 @@ Resources:
             Type: PLAINTEXT
           - Name: PARAMETER_STORE_BASE_PATH
             Value: !Ref pParameterStoreBasePath
+            Type: PLAINTEXT
+          - Name: WAIT_FOR_DEPLOYMENT
+            Value: !Ref pWaitForDeployment
             Type: PLAINTEXT
       Cache:
         Type: LOCAL
@@ -809,10 +836,14 @@ Resources:
     Type: Custom::StartDeployment
     DependsOn:
       - rConfigBucket
-      - rCDKDeploymentWaitConditionHandle
+      - rCodeBuildServiceRole
     Properties:
       ServiceToken: !GetAtt rStartDeploymentFunction.Arn
       CodeBuildProjectName: !Ref rCDKDeploymentProject
+      WaitConditionHandle: !If
+        - cWaitForDeployment
+        - !Ref rCDKDeploymentWaitConditionHandle
+        - !Ref AWS::NoValue
 
   # Create Lambda function to start the CodeBuild project
   rStartDeploymentFunction:
