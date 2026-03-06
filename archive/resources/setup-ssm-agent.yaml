@@ -1,0 +1,96 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: node-configuration-daemonset
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ssm-agent-installer
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - ssm-agent-installer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ssm-agent-installer
+  namespace: node-configuration-daemonset
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ssm-agent-installer
+  namespace: node-configuration-daemonset
+roleRef:
+  kind: ClusterRole
+  name: ssm-agent-installer
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: ssm-agent-installer
+  namespace: node-configuration-daemonset
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssm-installer-script
+  namespace: node-configuration-daemonset
+data:
+  install.sh: |
+    #!/bin/bash
+    # Update and install packages
+    sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+    STATUS=$(sudo systemctl status amazon-ssm-agent)
+    if echo $STATUS | grep -q "running"; then
+        echo "Success"
+    else
+        echo "Fail" >&2
+    fi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ssm-agent-installer
+  namespace: node-configuration-daemonset
+spec:
+  selector:
+    matchLabels:
+      job: ssm-agent-installer
+  template:
+    metadata:
+      labels:
+        job: ssm-agent-installer
+    spec:
+      hostPID: true
+      restartPolicy: Always
+      initContainers:
+      - image: jicowan/ssm-agent-installer:1.2
+        name: ssm-agent-installer
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: install-script
+          mountPath: /tmp
+        - name: host-mount
+          mountPath: /host
+      volumes:
+      - name: install-script
+        configMap:
+          name: ssm-installer-script
+      - name: host-mount
+        hostPath:
+          path: /tmp/install
+      serviceAccount: ssm-agent-installer
+      containers:
+      - image: "gcr.io/google-containers/pause:2.0"
+        name: pause
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+          readOnlyRootFilesystem: true

@@ -1,0 +1,11 @@
+# Core application dependencies
+boto3==1.40.10
+fastapi==0.116.1
+psycopg2-binary==2.9.10
+pydantic==2.11.7
+requests==2.32.4
+uvicorn==0.35.0
+prometheus_client==0.22.1
+
+# OpenTelemetry auto-instrumentation is provided by ADOT Python init container
+# No need to install opentelemetry packages manually - they come from the init container via PYTHONPATH

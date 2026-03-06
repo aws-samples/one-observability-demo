@@ -1,0 +1,33 @@
+{
+    "name": "petfood-stock-processor-node",
+    "version": "1.0.0",
+    "description": "Lambda function to process StockPurchased events and decrease food inventory quantities",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest",
+        "test:real": "node test-with-real-event.js",
+        "lint": "eslint *.js",
+        "lint:fix": "eslint *.js --fix"
+    },
+    "keywords": [
+        "aws",
+        "lambda",
+        "eventbridge",
+        "dynamodb",
+        "stock-processing",
+        "inventory-management"
+    ],
+    "author": "",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "@aws-sdk/client-dynamodb": "^3.700.0",
+        "@aws-sdk/lib-dynamodb": "^3.700.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0",
+        "eslint": "^8.0.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

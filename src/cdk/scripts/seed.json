@@ -1,0 +1,262 @@
+[
+    {
+        "pettype": "bunny",
+        "petid": "023",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "b4",
+        "petcolor": "white",
+        "price": "75",
+        "description": "energetic and playful, loves fresh carrots and outdoor adventures, always hopping around with curiosity"
+    },
+    {
+        "pettype": "bunny",
+        "petid": "024",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "b3",
+        "petcolor": "brown",
+        "price": "45",
+        "description": "calm and gentle, prefers quiet indoor spaces, enjoys leafy greens and peaceful naps in sunny spots"
+    },
+    {
+        "pettype": "bunny",
+        "petid": "025",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "b2",
+        "petcolor": "brown",
+        "price": "55",
+        "description": "social and friendly, loves being around people, enjoys hay treats and gentle petting sessions"
+    },
+    {
+        "pettype": "bunny",
+        "petid": "026",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "b1",
+        "petcolor": "brown",
+        "price": "95",
+        "description": "intelligent and independent, enjoys exploring new environments, loves dandelion greens and mental stimulation"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "016",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "k1",
+        "petcolor": "white",
+        "price": "79",
+        "description": "playful and mischievous, loves climbing and chasing toys, enjoys salmon treats and interactive play"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "017",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "k3",
+        "petcolor": "white",
+        "price": "89",
+        "description": "sleepy and cuddly, prefers warm laps and soft blankets, loves tuna and gentle brushing"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "018",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "k6",
+        "petcolor": "black",
+        "price": "99",
+        "description": "adventurous and bold, enjoys outdoor exploration and bird watching, loves chicken treats and tall perches"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "019",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "k2",
+        "petcolor": "grey",
+        "price": "99",
+        "description": "quiet and observant, enjoys peaceful indoor corners, prefers fish-flavored food and gentle companionship"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "020",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "k5",
+        "petcolor": "brown",
+        "price": "89",
+        "description": "energetic and athletic, loves running and jumping, enjoys active play and chicken-flavored treats"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "021",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "k4",
+        "petcolor": "brown",
+        "price": "65",
+        "description": "affectionate and social, seeks constant attention, loves belly rubs and variety of wet foods"
+    },
+    {
+        "pettype": "kitten",
+        "petid": "022",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "k7",
+        "petcolor": "black",
+        "price": "75",
+        "description": "independent and elegant, enjoys solitary relaxation, prefers gourmet dry food and quiet observation spots"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "001",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p9",
+        "petcolor": "black",
+        "price": "89",
+        "description": "high-energy and athletic, loves running and fetching, enjoys beef treats and outdoor adventures"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "002",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p10",
+        "petcolor": "black",
+        "price": "99",
+        "description": "loyal and protective, enjoys training sessions, loves chicken-based food and structured activities"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "003",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p1",
+        "petcolor": "brown",
+        "price": "99",
+        "description": "friendly and social, loves meeting new people, enjoys peanut butter treats and group activities"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "004",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p11",
+        "petcolor": "black",
+        "price": "89",
+        "description": "calm and gentle, perfect for families with children, loves lamb-flavored food and peaceful walks"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "005",
+        "availability": "yes",
+        "cuteness_rate": "3",
+        "image": "p3",
+        "petcolor": "brown",
+        "price": "59",
+        "description": "playful and curious, enjoys exploring new environments, loves fish-based treats and puzzle toys"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "006",
+        "availability": "yes",
+        "cuteness_rate": "3",
+        "image": "p6",
+        "petcolor": "brown",
+        "price": "100",
+        "description": "intelligent and trainable, excels at learning commands, enjoys turkey treats and mental challenges"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "007",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "p4",
+        "petcolor": "brown",
+        "price": "70",
+        "description": "sleepy and relaxed, prefers indoor comfort, loves soft bedding and slow-cooked beef meals"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "008",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p7",
+        "petcolor": "brown",
+        "price": "600",
+        "description": "energetic and adventurous, loves hiking and outdoor activities, enjoys venison treats and active play"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "009",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p12",
+        "petcolor": "black",
+        "price": "60",
+        "description": "affectionate and cuddly, seeks constant companionship, loves salmon-based food and belly rubs"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "010",
+        "availability": "yes",
+        "cuteness_rate": "3",
+        "image": "p8",
+        "petcolor": "brown",
+        "price": "80",
+        "description": "independent and confident, enjoys solo exploration, loves duck-flavored treats and quiet corners"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "011",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "p14",
+        "petcolor": "white",
+        "price": "59",
+        "description": "gentle and patient, great with small children, enjoys rice-based meals and calm environments"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "012",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p15",
+        "petcolor": "white",
+        "price": "79",
+        "description": "alert and watchful, enjoys guarding activities, loves bison treats and elevated resting spots"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "013",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "p2",
+        "petcolor": "white",
+        "price": "99",
+        "description": "playful and energetic, loves water activities, enjoys fish-based food and swimming adventures"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "014",
+        "availability": "yes",
+        "cuteness_rate": "5",
+        "image": "p13",
+        "petcolor": "black",
+        "price": "79",
+        "description": "smart and eager to please, excels in training, loves variety treats and learning new tricks"
+    },
+    {
+        "pettype": "puppy",
+        "petid": "015",
+        "availability": "yes",
+        "cuteness_rate": "4",
+        "image": "p5",
+        "petcolor": "white",
+        "price": "79",
+        "description": "calm and therapeutic, perfect for emotional support, enjoys quiet activities and gentle rabbit-based meals"
+    }
+]

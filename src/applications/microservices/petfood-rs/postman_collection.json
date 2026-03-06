@@ -1,0 +1,573 @@
+{
+  "info": {
+    "name": "PetFood Microservice API",
+    "description": "Complete API collection for the PetFood microservice with end-to-end examples",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "user001",
+      "type": "string"
+    },
+    {
+      "key": "foodId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "Check Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "status"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Admin Operations",
+      "item": [
+        {
+          "name": "Setup Database Tables",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/setup-tables",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "setup-tables"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Seed Database",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/seed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "seed"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup Database",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/cleanup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "cleanup"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create New Food (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_for\": \"puppy\",\n  \"food_name\": \"Premium Puppy Chow\",\n  \"food_type\": \"dry\",\n  \"food_description\": \"High-quality dry food for puppies\",\n  \"food_price\": \"24.99\",\n  \"food_image\": \"premium-puppy-chow.jpg\",\n  \"nutritional_info\": {\n    \"calories_per_serving\": 350,\n    \"protein_percentage\": \"28.0\",\n    \"fat_percentage\": \"15.0\",\n    \"serving_size\": \"1 cup\"\n  },\n  \"ingredients\": [\"chicken\", \"rice\", \"vegetables\", \"vitamins\"],\n  \"feeding_guidelines\": \"Feed 2-3 times daily\",\n  \"stock_quantity\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/foods",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "foods"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Food (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_price\": \"22.99\",\n  \"stock_quantity\": 75,\n  \"availability_status\": \"low_stock\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/foods/{{foodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "foods", "{{foodId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Food (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/foods/{{foodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "foods", "{{foodId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Food Browsing (Read-Only)",
+      "item": [
+        {
+          "name": "List All Foods",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Foods - Filter by Pet Type (Puppy)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods?pet_type=puppy",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"],
+              "query": [
+                {
+                  "key": "pet_type",
+                  "value": "puppy"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Foods - Filter by Pet Type (Kitten)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods?pet_type=kitten",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"],
+              "query": [
+                {
+                  "key": "pet_type",
+                  "value": "kitten"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Foods - Filter by Pet Type (Bunny)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods?pet_type=bunny",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"],
+              "query": [
+                {
+                  "key": "pet_type",
+                  "value": "bunny"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Foods - Filter by Food Type and Price",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods?food_type=dry&max_price=15.00",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"],
+              "query": [
+                {
+                  "key": "food_type",
+                  "value": "dry"
+                },
+                {
+                  "key": "max_price",
+                  "value": "15.00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Specific Food",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods/{{foodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods", "{{foodId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create New Food",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_for\": \"puppy\",\n  \"food_name\": \"Premium Puppy Chow\",\n  \"food_type\": \"dry\",\n  \"food_description\": \"High-quality dry food for puppies\",\n  \"food_price\": \"24.99\",\n  \"food_image\": \"premium-puppy-chow.jpg\",\n  \"nutritional_info\": {\n    \"calories_per_serving\": 350,\n    \"protein_percentage\": \"28.0\",\n    \"fat_percentage\": \"15.0\",\n    \"serving_size\": \"1 cup\"\n  },\n  \"ingredients\": [\"chicken\", \"rice\", \"vegetables\", \"vitamins\"],\n  \"feeding_guidelines\": \"Feed 2-3 times daily\",\n  \"stock_quantity\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/foods",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Food",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_price\": \"22.99\",\n  \"stock_quantity\": 75,\n  \"availability_status\": \"low_stock\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/foods/{{foodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods", "{{foodId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Food",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods/{{foodId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods", "{{foodId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Cart Management - User001 Journey",
+      "item": [
+        {
+          "name": "Get Empty Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add First Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_id\": \"F12345678\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "items"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Second Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_id\": \"F23456789\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "items"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart with Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Item Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/items/F12345678",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "items", "F12345678"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Item from Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/items/F23456789",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "items", "F23456789"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Updated Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "clear"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Empty Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Error Scenarios",
+      "item": [
+        {
+          "name": "Get Non-existent Food",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/foods/F99999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "foods", "F99999999"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Invalid Food to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_id\": \"F99999999\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/{{userId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cart", "{{userId}}", "items"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Food with Invalid Data (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_for\": \"invalid_pet\",\n  \"food_name\": \"\",\n  \"food_type\": \"invalid_type\",\n  \"food_description\": \"\",\n  \"food_price\": \"-5.00\",\n  \"food_image\": \"\",\n  \"ingredients\": [],\n  \"stock_quantity\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/foods",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "foods"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

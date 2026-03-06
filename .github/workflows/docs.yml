@@ -1,0 +1,78 @@
+name: Documentation
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'src/cdk/**'
+      - 'typedoc.json'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - 'src/cdk/**'
+      - 'typedoc.json'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install CDK dependencies
+        run: npm ci
+        working-directory: src/cdk
+
+      - name: Create ASH scan link
+        run: |
+          echo "# Security Scan Results" > ASH_SCAN.md
+          echo "" >> ASH_SCAN.md
+          echo "[Latest ASH Security Scan Results](https://github.com/${{ github.repository }}/actions/workflows/run-ash-security-scan.yaml)" >> ASH_SCAN.md
+          sed -i 's/"ARCHITECTURE.md"]/"ARCHITECTURE.md", "ASH_SCAN.md"]/g' typedoc.json
+
+      - name: Generate documentation
+        run: npx typedoc
+
+      - name: Upload artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: wiki-docs
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,18 @@
+{
+    "name": "traffic-generator-node",
+    "version": "1.0.0",
+    "description": "Lambda function to generate traffic to petsite with 50 concurrent users",
+    "main": "index.js",
+    "scripts": {
+        "test": "jest"
+    },
+    "keywords": ["aws", "lambda", "traffic-generator", "load-testing"],
+    "author": "",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "@aws-sdk/client-ssm": "^3.700.0"
+    },
+    "devDependencies": {
+        "jest": "^29.0.0"
+    }
+}
