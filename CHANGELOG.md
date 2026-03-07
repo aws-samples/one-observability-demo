@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Canaries**: CloudWatch Synthetics canaries for traffic generation and housekeeping
 - **GitHub Actions**: Documentation workflow (TypeDoc → GitHub Pages), security scanning (ASH), acceptance tests, pre-commit checks
 - **Documentation**: Comprehensive TypeDoc API documentation with `@packageDocumentation` on all 44 source files and JSDoc on all high-impact classes/interfaces
+- **README documentation table**: Guides section in README linking to all docs for non-technical audiences
 
 ### Changed
 - **Pipeline architecture**: 5 deployment stages across 2 waves plus standalone Microservices stage (Core Wave → Backend Wave → Microservices)
@@ -43,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **FireLens log routing**: Fluent Bit sidecar on all ECS tasks for structured log delivery to CloudWatch Logs
 - **Container Insights**: Enabled on both ECS and EKS clusters
 - **Architecture documentation**: Rewritten with accurate microservice count (6), correct languages, correct stage structure, and regenerated diagrams
-- **GitHub Pages documentation**: Branch preview support via artifact upload and PR comments
+- **GitHub Pages documentation**: HTML site with TypeDoc default theme, PR preview deployments to live URLs, and all guides included as project documents
 
 ### Fixed
 - Documentation accuracy: Fixed microservice count (6 not 5), languages (Python not Go for petlistadoptions), pipeline stage structure, and diagram references
