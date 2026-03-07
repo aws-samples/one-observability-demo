@@ -23,7 +23,7 @@ jobs:
             ash-version: v3.1.2
             repository-owner: ${{ github.repository_owner }}
             ash-args: '--inspect'
-            fail-on-findings: false
+            fail-on-findings: true
             collect-junit-xml-report: true
             collect-sarif-report: false
             post-pr-comment: true
