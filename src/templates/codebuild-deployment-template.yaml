@@ -65,7 +65,7 @@ Parameters:
     Description: URL to the initial configuration file
     AllowedPattern: ^https?://.*$
     ConstraintDescription: Must be a valid HTTP or HTTPS URL
-    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/src/presets/default.env
+    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/main/src/presets/default.env
 
   pOrganizationName:
     Type: String
@@ -84,7 +84,7 @@ Parameters:
   pBranchName:
     Type: String
     Description: Branch to deploy from
-    Default: feat/cdkpipeline
+    Default: main
     AllowedPattern: '[A-Za-z0-9_./-]+'
     ConstraintDescription: Must contain only alphanumeric characters, underscores,
       periods, slashes, or hyphens
