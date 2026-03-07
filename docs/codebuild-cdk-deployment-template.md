@@ -124,7 +124,7 @@ flowchart TD
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name MyWorkshop-CDK-Deployment \
+  --stack-name OneObservability-Workshop-CDK \
   --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
@@ -138,14 +138,14 @@ aws cloudformation create-stack \
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name MyWorkshop-CDK-Deployment \
+  --stack-name OneObservability-Workshop-CDK \
   --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
     ParameterKey=pConfigFileUrl,ParameterValue=https://example.com/config.json \
     ParameterKey=pOrganizationName,ParameterValue=aws-samples \
     ParameterKey=pRepositoryName,ParameterValue=one-observability-demo \
-    ParameterKey=pBranchName,ParameterValue=feat/cdkpipeline \
+    ParameterKey=pBranchName,ParameterValue=main \
     ParameterKey=pWorkingFolder,ParameterValue=src/cdk \
     ParameterKey=pUserDefinedTagKey1,ParameterValue=Environment \
     ParameterKey=pUserDefinedTagValue1,ParameterValue=Workshop
@@ -155,10 +155,10 @@ aws cloudformation create-stack \
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `pConfigFileUrl` | URL to the initial configuration file | `https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/feat/cdkpipeline/src/presets/default.env` | Yes |
+| `pConfigFileUrl` | URL to the initial configuration file | `https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/main/src/presets/default.env` | Yes |
 | `pOrganizationName` | GitHub/CodeCommit organization name | `aws-samples` | Yes |
 | `pRepositoryName` | Repository containing the CDK code | `one-observability-demo` | Yes |
-| `pBranchName` | Branch to deploy from | `feat/cdkpipeline` | Yes |
+| `pBranchName` | Branch to deploy from | `main` | Yes |
 | `pCodeConnectionArn` | Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source | `` (empty) | No |
 | `pWorkingFolder` | Working folder for deployment | `src/cdk` | Yes |
 | `pApplicationName` | Application name used for tagging deployed stacks | `One Observability Workshop` | Yes |

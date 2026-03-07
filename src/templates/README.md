@@ -29,13 +29,13 @@ This documentation includes:
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name MyWorkshop-CDK-Deployment \
+  --stack-name OneObservability-Workshop-CDK \
   --template-body file://codebuild-deployment-template.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameters \
     ParameterKey=pOrganizationName,ParameterValue=aws-samples \
     ParameterKey=pRepositoryName,ParameterValue=one-observability-demo \
-    ParameterKey=pBranchName,ParameterValue=feat/cdkpipeline \
+    ParameterKey=pBranchName,ParameterValue=main \
     ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
 

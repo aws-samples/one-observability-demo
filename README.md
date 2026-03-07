@@ -6,16 +6,45 @@ This repo contains a sample application which is used in the One Observability D
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
-## Instructions
+## Deployment Instructions
 
-To deploy this workshop on your own account you need to have an IAM role with elevated privileges and the `aws-cli` installed. Then, from the root
-of the repository run the following command:
+### Prerequisites
 
+- IAM role with elevated privileges
+- AWS CLI installed and configured
+- Appropriate AWS permissions for CloudFormation, CodeBuild, and related services
+
+### CloudFormation Templates
+
+This repository provides CloudFormation templates for automated deployment:
+
+- **[codebuild-deployment-template.yaml](./src/templates/codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
+
+### Quick Start
+
+Deploy the workshop using the CodeBuild CDK deployment template:
+
+```bash
+aws cloudformation create-stack \
+  --stack-name OneObservability-Workshop-CDK \
+  --template-body file://src/templates/codebuild-deployment-template.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters \
+    ParameterKey=pOrganizationName,ParameterValue=aws-samples \
+    ParameterKey=pRepositoryName,ParameterValue=one-observability-demo \
+    ParameterKey=pBranchName,ParameterValue=main \
+    ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
-aws cloudformation create-stack --stack-name Observability-Workshop --template-body file://codepipeline-stack.yaml --capabilities CAPABILITY_NAMED_IAM --parameters ParameterKey=UserRoleArn,ParameterValue=$(aws iam get-role --role-name $(aws sts get-caller-identity --query Arn --output text | awk -F/ '{print $(NF-1)}') --query Role.Arn --output text)
-```
 
-You can replace the role specified in the parameter `UserRoleArn` with any other role with access to AWS CloudShell if you need so.
+For detailed parameter descriptions and advanced usage, refer to the [full documentation](./docs/codebuild-cdk-deployment-template.md).
+
+## Cleanup
+
+After completing the workshop, clean up your AWS resources to avoid ongoing charges.
+
+For comprehensive cleanup instructions, troubleshooting, and safety guidelines, see:
+
+**🧹 [Cleanup Script Documentation](./docs/CLEANUP_SCRIPT.md)**
 
 ## License
 
