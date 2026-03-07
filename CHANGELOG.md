@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > semantic versioning. The version history below begins with the adoption of
 > structured release management.
 
+## [Unreleased]
+
+### Changed
+- **Security scanning**: Enabled `fail-on-findings` on GitHub Actions ASH workflow and pre-commit ASH hook so builds and commits fail when actionable vulnerabilities are detected
+- **Pre-commit hooks**: Upgraded all hook revisions to latest versions via `pre-commit autoupdate`
+
 ## [3.0.0] - 2026-03-07
 
 ### Added
