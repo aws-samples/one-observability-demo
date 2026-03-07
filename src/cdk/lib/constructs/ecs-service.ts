@@ -70,6 +70,7 @@ export interface EcsServiceProperties extends MicroserviceProperties {
     desiredTaskCount: number;
     /** Cloud Map namespace for service discovery registration */
     cloudMapNamespace?: IPrivateDnsNamespace;
+    /** OpenSearch Serverless collection for direct log ingestion */
     openSearchCollection?:
         | OpenSearchCollection
         | {
@@ -88,6 +89,7 @@ export interface EcsServiceProperties extends MicroserviceProperties {
               pipelineArn?: string;
               pipelineRoleArn?: string;
           };
+    /** Extra environment variables merged into the application container */
     additionalEnvironment?: { [key: string]: string };
     /**
      * Enable CloudWatch agent sidecar for application signals and OTLP traces

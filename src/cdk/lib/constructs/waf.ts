@@ -24,10 +24,13 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for WAF web ACL constructs. */
 export interface WorkshopWebAclProperties {
+    /** CloudWatch Logs retention for WAF logs (default: ONE_WEEK) */
     logRetention?: RetentionDays;
 }
 
+/** Regional WAFv2 web ACL with AWS Managed Rules and CloudWatch logging. */
 export class RegionalWaf extends Construct {
     /** WAFv2 Regional ACL */
     public readonly wafv2RegionalAcl: CfnWebACL;
@@ -109,6 +112,7 @@ export class RegionalWaf extends Construct {
     }
 }
 
+/** Global (CloudFront) WAFv2 web ACL with AWS Managed Rules. Must be deployed in us-east-1. */
 export class GlobalWaf extends Construct {
     /** WAFv2 Global ACL */
     public readonly wafv2GlobalAcl: CfnWebACL;

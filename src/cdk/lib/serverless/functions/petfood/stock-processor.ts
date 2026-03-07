@@ -28,8 +28,11 @@ import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Stack } from 'aws-cdk-lib';
 
+/** Properties for the pet food stock processor Lambda. */
 export interface PetfoodStockProcessorProperties extends WorkshopLambdaFunctionProperties {
+    /** EventBridge bus to subscribe to StockPurchased events */
     eventBridgeBus: IEventBus;
+    /** DynamoDB table for food item stock quantities */
     petfoodTable: ITable;
 }
 

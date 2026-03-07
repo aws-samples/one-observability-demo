@@ -29,6 +29,7 @@ import { Stack } from 'aws-cdk-lib';
 import { CONCURRENT_USERS, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 // import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
+/** Node.js Lambda that generates synthetic traffic against the workshop microservices. */
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
     constructor(scope: Construct, id: string, properties: WorkshopLambdaFunctionProperties) {

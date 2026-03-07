@@ -13,6 +13,7 @@ interface HouseKeepingCanaryProperties extends WorkshopCanaryProperties {
     urlParameterName: string;
 }
 
+/** Synthetics canary that performs periodic housekeeping checks against the Pet Site URL. */
 export class HouseKeepingCanary extends WorkshopCanary {
     constructor(scope: Construct, id: string, properties: HouseKeepingCanaryProperties) {
         super(scope, id, properties);

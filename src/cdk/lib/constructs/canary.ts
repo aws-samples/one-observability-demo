@@ -26,22 +26,32 @@ import { Construct } from 'constructs';
 import { HOUSEKEEPING_CANARY, PETSITE_CANARY } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for configuring a CloudWatch Synthetics canary. */
 export interface WorkshopCanaryProperties {
+    /** S3 bucket for canary artifacts and screenshots */
     artifactsBucket?: IBucket;
+    /** Synthetics runtime version */
     runtime: Runtime;
+    /** CloudWatch Events schedule expression (default: rate(5 minutes)) */
     scheduleExpression?: string;
+    /** Handler function name within the canary code */
     handler: string;
+    /** Path to the canary source code directory */
     path: string;
+    /** CloudWatch Logs retention period */
     logRetentionDays?: RetentionDays;
+    /** Canary name used for CloudWatch identification */
     name: string;
 }
 
+/** Canonical name constants for canaries. */
 export const CanaryNames = {
     /** Pet status updater function name */
     Petsite: PETSITE_CANARY.name,
     HouseKeeping: HOUSEKEEPING_CANARY.name,
 } as const;
 
+/** Abstract base class for CloudWatch Synthetics canaries with IAM role creation and schedule configuration. */
 export abstract class WorkshopCanary extends Construct {
     public canary: Canary;
     constructor(scope: Construct, id: string, properties: WorkshopCanaryProperties) {

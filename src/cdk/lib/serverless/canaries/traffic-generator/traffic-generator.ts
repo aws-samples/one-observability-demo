@@ -14,6 +14,7 @@ interface TrafficGeneratorCanaryProperties extends WorkshopCanaryProperties {
     urlParameterName: string;
 }
 
+/** Synthetics canary that generates continuous traffic against the Pet Site for observability demos. */
 export class TrafficGeneratorCanary extends WorkshopCanary {
     constructor(scope: Construct, id: string, properties: TrafficGeneratorCanaryProperties) {
         super(scope, id, properties);

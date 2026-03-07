@@ -24,13 +24,19 @@ import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for the pet food image generator Lambda. */
 export interface PetfoodImageGeneratorProperties extends WorkshopLambdaFunctionProperties {
+    /** Bedrock model ID for Titan Image Generator */
     bedrockModelId?: string;
+    /** S3 bucket to store generated food images */
     imageBucket: IBucket;
+    /** EventBridge bus to subscribe to FoodItemUpdated events */
     eventBridgeBus?: IEventBus;
+    /** DynamoDB table for food item metadata */
     petfoodTable: ITable;
 }
 
+/** Lambda that generates food images via Bedrock Titan on FoodItemUpdated events. */
 export class PetfoodImageGeneratorFunction extends WokshopLambdaFunction {
     constructor(scope: Construct, id: string, properties: PetfoodImageGeneratorProperties) {
         properties = { ...properties, description: 'Generate pet food image' };

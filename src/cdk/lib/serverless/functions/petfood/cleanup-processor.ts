@@ -24,13 +24,19 @@ import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for the pet food cleanup processor Lambda. */
 export interface PetfoodCleanupProcessorProperties extends WorkshopLambdaFunctionProperties {
+    /** Bedrock model ID for image generation (optional) */
     bedrockModelId?: string;
+    /** S3 bucket containing food item images */
     imageBucket: IBucket;
+    /** EventBridge bus to subscribe to ItemDiscontinued events */
     eventBridgeBus?: IEventBus;
+    /** DynamoDB table for food item records */
     petfoodTable: ITable;
 }
 
+/** Lambda that removes S3 images and DynamoDB records for discontinued food items via EventBridge. */
 export class PetfoodCleanupProcessorFunction extends WokshopLambdaFunction {
     constructor(scope: Construct, id: string, properties: PetfoodCleanupProcessorProperties) {
         properties = { ...properties, description: 'Generate pet food image' };

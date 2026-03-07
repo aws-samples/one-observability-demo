@@ -65,12 +65,17 @@ import {
 } from '../../bin/constants';
 import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON, EKS_CLUSTER_ACCESS_ROLE_NAME } from '../../bin/environment';
 
+/** Properties for the EKS cluster construct. */
 export interface EksProperties {
+    /** VPC for the EKS cluster */
     vpc: IVpc;
+    /** Number of EC2 worker nodes (default: 2) */
     eksEc2Capacity?: number;
+    /** EC2 instance type for worker nodes (default: t3.large) */
     eksEc2InstanceType?: string;
 }
 
+/** EKS cluster with managed node groups, ALB controller, Container Insights, and EKS Pod Identity agent. */
 export class WorkshopEks extends Construct {
     public readonly cluster: Cluster;
 

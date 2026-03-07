@@ -32,11 +32,15 @@ import { PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 import { SSM_PARAMETER_NAMES, STATUS_UPDATER_API_URL_EXPORT_NAME } from '../../../../bin/constants';
 // import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
+/** Properties for the pet status updater Lambda with API Gateway. */
 export interface StatusUpdaterServiceProperties extends WorkshopLambdaFunctionProperties {
+    /** DynamoDB table for pet adoption status */
     table: ITable;
+    /** VPC endpoint for private API Gateway access */
     vpcEndpoint?: IVpcEndpoint;
 }
 
+/** Node.js Lambda behind API Gateway that updates pet adoption status in DynamoDB. */
 export class StatusUpdatedService extends WokshopLambdaFunction {
     public api: LambdaRestApi;
     constructor(scope: Construct, id: string, properties: StatusUpdaterServiceProperties) {

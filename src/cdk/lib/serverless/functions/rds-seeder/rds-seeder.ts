@@ -20,11 +20,15 @@ import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 
+/** Properties for the RDS seeder Lambda. */
 export interface RdsSeederProperties extends WorkshopLambdaFunctionProperties {
+    /** Aurora database secret for connection credentials */
     databaseSecret: ISecret;
+    /** SSM parameter name storing the secret ARN */
     secretParameterName: string;
 }
 
+/** Python Lambda that seeds Aurora PostgreSQL with initial pet adoption data. */
 export class RdsSeederFunction extends WokshopLambdaFunction {
     constructor(scope: Construct, id: string, properties: RdsSeederProperties) {
         const functionProperties = {

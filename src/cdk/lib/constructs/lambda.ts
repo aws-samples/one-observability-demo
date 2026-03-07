@@ -81,6 +81,7 @@ export function getOpenTelemetryPythonLayerArn(region: string): string {
     return `arn:aws:lambda:${region}:${mapping.account}:layer:AWSOpenTelemetryDistroPython:${mapping.version}`;
 }
 
+/** Returns the ADOT OpenTelemetry Node.js Lambda layer ARN for the given region. */
 export function getOpenTelemetryNodeJSLayerArn(region: string): string {
     const layerMappings: Record<string, { account: string; version: string }> = {
         'us-east-1': { account: '615299751070', version: '8' },
