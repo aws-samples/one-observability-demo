@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pet Food microservice construct (Rust on ECS Fargate).
+ *
+ * Deploys the pet food catalog and shopping cart service:
+ *
+ * - **ECS Fargate** with CloudWatch agent sidecar and FireLens log routing
+ * - **DynamoDB** access for food catalog and cart persistence
+ * - **S3/CloudFront** access for food image assets
+ * - **EventBridge** integration for emitting food lifecycle events
+ * - **OpenTelemetry Rust SDK** for distributed tracing with custom spans
+ * - **Prometheus metrics** endpoint for custom business and database metrics
+ *
+ * > **Observability highlight**: The Rust service demonstrates manual OpenTelemetry
+ * > instrumentation with custom spans for database operations, business logic tracing,
+ * > and Prometheus metrics export — showing how to instrument a compiled language
+ * > without auto-instrumentation agent support.
+ *
+ * @packageDocumentation
+ */
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
@@ -13,12 +33,23 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Stack } from 'aws-cdk-lib';
 
+/** Properties for the Pet Food ECS service, extending base ECS service configuration. */
 export interface PetFoodProperties extends EcsServiceProperties {
+    /** DynamoDB table for food catalog items */
     petFoodTable: ITable;
+    /** DynamoDB table for shopping cart data */
     petFoodCartTable: ITable;
+    /** S3 bucket containing food images served via CloudFront */
     assetsBucket: IBucket;
 }
 
+/**
+ * Pet Food ECS service (Rust/Axum).
+ *
+ * Deploys the food catalog and cart API with DynamoDB persistence,
+ * EventBridge event emission, and OpenTelemetry Rust SDK instrumentation.
+ * Environment variables are resolved at runtime from SSM Parameter Store.
+ */
 export class PetFoodECSService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetFoodProperties) {
         const environmentVariables = {

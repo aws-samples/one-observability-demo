@@ -2,6 +2,23 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Base microservice construct for the One Observability Workshop.
+ *
+ * Provides the abstract base class and shared configuration for all microservices:
+ *
+ * - **SSM Parameter Store** policies for runtime configuration discovery
+ * - **EventBridge** policies for event-driven communication
+ * - **Naming conventions** via `MicroservicesNames` for consistent resource identification
+ * - **Deployment placement** configuration (ECS Fargate, ECS EC2, EKS, or None)
+ *
+ * All six microservices (payforadoption-go, petlistadoption-py, petsearch-java,
+ * petsite-net, petfood-rs, petfoodagent-strands-py) extend this base class
+ * through either {@link EcsService} or {@link EKSDeployment}.
+ *
+ * @packageDocumentation
+ */
 import { ISecurityGroup, IVpc, SubnetType } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { ICluster as IEKSCluster } from 'aws-cdk-lib/aws-eks';

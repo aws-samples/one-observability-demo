@@ -1,3 +1,11 @@
+/**
+ * User Creator Lambda function construct.
+ *
+ * Creates fake user records in the Aurora PostgreSQL database via SQS message processing.
+ * Instrumented with OpenTelemetry Python layer and Lambda Insights for observability.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,

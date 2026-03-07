@@ -2,6 +2,35 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Microservices (Applications) stage for the One Observability Workshop.
+ *
+ * The final pipeline stage that deploys all microservices and serverless functions
+ * onto the compute infrastructure provisioned by earlier stages:
+ *
+ * **Microservices** (6 applications across 4 languages):
+ * - `payforadoption-go` — Go service on ECS Fargate with OpenTelemetry Go SDK, Aurora correlation
+ * - `petlistadoption-py` — Python/FastAPI on ECS Fargate with ADOT auto-instrumentation, Prometheus metrics
+ * - `petsearch-java` — Java/Spring Boot on ECS Fargate with Application Signals, manual + auto instrumentation
+ * - `petsite-net` — .NET on EKS with CloudWatch agent, Application Signals
+ * - `petfood-rs` — Rust/Axum on ECS Fargate with OpenTelemetry Rust SDK, custom Prometheus metrics
+ * - `petfoodagent-strands-py` — Python AI agent on Bedrock AgentCore
+ *
+ * **Lambda Functions** (8 functions):
+ * - Status updater, traffic generator, RDS seeder, user creator
+ * - Petfood image generator, stock processor, cleanup processor
+ * - DynamoDB capacity test
+ *
+ * **Canaries** (2 synthetic monitors):
+ * - Traffic generator canary for endpoint availability
+ * - Housekeeping canary for periodic health checks
+ *
+ * Each microservice is configured with CloudWatch agent sidecars, FireLens log routing,
+ * and ADOT/OpenTelemetry instrumentation appropriate to its language runtime.
+ *
+ * @packageDocumentation
+ */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { RemovalPolicy, Stack, StackProps, Stage, Fn } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
@@ -57,10 +86,15 @@ import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
 
+/** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
+    /** Deployment target: ECS, EKS, or None (for Bedrock AgentCore) */
     hostType: HostType;
+    /** Compute type: Fargate or EC2 */
     computeType: ComputeType;
+    /** Whether to skip creating the ECS/EKS service (e.g., for AgentCore-hosted services) */
     disableService: boolean;
+    /** Path to Kubernetes manifest template (EKS deployments only) */
     manifestPath?: string;
 }
 
@@ -81,6 +115,7 @@ interface ImportedResources {
     globalAclArn?: string;
 }
 
+/** Properties for the Microservices (Applications) stage. */
 export interface MicroserviceApplicationsProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
@@ -89,6 +124,9 @@ export interface MicroserviceApplicationsProperties extends StackProps {
     canaries: Map<string, WorkshopCanaryProperties>;
 }
 
+/**
+ * CDK Pipeline stage that deploys all microservices, Lambda functions, and canaries.
+ */
 export class MicroservicesStage extends Stage {
     public stack: MicroservicesStack;
     constructor(scope: Construct, id: string, properties: MicroserviceApplicationsProperties) {
@@ -102,6 +140,10 @@ export class MicroservicesStage extends Stage {
     }
 }
 
+/**
+ * Stack that imports cross-stage resources and creates all microservices,
+ * Lambda functions, canaries, and WAF associations.
+ */
 export class MicroservicesStack extends Stack {
     public microservices: Map<string, Microservice>;
 

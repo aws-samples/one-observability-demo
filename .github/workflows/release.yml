@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true && (contains(github.event.pull_request.labels.*.name, 'release:major') || contains(github.event.pull_request.labels.*.name, 'release:minor') || contains(github.event.pull_request.labels.*.name, 'release:patch'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "current=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next version
+        id: next
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ steps.version.outputs.current }}"
+
+          if ${{ contains(github.event.pull_request.labels.*.name, 'release:major') }}; then
+            major=$((major + 1)); minor=0; patch=0
+          elif ${{ contains(github.event.pull_request.labels.*.name, 'release:minor') }}; then
+            minor=$((minor + 1)); patch=0
+          else
+            patch=$((patch + 1))
+          fi
+
+          echo "version=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version in package files
+        run: |
+          NEXT="${{ steps.next.outputs.version }}"
+          CURRENT="${{ steps.version.outputs.current }}"
+
+          # Update package.json files
+          for f in package.json src/cdk/package.json; do
+            sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEXT\"/" "$f"
+          done
+
+          # Update package-lock.json files (top-level and nested entries)
+          for f in package-lock.json src/cdk/package-lock.json; do
+            sed -i "0,/\"version\": \"$CURRENT\"/{s/\"version\": \"$CURRENT\"/\"version\": \"$NEXT\"/}" "$f"
+            sed -i "0,/\"version\": \"$CURRENT\"/{s/\"version\": \"$CURRENT\"/\"version\": \"$NEXT\"/}" "$f"
+          done
+
+      - name: Commit and tag
+        run: |
+          NEXT="${{ steps.next.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/cdk/package.json src/cdk/package-lock.json
+          git commit -m "chore: bump version to $NEXT" || echo "No changes to commit"
+          git tag -a "v$NEXT" -m "Release v$NEXT"
+          git push origin main --follow-tags

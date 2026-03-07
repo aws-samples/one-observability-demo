@@ -1,3 +1,12 @@
+/**
+ * Pet Food Cleanup Processor Lambda function construct.
+ *
+ * Handles cleanup of DynamoDB records and S3 objects when food items are deleted.
+ * Triggered by EventBridge events from the petfood-rs service.
+ * Uses Node.js with Lambda Insights and OpenTelemetry Python layer.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,

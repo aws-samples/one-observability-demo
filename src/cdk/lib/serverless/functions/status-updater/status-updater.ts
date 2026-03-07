@@ -2,6 +2,15 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Status Updater Lambda function construct.
+ *
+ * Updates pet adoption status in DynamoDB when adoptions are completed.
+ * Uses Node.js runtime with Lambda Insights and OpenTelemetry Node.js layer.
+ *
+ * @packageDocumentation
+ */
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import {
     WokshopLambdaFunction,

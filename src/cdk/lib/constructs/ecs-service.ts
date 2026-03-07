@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * ECS service construct for the One Observability Workshop.
+ *
+ * Provides an abstract base class for deploying containerized microservices on Amazon ECS
+ * with built-in observability features including:
+ *
+ * - **CloudWatch Agent sidecar** for Application Signals and OTLP trace collection
+ * - **ADOT init container** for OpenTelemetry auto-instrumentation
+ * - **FireLens log routing** to OpenSearch via Fluent Bit sidecar
+ * - **CloudWatch Logs** as default/fallback logging driver
+ *
+ * Supports both Fargate and EC2 launch types with Application Load Balancer integration
+ * and Cloud Map service discovery.
+ *
+ * > **Demo consideration**: The construct uses `RemovalPolicy.DESTROY` on log groups
+ * > to simplify workshop cleanup. In production, retain logs with appropriate lifecycle policies.
+ *
+ * @packageDocumentation
+ */
 import { Effect, IRole, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Microservice, MicroserviceProperties } from './microservice';
 import { ComputeType } from '../../bin/environment';
@@ -35,10 +55,20 @@ import { OpenSearchCollection } from './opensearch-collection';
 import { OpenSearchPipeline } from './opensearch-pipeline';
 import { CloudWatchAgentTraceMode } from '../../bin/constants';
 
+/**
+ * Properties for configuring an ECS-hosted microservice.
+ *
+ * Extends {@link MicroserviceProperties} with ECS-specific settings for
+ * task sizing, observability sidecars, and log routing.
+ */
 export interface EcsServiceProperties extends MicroserviceProperties {
+    /** CPU units for the task (256, 512, 1024, 2048, 4096) */
     cpu: number;
+    /** Memory limit in MiB for the task */
     memoryLimitMiB: number;
+    /** Number of desired task instances */
     desiredTaskCount: number;
+    /** Cloud Map namespace for service discovery registration */
     cloudMapNamespace?: IPrivateDnsNamespace;
     openSearchCollection?:
         | OpenSearchCollection
@@ -71,6 +101,13 @@ export interface EcsServiceProperties extends MicroserviceProperties {
     cloudWatchAgentTraceMode?: CloudWatchAgentTraceMode;
 }
 
+/**
+ * Abstract base class for ECS-hosted microservices.
+ *
+ * Handles task definition creation, ALB integration, CloudWatch agent sidecar,
+ * ADOT init container, and FireLens log routing. Concrete subclasses implement
+ * `addPermissions` and `createOutputs` for service-specific IAM and exports.
+ */
 export abstract class EcsService extends Microservice {
     public readonly taskDefinition: TaskDefinition;
     public readonly loadBalancedService?: ApplicationLoadBalancedServiceBase;

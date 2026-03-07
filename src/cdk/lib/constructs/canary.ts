@@ -1,3 +1,22 @@
+/**
+ * CloudWatch Synthetics canary construct for the One Observability Workshop.
+ *
+ * Creates synthetic canaries for proactive monitoring of application endpoints:
+ *
+ * - **Traffic Generator canary** simulates user journeys through the pet adoption site
+ * - **Housekeeping canary** performs periodic health checks and cleanup tasks
+ * - **Application Signals layer** integration for canary trace correlation
+ * - **S3 artifacts bucket** for canary screenshots and HAR files
+ *
+ * Canaries run on a configurable schedule and report availability metrics
+ * to CloudWatch, enabling SLA monitoring and alerting on endpoint degradation.
+ *
+ * > **Best practice**: Synthetic monitoring catches issues before real users do.
+ * > The canaries demonstrate outside-in monitoring complementing the inside-out
+ * > instrumentation from OpenTelemetry and CloudWatch agents.
+ *
+ * @packageDocumentation
+ */
 import { Duration, Stack } from 'aws-cdk-lib';
 import { Effect, ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';

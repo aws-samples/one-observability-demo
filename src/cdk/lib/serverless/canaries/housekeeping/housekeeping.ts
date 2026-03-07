@@ -1,3 +1,11 @@
+/**
+ * Housekeeping Canary construct.
+ *
+ * CloudWatch Synthetics canary that performs periodic health checks
+ * and cleanup tasks against the workshop application endpoints.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import { WorkshopCanary, WorkshopCanaryProperties } from '../../../constructs/canary';
 

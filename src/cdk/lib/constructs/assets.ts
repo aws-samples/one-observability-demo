@@ -2,6 +2,21 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * S3 assets and CloudFront distribution construct for the One Observability Workshop.
+ *
+ * Manages static assets (pet images, food images) used by the workshop application:
+ *
+ * - **S3 Bucket** with seed data deployment for pet and food catalog images
+ * - **CloudFront Distribution** for low-latency asset delivery with Origin Access Control
+ * - **Global WAFv2** integration (optional) for edge security
+ *
+ * CloudFront provides built-in observability through access logs, real-time metrics,
+ * and integration with CloudWatch for monitoring cache hit ratios and error rates.
+ *
+ * @packageDocumentation
+ */
 import { RemovalPolicy, Stack, CfnOutput, Fn, Duration } from 'aws-cdk-lib';
 import { Bucket, IBucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';

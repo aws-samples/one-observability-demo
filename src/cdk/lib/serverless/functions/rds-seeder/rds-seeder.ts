@@ -1,3 +1,11 @@
+/**
+ * RDS Seeder Lambda function construct.
+ *
+ * Seeds the Aurora PostgreSQL database with initial pet adoption data during deployment.
+ * Instrumented with OpenTelemetry Python layer and Lambda Insights for observability.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,

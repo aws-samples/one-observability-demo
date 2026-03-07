@@ -1,3 +1,12 @@
+/**
+ * Pet Food Image Generator Lambda function construct.
+ *
+ * Generates food catalog images using Amazon Bedrock when new food items are created.
+ * Triggered by EventBridge events, stores generated images in S3.
+ * Uses Python runtime with OpenTelemetry Python layer and Lambda Insights.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,

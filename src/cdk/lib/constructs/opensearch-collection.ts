@@ -2,6 +2,25 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * OpenSearch Serverless collection construct for the One Observability Workshop.
+ *
+ * Creates an OpenSearch Serverless collection for centralized log analytics:
+ *
+ * - **SEARCH type collection** optimized for log search and analysis
+ * - **Encryption** and **network security policies** for data protection
+ * - **Data access policies** for fine-grained index-level permissions
+ * - **SSM Parameter Store** integration for endpoint discovery by microservices
+ *
+ * Used as the backend for the OpenSearch Ingestion Pipeline, which receives
+ * logs from ECS services via FireLens (Fluent Bit) sidecars.
+ *
+ * > **Best practice**: OpenSearch Serverless eliminates the need to manage cluster
+ * > capacity for log analytics. The collection auto-scales based on ingestion volume.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Fn, Stack } from 'aws-cdk-lib';
 import { CfnCollection, CfnSecurityPolicy, CfnAccessPolicy } from 'aws-cdk-lib/aws-opensearchserverless';
 import { IRole } from 'aws-cdk-lib/aws-iam';

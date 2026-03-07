@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * OpenSearch Ingestion Pipeline construct for the One Observability Workshop.
+ *
+ * Creates an Amazon OpenSearch Ingestion (OSIS) pipeline for log aggregation:
+ *
+ * - **HTTP source** endpoint that receives logs from ECS FireLens sidecars
+ * - **OpenSearch sink** that indexes logs into the serverless collection
+ * - **IAM role** with least-privilege access to the collection
+ * - **CloudWatch Logs** for pipeline execution monitoring
+ *
+ * The pipeline acts as a managed log ingestion layer between the application
+ * containers and OpenSearch, handling buffering, transformation, and delivery.
+ *
+ * > **Best practice**: Using an ingestion pipeline decouples log producers from
+ * > the search backend. This allows independent scaling and avoids direct
+ * > OpenSearch API calls from application containers.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { CfnPipeline } from 'aws-cdk-lib/aws-osis';
 import { Role, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';

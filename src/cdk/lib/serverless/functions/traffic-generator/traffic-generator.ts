@@ -2,6 +2,16 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Traffic Generator Lambda function construct.
+ *
+ * Simulates user journeys through the pet adoption application on a schedule,
+ * generating realistic traffic patterns for observability dashboards and alerting.
+ * Uses Node.js with Lambda Insights and OpenTelemetry Node.js layer.
+ *
+ * @packageDocumentation
+ */
 import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,

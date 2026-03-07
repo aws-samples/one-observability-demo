@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Compute stage for the One Observability Workshop.
+ *
+ * Deploys container orchestration platforms in the Backend Wave of the CDK pipeline:
+ *
+ * - **Amazon ECS** cluster with Fargate and EC2 capacity providers, enhanced Container Insights
+ * - **Amazon EKS** cluster with managed node groups, CloudWatch Observability addon, and ALB controller
+ * - **OpenSearch Serverless** collection, ingestion pipeline, and application (optional)
+ * - **SQS Queue** resources for async messaging
+ *
+ * The ECS and EKS clusters are configured with comprehensive observability:
+ * Container Insights v2 (enhanced), CloudWatch agent for Application Signals,
+ * and Network Flow Monitor for VPC traffic analysis.
+ *
+ * > **Note**: Lambda functions and microservices are deployed in the Microservices stage,
+ * > not in this stage. This stage only provisions the compute infrastructure.
+ *
+ * @packageDocumentation
+ */
 import { Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Utilities } from '../utils/utilities';
@@ -14,17 +34,27 @@ import { OpenSearchPipeline } from '../constructs/opensearch-pipeline';
 import { OpenSearchApplication, OpenSearchApplicationProperties } from '../constructs/opensearch-application';
 import { ENABLE_OPENSEARCH } from '../../bin/environment';
 
+/** Properties for the Compute stage. */
 export interface ComputeProperties extends StackProps {
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
+    /** Number of EC2 instances for ECS capacity provider */
     ecsEc2Capacity?: number;
+    /** EC2 instance type for ECS capacity provider */
     ecsEc2InstanceType?: string;
+    /** Number of EC2 instances for EKS node group */
     eksEc2Capacity?: number;
+    /** EC2 instance type for EKS node group */
     eksEc2InstanceType?: string;
+    /** OpenSearch Serverless collection configuration */
     opensearchCollectionProperties?: OpenSearchCollectionProperties;
+    /** OpenSearch Application configuration (collection is injected automatically) */
     opensearchApplicationProperties?: Omit<OpenSearchApplicationProperties, 'collection'>;
 }
 
+/**
+ * CDK Pipeline stage that deploys ECS, EKS, and OpenSearch compute infrastructure.
+ */
 export class ComputeStage extends Stage {
     public stack: ComputeStack;
     constructor(scope: Construct, id: string, properties: ComputeProperties) {

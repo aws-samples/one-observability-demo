@@ -2,6 +2,17 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * OpenSearch Application construct for the One Observability Workshop.
+ *
+ * Creates an OpenSearch Application resource that provides a unified interface
+ * for querying logs across the OpenSearch Serverless collection. This enables
+ * the workshop to demonstrate centralized log search and analysis through
+ * the OpenSearch Dashboards UI.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import { CfnApplication } from 'aws-cdk-lib/aws-opensearchservice';
 import { Construct } from 'constructs';

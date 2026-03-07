@@ -1,3 +1,12 @@
+/**
+ * Traffic Generator Canary construct.
+ *
+ * CloudWatch Synthetics canary that simulates user traffic to the pet adoption
+ * site on a schedule, providing outside-in availability monitoring and
+ * generating baseline traffic for observability dashboards.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import { WorkshopCanary, WorkshopCanaryProperties } from '../../../constructs/canary';
 

@@ -2,6 +2,28 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pet Search microservice construct (Java/Spring Boot on ECS Fargate).
+ *
+ * Deploys the pet search service that queries the DynamoDB pet catalog:
+ *
+ * - **ECS Fargate** with CloudWatch agent sidecar and FireLens log routing
+ * - **DynamoDB** access for pet catalog search with scan filters
+ * - **S3** access for pet image URL resolution
+ * - **Application Signals** integration via `@aws-cdk/aws-applicationsignals-alpha`
+ * - **Java auto-instrumentation** with configurable instrumentation version
+ *
+ * Two instrumentation variants exist in the source code:
+ * - `petsearch-java/` — Auto-instrumented via ADOT Java agent
+ * - `petsearch-java/manual-instrumentation-complete/` — Manual OpenTelemetry SDK instrumentation
+ *
+ * > **Observability highlight**: Demonstrates the contrast between auto and manual
+ * > Java instrumentation. The auto-instrumented version requires zero code changes,
+ * > while the manual version shows custom spans, metrics, and trace context propagation.
+ *
+ * @packageDocumentation
+ */
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
@@ -17,13 +39,25 @@ import { IBucket } from 'aws-cdk-lib/aws-s3';
 import { Stack } from 'aws-cdk-lib';
 import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
+/** Properties for the Pet Search ECS service, extending base ECS service configuration. */
 export interface PetSearchServiceProperties extends EcsServiceProperties {
+    /** Aurora PostgreSQL cluster (used for legacy data access) */
     database: IDatabaseCluster;
+    /** Secrets Manager secret for database credentials */
     secret: ISecret;
+    /** DynamoDB table for pet catalog lookups */
     table: ITable;
+    /** S3 bucket for pet image assets */
     bucket: IBucket;
 }
 
+/**
+ * Pet Search ECS service (Java/Spring Boot).
+ *
+ * Deploys the pet search API with Application Signals auto-instrumentation
+ * via the `@aws-cdk/aws-applicationsignals-alpha` L2 construct. Includes
+ * optional SLO configuration for availability and latency tracking.
+ */
 export class PetSearchService extends EcsService {
     constructor(scope: Construct, id: string, properties: PetSearchServiceProperties) {
         // Add environment variables for configurable SSM parameter names

@@ -10,7 +10,7 @@
   "excludeExternals": true,
   "readme": "./README.md",
   "plugin": ["typedoc-plugin-markdown"],
-  "projectDocuments": ["CONTRIBUTING.md", "docs/codebuild-cdk-deployment-template.md"],
+  "projectDocuments": ["CONTRIBUTING.md", "CHANGELOG.md", "docs/architecture.md", "docs/codebuild-cdk-deployment-template.md"],
   "exclude": ["**/*.d.ts", "**/node_modules/**", "**/cdk.out/**"],
   "gitRevision": "main",
   "hideGenerator": true,
