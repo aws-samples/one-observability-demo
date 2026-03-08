@@ -24,6 +24,8 @@ global_settings:
           reason: 'Temporary SAM template, will be moved to CDK'
         - path: .secrets.baseline
           reason: 'Secret Baseline file includes the word secret'
+        - path: wiki-docs/**
+          reason: 'Generated wiki docs, gitignored - not part of source'
 
     suppressions:
         - rule_id: SECRET-SECRET-KEYWORD
@@ -296,7 +298,7 @@ scanners:
                 PCIDSS321Checks: false
     cfn-nag:
         name: cfn-nag
-        enabled: true
+        enabled: false
         options:
             severity_threshold: null
     checkov:

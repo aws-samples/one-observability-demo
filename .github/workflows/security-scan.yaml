@@ -12,7 +12,7 @@ jobs:
             - uses: actions/checkout@master
             - uses: snyk/actions/setup@master
     ash:
-        uses: ./.github/workflows/run-ash-security-scan.yaml
+        uses: awslabs/automated-security-helper/.github/workflows/run-ash-security-scan.yml@v3
         permissions:
             #checkov:skip=CKV2_GHA_1:The permissions are not set to write-all at the top-level, or any level
             contents: read # Required to read the repository contents in order to scan them with ASH
@@ -20,7 +20,7 @@ jobs:
             pull-requests: write # Required for writing comments with scan results to pull requests
             #security-events: write # Required for collection of SARIF code scanning results for GitHub Advanced Security checks
         with:
-            ash-version: v3.1.2
+            ash-version: v3
             repository-owner: ${{ github.repository_owner }}
             ash-args: '--inspect'
             fail-on-findings: true
@@ -32,3 +32,5 @@ jobs:
             ash-mode: local
             output-dir: '.ash/ash_output'
             config: '.ash/.ash.yaml'
+            install-grype: true
+            install-syft: true

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Security scanning**: Enabled `fail-on-findings` on GitHub Actions ASH workflow and pre-commit ASH hook so builds and commits fail when actionable vulnerabilities are detected
+- **Security scanning**: Switched to official ASH reusable workflow from `awslabs/automated-security-helper` with Grype and Syft enabled
+- **Security scanning**: Disabled cfn-nag scanner (redundant with Checkov/cdk-nag), added `wiki-docs` to ASH ignore paths
+- **Security scanning**: Aligned ASH version to `v3` across workflow and pre-commit
 - **Pre-commit hooks**: Upgraded all hook revisions to latest versions via `pre-commit autoupdate`
 
 ## [3.0.0] - 2026-03-07
