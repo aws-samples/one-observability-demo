@@ -1,3 +1,11 @@
+/**
+ * User Creator Lambda function construct.
+ *
+ * Creates fake user records in the Aurora PostgreSQL database via SQS message processing.
+ * Instrumented with OpenTelemetry Python layer and Lambda Insights for observability.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,
@@ -14,12 +22,17 @@ import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { IQueue } from 'aws-cdk-lib/aws-sqs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
+/** Properties for the Cognito user creator Lambda. */
 export interface UserCreatorProperties extends WorkshopLambdaFunctionProperties {
+    /** Aurora database secret for connection credentials */
     databaseSecret: ISecret;
+    /** SSM parameter name storing the secret ARN */
     secretParameterName: string;
+    /** SQS queue for user creation events */
     sqsQueue: IQueue;
 }
 
+/** Python Lambda that creates Cognito users and seeds initial credentials via SQS. */
 export class UserCreatorFunction extends WokshopLambdaFunction {
     constructor(scope: Construct, id: string, properties: UserCreatorProperties) {
         const functionProperties = {

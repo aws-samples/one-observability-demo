@@ -480,3 +480,5 @@ cdk.context.json
 generated_images/
 
 **/node_modules/**
+
+**/ash_output/**

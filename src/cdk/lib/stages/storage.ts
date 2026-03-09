@@ -2,6 +2,23 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Storage stage for the One Observability Workshop.
+ *
+ * Deploys data persistence resources in the Backend Wave of the CDK pipeline:
+ *
+ * - **Amazon Aurora PostgreSQL** cluster for pet adoption transactions
+ * - **Amazon DynamoDB** table for pet catalog data
+ * - **Amazon S3** bucket with CloudFront for static assets (pet/food images)
+ * - **Amazon SQS** queue with dead-letter queue for async messaging
+ * - **Post-deployment steps** for DynamoDB seeding and RDS schema initialization
+ *
+ * This stage also creates the EventBridge event bus used for event-driven
+ * communication between the petfood-rs service and its Lambda processors.
+ *
+ * @packageDocumentation
+ */
 import { Stack, StackProps, Stage, Duration } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AssetsProperties, WorkshopAssets } from '../constructs/assets';
@@ -20,14 +37,22 @@ import { SecurityGroup, Port, IVpc, Peer } from 'aws-cdk-lib/aws-ec2';
 import { PARAMETER_STORE_PREFIX, RDS_SEEDER_FUNCTION } from '../../bin/environment';
 import { RdsSeederFunction } from '../serverless/functions/rds-seeder/rds-seeder';
 
+/** Properties for the Storage stage. */
 export interface StorageProperties extends StackProps {
+    /** S3 assets and CloudFront distribution configuration */
     assetsProperties?: AssetsProperties;
+    /** DynamoDB table configuration */
     dynamoDatabaseProperties?: DynamoDatabaseProperties;
+    /** Aurora PostgreSQL database configuration */
     auroraDatabaseProperties?: AuroraDBProperties;
     /** Tags to apply to all resources in the stage */
     tags?: { [key: string]: string };
 }
 
+/**
+ * CDK Pipeline stage that deploys databases, object storage, and messaging resources.
+ * Includes post-deployment steps for DynamoDB seeding and RDS schema initialization.
+ */
 export class StorageStage extends Stage {
     public stack: StorageStack;
     constructor(scope: Construct, id: string, properties: StorageProperties) {
@@ -143,6 +168,10 @@ export class StorageStage extends Stage {
     }
 }
 
+/**
+ * Stack containing all data persistence resources: Aurora PostgreSQL, DynamoDB,
+ * S3 assets with CloudFront, SQS queues, and EventBridge event bus.
+ */
 export class StorageStack extends Stack {
     public readonly dynamoDatabase: DynamoDatabase;
     public readonly auroraDatabase: AuroraDatabase;

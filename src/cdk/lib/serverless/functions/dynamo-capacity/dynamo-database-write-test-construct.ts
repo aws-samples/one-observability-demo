@@ -2,6 +2,15 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * DynamoDB Write Test Lambda function construct.
+ *
+ * Generates configurable write load against DynamoDB tables for testing
+ * capacity planning, auto-scaling behavior, and CloudWatch contributor insights.
+ *
+ * @packageDocumentation
+ */
 import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,

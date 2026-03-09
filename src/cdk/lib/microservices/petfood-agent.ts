@@ -2,6 +2,25 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pet Food AI Agent construct (Python on Bedrock AgentCore).
+ *
+ * Deploys an AI-powered pet food recommendation agent using Amazon Bedrock:
+ *
+ * - **Bedrock AgentCore Runtime** for managed agent hosting
+ * - **Strands Agents SDK** for agent orchestration with tool use
+ * - **IAM roles** with Bedrock model invocation and SSM parameter access
+ *
+ * The agent is invoked from the petsite-net frontend's "Waggle" chat interface
+ * and can query the petfood-rs service for food recommendations.
+ *
+ * > **Note**: The container is built in the Containers stage but deployed via
+ * > Bedrock AgentCore (not ECS/EKS), so `disableService: true` is set in the
+ * > microservice placement configuration.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Stack } from 'aws-cdk-lib';
 import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
 import { CfnRuntime } from 'aws-cdk-lib/aws-bedrockagentcore';
@@ -14,12 +33,24 @@ import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 
+/** Properties for the Pet Food AI Agent construct. */
 export interface PetFoodAgentProperties {
+    /** ECR repository URI for the agent container image */
     readonly ecrRepositoryUri: string; // ECR repository URI from containers pipeline
+    /** Security groups for the agent runtime */
     readonly securityGroups: ISecurityGroup[];
+    /** VPC for network placement */
     readonly vpc: IVpc;
 }
 
+/**
+ * Pet Food AI Agent construct (Python/Strands on Bedrock AgentCore).
+ *
+ * Creates a Bedrock AgentCore Runtime with IAM roles for model invocation,
+ * SSM parameter access, and CloudWatch logging. The agent uses the Strands
+ * Agents SDK for tool-use orchestration and is invoked from the petsite-net
+ * frontend's "Waggle" chat interface.
+ */
 export class PetFoodAgentConstruct extends Construct {
     public readonly agentRuntime: CfnRuntime;
 

@@ -1,3 +1,17 @@
+/**
+ * Custom CDK-nag rule pack for workshop resource validation.
+ *
+ * Ensures all workshop resources are configured with `RemovalPolicy.DESTROY`
+ * and `autoDeleteObjects` where applicable, so the workshop can be cleanly
+ * torn down without orphaned resources.
+ *
+ * > **Demo consideration**: This nag pack enforces workshop-specific rules that
+ * > would NOT be appropriate for production. It validates that resources are
+ * > deletable, which is the opposite of production best practices where you want
+ * > deletion protection enabled.
+ *
+ * @packageDocumentation
+ */
 import { CfnResource, Stack, Token } from 'aws-cdk-lib';
 import { IConstruct } from 'constructs';
 import { NagPack, NagPackProps, NagRuleCompliance, NagRuleResult, NagMessageLevel, NagRules } from 'cdk-nag';

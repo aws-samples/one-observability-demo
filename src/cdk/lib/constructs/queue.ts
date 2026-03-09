@@ -2,6 +2,24 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * SQS queue and SNS topic construct for the One Observability Workshop.
+ *
+ * Creates messaging resources for asynchronous communication:
+ *
+ * - **SQS Queue** with dead-letter queue for reliable message processing
+ * - **SNS Topic** for fan-out notifications (e.g., adoption events)
+ * - **SSM Parameter Store** integration for queue/topic ARN discovery
+ *
+ * The queue is used by the payforadoption-go service to send adoption history
+ * messages and by the user-creator Lambda for processing user creation requests.
+ *
+ * > **Demo consideration**: The dead-letter queue demonstrates how to handle
+ * > message processing failures, a key observability pattern for async architectures.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Duration, Fn } from 'aws-cdk-lib';
 import { ITopic, Topic } from 'aws-cdk-lib/aws-sns';
 import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';

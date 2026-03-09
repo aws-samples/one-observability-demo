@@ -33,8 +33,6 @@ This template creates a complete infrastructure for automated CDK deployments, i
 
 ## Architecture
 
-![Architecture Diagram](docs/diagrams/architecture-diagram.png)
-
 The architecture consists of several key components:
 
 1. **External Resources**: GitHub repository and configuration files
@@ -42,8 +40,6 @@ The architecture consists of several key components:
 3. **CDK Created Resources**: Pipeline and deployed infrastructure
 
 ## Deployment Flow
-
-![Deployment Flow](docs/diagrams/deployment-flow.png)
 
 The deployment follows this detailed flow:
 

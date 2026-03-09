@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Aurora PostgreSQL database construct for the One Observability Workshop.
+ *
+ * Deploys an Amazon Aurora PostgreSQL cluster configured for observability:
+ *
+ * - **Performance Insights** enabled for database performance monitoring
+ * - **Enhanced Monitoring** for OS-level metrics on DB instances
+ * - **CloudWatch Logs** export for PostgreSQL audit and error logs
+ * - **Secrets Manager** integration for credential rotation
+ *
+ * The database stores pet adoption transactions and is accessed by the
+ * payforadoption-go and petlistadoptions-py microservices.
+ *
+ * > **Demo consideration**: Uses `RemovalPolicy.DESTROY` and `deletionProtection: false`
+ * > for easy workshop cleanup. Production databases should enable deletion protection,
+ * > automated backups, and multi-AZ deployment.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Duration, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import {
     InstanceClass,

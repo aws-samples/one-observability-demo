@@ -1,3 +1,22 @@
+/**
+ * CloudWatch Synthetics canary construct for the One Observability Workshop.
+ *
+ * Creates synthetic canaries for proactive monitoring of application endpoints:
+ *
+ * - **Traffic Generator canary** simulates user journeys through the pet adoption site
+ * - **Housekeeping canary** performs periodic health checks and cleanup tasks
+ * - **Application Signals layer** integration for canary trace correlation
+ * - **S3 artifacts bucket** for canary screenshots and HAR files
+ *
+ * Canaries run on a configurable schedule and report availability metrics
+ * to CloudWatch, enabling SLA monitoring and alerting on endpoint degradation.
+ *
+ * > **Best practice**: Synthetic monitoring catches issues before real users do.
+ * > The canaries demonstrate outside-in monitoring complementing the inside-out
+ * > instrumentation from OpenTelemetry and CloudWatch agents.
+ *
+ * @packageDocumentation
+ */
 import { Duration, Stack } from 'aws-cdk-lib';
 import { Effect, ManagedPolicy, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
@@ -7,22 +26,32 @@ import { Construct } from 'constructs';
 import { HOUSEKEEPING_CANARY, PETSITE_CANARY } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for configuring a CloudWatch Synthetics canary. */
 export interface WorkshopCanaryProperties {
+    /** S3 bucket for canary artifacts and screenshots */
     artifactsBucket?: IBucket;
+    /** Synthetics runtime version */
     runtime: Runtime;
+    /** CloudWatch Events schedule expression (default: rate(5 minutes)) */
     scheduleExpression?: string;
+    /** Handler function name within the canary code */
     handler: string;
+    /** Path to the canary source code directory */
     path: string;
+    /** CloudWatch Logs retention period */
     logRetentionDays?: RetentionDays;
+    /** Canary name used for CloudWatch identification */
     name: string;
 }
 
+/** Canonical name constants for canaries. */
 export const CanaryNames = {
     /** Pet status updater function name */
     Petsite: PETSITE_CANARY.name,
     HouseKeeping: HOUSEKEEPING_CANARY.name,
 } as const;
 
+/** Abstract base class for CloudWatch Synthetics canaries with IAM role creation and schedule configuration. */
 export abstract class WorkshopCanary extends Construct {
     public canary: Canary;
     constructor(scope: Construct, id: string, properties: WorkshopCanaryProperties) {

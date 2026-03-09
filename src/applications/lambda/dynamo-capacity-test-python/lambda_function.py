@@ -14,18 +14,20 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     """Lambda handler for DynamoDB write capacity testing with detailed error logging"""
+
     # Extract parameters from event with defaults
     tag_key = event.get("tag_key", "application")
     tag_value = event.get("tag_value", "One Observability Workshop")
     table_name = event.get("table")
+    table_pattern = event.get("table_pattern", None)
     iterations = event.get("iterations", 10)
     sleep_time = event.get("sleep", 1.0)
     target_wcu = event.get("wcu", 10)
     no_retries = event.get("no_retries", False)
 
     logger.info(
-        f"Lambda invoked with parameters: tag_key={tag_key}, "
-        f"tag_value={tag_value}, iterations={iterations}",
+        f"Lambda invoked with parameters: tag_key={tag_key}, tag_value={tag_value}, "
+        f"table_pattern={table_pattern}, iterations={iterations}",
     )
 
     # Initialize clients
@@ -59,27 +61,23 @@ def lambda_handler(event, context):
                             matching_tables.append(table)
                             logger.info(f"Found matching table: {table}")
                             break
+
                 except ClientError as e:
                     error_code = e.response["Error"]["Code"]
                     error_msg = e.response["Error"]["Message"]
                     logger.error(
-                        f"Permission error checking table {table}: "
-                        f"{error_code} - {error_msg}",
+                        f"Permission error checking table {table}: {error_code} - {error_msg}",
                     )
                     logger.error(f"Full exception: {str(e)}")
 
-                    # Re-raise permission errors to increment Lambda Errors
-                    # metric
-                    if error_code in [
-                        "AccessDeniedException",
-                        "UnauthorizedException",
-                    ]:
+                    # Re-raise permission errors to increment Lambda Errors metric
+                    if error_code in ["AccessDeniedException", "UnauthorizedException"]:
                         raise
                     continue
+
                 except Exception as e:
                     logger.error(
-                        f"Unexpected error checking table {table}: "
-                        f"{type(e).__name__} - {str(e)}",
+                        f"Unexpected error checking table {table}: {type(e).__name__} - {str(e)}",
                     )
                     continue
 
@@ -92,15 +90,39 @@ def lambda_handler(event, context):
                     ),
                 }
 
+            # NEW: Filter by table name pattern if provided
+            if table_pattern and len(matching_tables) > 1:
+                filtered_tables = [t for t in matching_tables if table_pattern in t]
+                if filtered_tables:
+                    matching_tables = filtered_tables
+                    logger.info(
+                        f"Filtered to tables matching pattern '{table_pattern}': {matching_tables}",
+                    )
+                else:
+                    logger.error(
+                        f"No tables match pattern '{table_pattern}' in {matching_tables}",
+                    )
+                    return {
+                        "statusCode": 404,
+                        "body": json.dumps(
+                            {
+                                "error": f"No tables found matching pattern: {table_pattern}",
+                                "available_tables": matching_tables,
+                            },
+                        ),
+                    }
+
             if len(matching_tables) > 1:
                 logger.error(
-                    f"Multiple tables found with tag {tag_key}={tag_value}: "
-                    f"{matching_tables}",
+                    f"Multiple tables found with tag {tag_key}={tag_value}: {matching_tables}",
                 )
                 return {
                     "statusCode": 400,
                     "body": json.dumps(
-                        {"error": f"Multiple tables found: {matching_tables}"},
+                        {
+                            "error": f"Multiple tables found: {matching_tables}",
+                            "hint": "Use table_pattern parameter to filter by table name",
+                        },
                     ),
                 }
 
@@ -111,15 +133,12 @@ def lambda_handler(event, context):
             error_code = e.response["Error"]["Code"]
             error_msg = e.response["Error"]["Message"]
             logger.error(
-                f"AWS SDK error during table discovery: " f"{error_code} - {error_msg}",
+                f"AWS SDK error during table discovery: {error_code} - {error_msg}",
             )
             logger.error(f"Full exception: {str(e)}")
 
             # Re-raise permission errors to increment Lambda Errors metric
-            if error_code in [
-                "AccessDeniedException",
-                "UnauthorizedException",
-            ]:
+            if error_code in ["AccessDeniedException", "UnauthorizedException"]:
                 raise
 
             return {
@@ -132,10 +151,10 @@ def lambda_handler(event, context):
                     },
                 ),
             }
+
         except Exception as e:
             logger.error(
-                f"Unexpected error during table discovery: "
-                f"{type(e).__name__} - {str(e)}",
+                f"Unexpected error during table discovery: {type(e).__name__} - {str(e)}",
             )
             return {
                 "statusCode": 500,
@@ -158,19 +177,15 @@ def lambda_handler(event, context):
         table_description = table.meta.client.describe_table(TableName=table_name)
         logger.info(f"Connected to DynamoDB table: {table_name}")
         logger.info(f"Table status: {table_description['Table']['TableStatus']}")
+
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         error_msg = e.response["Error"]["Message"]
-        logger.error(
-            f"AWS SDK error describing table: " f"{error_code} - {error_msg}",
-        )
+        logger.error(f"AWS SDK error describing table: {error_code} - {error_msg}")
         logger.error(f"Full exception: {str(e)}")
 
         # Re-raise permission errors to increment Lambda Errors metric
-        if error_code in [
-            "AccessDeniedException",
-            "UnauthorizedException",
-        ]:
+        if error_code in ["AccessDeniedException", "UnauthorizedException"]:
             raise
 
         return {
@@ -183,9 +198,10 @@ def lambda_handler(event, context):
                 },
             ),
         }
+
     except Exception as e:
         logger.error(
-            f"Unexpected error describing table: " f"{type(e).__name__} - {str(e)}",
+            f"Unexpected error describing table: {type(e).__name__} - {str(e)}",
         )
         return {
             "statusCode": 500,
@@ -224,7 +240,7 @@ def lambda_handler(event, context):
         return item
 
     logger.info(
-        f"Starting {iterations} writes of ~{target_wcu} WCUs to table " f"{table_name}",
+        f"Starting {iterations} writes of ~{target_wcu} WCUs to table {table_name}",
     )
 
     # Perform writes
@@ -254,10 +270,8 @@ def lambda_handler(event, context):
             results.append(result)
 
             logger.info(
-                f"Write {i+1}/{iterations} complete - Pet ID: "
-                f"{item['petid']}, Type: {item['pettype']}, "
-                f"Cuteness: {item['cuteness_rate']} - Consumed "
-                f"{consumed_wcu} WCUs (took {op_time:.3f}s)",
+                f"Write {i+1}/{iterations} complete - Pet ID: {item['petid']}, Type: {item['pettype']}, "
+                f"Cuteness: {item['cuteness_rate']} - Consumed {consumed_wcu} WCUs (took {op_time:.3f}s)",
             )
 
             # Sleep between iterations (except last one)
@@ -268,16 +282,12 @@ def lambda_handler(event, context):
             error_code = e.response["Error"]["Code"]
             error_msg = e.response["Error"]["Message"]
             logger.error(
-                f"AWS SDK error on write iteration {i+1}: "
-                f"{error_code} - {error_msg}",
+                f"AWS SDK error on write iteration {i+1}: {error_code} - {error_msg}",
             )
             logger.error(f"Full exception: {str(e)}")
 
             # Re-raise permission errors to increment Lambda Errors metric
-            if error_code in [
-                "AccessDeniedException",
-                "UnauthorizedException",
-            ]:
+            if error_code in ["AccessDeniedException", "UnauthorizedException"]:
                 raise
 
             error_result = {
@@ -289,8 +299,7 @@ def lambda_handler(event, context):
 
         except Exception as e:
             logger.error(
-                f"Unexpected error on write iteration {i+1}: "
-                f"{type(e).__name__} - {str(e)}",
+                f"Unexpected error on write iteration {i+1}: {type(e).__name__} - {str(e)}",
             )
             error_result = {
                 "iteration": i + 1,
@@ -311,8 +320,7 @@ def lambda_handler(event, context):
     )
 
     logger.info(
-        f"Summary: {len(successful_writes)} successful, "
-        f"{len(failed_writes)} failed, {total_wcu} total WCUs consumed",
+        f"Summary: {len(successful_writes)} successful, {len(failed_writes)} failed, {total_wcu} total WCUs consumed",
     )
 
     return {

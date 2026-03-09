@@ -2,6 +2,23 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * VPC Endpoints construct for the One Observability Workshop.
+ *
+ * Creates interface and gateway VPC endpoints for private connectivity to AWS services,
+ * eliminating the need for NAT Gateway traffic for AWS API calls:
+ *
+ * - **Gateway endpoints**: S3, DynamoDB
+ * - **Interface endpoints**: SSM, Secrets Manager, ECR, CloudWatch Logs, X-Ray,
+ *   STS, EventBridge, Bedrock, and others
+ *
+ * > **Best practice**: VPC endpoints reduce data transfer costs and improve security
+ * > by keeping AWS API traffic within the VPC. They also improve latency for
+ * > high-frequency calls like CloudWatch metrics and X-Ray trace submission.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     IVpc,
@@ -28,10 +45,19 @@ import {
     VPC_ENDPOINT_CLOUDWATCH_LOGS_ID_EXPORT_NAME,
 } from '../../bin/constants';
 
+/** Properties for VPC endpoint configuration. */
 export interface VpcEndpointsProperties {
+    /** VPC to create endpoints in */
     vpc: IVpc;
 }
 
+/**
+ * Creates interface and gateway VPC endpoints for private AWS service connectivity.
+ *
+ * Endpoints include: SSM, Secrets Manager, ECR, CloudWatch Logs, X-Ray, STS,
+ * EventBridge, S3, DynamoDB, and others. Reduces NAT Gateway costs and improves
+ * latency for high-frequency AWS API calls from microservices.
+ */
 export class VpcEndpoints extends Construct {
     public readonly apiGatewayEndpoint: InterfaceVpcEndpoint;
     public readonly dynamoDbEndpoint: GatewayVpcEndpoint;

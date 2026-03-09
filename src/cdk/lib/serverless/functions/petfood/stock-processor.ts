@@ -3,6 +3,15 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+/**
+ * Pet Food Stock Processor Lambda function construct.
+ *
+ * Processes EventBridge stock purchase events from the petfood-rs service,
+ * updating food inventory in DynamoDB. Uses Node.js with Lambda Insights.
+ *
+ * @packageDocumentation
+ */
+
 import { Construct } from 'constructs';
 import {
     WokshopLambdaFunction,
@@ -19,8 +28,11 @@ import { ILayerVersion, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { BundlingOptions } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Stack } from 'aws-cdk-lib';
 
+/** Properties for the pet food stock processor Lambda. */
 export interface PetfoodStockProcessorProperties extends WorkshopLambdaFunctionProperties {
+    /** EventBridge bus to subscribe to StockPurchased events */
     eventBridgeBus: IEventBus;
+    /** DynamoDB table for food item stock quantities */
     petfoodTable: ITable;
 }
 
