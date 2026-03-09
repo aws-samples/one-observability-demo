@@ -2,6 +2,27 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pet Site frontend microservice construct (.NET on EKS).
+ *
+ * Deploys the main web frontend for the pet adoption application on Amazon EKS:
+ *
+ * - **Kubernetes deployment** with Nunjucks-templated manifest
+ * - **Application Load Balancer** via ALB Ingress Controller
+ * - **EKS Pod Identity** for IAM role binding
+ * - **CloudWatch Application Signals** via CloudWatch agent on EKS
+ *
+ * The frontend communicates with all backend microservices and provides the
+ * user interface for browsing pets, managing food carts, processing adoptions,
+ * and interacting with the AI pet food agent (Waggle chat).
+ *
+ * > **Observability highlight**: Demonstrates Kubernetes-specific observability
+ * > including Container Insights for EKS, Application Signals service maps,
+ * > and distributed tracing across EKS → ECS service boundaries.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import { EKSDeployment, EKSDeploymentProperties } from '../constructs/eks-deployment';
 import { Microservice, MicroserviceProperties } from '../constructs/microservice';
@@ -34,10 +55,20 @@ import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 
+/** Properties for the Pet Site EKS deployment, extending base EKS deployment configuration. */
 export interface PetSetProperties extends EKSDeploymentProperties {
+    /** Optional global WAFv2 ACL ARN for CloudFront protection */
     globalWebACLArn?: string;
 }
 
+/**
+ * Pet Site EKS deployment (.NET frontend).
+ *
+ * Deploys the main web UI on EKS with an Application Load Balancer,
+ * CloudFront distribution, and regional/global WAF integration.
+ * Demonstrates Kubernetes-specific observability via Container Insights
+ * and Application Signals on EKS.
+ */
 export class PetSite extends EKSDeployment {
     public readonly loadBalancer: ApplicationLoadBalancer;
     public readonly targetGroup: ApplicationTargetGroup;

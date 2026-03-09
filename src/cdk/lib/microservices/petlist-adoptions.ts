@@ -2,6 +2,28 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pet List Adoptions microservice construct (Python/FastAPI on ECS Fargate).
+ *
+ * Deploys the adoption listing service that queries recent pet adoptions:
+ *
+ * - **ECS Fargate** with CloudWatch agent sidecar and FireLens log routing
+ * - **Aurora PostgreSQL** access for reading adoption transaction history
+ * - **ADOT Python auto-instrumentation** via init container (zero-code instrumentation)
+ * - **Prometheus metrics** for request count and latency histograms
+ * - **Application Signals SLO** support (optional) for availability tracking
+ *
+ * Includes database load simulation scripts (deadlock, slow query, lock blocking,
+ * unique violation simulators) for demonstrating RDS Performance Insights
+ * and database observability features.
+ *
+ * > **Observability highlight**: Demonstrates zero-code Python auto-instrumentation
+ * > via ADOT init container — no code changes needed for distributed tracing.
+ * > The DB simulation scripts generate observable database performance issues.
+ *
+ * @packageDocumentation
+ */
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
@@ -14,11 +36,21 @@ import { Utilities } from '../utils/utilities';
 import { Stack } from 'aws-cdk-lib';
 import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
+/** Properties for the List Adoptions ECS service, extending base ECS service configuration. */
 export interface ListAdoptionsServiceProperties extends EcsServiceProperties {
+    /** Aurora PostgreSQL cluster for reading adoption transactions */
     database: IDatabaseCluster;
+    /** Secrets Manager secret for database credentials */
     secret: ISecret;
 }
 
+/**
+ * Pet List Adoptions ECS service (Python/FastAPI).
+ *
+ * Deploys the adoption listing API with ADOT Python auto-instrumentation
+ * (zero-code) via CloudWatch agent sidecar. Includes optional SLO support
+ * and Prometheus metrics for request count and latency histograms.
+ */
 export class ListAdoptionsService extends EcsService {
     constructor(scope: Construct, id: string, properties: ListAdoptionsServiceProperties) {
         const environmentVariables = {

@@ -1,9 +1,10 @@
 name: Documentation
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
+  pull-requests: write
 
 on:
   push:
@@ -12,20 +13,26 @@ on:
       - 'src/cdk/**'
       - 'typedoc.json'
       - 'CONTRIBUTING.md'
-      - 'ARCHITECTURE.md'
+      - 'CHANGELOG.md'
       - 'docs/**'
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches: [main, staging]
     paths:
       - 'src/cdk/**'
       - 'typedoc.json'
       - 'CONTRIBUTING.md'
-      - 'ARCHITECTURE.md'
+      - 'CHANGELOG.md'
       - 'docs/**'
   workflow_dispatch:
 
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  build-and-deploy:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -50,29 +57,72 @@ jobs:
           echo "# Security Scan Results" > ASH_SCAN.md
           echo "" >> ASH_SCAN.md
           echo "[Latest ASH Security Scan Results](https://github.com/${{ github.repository }}/actions/workflows/run-ash-security-scan.yaml)" >> ASH_SCAN.md
-          sed -i 's/"ARCHITECTURE.md"]/"ARCHITECTURE.md", "ASH_SCAN.md"]/g' typedoc.json
+          sed -i 's|"docs/codebuild-cdk-deployment-template.md"]|"docs/codebuild-cdk-deployment-template.md", "ASH_SCAN.md"]|g' typedoc.json
 
       - name: Generate documentation
         run: npx typedoc
 
-      - name: Upload artifact
+      # --- Production deploy (main → root of gh-pages, preserving pr-* preview dirs) ---
+      - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: wiki-docs
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./wiki-docs
+          keep_files: true
 
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: build
+      # --- PR preview (PR → /pr-{number}/ subdirectory on gh-pages) ---
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./wiki-docs
+          destination_dir: pr-${{ github.event.pull_request.number }}
+
+      - name: Post preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.issue.number;
+            const previewUrl = `https://${owner}.github.io/${repo}/pr-${prNumber}/`;
+
+            // Check for existing preview comment to update instead of creating duplicates
+            const comments = await github.rest.issues.listComments({
+              owner, repo, issue_number: prNumber
+            });
+            const existing = comments.data.find(c =>
+              c.user.login === 'github-actions[bot]' && c.body.includes('Documentation preview')
+            );
+
+            const body = `📖 **Documentation preview deployed.**\n\n🔗 **Preview URL:** ${previewUrl}\n\n_Updated at ${new Date().toISOString()} from commit ${context.sha.substring(0, 7)}_`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }
+
+  # --- Cleanup preview on PR close ---
+  cleanup-preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Remove preview directory
+        run: |
+          PR_DIR="pr-${{ github.event.pull_request.number }}"
+          if [ -d "$PR_DIR" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git rm -rf "$PR_DIR"
+            git commit -m "docs: remove preview for PR #${{ github.event.pull_request.number }}"
+            git push
+          fi

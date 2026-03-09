@@ -2,6 +2,25 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * DynamoDB table construct for the One Observability Workshop.
+ *
+ * Creates a DynamoDB table for the pet adoption catalog with:
+ *
+ * - **CloudWatch contributor insights** enabled for identifying hot keys and throttling patterns
+ * - **CloudWatch alarms** for read/write throttle events
+ * - **SSM Parameter Store** integration for service discovery of table name/ARN
+ * - **On-demand capacity** mode for unpredictable workshop traffic patterns
+ *
+ * The table is used by the petsearch-java service for pet catalog lookups
+ * and by the petstatusupdater Lambda for adoption status changes.
+ *
+ * > **Demo consideration**: Contributor Insights is enabled to demonstrate how DynamoDB
+ * > surfaces access patterns. The throttle alarms showcase CloudWatch alarm integration.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import { TreatMissingData, ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 import { AttributeType, ITable, Table } from 'aws-cdk-lib/aws-dynamodb';

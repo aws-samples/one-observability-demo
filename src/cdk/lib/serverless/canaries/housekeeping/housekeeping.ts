@@ -1,3 +1,11 @@
+/**
+ * Housekeeping Canary construct.
+ *
+ * CloudWatch Synthetics canary that performs periodic health checks
+ * and cleanup tasks against the workshop application endpoints.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import { WorkshopCanary, WorkshopCanaryProperties } from '../../../constructs/canary';
 
@@ -5,6 +13,7 @@ interface HouseKeepingCanaryProperties extends WorkshopCanaryProperties {
     urlParameterName: string;
 }
 
+/** Synthetics canary that performs periodic housekeeping checks against the Pet Site URL. */
 export class HouseKeepingCanary extends WorkshopCanary {
     constructor(scope: Construct, id: string, properties: HouseKeepingCanaryProperties) {
         super(scope, id, properties);

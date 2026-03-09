@@ -2,6 +2,25 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Amazon EventBridge construct for the One Observability Workshop.
+ *
+ * Creates a custom event bus used for event-driven communication between services:
+ *
+ * - The **petfood-rs** service emits food creation, stock purchase, and item discontinuation events
+ * - The **petfood-stock-processor** Lambda processes stock events
+ * - The **petfood-image-generator** Lambda generates images for new food items
+ * - The **petfood-cleanup-processor** Lambda handles resource cleanup on deletion
+ *
+ * EventBridge provides built-in observability through CloudWatch metrics for
+ * invocations, failed invocations, and throttled rules.
+ *
+ * > **Best practice**: Using a custom event bus (vs. the default bus) isolates workshop
+ * > events and enables fine-grained IAM policies and event archive/replay capabilities.
+ *
+ * @packageDocumentation
+ */
 import { CfnOutput, Fn } from 'aws-cdk-lib';
 import { EventBus, IEventBus } from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';

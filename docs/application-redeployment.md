@@ -69,15 +69,16 @@ Your AWS credentials must have permissions for:
 
 ### Available Applications
 
-The script automatically reads from `src/cdk/bin/environment.ts` and presents these applications:
+The script automatically reads from `src/cdk/bin/environment.ts` and presents all configured applications:
 
 | Application | Host Type | Description |
 |-------------|-----------|-------------|
 | payforadoption-go | ECS | Payment processing service (Go) |
-| petlistadoption-go | ECS | Pet listing service (Go) |
-| petsearch-java | ECS | Pet search service (Java) |
-| petsite | EKS | Frontend web application |
-| trafficgenerator | ECS | Load testing service |
+| petlistadoption-py | ECS | Pet listing service (Python/FastAPI) |
+| petsearch-java | ECS | Pet search service (Java/Spring Boot) |
+| petsite-net | EKS | Frontend web application (.NET) |
+| petfood-rs | ECS | Food catalog and cart API (Rust/Axum) |
+| petfoodagent-strands-py | None | AI agent (Bedrock AgentCore, container build only) |
 
 ## Platform Selection
 
@@ -116,7 +117,7 @@ aws ecs describe-services --cluster <cluster-name> --services <service-name> \
 
 ## EKS Deployment Process
 
-For EKS-hosted applications (like `petsite`), the script provides kubectl commands for manual restart:
+For EKS-hosted applications (like `petsite-net`), the script provides kubectl commands for manual restart:
 
 ```bash
 # Restart deployment

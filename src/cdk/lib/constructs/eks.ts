@@ -2,6 +2,28 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Amazon EKS cluster construct for the One Observability Workshop.
+ *
+ * Creates a managed Kubernetes cluster with comprehensive observability addons:
+ *
+ * - **Amazon CloudWatch Observability** addon for Container Insights with enhanced observability
+ * - **CloudWatch Agent** with Application Signals service name mapping
+ * - **Network Flow Monitor** agent for VPC traffic visibility
+ * - **AWS GuardDuty** EKS Runtime Monitoring addon (optional)
+ * - **ALB Ingress Controller** for Kubernetes ingress resources
+ * - **EKS Pod Identity** for fine-grained IAM permissions
+ *
+ * The cluster enables all control plane logging types (api, audit, authenticator,
+ * controllerManager, scheduler) for full Kubernetes audit trail visibility.
+ *
+ * > **Demo consideration**: Worker nodes use `m5.xlarge` instances by default to support
+ * > the full workshop workload. The cluster uses API_AND_CONFIG_MAP authentication mode
+ * > for flexible access management during the workshop.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import { CfnOutput, Fn, Stack } from 'aws-cdk-lib';
 import {
@@ -43,12 +65,17 @@ import {
 } from '../../bin/constants';
 import { CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON, EKS_CLUSTER_ACCESS_ROLE_NAME } from '../../bin/environment';
 
+/** Properties for the EKS cluster construct. */
 export interface EksProperties {
+    /** VPC for the EKS cluster */
     vpc: IVpc;
+    /** Number of EC2 worker nodes (default: 2) */
     eksEc2Capacity?: number;
+    /** EC2 instance type for worker nodes (default: t3.large) */
     eksEc2InstanceType?: string;
 }
 
+/** EKS cluster with managed node groups, ALB controller, Container Insights, and EKS Pod Identity agent. */
 export class WorkshopEks extends Construct {
     public readonly cluster: Cluster;
 

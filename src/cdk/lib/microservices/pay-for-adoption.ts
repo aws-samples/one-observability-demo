@@ -2,6 +2,26 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Pay for Adoption microservice construct (Go on ECS Fargate).
+ *
+ * Deploys the payment processing service for pet adoptions:
+ *
+ * - **ECS Fargate** with CloudWatch agent sidecar and FireLens log routing
+ * - **Aurora PostgreSQL** access for transaction persistence
+ * - **SQS** integration for sending adoption history messages
+ * - **OpenTelemetry Go SDK** with OTLP gRPC exporter to ADOT collector
+ * - **Custom SQL span processor** for Aurora database correlation
+ * - **Built-in chaos scenarios** (CPU stress, memory leak, network latency, circuit breaker, DB connection exhaustion)
+ *
+ * > **Observability highlight**: Demonstrates Go manual instrumentation with
+ * > OpenTelemetry, ECS resource detection, X-Ray propagation, and custom span
+ * > processors that enrich database spans with Aurora-specific correlation attributes.
+ * > The chaos/degradation endpoints enable testing observability alerting and dashboards.
+ *
+ * @packageDocumentation
+ */
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { Construct } from 'constructs';
@@ -15,13 +35,25 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { IQueue } from 'aws-cdk-lib/aws-sqs';
 import { Stack } from 'aws-cdk-lib';
 
+/** Properties for the Pay for Adoption ECS service, extending base ECS service configuration. */
 export interface PayForAdoptionServiceProperties extends EcsServiceProperties {
+    /** Aurora PostgreSQL cluster for transaction persistence */
     database: IDatabaseCluster;
+    /** Secrets Manager secret for database credentials */
     secret: ISecret;
+    /** DynamoDB table for pet catalog updates */
     table: ITable;
+    /** SQS queue for sending adoption history messages */
     queue: IQueue;
 }
 
+/**
+ * Pay for Adoption ECS service (Go).
+ *
+ * Deploys the payment processing API with OpenTelemetry Go SDK instrumentation,
+ * custom SQL span processor for Aurora correlation, and built-in chaos/degradation
+ * endpoints for testing observability alerting.
+ */
 export class PayForAdoptionService extends EcsService {
     constructor(scope: Construct, id: string, properties: PayForAdoptionServiceProperties) {
         const environmentVariables = {

@@ -2,6 +2,26 @@
 
 This repo contains a sample application which is used in the One Observability Demo workshop here - https://observability.workshop.aws/
 
+## Documentation
+
+### Guides
+
+| Guide | Description |
+|-------|-------------|
+| [Architecture Overview](./docs/architecture.md) | System architecture, microservices, pipeline stages, and observability design |
+| [Deployment Template](./docs/codebuild-cdk-deployment-template.md) | CodeBuild CDK deployment parameters and advanced usage |
+| [Cleanup Script](./docs/CLEANUP_SCRIPT.md) | Post-workshop resource cleanup instructions and troubleshooting |
+| [CDK Cleanup](./docs/CDK_CLEANUP.md) | CDK-specific stack teardown procedures |
+| [Seeding Guide](./docs/SEEDING_GUIDE.md) | Database and application seeding instructions |
+| [Image Generation Seeding](./docs/SEEDING_IMAGE_GENERATION.md) | Pet food image generation setup |
+| [Application Redeployment](./docs/application-redeployment.md) | How to redeploy individual microservices |
+| [CodeConnection Setup](./docs/codeconnection-parameter-store-integration.md) | GitHub CodeConnection and Parameter Store integration |
+| [ECS Port Forwarding](./docs/ecs-port-forwarding.md) | Local access to ECS services via port forwarding |
+
+### API Reference
+
+The CDK construct library is documented with TypeDoc. View the generated API reference at the [GitHub Pages site](https://aws-samples.github.io/one-observability-demo/) or browse the source under [`src/cdk/lib/`](./src/cdk/lib/).
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.

@@ -2,6 +2,24 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * VPC and networking construct for the One Observability Workshop.
+ *
+ * Creates the foundational network infrastructure with observability built in:
+ *
+ * - **VPC** with public, private, and isolated subnets across multiple AZs
+ * - **VPC Flow Logs** to CloudWatch Logs for network traffic analysis
+ * - **Route 53 DNS Query Resolver Logs** for DNS query visibility
+ * - **Cloud Map private DNS namespace** for service discovery between microservices
+ * - **VPC Endpoints** for private connectivity to AWS services
+ *
+ * > **Best practice**: VPC Flow Logs and DNS query logs are essential for network
+ * > observability. They enable troubleshooting connectivity issues and detecting
+ * > anomalous traffic patterns without deploying additional agents.
+ *
+ * @packageDocumentation
+ */
 import { Construct } from 'constructs';
 import {
     Vpc,

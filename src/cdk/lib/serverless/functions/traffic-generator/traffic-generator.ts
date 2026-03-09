@@ -2,6 +2,16 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Traffic Generator Lambda function construct.
+ *
+ * Simulates user journeys through the pet adoption application on a schedule,
+ * generating realistic traffic patterns for observability dashboards and alerting.
+ * Uses Node.js with Lambda Insights and OpenTelemetry Node.js layer.
+ *
+ * @packageDocumentation
+ */
 import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,
@@ -19,6 +29,7 @@ import { Stack } from 'aws-cdk-lib';
 import { CONCURRENT_USERS, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 // import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
+/** Node.js Lambda that generates synthetic traffic against the workshop microservices. */
 export class TrafficGeneratorFunction extends WokshopLambdaFunction {
     public api: LambdaRestApi;
     constructor(scope: Construct, id: string, properties: WorkshopLambdaFunctionProperties) {

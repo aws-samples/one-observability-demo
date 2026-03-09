@@ -6,6 +6,7 @@ You can also trigger resource-controller function manually with below event.
 To stop ECS and EKS resources: {'Action':'disable'}
 To start ECS and EKS resources: {'Action':'enable'}
 """
+
 import os
 import time
 

@@ -1,3 +1,21 @@
+/**
+ * AWS WAFv2 constructs for the One Observability Workshop.
+ *
+ * Provides both global (CloudFront) and regional (ALB) Web Application Firewalls:
+ *
+ * - **GlobalWaf** attaches to CloudFront distributions for edge protection
+ * - **RegionalWaf** attaches to Application Load Balancers for regional protection
+ * - **WAF logging** to CloudWatch Logs for request inspection and analysis
+ * - **AWS Managed Rules** for common threat protection (Core Rule Set, Known Bad Inputs)
+ *
+ * WAF metrics and logs integrate with CloudWatch for monitoring blocked requests,
+ * rate limiting, and identifying attack patterns.
+ *
+ * > **Demo consideration**: WAF is optional (controlled by `CUSTOM_ENABLE_WAF` flag)
+ * > to reduce workshop costs. When enabled, it demonstrates security observability.
+ *
+ * @packageDocumentation
+ */
 import { Names, RemovalPolicy } from 'aws-cdk-lib';
 import { CfnLoggingConfiguration, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import { Construct } from 'constructs';
@@ -6,10 +24,13 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 
+/** Properties for WAF web ACL constructs. */
 export interface WorkshopWebAclProperties {
+    /** CloudWatch Logs retention for WAF logs (default: ONE_WEEK) */
     logRetention?: RetentionDays;
 }
 
+/** Regional WAFv2 web ACL with AWS Managed Rules and CloudWatch logging. */
 export class RegionalWaf extends Construct {
     /** WAFv2 Regional ACL */
     public readonly wafv2RegionalAcl: CfnWebACL;
@@ -91,6 +112,7 @@ export class RegionalWaf extends Construct {
     }
 }
 
+/** Global (CloudFront) WAFv2 web ACL with AWS Managed Rules. Must be deployed in us-east-1. */
 export class GlobalWaf extends Construct {
     /** WAFv2 Global ACL */
     public readonly wafv2GlobalAcl: CfnWebACL;

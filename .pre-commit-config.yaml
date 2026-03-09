@@ -13,7 +13,7 @@ default_stages: [pre-commit]
 
 repos:
     - repo: https://github.com/commitizen-tools/commitizen
-      rev: v4.9.1
+      rev: v4.13.9
       hooks:
           - id: commitizen
             stages:
@@ -56,13 +56,13 @@ repos:
                 - --allow-missing-credentials
 
     - repo: https://github.com/codespell-project/codespell
-      rev: v2.4.1
+      rev: v2.4.2
       hooks:
           - id: codespell
             entry: bash -c 'codespell "$@" || true' -- # Don't block, just alert
             verbose: true
     - repo: https://github.com/pre-commit/mirrors-eslint
-      rev: v9.38.0
+      rev: v10.0.3
       hooks:
           - id: eslint
             files: \.[jt]sx?$
@@ -84,7 +84,7 @@ repos:
     #       - id: dockerfile_lint
     # PYTHON FORMATTING
     - repo: https://github.com/ambv/black
-      rev: '25.9.0'
+      rev: '26.3.0'
       hooks:
           - id: black
     - repo: https://github.com/pycqa/flake8
@@ -106,7 +106,7 @@ repos:
       hooks:
           - id: add-trailing-comma
     - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.18.2
+      rev: v1.19.1
       hooks:
           - id: mypy
             entry: bash -c 'mypy "$@" || true' -- # Don't block, just alert
@@ -114,7 +114,7 @@ repos:
             additional_dependencies: [types-requests]
     # CFN CHECKS & LINTING
     - repo: https://github.com/aws-cloudformation/cfn-python-lint
-      rev: v1.40.2
+      rev: v1.46.0
       hooks:
           - id: cfn-python-lint
             files: src/templates.*\.(ya?ml)$
@@ -147,8 +147,8 @@ repos:
             types: [ts]
             pass_filenames: false
             always_run: true
-    # - repo: https://github.com/awslabs/automated-security-helper
-    #   rev: v3.1.2
-    #   hooks:
-    #       - id: ash-simple-scan
-    #         args: [--no-fail-on-findings] # Until we fix dockerfile issues
+    - repo: https://github.com/awslabs/automated-security-helper
+      rev: v3
+      hooks:
+          - id: ash-simple-scan
+            args: [--fail-on-findings]

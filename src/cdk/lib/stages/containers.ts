@@ -2,6 +2,27 @@
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
+
+/**
+ * Containers pipeline stage for the One Observability Workshop.
+ *
+ * Builds and publishes Docker images for all microservices in the Core Wave:
+ *
+ * - **Amazon ECR** repositories with image scanning and immutable tags
+ * - **AWS CodePipeline** with parallel CodeBuild actions for fast builds
+ * - **Multi-architecture support** (AMD64/ARM64) via {@link EcrBuildAndPublishWithArchitectureAction}
+ * - **Source integration** via S3 or AWS CodeConnections (GitHub)
+ *
+ * Six microservices are built in parallel:
+ * - `payforadoption-go` (Go, AMD64) — Payment processing
+ * - `petlistadoption-py` (Python, AMD64) — Adoption listing
+ * - `petsearch-java` (Java, AMD64) — Pet search with DynamoDB
+ * - `petsite-net` (.NET, AMD64) — Web frontend (deployed to EKS)
+ * - `petfood-rs` (Rust, AMD64) — Food catalog and cart service
+ * - `petfoodagent-strands-py` (Python, ARM64) — AI agent on Bedrock AgentCore
+ *
+ * @packageDocumentation
+ */
 import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Artifact, Pipeline, PipelineType, Result, RetryMode } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
