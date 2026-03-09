@@ -1509,7 +1509,7 @@ Resources:
                 Action:
                   - cloudformation:DescribeStacks
                   - cloudformation:DeleteStack
-                Resource: "*"
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/*/*"
 
   # Lambda function to clean up retained resources after Step Function completes
   rCleanupCompletionFunction:
