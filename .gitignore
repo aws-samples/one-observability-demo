@@ -37,6 +37,8 @@ src/applications/microservices/petsite-net/petsite/bin
 
 **/.DS_Store
 **/assets
+!docs-site/docs/assets/
+!docs-site/docs/assets/**
 **/.idea
 
 ### Git ###
@@ -455,6 +457,9 @@ src/cdk/cdk.out
 # editor settings
 .vscode/settings.json
 wiki-docs/
+
+# MkDocs build output
+docs-site/site/
 # Go binaries
 PetAdoptions/payforadoption-go/petadoptions
 PetAdoptions/petsite/petsite/appsettings.Development.json

@@ -10,20 +10,18 @@ on:
   push:
     branches: [main, staging]
     paths:
-      - 'src/cdk/**'
-      - 'typedoc.json'
+      - 'docs-site/**'
+      - 'generated-diagrams/**'
       - 'CONTRIBUTING.md'
       - 'CHANGELOG.md'
-      - 'docs/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches: [main, staging]
     paths:
-      - 'src/cdk/**'
-      - 'typedoc.json'
+      - 'docs-site/**'
+      - 'generated-diagrams/**'
       - 'CONTRIBUTING.md'
       - 'CHANGELOG.md'
-      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -38,29 +36,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+          python-version: '3.12'
 
-      - name: Install root dependencies
-        run: npm ci
+      - name: Install MkDocs dependencies
+        run: pip install -r docs-site/requirements.txt
 
-      - name: Install CDK dependencies
-        run: npm ci
-        working-directory: src/cdk
+      - name: Copy latest diagrams
+        run: cp generated-diagrams/*.png docs-site/docs/assets/diagrams/ 2>/dev/null || true
 
-      - name: Create ASH scan link
-        run: |
-          echo "# Security Scan Results" > ASH_SCAN.md
-          echo "" >> ASH_SCAN.md
-          echo "[Latest ASH Security Scan Results](https://github.com/${{ github.repository }}/actions/workflows/run-ash-security-scan.yaml)" >> ASH_SCAN.md
-          sed -i 's|"docs/codebuild-cdk-deployment-template.md"]|"docs/codebuild-cdk-deployment-template.md", "ASH_SCAN.md"]|g' typedoc.json
-
-      - name: Generate documentation
-        run: npx typedoc
+      - name: Build documentation
+        run: mkdocs build
+        working-directory: docs-site
 
       # --- Production deploy (main → root of gh-pages, preserving pr-* preview dirs) ---
       - name: Deploy to GitHub Pages
@@ -68,7 +57,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./wiki-docs
+          publish_dir: ./docs-site/site
           keep_files: true
 
       # --- PR preview (PR → /pr-{number}/ subdirectory on gh-pages) ---
@@ -77,7 +66,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./wiki-docs
+          publish_dir: ./docs-site/site
           destination_dir: pr-${{ github.event.pull_request.number }}
 
       - name: Post preview URL
@@ -90,7 +79,6 @@ jobs:
             const prNumber = context.issue.number;
             const previewUrl = `https://${owner}.github.io/${repo}/pr-${prNumber}/`;
 
-            // Check for existing preview comment to update instead of creating duplicates
             const comments = await github.rest.issues.listComments({
               owner, repo, issue_number: prNumber
             });

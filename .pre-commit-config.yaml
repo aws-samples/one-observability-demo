@@ -42,7 +42,7 @@ repos:
       hooks:
           - id: check-json
           - id: check-yaml
-            exclude: 'src/templates|src/cdk/lib/microservices/manifests|archive/.*|src/applications/lambda/pethistory-node/template.yaml'
+            exclude: 'src/templates|src/cdk/lib/microservices/manifests|archive/.*|src/applications/lambda/pethistory-node/template.yaml|docs-site/mkdocs.yml'
             args: [--allow-multiple-documents]
           - id: check-case-conflict
           - id: trailing-whitespace
