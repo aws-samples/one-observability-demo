@@ -88,6 +88,11 @@ export class PetFoodAgentConstruct extends Construct {
                 }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
+                    actions: ['aws-marketplace:ViewSubscriptions', 'aws-marketplace:Subscribe'],
+                    resources: ['*'],
+                }),
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
                     actions: ['logs:CreateLogGroup', 'logs:DescribeLogStreams'],
                     resources: [
                         `arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:/aws/bedrock-agentcore/runtimes/*`,
