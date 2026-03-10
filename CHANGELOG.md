@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > structured release management.
 
 ## [Unreleased]
+## [3.0.1] - 2026-03-10
+### Changed
+- **Bedrock AgentCore permissions**: Granted additional permissions to AgentCore to view and subscribe to the models via aws-marketplace [#508](https://github.com/aws-samples/one-observability-demo/pull/508)
+- **Dependency Update**: Updated dependencies on traffic-generator-node lambda (fast-xml-parser, @aws-sdk/xml-builder) [#507](https://github.com/aws-samples/one-observability-demo/pull/507)
 
 ### Changed
 - **Security scanning**: Enabled `fail-on-findings` on GitHub Actions ASH workflow and pre-commit ASH hook so builds and commits fail when actionable vulnerabilities are detected
