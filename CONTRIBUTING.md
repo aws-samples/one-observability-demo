@@ -291,7 +291,7 @@ The script will prompt you to:
 2. Choose the target platform (amd64 or arm64)
 3. Select ECS cluster and service (for ECS applications)
 
-See [Application Redeployment Guide](docs/application-redeployment.md) for detailed instructions.
+See [Application Redeployment Guide](https://aws-samples.github.io/one-observability-demo/deployment/redeployment/) for detailed instructions.
 
 ### DynamoDB Seeding Script
 

@@ -456,10 +456,12 @@ src/cdk/cdk.out
 .ash/ash_output
 # editor settings
 .vscode/settings.json
-wiki-docs/
-
 # MkDocs build output
 docs-site/site/
+
+# TypeDoc generated API docs (built in CI from src/cdk)
+docs-site/docs/api/**
+!docs-site/docs/api/SUMMARY.md
 # Go binaries
 PetAdoptions/payforadoption-go/petadoptions
 PetAdoptions/petsite/petsite/appsettings.Development.json

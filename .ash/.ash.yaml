@@ -12,8 +12,10 @@ global_settings:
           reason: 'CDK synthesized output directory'
         - path: src/cdk/node_modules
           reason: 'Skip node_modules folder'
-        - path: src/cdk/wiki-docs
-          reason: 'Skip wiki docs since it will be built in the pipeline'
+        - path: docs-site/site
+          reason: 'MkDocs build output directory'
+        - path: docs-site/docs/api
+          reason: 'TypeDoc generated API docs - built in CI pipeline'
         - path: archive/
           reason: 'Legacy application being migrated, for now only scan the new code'
         - path: grafana-dashboards
@@ -24,8 +26,7 @@ global_settings:
           reason: 'Temporary SAM template, will be moved to CDK'
         - path: .secrets.baseline
           reason: 'Secret Baseline file includes the word secret'
-        - path: wiki-docs/**
-          reason: 'Generated wiki docs, gitignored - not part of source'
+
 
     suppressions:
         - rule_id: SECRET-SECRET-KEYWORD

@@ -137,15 +137,6 @@ repos:
             pass_filenames: false
             always_run: true
 
-    - repo: local
-      hooks:
-          - id: typedoc
-            name: Typedoc markdown
-            entry: bash -c 'npx typedoc'
-            language: system
-            types: [ts]
-            pass_filenames: false
-            always_run: true
     - repo: https://github.com/awslabs/automated-security-helper
       rev: v3
       hooks:

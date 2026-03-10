@@ -41,6 +41,8 @@ theme:
 
 plugins:
   - search
+  - literate-nav:
+      nav_file: SUMMARY.md
   - minify:
       minify_html: true
 
@@ -102,4 +104,4 @@ nav:
       - ECS Port Forwarding: operations/ecs-port-forwarding.md
   - Contributing: contributing.md
   - Changelog: changelog.md
-  - API Reference: api/index.md
+  - API Reference: api/
