@@ -4,23 +4,25 @@ This repo contains a sample application which is used in the One Observability D
 
 ## Documentation
 
+Full documentation is published at the [GitHub Pages site](https://aws-samples.github.io/one-observability-demo/).
+
 ### Guides
 
 | Guide | Description |
 |-------|-------------|
-| [Architecture Overview](./docs/architecture.md) | System architecture, microservices, pipeline stages, and observability design |
-| [Deployment Template](./docs/codebuild-cdk-deployment-template.md) | CodeBuild CDK deployment parameters and advanced usage |
-| [Cleanup Script](./docs/CLEANUP_SCRIPT.md) | Post-workshop resource cleanup instructions and troubleshooting |
-| [CDK Cleanup](./docs/CDK_CLEANUP.md) | CDK-specific stack teardown procedures |
-| [Seeding Guide](./docs/SEEDING_GUIDE.md) | Database and application seeding instructions |
-| [Image Generation Seeding](./docs/SEEDING_IMAGE_GENERATION.md) | Pet food image generation setup |
-| [Application Redeployment](./docs/application-redeployment.md) | How to redeploy individual microservices |
-| [CodeConnection Setup](./docs/codeconnection-parameter-store-integration.md) | GitHub CodeConnection and Parameter Store integration |
-| [ECS Port Forwarding](./docs/ecs-port-forwarding.md) | Local access to ECS services via port forwarding |
+| [Architecture Overview](https://aws-samples.github.io/one-observability-demo/architecture/overview/) | System architecture, microservices, pipeline stages, and observability design |
+| [Deployment Template](https://aws-samples.github.io/one-observability-demo/deployment/codebuild-template/) | CodeBuild CDK deployment parameters and advanced usage |
+| [Cleanup Script](https://aws-samples.github.io/one-observability-demo/operations/cleanup/) | Post-workshop resource cleanup instructions and troubleshooting |
+| [CDK Cleanup](https://aws-samples.github.io/one-observability-demo/operations/cdk-cleanup/) | CDK-specific stack teardown procedures |
+| [Seeding Guide](https://aws-samples.github.io/one-observability-demo/operations/seeding/) | Database and application seeding instructions |
+| [Image Generation](https://aws-samples.github.io/one-observability-demo/operations/image-generation/) | Pet food image generation setup |
+| [Application Redeployment](https://aws-samples.github.io/one-observability-demo/deployment/redeployment/) | How to redeploy individual microservices |
+| [CodeConnection Setup](https://aws-samples.github.io/one-observability-demo/deployment/codeconnection/) | GitHub CodeConnection and Parameter Store integration |
+| [ECS Port Forwarding](https://aws-samples.github.io/one-observability-demo/operations/ecs-port-forwarding/) | Local access to ECS services via port forwarding |
 
 ### API Reference
 
-The CDK construct library is documented with TypeDoc. View the generated API reference at the [GitHub Pages site](https://aws-samples.github.io/one-observability-demo/) or browse the source under [`src/cdk/lib/`](./src/cdk/lib/).
+The CDK construct library API reference is available at the [API Reference](https://aws-samples.github.io/one-observability-demo/api/) page, or browse the source under [`src/cdk/lib/`](./src/cdk/lib/).
 
 ## Security
 
@@ -56,7 +58,7 @@ aws cloudformation create-stack \
     ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
 
-For detailed parameter descriptions and advanced usage, refer to the [full documentation](./docs/codebuild-cdk-deployment-template.md).
+For detailed parameter descriptions and advanced usage, refer to the [full documentation](https://aws-samples.github.io/one-observability-demo/deployment/codebuild-template/).
 
 ## Cleanup
 
@@ -64,9 +66,8 @@ After completing the workshop, clean up your AWS resources to avoid ongoing char
 
 For comprehensive cleanup instructions, troubleshooting, and safety guidelines, see:
 
-**🧹 [Cleanup Script Documentation](./docs/CLEANUP_SCRIPT.md)**
+**🧹 [Cleanup Script Documentation](https://aws-samples.github.io/one-observability-demo/operations/cleanup/)**
 
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-

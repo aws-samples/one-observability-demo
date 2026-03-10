@@ -1,8 +1,6 @@
 # ECS Port Forwarding
 
-## Overview
-
-The `ecs-port-forward.sh` script enables port forwarding to ECS tasks using AWS Session Manager. This allows you to connect to services running inside ECS containers from your local machine.
+The `ecs-port-forward.sh` script enables port forwarding to ECS tasks using AWS Session Manager, allowing you to connect to services running inside ECS containers from your local machine.
 
 ## Prerequisites
 
@@ -16,7 +14,8 @@ The `ecs-port-forward.sh` script enables port forwarding to ECS tasks using AWS 
 ./src/cdk/scripts/ecs-port-forward.sh
 ```
 
-The script will prompt you to:
+The script prompts you to:
+
 1. Select an ECS cluster
 2. Select a service
 3. Select a task

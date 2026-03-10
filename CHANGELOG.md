@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > structured release management.
 
 ## [Unreleased]
+## [3.0.2] - 2026-03-10
+### Changed
+- **Documentation site**: Migrated from TypeDoc HTML + Jekyll to MkDocs Material with navigation sidebar, search, dark/light mode, and mermaid diagram support
+- **Documentation structure**: Organized content into Architecture, Microservices, Deployment, Operations, Contributing, Changelog, and API Reference sections
+- **GitHub workflow**: Updated docs workflow to generate TypeDoc API markdown then build with MkDocs, with PR preview deployments
+- **API reference**: TypeDoc now generates markdown into `docs-site/docs/api/` (gitignored, built in CI) with literate-nav sidebar via `SUMMARY.md`
+- **Cleanup**: Removed old `docs/` folder, `wiki-docs/` artifacts, `src/cdk/typedoc.json`, unused TypeDoc theme packages, and typedoc pre-commit hook
+
 ## [3.0.1] - 2026-03-10
 ### Changed
 - **Bedrock AgentCore permissions**: Granted additional permissions to AgentCore to view and subscribe to the models via aws-marketplace [#508](https://github.com/aws-samples/one-observability-demo/pull/508)

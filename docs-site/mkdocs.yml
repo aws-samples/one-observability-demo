@@ -1,0 +1,107 @@
+site_name: One Observability Workshop
+site_description: AWS Observability Demo — Architecture, Deployment, and API Reference
+site_url: https://aws-samples.github.io/one-observability-demo/
+repo_url: https://github.com/aws-samples/one-observability-demo
+repo_name: aws-samples/one-observability-demo
+edit_uri: edit/main/docs-site/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+
+plugins:
+  - search
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/aws-samples/one-observability-demo
+  generator: false
+
+copyright: Copyright &copy; Amazon.com, Inc. or its affiliates. All Rights Reserved. SPDX-License-Identifier MIT-0
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Deployment Stages: architecture/stages.md
+      - Observability Patterns: architecture/observability.md
+  - Microservices:
+      - Overview: microservices/index.md
+      - payforadoption-go: microservices/payforadoption-go.md
+      - petsearch-java: microservices/petsearch-java.md
+      - petlistadoptions-py: microservices/petlistadoptions-py.md
+      - petsite-net: microservices/petsite-net.md
+      - petfood-rs: microservices/petfood-rs.md
+      - petfoodagent-strands-py: microservices/petfoodagent-strands-py.md
+  - Deployment:
+      - Quick Start: deployment/quick-start.md
+      - CodeBuild Template: deployment/codebuild-template.md
+      - CodeConnection Setup: deployment/codeconnection.md
+      - Application Redeployment: deployment/redeployment.md
+  - Operations:
+      - Seeding Data: operations/seeding.md
+      - Image Generation: operations/image-generation.md
+      - Cleanup Script: operations/cleanup.md
+      - CDK Cleanup: operations/cdk-cleanup.md
+      - ECS Port Forwarding: operations/ecs-port-forwarding.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+  - API Reference: api/

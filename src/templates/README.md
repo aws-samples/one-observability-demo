@@ -14,7 +14,7 @@ This folder contains CloudFormation templates for the One Observability Demo pro
 
 For comprehensive documentation, usage instructions, architecture diagrams, and implementation details, see:
 
-**📖 [CodeBuild CDK Deployment Template Documentation](../../docs/codebuild-cdk-deployment-template.md)**
+**📖 [CodeBuild CDK Deployment Template Documentation](https://aws-samples.github.io/one-observability-demo/deployment/codebuild-template/)**
 
 This documentation includes:
 - Architecture diagrams
@@ -39,4 +39,4 @@ aws cloudformation create-stack \
     ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
 
-For detailed parameter descriptions and advanced usage, refer to the [full documentation](../../docs/codebuild-cdk-deployment-template.md).
+For detailed parameter descriptions and advanced usage, refer to the [full documentation](https://aws-samples.github.io/one-observability-demo/deployment/codebuild-template/).
