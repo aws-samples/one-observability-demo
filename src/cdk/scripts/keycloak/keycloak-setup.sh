@@ -140,7 +140,7 @@ fi
 # ------------------------------------------------------------------------------
 # Dependency checks
 # ------------------------------------------------------------------------------
-for cmd in aws jq kubectl helm curl openssl tar uname; do
+for cmd in aws jq curl openssl tar uname; do
   require_cmd "$cmd"
 done
 
