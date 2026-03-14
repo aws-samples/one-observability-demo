@@ -203,6 +203,18 @@ install_eksctl_if_missing() {
   require_cmd eksctl
 }
 
+install_helm_if_missing() {
+  if command -v helm >/dev/null 2>&1; then
+    log "helm is already installed: $(helm version --short 2>/dev/null)"
+    return
+  fi
+
+  log "helm is not installed. Installing helm..."
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  require_cmd helm
+  log "helm installed successfully: $(helm version --short 2>/dev/null)"
+}
+
 # ------------------------------------------------------------------------------
 # AWS context
 # ------------------------------------------------------------------------------
@@ -902,6 +914,7 @@ print_final_credentials() {
 # ------------------------------------------------------------------------------
 main() {
   install_kubectl_if_missing
+  install_helm_if_missing
   install_eksctl_if_missing
   resolve_aws_context
   print_script_arguments
