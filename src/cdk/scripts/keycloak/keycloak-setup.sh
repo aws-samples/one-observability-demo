@@ -66,7 +66,7 @@ Options:
   -h, --help                         Show this help message
 
 Example:
-  ./keycloak-setup-better.sh \\
+  ./keycloak-setup.sh \\
     --cluster-name PetsiteEKS-cluster \\
     --workspace-name amg-demo \\
     --keycloak-namespace keycloak \\
@@ -143,6 +143,40 @@ fi
 for cmd in aws jq kubectl helm curl openssl tar uname; do
   require_cmd "$cmd"
 done
+
+install_kubectl_if_missing() {
+  if command -v kubectl >/dev/null 2>&1; then
+    log "kubectl is already installed: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1)"
+    return
+  fi
+
+  log "kubectl is not installed. Installing kubectl..."
+  local arch
+  local os
+
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  case "$(uname -m)" in
+    x86_64)  arch="amd64" ;;
+    aarch64) arch="arm64" ;;
+    arm64)   arch="arm64" ;;
+    *)       die "Unsupported architecture: $(uname -m)" ;;
+  esac
+
+  local kubectl_version
+  kubectl_version="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+
+  curl -fsSLO "https://dl.k8s.io/release/${kubectl_version}/bin/${os}/${arch}/kubectl"
+
+  if command -v sudo >/dev/null 2>&1; then
+    sudo install -m 0755 kubectl /usr/local/bin/kubectl
+  else
+    install -m 0755 kubectl /usr/local/bin/kubectl
+  fi
+
+  rm -f kubectl
+  require_cmd kubectl
+  log "kubectl installed successfully: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1)"
+}
 
 install_eksctl_if_missing() {
   if command -v eksctl >/dev/null 2>&1; then
@@ -867,6 +901,7 @@ print_final_credentials() {
 # Main
 # ------------------------------------------------------------------------------
 main() {
+  install_kubectl_if_missing
   install_eksctl_if_missing
   resolve_aws_context
   print_script_arguments
