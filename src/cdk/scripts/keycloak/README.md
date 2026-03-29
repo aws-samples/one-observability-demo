@@ -10,9 +10,10 @@ The script automates the setup required to:
 - create a Kubernetes storage class for persistent volumes
 - deploy Keycloak and PostgreSQL using Helm
 - create a Keycloak realm for AMG
-- create Keycloak users and roles for testing
+- create Keycloak users and roles for testing (admin, editor, viewer)
 - create the Keycloak SAML client for AMG
-- update the AMG workspace to use Keycloak for SAML authentication
+- create a CloudFront distribution for HTTPS termination in front of the Keycloak NLB
+- update the AMG workspace to use Keycloak for SAML authentication via the CloudFront HTTPS URL
 
 The result is a working SAML login flow where users sign in to AMG through Keycloak.
 
@@ -27,6 +28,7 @@ At a high level, the script builds this solution:
 - **PostgreSQL** as the Keycloak persistence layer
 - **Amazon EKS** as the runtime platform
 - **AWS Load Balancer** created by the Kubernetes service to expose Keycloak
+- **Amazon CloudFront** distribution for HTTPS termination in front of the Keycloak NLB
 - **Persistent storage** backed by the EBS CSI driver
 
 ---
@@ -46,11 +48,17 @@ At a high level, the script builds this solution:
                                                          |
                                                          |
 +-------------------+       Browser access       +-------+--------------------+
-|       User        | -------------------------> |        Keycloak Realm      |
-|-------------------|                            |            "amg"           |
-| Admin / Editor    | <------------------------- |----------------------------|
-+-------------------+      login + redirect      | Users: admin, editor       |
-                                                  | Roles: admin, editor       |
+|       User        | -------------------------> |   Amazon CloudFront (HTTPS)|
+|-------------------|                            +-------+--------------------+
+| Admin / Editor /  |                                    |
+| Viewer            |                            +-------+--------------------+
++-------------------+                            |        Keycloak Realm      |
+                                                  |            "amg"           |
+                                                  |----------------------------|
+                                                  | Users: admin, editor,      |
+                                                  |         viewer             |
+                                                  | Roles: admin, editor,      |
+                                                  |         viewer             |
                                                   | SAML Client for AMG        |
                                                   +-------------+--------------+
                                                                 |
@@ -76,10 +84,17 @@ At a high level, the script builds this solution:
     |                 | Kubernetes Service: type LoadBalancer                                |
     |                 v                                                                      |
     |          +---------------------------+                                                 |
-    |          | AWS Load Balancer         |                                                 |
-    |          | Keycloak public endpoint  |                                                 |
-    |          +---------------------------+                                                 |
+    |          | AWS NLB (HTTP)            |                                                 |
+    |          | Keycloak origin endpoint  |                                                 |
+    |          +-------------+-------------+                                                 |
     +---------------------------------------------------------------------------------------+
+                              |
+                              v
+                   +---------------------------+
+                   | Amazon CloudFront         |
+                   | HTTPS termination         |
+                   | (redirect-to-https)       |
+                   +---------------------------+
 
     +---------------------------------------------------------------------------------------+
     |                                 Automation Script                                      |
@@ -89,7 +104,8 @@ At a high level, the script builds this solution:
     | - installs EBS CSI add-on                                                             |
     | - deploys Keycloak + PostgreSQL                                                       |
     | - configures realm, users, and SAML client                                            |
-    | - updates AMG SAML authentication                                                     |
+    | - creates CloudFront distribution for HTTPS                                           |
+    | - updates AMG SAML authentication (via CloudFront HTTPS URL)                          |
     +---------------------------------------------------------------------------------------+
 ```
 
@@ -103,6 +119,7 @@ Script
  │    ├── EKS
  │    ├── Grafana
  │    ├── ELBv2
+ │    ├── CloudFront
  │    └── IAM / STS
  ├── kubectl
  ├── helm
@@ -116,19 +133,25 @@ EKS Cluster
       ├── PVC: keycloak
       └── PVC: postgresql
 
+CloudFront Distribution
+ └── Origin: Keycloak NLB (http-only)
+      └── Viewer protocol: redirect-to-https
+
 Keycloak Realm: amg
  ├── Roles
  │    ├── admin
- │    └── editor
+ │    ├── editor
+ │    └── viewer
  ├── Users
  │    ├── admin
- │    └── editor
+ │    ├── editor
+ │    └── viewer
  └── SAML Client
       └── AMG workspace metadata / ACS URLs
 
 AMG Workspace
  └── SAML configuration
-      ├── IdP metadata URL
+      ├── IdP metadata URL (CloudFront HTTPS)
       ├── assertion attributes
       └── role mappings
 ```
@@ -138,29 +161,31 @@ AMG Workspace
 ## SAML Login Sequence Diagram
 
 ```text
-User Browser            AMG Workspace                Keycloak                  PostgreSQL
-     |                        |                          |                           |
-     | Open workspace URL     |                          |                           |
-     |----------------------->|                          |                           |
-     |                        | Redirect to SAML IdP     |                           |
-     |<-----------------------|                          |                           |
-     | Go to Keycloak         |                          |                           |
-     |------------------------------------------------->|                           |
-     |                        |                          | Read realm/users/client   |
-     |                        |                          |-------------------------->|
-     |                        |                          |<--------------------------|
-     | Sign in                |                          |                           |
-     |------------------------------------------------->|                           |
-     |                        |                          | Build SAML assertion      |
-     |                        |                          |                           |
-     | Browser posts SAML     |                          |                           |
-     | assertion to AMG ACS   |                          |                           |
-     |----------------------->|                          |                           |
-     |                        | Validate assertion       |                           |
-     |                        | map role / create session|                           |
-     |                        |                          |                           |
-     | Grafana dashboard      |                          |                           |
-     |<-----------------------|                          |                           |
+User Browser            AMG Workspace           CloudFront            Keycloak                  PostgreSQL
+     |                        |                      |                    |                           |
+     | Open workspace URL     |                      |                    |                           |
+     |----------------------->|                      |                    |                           |
+     |                        | Redirect to SAML IdP |                    |                           |
+     |<-----------------------|                      |                    |                           |
+     | Go to Keycloak (HTTPS) |                      |                    |                           |
+     |---------------------------------------------->|                    |                           |
+     |                        |                      | Forward (HTTP)     |                           |
+     |                        |                      |------------------->|                           |
+     |                        |                      |                    | Read realm/users/client   |
+     |                        |                      |                    |-------------------------->|
+     |                        |                      |                    |<--------------------------|
+     | Sign in (via CF HTTPS) |                      |                    |                           |
+     |---------------------------------------------->|------------------->|                           |
+     |                        |                      |                    | Build SAML assertion      |
+     |                        |                      |                    |                           |
+     | Browser posts SAML     |                      |                    |                           |
+     | assertion to AMG ACS   |                      |                    |                           |
+     |----------------------->|                      |                    |                           |
+     |                        | Validate assertion   |                    |                           |
+     |                        | map role / session   |                    |                           |
+     |                        |                      |                    |                           |
+     | Grafana dashboard      |                      |                    |                           |
+     |<-----------------------|                      |                    |                           |
 ```
 
 ---
@@ -181,23 +206,25 @@ This is the flow when the script runs:
 8. The script deploys Keycloak and PostgreSQL with Helm.
 9. The script retrieves the generated Keycloak admin password from the Kubernetes secret.
 10. The script copies a configuration script into the Keycloak pod.
-11. Inside the Keycloak pod, `kcadm.sh` creates the realm, users, roles, and SAML client.
+11. Inside the Keycloak pod, `kcadm.sh` creates the realm, users (admin, editor, viewer), roles, and SAML client.
 12. The script waits for the Keycloak load balancer to become healthy.
-13. The script updates the AMG workspace authentication configuration with the Keycloak metadata URL and role mappings.
+13. The script creates a CloudFront distribution in front of the Keycloak NLB for HTTPS termination (or reuses an existing one).
+14. The script updates the AMG workspace authentication configuration with the CloudFront HTTPS metadata URL and role mappings.
 
 ### 2. Authentication Runtime Flow
 
 This is the flow after deployment:
 
 1. The user opens the AMG workspace URL.
-2. AMG redirects the browser to Keycloak because SAML is enabled.
-3. Keycloak authenticates the user in the configured realm.
-4. Keycloak sends the SAML assertion back to AMG.
-5. AMG maps the SAML attributes:
+2. AMG redirects the browser to Keycloak via the CloudFront HTTPS URL because SAML is enabled.
+3. CloudFront terminates TLS and forwards the request to the Keycloak NLB over HTTP.
+4. Keycloak authenticates the user in the configured realm.
+5. Keycloak sends the SAML assertion back to AMG.
+6. AMG maps the SAML attributes:
    - `mail` → login/email
    - `displayName` → display name
    - `role` → workspace role
-6. The user lands in AMG as either an Admin or Editor.
+7. The user lands in AMG as Admin, Editor, or Viewer (viewer maps to Editor in AMG).
 
 ### 3. Persistence Flow
 
@@ -250,12 +277,14 @@ Inside this realm, it creates:
 #### Roles
 - `admin`
 - `editor`
+- `viewer`
 
 #### Users
 - `admin`
 - `editor`
+- `viewer`
 
-These users are intended for SAML testing and initial verification.
+These users are intended for SAML testing and initial verification. The `viewer` user has the `viewer` role in Keycloak, which maps to the Editor role in AMG (AMG does not have a native Viewer role via SAML).
 
 ### SAML Client for AMG
 
@@ -275,7 +304,7 @@ https://<workspace-endpoint>/saml/acs
 
 ### AMG SAML Configuration
 
-The script configures AMG to use Keycloak metadata and applies the SAML assertion mappings.
+The script configures AMG to use the Keycloak SAML metadata served via the CloudFront HTTPS URL and applies the SAML assertion mappings.
 
 Expected mappings:
 
@@ -292,6 +321,7 @@ Role mapping:
 |---|---|
 | `admin` | Admin |
 | `editor` | Editor |
+| `viewer` | Editor |
 
 ---
 
@@ -305,6 +335,7 @@ Before you run the script, make sure you already have:
   - EKS
   - IAM
   - ELBv2
+  - CloudFront
   - Grafana
   - STS
 - the following tools available in your shell:
@@ -395,7 +426,8 @@ The script will:
 
 - install missing infrastructure components if required
 - deploy Keycloak
-- configure the realm and users
+- configure the realm and users (admin, editor, viewer)
+- create a CloudFront distribution for HTTPS
 - update AMG SAML authentication
 
 ### 5. Save the final output
@@ -403,9 +435,10 @@ The script will:
 At the end, the script prints:
 
 - AMG workspace URL
+- CloudFront HTTPS URL and distribution ID
 - Keycloak master admin username and password
-- Keycloak realm test user passwords
-- SAML metadata URL
+- Keycloak realm test user passwords (admin, editor, viewer)
+- SAML metadata URL (via CloudFront HTTPS)
 
 Save these values for testing.
 
@@ -421,6 +454,12 @@ Workspace endpoint: https://<workspace-endpoint>/
 -------------------
 
 -------------------
+CloudFront HTTPS URL
+-------------------
+URL: https://<cloudfront-domain>/
+Distribution ID: <distribution-id>
+
+-------------------
 Keycloak (master realm) admin console credentials
 -------------------
 username: user
@@ -432,8 +471,9 @@ Keycloak realm users (for SAML testing)
 realm: amg
 admin  password: <generated-password>
 editor password: <generated-password>
+viewer password: <generated-password>
 
-SAML metadata URL: http://<keycloak-lb-hostname>/realms/amg/protocol/saml/descriptor
+SAML metadata URL: https://<cloudfront-domain>/realms/amg/protocol/saml/descriptor
 
 Setup done.
 ```
@@ -449,6 +489,7 @@ After the script completes:
 3. Sign in with one of the realm users:
    - `admin`
    - `editor`
+   - `viewer`
 4. Verify the resulting AMG role.
 
 ---
@@ -462,6 +503,7 @@ The script is designed to be re-runnable for most steps:
 - it checks for existing AWS resources
 - it checks for existing Kubernetes resources
 - it upgrades the Helm release if Keycloak is already installed
+- it reuses an existing CloudFront distribution if one already fronts the Keycloak NLB
 - it updates AMG authentication only if the configuration differs
 
 ### Keycloak Pod Assumptions
@@ -481,10 +523,10 @@ That matches the current chart behavior in this setup.
 
 ### Metadata URL
 
-The metadata URL used by AMG is derived from the load balancer hostname of the Keycloak service:
+The metadata URL used by AMG is derived from the CloudFront distribution domain fronting the Keycloak NLB:
 
 ```text
-http://<load-balancer-hostname>/realms/<realm>/protocol/saml/descriptor
+https://<cloudfront-domain>/realms/<realm>/protocol/saml/descriptor
 ```
 
 ---
@@ -534,6 +576,14 @@ Inside the container, the admin CLI is:
 aws grafana describe-workspace-authentication --workspace-id <workspace-id>
 ```
 
+### Check CloudFront distribution status
+
+```bash
+aws cloudfront list-distributions --query "DistributionList.Items[].{Id:Id,Domain:DomainName,Status:Status}" --output table
+```
+
+If the distribution shows 502/504 errors, verify the Keycloak NLB target is healthy and the pod is running.
+
 ---
 
 ## Repository Layout
@@ -553,7 +603,8 @@ This script provides an automated, repeatable way to:
 - deploy Keycloak on EKS
 - persist Keycloak state in PostgreSQL
 - create a dedicated realm for AMG
-- configure SAML authentication between Keycloak and AMG
-- test login with pre-created users and role mappings
+- create a CloudFront distribution for HTTPS termination in front of Keycloak
+- configure SAML authentication between Keycloak and AMG (via CloudFront HTTPS)
+- test login with pre-created users (admin, editor, viewer) and role mappings
 
 It is a practical setup for enabling SAML-based access to Amazon Managed Grafana through Keycloak on Kubernetes.
