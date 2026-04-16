@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_PREFIX")
 if not PARAMETER_STORE_PREFIX:
     raise RuntimeError("Required environment variable PARAMETER_STORE_PREFIX not set")
-MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+MODEL_ID = "us.anthropic.claude-sonnet-4-6"
 
 # Initialize SSM client
 REGION = os.environ.get("AWS_REGION", "us-east-1")
