@@ -80,7 +80,7 @@ export class PetFoodAgentConstruct extends Construct {
                 }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+                    actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream', 'bedrock:CountTokens'],
                     resources: [
                         `arn:aws:bedrock:*::foundation-model/*`,
                         `arn:aws:bedrock:*:${Stack.of(this).account}:*`,
