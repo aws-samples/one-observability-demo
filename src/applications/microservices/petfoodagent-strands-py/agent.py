@@ -3,12 +3,12 @@
 import os
 import boto3
 import logging
-from opentelemetry import trace
 from strands import Agent
+from strands.hooks.events import BeforeModelCallEvent
 from strands_tools import http_request
 from strands.models import BedrockModel
 from strands.agent.conversation_manager import SummarizingConversationManager
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from bedrock_agentcore.runtime import BedrockAgentCoreApp, BedrockAgentCoreContext
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_PREFIX")
 if not PARAMETER_STORE_PREFIX:
     raise RuntimeError("Required environment variable PARAMETER_STORE_PREFIX not set")
-MODEL_ID = "us.anthropic.claude-sonnet-4-6"
+MODEL_ID = os.environ.get("MODEL_ID", "us.anthropic.claude-sonnet-4-6")
 
 # Initialize SSM client
 REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -52,7 +52,7 @@ search_api_url = get_ssm_parameter(search_api_url_parameter_name)
 petfood_api_url = get_ssm_parameter(petfood_api_url_parameter_name)
 
 # System prompt
-SYSTEM_PROMPT = f"""You are Waggle, a friendly and knowledgeable pet food \
+DEFAULT_SYSTEM_PROMPT = f"""You are Waggle, a friendly and knowledgeable pet food \
 recommendation assistant. You're here to help pet parents find the perfect food \
 for their furry, feathered, or scaled companions!
 
@@ -80,6 +80,8 @@ dietary restrictions
 Remember: You're having a conversation, not writing a report. Keep responses \
 natural, helpful, and engaging while being informative about pet nutrition!"""
 
+SYSTEM_PROMPT = os.environ.get("SYSTEM_PROMPT_OVERRIDE", DEFAULT_SYSTEM_PROMPT)
+
 # Initialize components
 app = BedrockAgentCoreApp()
 
@@ -102,30 +104,36 @@ agent = Agent(
 )
 
 
+def dynamic_config_hook(event: BeforeModelCallEvent):
+    """Read config bundle and apply system prompt/model before each model call."""
+    try:
+        config = BedrockAgentCoreContext.get_config_bundle()
+        if config:
+            if "system_prompt" in config:
+                event.agent.system_prompt = config["system_prompt"]
+            if "model_id" in config:
+                event.agent.model = BedrockModel(model_id=config["model_id"])
+    except Exception:
+        pass
+
+
+agent.hooks.add_callback(BeforeModelCallEvent, dynamic_config_hook)
+
+
 @app.entrypoint
-async def pet_food_agent_bedrock(payload):
-    """Streaming endpoint for pet food recommendation agent."""
+def pet_food_agent_bedrock(payload):
+    """Synchronous endpoint for pet food recommendation agent."""
     user_input = payload.get("prompt")
     user_id = payload.get("userId")
 
     if not user_input:
-        yield "Error: No prompt provided in the request."
-        return
+        return {"response": "Error: No prompt provided in the request."}
 
     print(f"User ID: {user_id}, User input: {user_input}")
 
-    # Add trace attributes for observability
-    current_span = trace.get_current_span()
-    if current_span:
-        current_span.set_attribute("agent.name", "petfood-agent")
-        if user_id:
-            current_span.set_attribute("user.id", user_id)
-
     try:
-        # Stream response from agent
-        async for event in agent.stream_async(user_input):
-            if "data" in event:
-                yield event["data"]
+        response = agent(user_input)
+        return {"response": response.message["content"][0]["text"]}
 
     except Exception as e:
         error_msg = (
@@ -133,7 +141,7 @@ async def pet_food_agent_bedrock(payload):
             f"your request: {e}"
         )
         print(f"Error in agent execution: {e}")
-        yield error_msg
+        return {"response": error_msg}
 
 
 if __name__ == "__main__":

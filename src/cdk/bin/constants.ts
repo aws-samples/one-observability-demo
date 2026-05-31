@@ -184,4 +184,5 @@ export const SSM_PARAMETER_NAMES = {
 
     // PetFood Agent parameters
     PETFOOD_AGENT_RUNTIME_ARN_NAME: 'petfoodagent-runtime-arn',
+    PETFOOD_AGENT_VARIANT_B_RUNTIME_ARN_NAME: 'petfoodagent-variant-b-runtime-arn',
 } as const;

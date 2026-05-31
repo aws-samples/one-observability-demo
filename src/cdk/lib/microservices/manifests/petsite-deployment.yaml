@@ -76,6 +76,8 @@ spec:
                         value: {{ RUM_SCRIPT_PARAMETER_NAME }}
                       - name: PETFOOD_AGENT_RUNTIME_ARN_NAME
                         value: {{ PETFOOD_AGENT_RUNTIME_ARN_NAME }}
+                      - name: PETFOOD_AGENT_VARIANT_B_RUNTIME_ARN_NAME
+                        value: {{ PETFOOD_AGENT_VARIANT_B_RUNTIME_ARN_NAME }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
                       - name: RESOURCE_DETECTORS_ENABLED
