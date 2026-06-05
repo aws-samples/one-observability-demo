@@ -159,18 +159,18 @@ import boto3
 def handler(event, context):
     """
     Automated remediation for GuardDuty findings.
-    
+
     Actions based on finding type:
     - Agent-related findings: Stop the agent runtime and revoke IAM sessions
     - Knowledge base findings: Quarantine the data source
     - All high-severity findings: Publish notification for human review
     """
     print(f"Received event: {json.dumps(event)}")
-    
+
     sns = boto3.client('sns')
     topic_arn = os.environ['SNS_TOPIC_ARN']
     min_severity = float(os.environ.get('MINIMUM_SEVERITY', '7'))
-    
+
     detail = event.get('detail', {})
     finding_type = detail.get('type', '')
     severity = detail.get('severity', 0)
@@ -178,23 +178,23 @@ def handler(event, context):
     description = detail.get('description', '')
     account_id = detail.get('accountId', '')
     region = detail.get('region', '')
-    
+
     response_actions = []
-    
+
     # Determine remediation based on finding type
     if severity >= min_severity:
         # Check if finding involves Bedrock/Agent resources
         resource = detail.get('resource', {})
         resource_type = resource.get('resourceType', '')
-        
+
         if 'Bedrock' in finding_type or 'bedrock' in str(resource):
             # Isolate the agent runtime
             response_actions.append(isolate_agent_runtime(region, account_id))
-        
+
         if 'UnauthorizedAccess' in finding_type or 'CredentialAccess' in finding_type:
             # Revoke active sessions for agent roles
             response_actions.append(revoke_agent_sessions(account_id))
-        
+
         # Always notify for high-severity findings
         notification = {
             'finding_type': finding_type,
@@ -204,17 +204,17 @@ def handler(event, context):
             'actions_taken': response_actions,
             'requires_human_review': True,
         }
-        
+
         sns.publish(
             TopicArn=topic_arn,
             Subject=f'[TDIR] High Severity Finding: {title}',
             Message=json.dumps(notification, indent=2),
         )
-        
+
         print(f"Remediation complete. Actions: {response_actions}")
     else:
         print(f"Finding severity {severity} below threshold {min_severity}. Logging only.")
-    
+
     return {
         'statusCode': 200,
         'finding_type': finding_type,
