@@ -5,13 +5,13 @@
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-hero-title" src="~/images/main_banner_text.png" />
+        <partial name="_Hero" />
     </div>
 </section>
 
 <div class="container mt-4">
     <div class="alert alert-danger" role="alert">
-        <h4 class="alert-heading">Oops! Something went wrong</h4>
+        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Oops! Something went wrong</h4>
         <hr>
         @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
         {

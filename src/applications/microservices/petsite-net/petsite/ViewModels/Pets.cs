@@ -26,9 +26,11 @@ namespace PetSite.ViewModels
     {
         public IEnumerable<SelectListItem> PetTypes;
         public IEnumerable<SelectListItem> PetColors;
+        public IEnumerable<SelectListItem> PageSizes;
 
         public string SelectedPetType { get; set; }
         public string SelectedPetColor { get; set; }
+        public string SelectedPageSize { get; set; }
     }
 
     public class PetDetails

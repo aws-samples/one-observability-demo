@@ -5,50 +5,56 @@
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+        <partial name="_Hero" />
     </div>
 </section>
 
 <div class="container mt-4">
     <div id="error-message" class="alert alert-danger" style="display: none;"></div>
 
-    <div class="mb-4">
-        <label style="font-weight: bold; font-size: 18px; color: #333; margin-right: 20px;">Find food for:</label>
-        <input type="radio" name="petType" id="puppy" value="puppy" @(ViewBag.PetType == "puppy" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
-        <label for="puppy" style="margin-right: 20px;">Puppy</label>
-        <input type="radio" name="petType" id="kitten" value="kitten" @(ViewBag.PetType == "kitten" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
-        <label for="kitten" style="margin-right: 20px;">Kitten</label>
-        <input type="radio" name="petType" id="bunny" value="bunny" @(ViewBag.PetType == "bunny" ? "checked" : "") style="margin-right: 5px; -webkit-appearance: radio; -moz-appearance: radio; appearance: radio;">
-        <label for="bunny">Bunny</label>
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+        <label class="fw-bold fs-5 mb-0 me-2">Find food for:</label>
+        <div class="btn-group" role="group" aria-label="Pet type">
+            <input type="radio" class="btn-check" name="petType" id="puppy" value="puppy" autocomplete="off" @(ViewBag.PetType == "puppy" ? "checked" : "")>
+            <label class="btn btn-outline-success" for="puppy">Puppy</label>
+            <input type="radio" class="btn-check" name="petType" id="kitten" value="kitten" autocomplete="off" @(ViewBag.PetType == "kitten" ? "checked" : "")>
+            <label class="btn btn-outline-success" for="kitten">Kitten</label>
+            <input type="radio" class="btn-check" name="petType" id="bunny" value="bunny" autocomplete="off" @(ViewBag.PetType == "bunny" ? "checked" : "")>
+            <label class="btn btn-outline-success" for="bunny">Bunny</label>
+        </div>
     </div>
 
-    <h2 class="text-center mb-4" style="color: #006400; font-weight: bold;">🍽️ Delicious food for your @(Model?.foods?.FirstOrDefault()?.pet_type ?? "Pet") 🍽️</h2>
+    <h2 class="text-center mb-4" style="color: var(--pet-green-dark); font-weight: bold;">🍽️ Delicious food for your @(Model?.foods?.FirstOrDefault()?.pet_type ?? "Pet") 🍽️</h2>
     <div class="row">
         @if (Model?.foods?.Count >0)
         {
             @foreach (var food in Model.foods)
             {
-                <div class="col-md-4 mb-3">
-                    <div class="card">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
                         <img src="@food.image" class="card-img-top" alt="@food.name" style="height: 200px; object-fit: cover;">
-                        <div class="card-body" style="position: relative;">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title">@food.name</h5>
                             <p class="card-text">@food.description</p>
-                            <p class="card-text"><strong>$@food.price</strong> | In Stock: @food.stock_quantity</p>
+                            <p class="card-text"><strong class="text-success">$@food.price</strong> &middot; In Stock: @food.stock_quantity</p>
                             <p class="card-text"><small class="text-muted">For: @food.pet_type | Type: @food.food_type</small></p>
-                            <button class="btn btn-primary add-to-cart" data-food-id="@food.id" data-user-id="@ViewBag.UserId">Add to cart</button>
-                            <span class="success-message" style="background-color: #fd7e14; color: white; padding: 8px 12px; border-radius: 5px; font-size: 14px; font-weight: bold; margin-left: 10px; display: none;">✅Added to cart</span>
-                            <button class="btn btn-info show-more" style="position: absolute; bottom: 10px; right: 10px; background-color: #17a2b8;"
-                                    data-food-name="@food.name"
-                                    data-food-description="@food.description"
-                                    data-food-price="@food.price"
-                                    data-food-quantity="@food.stock_quantity"
-                                    data-food-type="@food.food_type"
-                                    data-food-pet-type="@food.pet_type"
-                                    data-food-guidelines="@food.feeding_guidelines"
-                                    data-food-ingredients="@string.Join(", ", food.ingredients ?? new List<string>())"
-                                    data-food-nutrition="@(food.nutritional_info != null ? $"Calories: {food.nutritional_info.calories_per_serving}, Protein: {food.nutritional_info.protein_percentage}%, Fat: {food.nutritional_info.fat_percentage}%, Serving: {food.nutritional_info.serving_size}" : "Info not available")"
-                                    data-food-image="@food.image">Show more...</button>
+                            <div class="mt-auto d-flex align-items-center flex-wrap gap-2">
+                                <button class="btn btn-success add-to-cart" data-food-id="@food.id" data-user-id="@ViewBag.UserId">
+                                    <i class="bi bi-cart-plus" aria-hidden="true"></i> Add to cart
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm show-more"
+                                        data-food-name="@food.name"
+                                        data-food-description="@food.description"
+                                        data-food-price="@food.price"
+                                        data-food-quantity="@food.stock_quantity"
+                                        data-food-type="@food.food_type"
+                                        data-food-pet-type="@food.pet_type"
+                                        data-food-guidelines="@food.feeding_guidelines"
+                                        data-food-ingredients="@string.Join(", ", food.ingredients ?? new List<string>())"
+                                        data-food-nutrition="@(food.nutritional_info != null ? $"Calories: {food.nutritional_info.calories_per_serving}, Protein: {food.nutritional_info.protein_percentage}%, Fat: {food.nutritional_info.fat_percentage}%, Serving: {food.nutritional_info.serving_size}" : "Info not available")"
+                                        data-food-image="@food.image">Show more&hellip;</button>
+                                <span class="success-message badge bg-warning text-dark" style="display: none;">✅ Added to cart</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -79,8 +85,7 @@
     </div>
 </div>
 
-<script src="~/lib/jquery/dist/jquery.min.js"></script>
-<script src="~/lib/bootstrap/dist/js/bootstrap.min.js"></script>
+@section Scripts {
 <script>
 $(document).ready(function() {
     $('.add-to-cart').click(function() {
@@ -145,3 +150,4 @@ $(document).ready(function() {
     });
 });
 </script>
+}

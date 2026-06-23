@@ -1,24 +1,17 @@
 /* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
 for details on configuring this project to bundle and minify static web assets. */
 
-/* Override Bootstrap font declarations to use Roboto everywhere */
+/* Site font: the refreshed PetSite UI uses the clean system-UI sans defined as
+   --pet-font in petstyles.css. Point Bootstrap's font variables at the same
+   stack so the framework and the .pet-* theme stay consistent. (Previously this
+   forced Roboto on every element with !important, which fought the new theme.) */
 :root {
-  --bs-font-sans-serif: 'Roboto', sans-serif !important;
-  --bs-body-font-family: 'Roboto', sans-serif !important;
+  --bs-font-sans-serif: var(--pet-font, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  --bs-body-font-family: var(--bs-font-sans-serif);
 }
 
 body, html {
-  font-family: 'Roboto', sans-serif !important;
-}
-
-/* Force Roboto on ALL elements */
-*, *::before, *::after {
-  font-family: 'Roboto', sans-serif !important;
-}
-
-/* Force Roboto on all input elements */
-input, textarea, select, button {
-  font-family: 'Roboto', sans-serif !important;
+  font-family: var(--pet-font, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
 }
 
 /* Preserve monospace for code elements */

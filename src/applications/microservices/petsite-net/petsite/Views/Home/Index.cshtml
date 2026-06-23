@@ -7,7 +7,7 @@
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-hero-title" src="~/images/main_banner_text.png"/>
+        <partial name="_Hero" />
     </div>
 </section>
 
@@ -17,11 +17,16 @@
         <form method="get">
             <label class="pet-label" data-title="Type">
                 <select name="selectedPetType" asp-for="@Model.Varieties.SelectedPetType"
-                        asp-items="@Model.Varieties.PetTypes" class="pet-filter"></select>
+                        asp-items="@Model.Varieties.PetTypes" class="pet-filter" aria-label="Pet type"></select>
             </label>
             <label class="pet-label" data-title="Color">
                 <select name="selectedPetColor" asp-for="@Model.Varieties.SelectedPetColor"
-                        asp-items="@Model.Varieties.PetColors" class="pet-filter"></select>
+                        asp-items="@Model.Varieties.PetColors" class="pet-filter" aria-label="Pet color"></select>
+            </label>
+            <label class="pet-label" data-title="Show">
+                <select name="pageSize" asp-for="@Model.Varieties.SelectedPageSize"
+                        asp-items="@Model.Varieties.PageSizes" class="pet-filter"
+                        aria-label="Number of pets to show" onchange="this.form.submit()"></select>
             </label>
             <input type="hidden" name="userId" value="@ViewBag.UserId" />
             <input id="searchpets" type="submit" value="Search" class="rounded-lg"/>
@@ -34,33 +39,61 @@
 <div class="container">
     @if (Model.Pets.Any())
     {
-        <div class="pet-items row">
+        <div class="pet-grid">
             @foreach (var pet in Model.Pets)
             {
-                <div class="pet-item col-md-4">
+                <div class="pet-item">
                     <partial name="_PetItem" for="@pet"/>
                 </div>
             }
         </div>
+
+        var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+        var totalPages = (int)(ViewData["TotalPages"] ?? 1);
+        var totalPets = (int)(ViewData["TotalPets"] ?? 0);
+        if (totalPages > 1)
+        {
+            <nav class="pet-pagination" aria-label="Pet list pages">
+                <a class="pet-page-btn @(currentPage <= 1 ? "is-disabled" : "")"
+                   asp-action="Index"
+                   asp-route-userId="@ViewBag.UserId"
+                   asp-route-selectedPetType="@Model.Varieties.SelectedPetType"
+                   asp-route-selectedPetColor="@Model.Varieties.SelectedPetColor"
+                   asp-route-pageSize="@Model.Varieties.SelectedPageSize"
+                   asp-route-page="@(currentPage - 1)"
+                   aria-disabled="@(currentPage <= 1 ? "true" : "false")">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i> Previous
+                </a>
+                <span class="pet-page-status">Page @currentPage of @totalPages &middot; @totalPets pets</span>
+                <a class="pet-page-btn @(currentPage >= totalPages ? "is-disabled" : "")"
+                   asp-action="Index"
+                   asp-route-userId="@ViewBag.UserId"
+                   asp-route-selectedPetType="@Model.Varieties.SelectedPetType"
+                   asp-route-selectedPetColor="@Model.Varieties.SelectedPetColor"
+                   asp-route-pageSize="@Model.Varieties.SelectedPageSize"
+                   asp-route-page="@(currentPage + 1)"
+                   aria-disabled="@(currentPage >= totalPages ? "true" : "false")">
+                    Next <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </a>
+            </nav>
+        }
     }
     else if (ViewBag.ErrorMessage != null)
     {
-        <br/>
-        <div class="container align-items-center">
-            <div class="alert alert-danger" role="alert">
-                <h4 class="alert-heading">Error</h4>
-                <hr/>
+        <div class="alert alert-danger d-flex align-items-center my-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-3 me-3" aria-hidden="true"></i>
+            <div>
+                <h4 class="alert-heading h5 mb-1">Error</h4>
                 <p class="mb-0">@Html.Raw(ViewBag.ErrorMessage.Replace("\n", "<br>"))</p>
             </div>
         </div>
     }
     else
     {
-        <br/>
-        <div class="container align-items-center">
-            <div class="alert alert-warning" role="alert">
-                <h4 class="alert-heading">No result</h4>
-                <hr>
+        <div class="alert alert-warning d-flex align-items-center my-4" role="alert">
+            <i class="bi bi-search fs-3 me-3" aria-hidden="true"></i>
+            <div>
+                <h4 class="alert-heading h5 mb-1">No result</h4>
                 <p class="mb-0">No Pets found for that search criteria!</p>
             </div>
         </div>

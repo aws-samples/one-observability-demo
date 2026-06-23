@@ -6,7 +6,7 @@
 
 <section class="pet-hero">
     <div class="container">
-        <img class="pet-title" src="~/images/main_banner_text.png" />
+        <partial name="_Hero" />
     </div>
 </section>
 
@@ -17,10 +17,10 @@
 <div class="container">
     @if (Model.Any())
     {
-        <div class="pet-items row">
+        <div class="pet-grid">
             @foreach (var pet in Model)
             {
-                <div class="pet-item col-md-4">
+                <div class="pet-item">
                     <partial name="_AdoptionItem" for="@pet" />
                 </div>
             }
@@ -28,10 +28,12 @@
     }
     else
     {
-        <br>
-        <div class="alert alert-warning" role="alert">
-            <h4 class="alert-heading">No adoption data available!</h4>
-            <p>No adoption data retrieved at this time. Please check back later.</p>
+        <div class="alert alert-warning d-flex align-items-center my-4" role="alert">
+            <i class="bi bi-info-circle fs-3 me-3" aria-hidden="true"></i>
+            <div>
+                <h4 class="alert-heading h5 mb-1">No adoption data available!</h4>
+                <p class="mb-0">No adoption data retrieved at this time. Please check back later.</p>
+            </div>
         </div>
     }
 </div>

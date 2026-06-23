@@ -29,6 +29,8 @@ gradle-app.setting
 # CDK synthesized output
 cdk.out/
 **/cdk.out/
+cdk.out.local/
+**/cdk.out.local/
 
 # Go binaries
 # cspell:ignore petadoptions
