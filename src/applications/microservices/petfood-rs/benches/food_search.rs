@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rust_decimal::prelude::FromPrimitive;
 use std::sync::Arc;
