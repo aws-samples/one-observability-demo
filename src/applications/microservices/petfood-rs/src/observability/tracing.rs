@@ -1,6 +1,7 @@
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
+    metrics::reader::DefaultTemporalitySelector,
     trace::{self, RandomIdGenerator, Sampler},
     Resource,
 };
@@ -22,7 +23,7 @@ pub enum ObservabilityError {
     Config(String),
 }
 
-/// Initialize comprehensive observability including OpenTelemetry tracing and structured logging
+/// Initialize comprehensive observability including OpenTelemetry tracing, metrics, and structured logging
 pub fn init_observability(
     service_name: &str,
     service_version: &str,
@@ -34,8 +35,14 @@ pub fn init_observability(
         service_name, service_version
     );
 
+    // Build shared resource for both traces and metrics
+    let resource = build_resource(service_name, service_version);
+
     // Initialize OpenTelemetry tracer
     let tracer = init_opentelemetry_tracer(service_name, service_version, otlp_endpoint)?;
+
+    // Initialize OpenTelemetry metrics pipeline (OTLP export)
+    init_opentelemetry_metrics(resource, otlp_endpoint)?;
 
     // Create OpenTelemetry layer
     let opentelemetry_layer = OpenTelemetryLayer::new(tracer);
@@ -147,6 +154,52 @@ macro_rules! warn_with_trace {
     };
 }
 
+/// Build the shared OTel resource describing this service
+fn build_resource(service_name: &str, service_version: &str) -> Resource {
+    let resource_attributes = vec![
+        KeyValue::new("service.name", service_name.to_string()),
+        KeyValue::new("service.version", service_version.to_string()),
+        KeyValue::new("service.namespace", "petadoptions"),
+        KeyValue::new("cloud.provider", "aws"),
+        KeyValue::new("cloud.platform", "aws_container"),
+        KeyValue::new("telemetry.sdk.name", "opentelemetry"),
+        KeyValue::new("telemetry.sdk.language", "rust"),
+        KeyValue::new("telemetry.sdk.version", "0.21.0"),
+    ];
+
+    Resource::new(resource_attributes)
+}
+
+/// Initialize the OpenTelemetry metrics pipeline with OTLP exporter
+fn init_opentelemetry_metrics(
+    resource: Resource,
+    otlp_endpoint: &str,
+) -> Result<(), ObservabilityError> {
+    info!("Initializing OpenTelemetry metrics pipeline");
+
+    let mut exporter = opentelemetry_otlp::new_exporter().tonic();
+
+    if !otlp_endpoint.is_empty() {
+        exporter = exporter.with_endpoint(otlp_endpoint);
+    } else {
+        exporter = exporter.with_endpoint("http://localhost:4317");
+    }
+
+    let meter_provider = opentelemetry_otlp::new_pipeline()
+        .metrics(opentelemetry_sdk::runtime::Tokio)
+        .with_exporter(exporter)
+        .with_resource(resource)
+        .with_period(Duration::from_secs(10))
+        .with_temporality_selector(DefaultTemporalitySelector::new())
+        .build()
+        .map_err(|e| ObservabilityError::Config(format!("Failed to init metrics: {}", e)))?;
+
+    global::set_meter_provider(meter_provider);
+
+    info!("OpenTelemetry metrics pipeline initialized successfully");
+    Ok(())
+}
+
 /// Initialize OpenTelemetry tracer with OTLP exporter for CloudWatch X-Ray integration
 fn init_opentelemetry_tracer(
     service_name: &str,
@@ -155,21 +208,7 @@ fn init_opentelemetry_tracer(
 ) -> Result<opentelemetry_sdk::trace::Tracer, ObservabilityError> {
     info!("Initializing OpenTelemetry tracer");
 
-    // Create resource with service information - platform agnostic
-    let resource_attributes = vec![
-        KeyValue::new("service.name", service_name.to_string()),
-        KeyValue::new("service.version", service_version.to_string()),
-        KeyValue::new("service.namespace", "petadoptions"),
-        KeyValue::new("cloud.provider", "aws"),
-        // Generic cloud platform - let the collector/X-Ray detect the actual platform
-        KeyValue::new("cloud.platform", "aws_container"),
-        // OpenTelemetry SDK information
-        KeyValue::new("telemetry.sdk.name", "opentelemetry"),
-        KeyValue::new("telemetry.sdk.language", "rust"),
-        KeyValue::new("telemetry.sdk.version", "1.44.1"),
-    ];
-
-    let resource = Resource::new(resource_attributes);
+    let resource = build_resource(service_name, service_version);
 
     // Configure OTLP exporter
     let mut exporter = opentelemetry_otlp::new_exporter().tonic();
