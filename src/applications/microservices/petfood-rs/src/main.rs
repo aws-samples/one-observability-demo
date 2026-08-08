@@ -9,7 +9,7 @@ use tracing::{info, warn};
 
 use petfood_rs::{
     handlers::{
-        admin, api, cors_middleware, health_check, metrics_handler, request_validation_middleware,
+        admin, api, cors_middleware, health_check, request_validation_middleware,
         security_headers_middleware,
     },
     init_observability,
@@ -88,13 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Configuration loaded successfully");
 
     // Initialize comprehensive observability
-    let prometheus_registry = init_observability(
+    init_observability(
         &config.observability.service_name,
         &config.observability.service_version,
         &config.observability.otlp_endpoint,
         config.observability.enable_json_logging,
     )?;
-    let prometheus_registry = Arc::new(prometheus_registry);
 
     info!("Starting petfood-rs service");
     info!(
@@ -163,7 +162,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build the application router
     let app = create_app(
         metrics,
-        prometheus_registry,
         food_service,
         cart_service,
         table_manager,
@@ -200,7 +198,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn create_app(
     metrics: Arc<Metrics>,
-    prometheus_registry: Arc<prometheus::Registry>,
     food_service: Arc<FoodService>,
     cart_service: Arc<CartService>,
     table_manager: Arc<TableManager>,
@@ -227,14 +224,8 @@ fn create_app(
     };
 
     Router::new()
-        // Health endpoint (no state needed)
+        // Health endpoint
         .route("/health/status", get(health_check))
-        // Prometheus metrics scrape endpoint (uses prometheus Registry state)
-        .merge(
-            Router::new()
-                .route("/metrics", get(metrics_handler))
-                .with_state(prometheus_registry),
-        )
         // API endpoints (with API state) - read-only food endpoints
         .route("/api/foods", get(api::list_foods))
         .route("/api/foods/:food_id", get(api::get_food))
