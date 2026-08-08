@@ -1,7 +1,7 @@
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    metrics::{reader::DefaultTemporalitySelector, MeterProvider, PeriodicReader},
+    metrics::reader::DefaultTemporalitySelector,
     trace::{self, RandomIdGenerator, Sampler},
     Resource,
 };
@@ -29,7 +29,7 @@ pub fn init_observability(
     service_version: &str,
     otlp_endpoint: &str,
     enable_json_logging: bool,
-) -> Result<prometheus::Registry, ObservabilityError> {
+) -> Result<(), ObservabilityError> {
     info!(
         "Initializing observability for service: {} v{}",
         service_name, service_version
@@ -41,8 +41,8 @@ pub fn init_observability(
     // Initialize OpenTelemetry tracer
     let tracer = init_opentelemetry_tracer(service_name, service_version, otlp_endpoint)?;
 
-    // Initialize OpenTelemetry metrics pipeline (OTLP export + Prometheus scrape)
-    let registry = init_opentelemetry_metrics(resource, otlp_endpoint)?;
+    // Initialize OpenTelemetry metrics pipeline (OTLP export)
+    init_opentelemetry_metrics(resource, otlp_endpoint)?;
 
     // Create OpenTelemetry layer
     let opentelemetry_layer = OpenTelemetryLayer::new(tracer);
@@ -98,7 +98,7 @@ pub fn init_observability(
     }
 
     info!("Observability initialized successfully");
-    Ok(registry)
+    Ok(())
 }
 
 /// Extract the current trace ID from the active span context
@@ -170,54 +170,34 @@ fn build_resource(service_name: &str, service_version: &str) -> Resource {
     Resource::new(resource_attributes)
 }
 
-/// Initialize the OpenTelemetry metrics pipeline with OTLP exporter and Prometheus scrape endpoint
+/// Initialize the OpenTelemetry metrics pipeline with OTLP exporter
 fn init_opentelemetry_metrics(
     resource: Resource,
     otlp_endpoint: &str,
-) -> Result<prometheus::Registry, ObservabilityError> {
-    info!("Initializing OpenTelemetry metrics pipeline (OTLP + Prometheus)");
+) -> Result<(), ObservabilityError> {
+    info!("Initializing OpenTelemetry metrics pipeline");
 
-    // --- OTLP periodic reader ---
-    let endpoint = if otlp_endpoint.is_empty() {
-        "http://localhost:4317"
+    let mut exporter = opentelemetry_otlp::new_exporter().tonic();
+
+    if !otlp_endpoint.is_empty() {
+        exporter = exporter.with_endpoint(otlp_endpoint);
     } else {
-        otlp_endpoint
-    };
+        exporter = exporter.with_endpoint("http://localhost:4317");
+    }
 
-    let otlp_exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .with_endpoint(endpoint)
-        .build_metrics_exporter(
-            Box::new(opentelemetry_sdk::metrics::reader::DefaultAggregationSelector::new()),
-            Box::new(DefaultTemporalitySelector::new()),
-        )
-        .map_err(|e| ObservabilityError::Config(format!("Failed to build OTLP exporter: {}", e)))?;
-
-    let otlp_reader = PeriodicReader::builder(otlp_exporter, opentelemetry_sdk::runtime::Tokio)
-        .with_interval(Duration::from_secs(10))
-        .build();
-
-    // --- Prometheus exporter reader ---
-    let registry = prometheus::Registry::new();
-
-    let prometheus_exporter = opentelemetry_prometheus::exporter()
-        .with_registry(registry.clone())
-        .build()
-        .map_err(|e| {
-            ObservabilityError::Config(format!("Failed to build Prometheus exporter: {}", e))
-        })?;
-
-    // Build MeterProvider with both readers
-    let meter_provider = MeterProvider::builder()
+    let meter_provider = opentelemetry_otlp::new_pipeline()
+        .metrics(opentelemetry_sdk::runtime::Tokio)
+        .with_exporter(exporter)
         .with_resource(resource)
-        .with_reader(otlp_reader)
-        .with_reader(prometheus_exporter)
-        .build();
+        .with_period(Duration::from_secs(10))
+        .with_temporality_selector(DefaultTemporalitySelector::new())
+        .build()
+        .map_err(|e| ObservabilityError::Config(format!("Failed to init metrics: {}", e)))?;
 
     global::set_meter_provider(meter_provider);
 
-    info!("OpenTelemetry metrics pipeline initialized (OTLP push + Prometheus scrape)");
-    Ok(registry)
+    info!("OpenTelemetry metrics pipeline initialized successfully");
+    Ok(())
 }
 
 /// Initialize OpenTelemetry tracer with OTLP exporter for CloudWatch X-Ray integration
