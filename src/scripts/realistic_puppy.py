@@ -12,6 +12,7 @@ control_strength is kept moderate so breed features (ear shape, muzzle,
 fur texture) come through while the original pose is preserved. Output is
 resized back to the exact input dimensions and saved as JPEG.
 """
+
 import base64
 import io
 import json

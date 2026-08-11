@@ -8,6 +8,7 @@ each image has its own coat-color description (the site filters by color) and a
 distinct rabbit breed so the faces/features differ. Output is resized back to
 the exact input dimensions and saved as JPEG.
 """
+
 import base64
 import io
 import json
