@@ -33,7 +33,10 @@ CONTROL_STRENGTH = 0.55
 # color filter stays accurate, while giving each face distinct features.
 DOGS = {
     "p1": ("Vizsla", "a golden-brown and tan coat"),
-    "p2": ("Brittany Spaniel", "a white coat with ginger-brown patches on the ears and face"),
+    "p2": (
+        "Brittany Spaniel",
+        "a white coat with ginger-brown patches on the ears and face",
+    ),
     "p3": ("Belgian Malinois", "a brown and tan coat with a darker brown muzzle"),
     "p4": ("Beagle", "a brown and white coat"),
     "p5": ("Great Pyrenees", "a pure white coat with a faint cream tint"),
@@ -41,11 +44,23 @@ DOGS = {
     "p7": ("Basenji", "a reddish-brown ginger coat with a white chest and muzzle"),
     "p8": ("Rhodesian Ridgeback", "a tan-brown coat with a white chest marking"),
     "p9": ("Border Collie", "a glossy black coat with a white patch on the chest"),
-    "p10": ("Labrador Retriever", "a glossy black coat with a small white marking on the chest"),
-    "p11": ("Cocker Spaniel", "a glossy black coat with a small white patch on the chest"),
+    "p10": (
+        "Labrador Retriever",
+        "a glossy black coat with a small white marking on the chest",
+    ),
+    "p11": (
+        "Cocker Spaniel",
+        "a glossy black coat with a small white patch on the chest",
+    ),
     "p12": ("Flat-Coated Retriever", "a solid glossy black coat"),
-    "p13": ("Rottweiler", "a black-and-tan coat with tan markings on the eyebrows, muzzle, ears and legs"),
-    "p14": ("Jack Russell Terrier", "a predominantly white coat with only small apricot-tan patches on the ears"),
+    "p13": (
+        "Rottweiler",
+        "a black-and-tan coat with tan markings on the eyebrows, muzzle, ears and legs",
+    ),
+    "p14": (
+        "Jack Russell Terrier",
+        "a predominantly white coat with only small apricot-tan patches on the ears",
+    ),
     "p15": ("Samoyed", "a white and cream coat"),
 }
 

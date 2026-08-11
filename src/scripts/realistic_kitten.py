@@ -29,11 +29,23 @@ CONTROL_STRENGTH = 0.55
 # Breeds chosen to MATCH each kitten's original coat color (so the color filter
 # stays accurate) while giving each face distinct features.
 KITTENS = {
-    "k1": ("white Turkish Angora kitten", "a pure white coat with the faintest peach tint on the ears"),
-    "k2": ("brown tabby American Shorthair kitten", "a brown and gray classic tabby coat with dark swirled markings"),
+    "k1": (
+        "white Turkish Angora kitten",
+        "a pure white coat with the faintest peach tint on the ears",
+    ),
+    "k2": (
+        "brown tabby American Shorthair kitten",
+        "a brown and gray classic tabby coat with dark swirled markings",
+    ),
     "k3": ("white Ragdoll kitten", "a soft pure white coat"),
-    "k4": ("brown tabby domestic longhair kitten", "a brown and ginger classic tabby coat with a white chin"),
-    "k5": ("orange tabby Bengal kitten", "a ginger-brown tabby coat with dark stripes and a white muzzle"),
+    "k4": (
+        "brown tabby domestic longhair kitten",
+        "a brown and ginger classic tabby coat with a white chin",
+    ),
+    "k5": (
+        "orange tabby Bengal kitten",
+        "a ginger-brown tabby coat with dark stripes and a white muzzle",
+    ),
     "k6": ("black Bombay kitten", "a glossy solid black coat"),
     "k7": ("black Bombay kitten", "a glossy solid black coat"),
 }

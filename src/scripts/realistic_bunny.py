@@ -29,10 +29,22 @@ CONTROL_STRENGTH = 0.55
 # stays accurate) while giving each face distinct features. All originals have
 # upright ears, so no lop breeds.
 BUNNIES = {
-    "b1": ("Flemish Giant rabbit", "a chestnut-agouti brown coat with black ticking, tan sides and a white belly"),
-    "b2": ("Belgian Hare rabbit", "a rich reddish-brown chestnut coat with tan and white markings"),
-    "b3": ("chestnut Rex rabbit", "a chestnut-agouti brown coat with tan and white markings and dense plush velvet fur"),
-    "b4": ("broken-pattern Rex rabbit", "a predominantly white coat with fawn-orange patches on the ears and around the eyes and nose"),
+    "b1": (
+        "Flemish Giant rabbit",
+        "a chestnut-agouti brown coat with black ticking, tan sides and a white belly",
+    ),
+    "b2": (
+        "Belgian Hare rabbit",
+        "a rich reddish-brown chestnut coat with tan and white markings",
+    ),
+    "b3": (
+        "chestnut Rex rabbit",
+        "a chestnut-agouti brown coat with tan and white markings and dense plush velvet fur",
+    ),
+    "b4": (
+        "broken-pattern Rex rabbit",
+        "a predominantly white coat with fawn-orange patches on the ears and around the eyes and nose",
+    ),
 }
 
 PROMPT_TMPL = (
