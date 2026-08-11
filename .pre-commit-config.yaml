@@ -24,6 +24,11 @@ repos:
       rev: v1.4.2
       hooks:
           - id: python-safety-dependencies-check
+            # Ignore CVE-2026-25645 (requests insecure temp-file reuse):
+            # advisory says fixed in >=2.33.0, but that release is not yet
+            # published on PyPI, so there is no version to upgrade to. Remove
+            # this ignore once a fixed requests release is available.
+            args: ["--ignore=90553"]
     - repo: https://github.com/Yelp/detect-secrets
       rev: v1.5.0
       hooks:

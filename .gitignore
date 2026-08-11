@@ -489,3 +489,9 @@ generated_images/
 **/node_modules/**
 
 **/ash_output/**
+.omni/
+.claude/
+.github/
+.cursor/
+.kiro/
+.agents/
