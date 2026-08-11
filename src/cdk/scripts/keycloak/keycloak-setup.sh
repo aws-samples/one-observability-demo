@@ -39,7 +39,10 @@ WORKSPACE_ENDPOINT=""
 KEYCLOAK_ADMIN_PASSWORD=""
 KEYCLOAK_USER_ADMIN_PASSWORD=""
 KEYCLOAK_USER_EDITOR_PASSWORD=""
+KEYCLOAK_USER_VIEWER_PASSWORD=""
 SAML_URL=""
+CF_DOMAIN=""
+CF_ID=""
 
 # ------------------------------------------------------------------------------
 # Helpers
@@ -500,6 +503,7 @@ configure_keycloak() {
 
   KEYCLOAK_USER_ADMIN_PASSWORD="$(openssl rand -base64 12 | tr -d '\n')"
   KEYCLOAK_USER_EDITOR_PASSWORD="$(openssl rand -base64 12 | tr -d '\n')"
+  KEYCLOAK_USER_VIEWER_PASSWORD="$(openssl rand -base64 12 | tr -d '\n')"
 
   get_keycloak_admin_password
 
@@ -570,7 +574,8 @@ else
   "roles": {
     "realm": [
       { "name": "admin" },
-      { "name": "editor" }
+      { "name": "editor" },
+      { "name": "viewer" }
     ]
   },
   "users": [
@@ -587,6 +592,13 @@ else
       "enabled": true,
       "firstName": "Editor",
       "realmRoles": ["editor"]
+    },
+    {
+      "username": "viewer",
+      "email": "viewer@keycloak",
+      "enabled": true,
+      "firstName": "Viewer",
+      "realmRoles": ["viewer"]
     }
   ],
   "clients": [
@@ -712,9 +724,11 @@ fi
 
 ADMIN_ID="$(get_user_id "$KC_REALM" admin)"
 EDITOR_ID="$(get_user_id "$KC_REALM" editor)"
+VIEWER_ID="$(get_user_id "$KC_REALM" viewer)"
 
 [[ -n "$ADMIN_ID" ]] || { echo "Admin user not found"; exit 1; }
 [[ -n "$EDITOR_ID" ]] || { echo "Editor user not found"; exit 1; }
+[[ -n "$VIEWER_ID" ]] || { echo "Viewer user not found"; exit 1; }
 
 "$KCADM" update "users/${ADMIN_ID}" -r "$KC_REALM" \
   -s "credentials=[{\"type\":\"password\",\"value\":\"${KC_REALM_ADMIN_PASSWORD}\",\"temporary\":false}]" \
@@ -722,6 +736,10 @@ EDITOR_ID="$(get_user_id "$KC_REALM" editor)"
 
 "$KCADM" update "users/${EDITOR_ID}" -r "$KC_REALM" \
   -s "credentials=[{\"type\":\"password\",\"value\":\"${KC_REALM_EDITOR_PASSWORD}\",\"temporary\":false}]" \
+  --config /tmp/kcadm.config >/dev/null
+
+"$KCADM" update "users/${VIEWER_ID}" -r "$KC_REALM" \
+  -s "credentials=[{\"type\":\"password\",\"value\":\"${KC_REALM_VIEWER_PASSWORD}\",\"temporary\":false}]" \
   --config /tmp/kcadm.config >/dev/null
 
 echo "Keycloak realm configuration completed."
@@ -738,6 +756,7 @@ EOF
     WORKSPACE_ENDPOINT="$WORKSPACE_ENDPOINT" \
     KC_REALM_ADMIN_PASSWORD="$KEYCLOAK_USER_ADMIN_PASSWORD" \
     KC_REALM_EDITOR_PASSWORD="$KEYCLOAK_USER_EDITOR_PASSWORD" \
+    KC_REALM_VIEWER_PASSWORD="$KEYCLOAK_USER_VIEWER_PASSWORD" \
     bash /tmp/keycloak-config.sh \
     || die "Failed to configure Keycloak."
 
@@ -745,7 +764,7 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
-# Load balancer / SAML URL
+# Load balancer / CloudFront / SAML URL
 # ------------------------------------------------------------------------------
 wait_for_load_balancer() {
   log "Waiting for Keycloak service load balancer hostname..."
@@ -798,7 +817,87 @@ wait_for_load_balancer() {
   done
 
   log "Target health is healthy."
-  SAML_URL="http://${hostname}/realms/${KEYCLOAK_REALM}/protocol/saml/descriptor"
+
+  create_cloudfront_distribution "$hostname"
+
+  SAML_URL="https://${CF_DOMAIN}/realms/${KEYCLOAK_REALM}/protocol/saml/descriptor"
+}
+
+create_cloudfront_distribution() {
+  local origin_hostname="$1"
+
+  log "Creating CloudFront distribution for Keycloak HTTPS..."
+
+  local existing_cf
+  existing_cf="$(
+    aws cloudfront list-distributions --query \
+      "DistributionList.Items[?Origins.Items[0].DomainName==\`$origin_hostname\`].{Id:Id,Domain:DomainName}" \
+      --output json 2>/dev/null | jq -r '.[0] // empty'
+  )"
+
+  if [[ -n "$existing_cf" && "$existing_cf" != "null" ]]; then
+    CF_DOMAIN="$(echo "$existing_cf" | jq -r '.Domain')"
+    CF_ID="$(echo "$existing_cf" | jq -r '.Id')"
+    log "CloudFront distribution already exists: $CF_DOMAIN ($CF_ID)"
+    return
+  fi
+
+  local cf_config
+  cf_config="$(cat <<CFEOF
+{
+  "CallerReference": "keycloak-$(date +%s)",
+  "Comment": "HTTPS front for Keycloak SAML IdP",
+  "Enabled": true,
+  "Origins": {
+    "Quantity": 1,
+    "Items": [{
+      "Id": "keycloak-elb",
+      "DomainName": "${origin_hostname}",
+      "CustomOriginConfig": {
+        "HTTPPort": 80,
+        "HTTPSPort": 443,
+        "OriginProtocolPolicy": "http-only",
+        "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]}
+      }
+    }]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "keycloak-elb",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {"Quantity": 7, "Items": ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"], "CachedMethods": {"Quantity": 2, "Items": ["GET","HEAD"]}},
+    "ForwardedValues": {
+      "QueryString": true,
+      "Cookies": {"Forward": "all"},
+      "Headers": {"Quantity": 4, "Items": ["Host","Origin","Accept","Content-Type"]}
+    },
+    "MinTTL": 0, "DefaultTTL": 0, "MaxTTL": 0
+  },
+  "ViewerCertificate": {"CloudFrontDefaultCertificate": true},
+  "PriceClass": "PriceClass_100",
+  "HttpVersion": "http2",
+  "IsIPV6Enabled": true,
+  "Restrictions": {"GeoRestriction": {"RestrictionType": "none", "Quantity": 0}}
+}
+CFEOF
+)"
+
+  local cf_result
+  cf_result="$(aws cloudfront create-distribution \
+    --distribution-config "$cf_config" --output json)"
+  CF_DOMAIN="$(echo "$cf_result" | jq -r '.Distribution.DomainName')"
+  CF_ID="$(echo "$cf_result" | jq -r '.Distribution.Id')"
+  log "Created CloudFront distribution: $CF_DOMAIN ($CF_ID)"
+
+  log "Waiting for CloudFront distribution to deploy..."
+  local cf_status
+  for i in $(seq 1 60); do
+    cf_status="$(aws cloudfront get-distribution --id "$CF_ID" \
+      --query 'Distribution.Status' --output text 2>/dev/null || true)"
+    [[ "$cf_status" == "Deployed" ]] && break
+    log "CloudFront status: $cf_status ($i/60)"
+    sleep 15
+  done
+  log "CloudFront distribution deployed."
 }
 
 # ------------------------------------------------------------------------------
@@ -820,7 +919,7 @@ update_workspace_saml_auth() {
   "loginValidityDuration": 120,
   "roleValues": {
     "admin": ["admin"],
-    "editor": ["editor"]
+    "editor": ["editor", "viewer"]
   }
 }
 EOF
@@ -892,6 +991,12 @@ print_final_credentials() {
   echo "-------------------"
   echo ""
   echo "-------------------"
+  echo "CloudFront HTTPS URL"
+  echo "-------------------"
+  echo "URL: https://${CF_DOMAIN}/"
+  echo "Distribution ID: ${CF_ID}"
+  echo ""
+  echo "-------------------"
   echo "Keycloak (master realm) admin console credentials"
   echo "-------------------"
   echo "username: ${KEYCLOAK_ADMIN_USER}"
@@ -903,6 +1008,7 @@ print_final_credentials() {
   echo "realm: ${KEYCLOAK_REALM}"
   echo "admin  password: ${KEYCLOAK_USER_ADMIN_PASSWORD}"
   echo "editor password: ${KEYCLOAK_USER_EDITOR_PASSWORD}"
+  echo "viewer password: ${KEYCLOAK_USER_VIEWER_PASSWORD}"
   echo ""
   echo "SAML metadata URL: ${SAML_URL}"
   echo ""
