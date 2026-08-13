@@ -43,6 +43,7 @@ import {
     ComputeType,
     CUSTOM_ENABLE_SLO,
     CUSTOM_ENABLE_WAF,
+    CUSTOM_ENABLE_ZEUS,
     ENABLE_OPENSEARCH,
     ENABLE_PET_FOOD_AGENT,
     HostType,
@@ -52,6 +53,7 @@ import {
     CloudWatchAgentTraceMode,
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
+    CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
 } from '../../bin/constants';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
@@ -85,6 +87,8 @@ import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
+import { ManagedPrometheusCollector } from '../constructs/managed-prometheus-collector';
+import { MetricEnrichmentPipeline } from '../constructs/metric-enrichment-pipeline';
 
 /** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
@@ -479,6 +483,30 @@ export class MicroservicesStack extends Stack {
                     securityGroups: [imports.ecsExports.securityGroup],
                 });
             }
+        }
+
+        // Zeus: Managed Prometheus Collector + Metric Enrichment Pipeline
+        if (CUSTOM_ENABLE_ZEUS) {
+            const cloudMapNamespaceName = Fn.importValue(CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME);
+            const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
+
+            const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
+                vpc: imports.vpcExports,
+                securityGroup: imports.ecsExports.securityGroup,
+                privateSubnetIds: privateSubnetIds,
+                cloudMapNamespaceName: cloudMapNamespaceName,
+                targetServices: [
+                    { name: 'payforadoption-go', port: 8080 },
+                    { name: 'petlistadoption-py', port: 8080 },
+                ],
+            });
+
+            const pipeline = new MetricEnrichmentPipeline(this, 'MetricEnrichmentPipeline', {
+                targetServiceNames: ['payforadoption-go', 'petlistadoption-py'],
+            });
+
+            // Ensure pipeline is created after scraper for ordering
+            pipeline.node.addDependency(collector);
         }
     }
 
