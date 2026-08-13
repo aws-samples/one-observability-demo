@@ -53,7 +53,6 @@ import {
     CloudWatchAgentTraceMode,
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
-    CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
 } from '../../bin/constants';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
