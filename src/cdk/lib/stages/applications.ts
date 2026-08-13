@@ -53,6 +53,7 @@ import {
     CloudWatchAgentTraceMode,
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
+    CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
 } from '../../bin/constants';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
@@ -92,6 +93,7 @@ import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
 import { ManagedPrometheusCollector } from '../constructs/managed-prometheus-collector';
+import { MetricEnrichmentPipeline } from '../constructs/metric-enrichment-pipeline';
 
 /** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
@@ -525,6 +527,7 @@ export class MicroservicesStack extends Stack {
                 });
             }
         }
+<<<<<<< HEAD
 
         // Gateway fronts the runtimes (ingress + delegation); one shared Memory serves all agents.
         if (ENABLE_WAGGLE_AI_AGENTS && agentGatewayTargets.length > 0) {
