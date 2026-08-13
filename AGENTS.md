@@ -161,6 +161,22 @@ Cross-stack wiring uses CloudFormation exports and SSM parameters — names cent
 | Cleanup resources | `src/cdk/scripts/cleanup-resources.ts` (`npm run cleanup`), docs `operations/cleanup.md` |
 | Local port-forward to ECS | `src/cdk/scripts/ecs-port-forward.sh` |
 
+## 11. Production deployment gotchas
+
+These were discovered during actual deployment and are not obvious from reading the code alone:
+
+- **CloudFormation template exceeds inline limit.** The `codebuild-deployment-template.yaml` is ~75KB, exceeding CloudFormation's 51,200-byte `--template-body` limit. You must upload it to S3 first and use `--template-url` instead.
+- **CDK bootstrap qualifier conflict.** The bootstrap script (`scripts/bootstrap-account.sh`) creates a stack named `CDKToolkitPetsite` with qualifier `petsite`. If the account was previously bootstrapped with qualifier `petsite` under a different stack name (e.g., the default `CDKToolkit`), the deploy fails with: `Export with name CdkBootstrap-petsite-FileAssetKeyArn is already exported by stack CDKToolkit`. **Fix:** delete the conflicting bootstrap stack and its resources before deploying:
+  - IAM roles: `cdk-petsite-*-<account>-<region>` (5 roles — cfn-exec, deploy, file-publishing, image-publishing, lookup)
+  - S3 bucket: `cdk-petsite-assets-<account>-<region>` (versioned — must delete all object versions)
+  - SSM parameter: `/cdk-bootstrap/petsite/version`
+  - ECR repository: `cdk-petsite-container-assets-<account>-<region>`
+- **Tag parameters 4 and 5 are required by the CLI.** The `pUserDefinedTagKey4/5` and `pUserDefinedTagValue4/5` parameters have no `Default:` value in the template. When deploying via CLI, you must explicitly pass them (even as empty strings): `'ParameterKey=pUserDefinedTagKey4,ParameterValue='`.
+- **Actual pipeline stages differ from §6.** The live pipeline has **7 stages** (not the 5 described in the architecture): `Source → Build → UpdatePipeline → Assets → Core → Backend → Microservices`. The "Containers" stage is embedded in `Assets`, and Storage+Compute are merged into `Backend`.
+- **Stack deletion fails on `rCleanupMonitor`.** If the deployment fails before any CDK application stacks are created, deleting the main CloudFormation stack fails because `rCleanupMonitor` (a custom resource) tries to run a Step Function that deletes non-existent CDK stacks. **Fix:** `aws cloudformation delete-stack --retain-resources rCleanupMonitor --stack-name <stack>`.
+- **Full deployment timing.** Production deploy (CloudFormation → CodeBuild → CDK Pipeline) takes ~40–50 minutes total: ~2 min for CFN resources, ~5 min for CodeBuild pre_build (clone + bootstrap), ~5 min for CDK synth+deploy of the pipeline stack, ~30 min for the pipeline stages (Core, Backend, Microservices).
+- **Application URL is CloudFront, not ALB.** The PetSite is served via CloudFront (not directly via ALB). The URL is in stack output `oPetSiteUrl` and CloudFormation export `public:WorkshopPetSiteUrl`. It redirects to `/?userId=<random>` for traffic tracking/RUM.
+
 ## Maintenance
 
 Regenerate this file by re-running the Repo Cartographer agent when the repo structure, stages, or service list changes. Cross-check claims against the cited files (paths above) since code evolves. Generated on **2026-08-10**.
