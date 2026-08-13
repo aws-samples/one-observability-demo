@@ -53,7 +53,6 @@ import {
     CloudWatchAgentTraceMode,
     ECS_CLUSTER_NAME_EXPORT_NAME,
     ECS_SECURITY_GROUP_ID_EXPORT_NAME,
-    CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME,
 } from '../../bin/constants';
 import { PayForAdoptionService } from '../microservices/pay-for-adoption';
 import { AuroraDatabase } from '../constructs/database';
@@ -487,7 +486,7 @@ export class MicroservicesStack extends Stack {
 
         // Zeus: Managed Prometheus Collector + Metric Enrichment Pipeline
         if (CUSTOM_ENABLE_ZEUS) {
-            const cloudMapNamespaceName = Fn.importValue(CLOUDMAP_NAMESPACE_NAME_EXPORT_NAME);
+            const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
             const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
 
             const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
