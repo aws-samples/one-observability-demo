@@ -8,6 +8,8 @@ export * from './eks';
 export * from './eks-deployment';
 export * from './eventbus';
 export * from './lambda';
+export * from './managed-prometheus-collector';
+export * from './metric-enrichment-pipeline';
 export * from './microservice';
 export * from './network';
 export * from './opensearch-application';
