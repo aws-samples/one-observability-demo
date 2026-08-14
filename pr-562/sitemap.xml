@@ -181,6 +181,18 @@
          <lastmod>2026-08-14</lastmod>
     </url>
     <url>
+         <loc>https://aws-samples.github.io/one-observability-demo/api/constructs/managed-prometheus-collector/</loc>
+         <lastmod>2026-08-14</lastmod>
+    </url>
+    <url>
+         <loc>https://aws-samples.github.io/one-observability-demo/api/constructs/managed-prometheus-collector/classes/ManagedPrometheusCollector/</loc>
+         <lastmod>2026-08-14</lastmod>
+    </url>
+    <url>
+         <loc>https://aws-samples.github.io/one-observability-demo/api/constructs/managed-prometheus-collector/interfaces/ManagedPrometheusCollectorProps/</loc>
+         <lastmod>2026-08-14</lastmod>
+    </url>
+    <url>
          <loc>https://aws-samples.github.io/one-observability-demo/api/constructs/microservice/</loc>
          <lastmod>2026-08-14</lastmod>
     </url>
