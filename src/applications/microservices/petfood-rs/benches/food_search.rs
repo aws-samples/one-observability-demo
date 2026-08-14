@@ -1,4 +1,8 @@
-#![recursion_limit = "256"]
+// Raise the trait-resolution recursion limit: newer rustc versions overflow
+// the default depth limit ("queries overflow the depth limit!") when resolving
+// the deeply-nested generic types in this criterion benchmark.
+#![recursion_limit = "512"]
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rust_decimal::prelude::FromPrimitive;
 use std::sync::Arc;
