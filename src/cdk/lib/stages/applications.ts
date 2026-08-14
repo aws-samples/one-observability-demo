@@ -496,12 +496,15 @@ export class MicroservicesStack extends Stack {
                 cloudMapNamespaceName: cloudMapNamespaceName,
                 targetServices: [
                     { name: 'payforadoption-go', port: 8080 },
+                    // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
+                ],
+                additionalUpdateTargets: [
                     { name: 'petlistadoption-py', port: 8080 },
                 ],
             });
 
             const pipeline = new MetricEnrichmentPipeline(this, 'MetricEnrichmentPipeline', {
-                targetServiceNames: ['payforadoption-go', 'petlistadoption-py'],
+                targetServiceNames: ['payforadoption-go', 'petlistadoption-py', 'petfood-api-rs'],
             });
 
             // Ensure pipeline is created after scraper for ordering

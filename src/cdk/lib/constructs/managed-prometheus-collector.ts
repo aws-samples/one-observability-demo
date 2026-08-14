@@ -43,6 +43,8 @@ export interface ManagedPrometheusCollectorProps {
     readonly cloudMapNamespaceName: string;
     /** Target services to scrape (name + port) */
     readonly targetServices: { name: string; port: number }[];
+    /** Additional targets for the "full" scrape config (stored in a separate SSM param for hands-on update-scraper exercise) */
+    readonly additionalUpdateTargets?: { name: string; port: number }[];
     /** CloudWatch dataset ARN for metric destination (default: account default dataset) */
     readonly datasetArn?: string;
     /** Alias for the scraper (default: 'workshop-ecs-collector') */
@@ -64,6 +66,8 @@ export class ManagedPrometheusCollector extends Construct {
     public readonly scraperArn: string;
     /** The raw scrape configuration YAML (not base64-encoded) */
     public readonly scrapeConfigYaml: string;
+    /** The full scrape config YAML including additional update targets (for hands-on exercise) */
+    public readonly updateScrapeConfigYaml?: string;
 
     constructor(scope: Construct, id: string, props: ManagedPrometheusCollectorProps) {
         super(scope, id);
@@ -166,6 +170,20 @@ export class ManagedPrometheusCollector extends Construct {
             stringValue: alias,
             description: 'Managed Prometheus Collector alias',
         });
+
+        // If additional update targets are provided, generate a full scrape config
+        // containing BOTH initial services and the additional targets.
+        // This is stored in a separate SSM parameter for the hands-on update-scraper exercise.
+        if (props.additionalUpdateTargets && props.additionalUpdateTargets.length > 0) {
+            const allTargets = [...props.targetServices, ...props.additionalUpdateTargets];
+            this.updateScrapeConfigYaml = this.buildScrapeConfig(allTargets, props.cloudMapNamespaceName);
+
+            new StringParameter(this, 'ScrapeConfigWithAllTargetsParam', {
+                parameterName: `${parameterPrefix}/scrape-config-yaml-with-all-targets`,
+                stringValue: this.updateScrapeConfigYaml,
+                description: 'Full scrape configuration YAML with all targets (used for hands-on update-scraper exercise)',
+            });
+        }
     }
 
     /**
