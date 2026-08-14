@@ -6,13 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 /**
  * CloudWatch Metric Enrichment Pipeline construct for the One Observability Workshop.
  *
- * Creates a CloudWatch Telemetry Pipeline that enriches metrics collected by the
- * Managed Prometheus Collector with additional attributes (e.g., workshop context,
- * collection method). Uses the native L1 `CfnTelemetryPipelines` construct.
+ * Creates a CloudWatch Telemetry Pipeline that enriches metrics from ECS services
+ * with additional attributes (e.g., workshop context, collection method).
+ * Uses the native L1 `CfnTelemetryPipelines` construct.
  *
- * The pipeline matches metrics by their `cloudmap_namespace` resource attribute,
- * which is set by the scraper's relabel_configs. This provides a single pipeline
- * that covers all services scraped by the managed collector.
+ * The pipeline uses OR-style multiple selection_criteria entries to match metrics
+ * by `service.name` resource attribute. This covers ALL services regardless of
+ * collection method — both Prometheus-scraped metrics and OTel SDK pushed metrics.
  *
  * @packageDocumentation
  */
@@ -27,12 +27,10 @@ import { CfnTelemetryPipelines } from 'aws-cdk-lib/aws-observabilityadmin';
 export interface MetricEnrichmentPipelineProps {
     /** Name of the telemetry pipeline (default: 'workshop-metric-enrichment') */
     readonly pipelineName?: string;
-    /** Target service names (used for documentation; matching is by cloudmap_namespace) */
+    /** Target service names used to build OR-style selection criteria matching by service.name */
     readonly targetServiceNames: string[];
     /** Attributes to add to matched metrics (default: workshop context) */
     readonly enrichmentAttributes?: Record<string, string>;
-    /** Cloud Map namespace name used in selection criteria */
-    readonly cloudMapNamespaceName?: string;
     /** SSM parameter prefix (default: '/petstore/metric-enrichment') */
     readonly parameterPrefix?: string;
 }
@@ -54,7 +52,6 @@ export class MetricEnrichmentPipeline extends Construct {
 
         this.pipelineName = props.pipelineName ?? 'workshop-metric-enrichment';
         const parameterPrefix = props.parameterPrefix ?? '/petstore/metric-enrichment';
-        const cloudMapNamespaceName = props.cloudMapNamespaceName ?? 'Workshop-space';
 
         const enrichmentAttributes: Record<string, string> = props.enrichmentAttributes ?? {
             collected_by: 'managed_collector',
@@ -63,7 +60,7 @@ export class MetricEnrichmentPipeline extends Construct {
         };
 
         // Build the pipeline YAML configuration
-        this.enrichmentConfigYaml = this.buildPipelineConfig(cloudMapNamespaceName, enrichmentAttributes);
+        this.enrichmentConfigYaml = this.buildPipelineConfig(props.targetServiceNames, enrichmentAttributes);
 
         // Create the telemetry pipeline using the L1 construct
         const pipeline = new CfnTelemetryPipelines(this, 'Pipeline', {
@@ -98,11 +95,12 @@ export class MetricEnrichmentPipeline extends Construct {
     /**
      * Builds the telemetry pipeline YAML configuration.
      *
-     * Uses a broad match on `cloudmap_namespace` to select all metrics
-     * collected by the managed Prometheus collector via Cloud Map discovery.
+     * Uses OR-style multiple selection_criteria entries to match metrics from
+     * all target services regardless of collection method (scraped or OTLP-pushed).
+     * Each entry matches by `service.name` resource attribute.
      */
     private buildPipelineConfig(
-        cloudMapNamespaceName: string,
+        targetServiceNames: string[],
         enrichmentAttributes: Record<string, string>,
     ): string {
         const attributeEntries = Object.entries(enrichmentAttributes)
@@ -113,13 +111,20 @@ export class MetricEnrichmentPipeline extends Construct {
             )
             .join('\n');
 
+        const selectionCriteriaEntries = targetServiceNames
+            .map(
+                (name) =>
+                    `        - match_all:
+            - 'resource.attributes["service.name"] == "${name}"'`,
+            )
+            .join('\n');
+
         return `pipeline:
   source:
     cloudwatch_metrics:
       format: otlp
       selection_criteria:
-        - match_all:
-            - 'resource.attributes["cloudmap_namespace"] == "${cloudMapNamespaceName}"'
+${selectionCriteriaEntries}
   processor:
     - add_attributes:
         attributes:
