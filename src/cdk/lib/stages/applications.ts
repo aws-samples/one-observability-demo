@@ -87,7 +87,6 @@ import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
 import { ManagedPrometheusCollector } from '../constructs/managed-prometheus-collector';
-import { MetricEnrichmentPipeline } from '../constructs/metric-enrichment-pipeline';
 
 /** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
@@ -502,13 +501,6 @@ export class MicroservicesStack extends Stack {
                     { name: 'petlistadoption-py', port: 8080 },
                 ],
             });
-
-            const pipeline = new MetricEnrichmentPipeline(this, 'MetricEnrichmentPipeline', {
-                targetServiceNames: ['payforadoption-go', 'petlistadoption-py', 'petfood-api-rs'],
-            });
-
-            // Ensure pipeline is created after scraper for ordering
-            pipeline.node.addDependency(collector);
         }
     }
 
