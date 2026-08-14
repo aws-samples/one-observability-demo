@@ -526,7 +526,6 @@ export class MicroservicesStack extends Stack {
                 });
             }
         }
-<<<<<<< HEAD
 
         // Gateway fronts the runtimes (ingress + delegation); one shared Memory serves all agents.
         if (ENABLE_WAGGLE_AI_AGENTS && agentGatewayTargets.length > 0) {
@@ -570,6 +569,13 @@ export class MicroservicesStack extends Stack {
                     { name: 'petlistadoption-py', port: 8080 },
                 ],
             });
+
+            const pipeline = new MetricEnrichmentPipeline(this, 'MetricEnrichmentPipeline', {
+                targetServiceNames: ['payforadoption-go', 'petlistadoption-py', 'petfood-api-rs'],
+            });
+
+            // Ensure pipeline is created after scraper for ordering
+            pipeline.node.addDependency(collector);
         }
     }
 
