@@ -174,6 +174,8 @@ export class PetFoodAgentConstruct extends Construct {
                 AWS_REGION: Stack.of(this).region,
                 SEARCH_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
                 PETFOOD_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.FOOD_API_URL,
+                AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT: 'true',
+                AGENT_OBSERVABILITY_ENABLED: 'true',
             },
             protocolConfiguration: 'HTTP',
         });
