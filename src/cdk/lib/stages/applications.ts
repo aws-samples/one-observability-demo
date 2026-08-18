@@ -43,7 +43,6 @@ import {
     ComputeType,
     CUSTOM_ENABLE_SLO,
     CUSTOM_ENABLE_WAF,
-    CUSTOM_ENABLE_ZEUS,
     ENABLE_OPENSEARCH,
     ENABLE_PET_FOOD_AGENT,
     HostType,
@@ -483,25 +482,23 @@ export class MicroservicesStack extends Stack {
             }
         }
 
-        // Zeus: Managed Prometheus Collector + Metric Enrichment Pipeline
-        if (CUSTOM_ENABLE_ZEUS) {
-            const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
-            const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
+        // Managed Prometheus Collector - scrapes ECS services and delivers to CloudWatch
+        const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
+        const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
 
-            const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
-                vpc: imports.vpcExports,
-                securityGroup: imports.ecsExports.securityGroup,
-                privateSubnetIds: privateSubnetIds,
-                cloudMapNamespaceName: cloudMapNamespaceName,
-                targetServices: [
-                    { name: 'payforadoption-go', port: 8080 },
-                    // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
-                ],
-                additionalUpdateTargets: [
-                    { name: 'petlistadoption-py', port: 8080 },
-                ],
-            });
-        }
+        const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
+            vpc: imports.vpcExports,
+            securityGroup: imports.ecsExports.securityGroup,
+            privateSubnetIds: privateSubnetIds,
+            cloudMapNamespaceName: cloudMapNamespaceName,
+            targetServices: [
+                { name: 'payforadoption-go', port: 8080 },
+                // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
+            ],
+            additionalUpdateTargets: [
+                { name: 'petlistadoption-py', port: 8080 },
+            ],
+        });
     }
 
     private createCanariesAndLambdas(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {

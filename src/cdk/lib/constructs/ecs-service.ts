@@ -683,30 +683,34 @@ export abstract class EcsService extends Microservice {
             logs: {
                 metrics_collected: {},
             },
+            metrics: {
+                metrics_collected: {},
+            },
         };
 
         const tracesCollected = (config.traces as { traces_collected: Record<string, unknown> }).traces_collected;
-        const metricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
+        const logsMetricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
+        const metricsCollected = (config.metrics as { metrics_collected: Record<string, unknown> }).metrics_collected;
 
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
                 // AWS Application Signals configuration - provides automatic service maps and metrics
                 tracesCollected.application_signals = {};
-                metricsCollected.application_signals = {};
+                logsMetricsCollected.application_signals = {};
                 break;
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
-                // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
+                // OpenTelemetry Protocol - receives OTLP for both traces (→ X-Ray) and metrics (→ CloudWatch)
                 tracesCollected.otlp = {};
-                // Note: OTLP mode doesn't include Application Signals metrics collection
+                metricsCollected.otlp = {};
                 break;
             }
 
             default: {
                 // Default to Application Signals for backward compatibility
                 tracesCollected.application_signals = {};
-                metricsCollected.application_signals = {};
+                logsMetricsCollected.application_signals = {};
             }
         }
 
