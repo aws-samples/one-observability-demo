@@ -89,6 +89,15 @@ export const TAGS = {
     environment: 'non-prod',
     application: 'One Observability Workshop',
     stackName: process.env.STACK_NAME || 'MissingStackName',
+    /**
+     * Exempts all workshop resources from AWS SpringClean's daily stop cycle.
+     * Without this, SpringClean scales EC2/ASG-backed resources (e.g. the EKS
+     * managed nodegroup's Auto Scaling Group) to zero at shift end, taking down
+     * the EKS-hosted PetSite frontend outside business hours. This only
+     * controls the *stop* action; deletion is separately governed by the
+     * `auto-delete` tag applied at the top-level CloudFormation stack.
+     */
+    'auto-stop': 'no',
 };
 
 /** Default retention period for logs */
