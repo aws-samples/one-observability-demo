@@ -355,6 +355,8 @@ body {
 }
 
 .pet-button {
+    font-family: var(--pet-font);
+    font-weight: 500;
     border-radius: var(--pet-radius);
     background-color: var(--pet-teal);
     border: 0;
