@@ -127,6 +127,10 @@ export class ManagedPrometheusCollector extends Construct {
                 parameters: {
                     scraperId: new PhysicalResourceIdReference(),
                 },
+                // Ignore ValidationException on delete: if the create failed, physicalResourceId
+                // may be a placeholder that fails scraperId regex validation. Ignoring lets the
+                // stack clean up gracefully.
+                ignoreErrorCodesMatching: 'ValidationException',
             },
             policy: AwsCustomResourcePolicy.fromStatements([
                 new PolicyStatement({
