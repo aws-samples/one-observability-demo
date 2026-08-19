@@ -94,6 +94,10 @@ export class ManagedPrometheusCollector extends Construct {
 
         // Create the scraper via AwsCustomResource
         const scraperResource = new AwsCustomResource(this, 'CreateScraper', {
+            // installLatestAwsSdk: install the latest @aws-sdk/client-amp at Lambda cold start.
+            // The bundled Node.js runtime SDK doesn't yet include the cloudWatchConfiguration
+            // destination type; without this flag, parameter validation rejects the destination.
+            installLatestAwsSdk: true,
             onCreate: {
                 service: 'amp',
                 action: 'createScraper',
