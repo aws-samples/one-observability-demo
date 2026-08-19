@@ -676,6 +676,9 @@ export abstract class EcsService extends Microservice {
      * @returns CloudWatch agent configuration object
      */
     private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): Record<string, unknown> {
+        // Start with the always-present sections. The top-level `metrics` section is added
+        // ONLY when we populate it (OTLP mode) — CW Agent rejects an empty metrics_collected
+        // with "Must have at least 1 properties".
         const config: Record<string, unknown> = {
             traces: {
                 traces_collected: {},
@@ -683,14 +686,10 @@ export abstract class EcsService extends Microservice {
             logs: {
                 metrics_collected: {},
             },
-            metrics: {
-                metrics_collected: {},
-            },
         };
 
         const tracesCollected = (config.traces as { traces_collected: Record<string, unknown> }).traces_collected;
         const logsMetricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
-        const metricsCollected = (config.metrics as { metrics_collected: Record<string, unknown> }).metrics_collected;
 
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
@@ -703,7 +702,8 @@ export abstract class EcsService extends Microservice {
             case CloudWatchAgentTraceMode.OTLP: {
                 // OpenTelemetry Protocol - receives OTLP for both traces (→ X-Ray) and metrics (→ CloudWatch)
                 tracesCollected.otlp = {};
-                metricsCollected.otlp = {};
+                // Add top-level metrics section only for OTLP so metrics flow to CloudWatch OTLP endpoint.
+                config.metrics = { metrics_collected: { otlp: {} } };
                 break;
             }
 
