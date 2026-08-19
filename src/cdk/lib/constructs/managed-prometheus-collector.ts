@@ -81,9 +81,10 @@ export class ManagedPrometheusCollector extends Construct {
         // Build scrape configuration YAML
         this.scrapeConfigYaml = this.buildScrapeConfig(props.targetServices, props.cloudMapNamespaceName);
 
-        // Base64-encode the scrape config for the API call.
-        // AwsCustomResource passes Blob-typed fields as base64 strings to the SDK.
-        const base64ConfigBlob = Buffer.from(this.scrapeConfigYaml).toString('base64');
+        // Pass the raw YAML string directly. The AWS SDK v3 encodes Blob-typed fields
+        // automatically for JSON transport. Pre-base64-encoding causes the SDK to encode
+        // AGAIN, producing a double-encoded blob that the API rejects with
+        // "Invalid Prometheus scrape configuration".
 
         // Add self-referencing ingress rule for scraper ENIs to reach targets on port 8080
         props.securityGroup.addIngressRule(
@@ -115,7 +116,7 @@ export class ManagedPrometheusCollector extends Construct {
                         },
                     },
                     scrapeConfiguration: {
-                        configurationBlob: base64ConfigBlob,
+                        configurationBlob: this.scrapeConfigYaml,
                     },
                 },
                 physicalResourceId: PhysicalResourceId.fromResponse('scraperId'),
