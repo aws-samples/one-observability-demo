@@ -809,17 +809,23 @@ service:
         if (useOtelYaml) {
             const jsonConfig = JSON.stringify(cloudWatchConfig);
             const yamlConfig = this.buildOtelYamlConfig();
-            // Use printf %s to write files without shell escaping issues.
-            // Note: the shell needs to escape single quotes in JSON — use double-quoted heredoc for YAML.
+            // Base64-encode both configs to avoid shell escaping issues (JSON has quotes,
+            // YAML has newlines, and `sh -c` with heredocs can leak marker text into files).
+            const jsonB64 = Buffer.from(jsonConfig).toString('base64');
+            const yamlB64 = Buffer.from(yamlConfig).toString('base64');
             const initCmd = [
                 'sh',
                 '-c',
                 [
-                    "mkdir -p /etc/cwagentconfig",
-                    `cat > /etc/cwagentconfig/cwagentconfig.json <<'JSONEOF'\n${jsonConfig}\nJSONEOF`,
-                    `cat > /etc/cwagentconfig/cwagentotelconfig.yaml <<'YAMLEOF'\n${yamlConfig}YAMLEOF`,
-                    'echo Config files written to /etc/cwagentconfig',
+                    'mkdir -p /etc/cwagentconfig',
+                    `echo '${jsonB64}' | base64 -d > /etc/cwagentconfig/cwagentconfig.json`,
+                    `echo '${yamlB64}' | base64 -d > /etc/cwagentconfig/cwagentotelconfig.yaml`,
+                    'echo Config files written:',
                     'ls -la /etc/cwagentconfig',
+                    'echo --- cwagentconfig.json ---',
+                    'cat /etc/cwagentconfig/cwagentconfig.json',
+                    'echo --- cwagentotelconfig.yaml ---',
+                    'cat /etc/cwagentconfig/cwagentotelconfig.yaml',
                 ].join(' && '),
             ];
             const initContainer = taskDefinition.addContainer('cwa-config-init', {
