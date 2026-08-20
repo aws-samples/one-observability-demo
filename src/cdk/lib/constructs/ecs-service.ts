@@ -703,7 +703,17 @@ export abstract class EcsService extends Microservice {
                 // OpenTelemetry Protocol - receives OTLP for both traces (→ X-Ray) and metrics (→ CloudWatch)
                 tracesCollected.otlp = {};
                 // Add top-level metrics section only for OTLP so metrics flow to CloudWatch OTLP endpoint.
-                config.metrics = { metrics_collected: { otlp: {} } };
+                // The `metrics_endpoint` field routes OTLP metrics via the otlphttp exporter to the
+                // CloudWatch OTLP endpoint (queryable via PromQL). Without this field, metrics go via
+                // the classic awscloudwatch exporter (PutMetricData → CWAgent namespace) which is
+                // NOT queryable via PromQL.
+                config.metrics = {
+                    metrics_collected: {
+                        otlp: {
+                            metrics_endpoint: `https://monitoring.${Stack.of(this).region}.amazonaws.com:443`,
+                        },
+                    },
+                };
                 break;
             }
 
