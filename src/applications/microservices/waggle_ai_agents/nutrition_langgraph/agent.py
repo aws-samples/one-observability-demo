@@ -60,7 +60,7 @@ def retrieve_nutrition_guidance(query: str) -> str:
 _llm_kwargs: dict = {
     "model": models.model_id("nutrition"),
     "region_name": config.AWS_REGION,
-    # No temperature: Sonnet 5 is a reasoning model and rejects it.
+    # No temperature: the Claude reasoning models reject anything but the default.
 }
 if config.guardrail_id():  # apply the Bedrock Guardrail when configured
     _llm_kwargs["guardrail_config"] = {

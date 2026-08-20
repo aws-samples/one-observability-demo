@@ -12,8 +12,8 @@ as a Bedrock AgentCore Runtime entrypoint.
 
 | Module | Framework | Model | Role | ADOT instrumentor |
 | --- | --- | --- | --- | --- |
-| `orchestrator_strands/` | Strands | Claude Sonnet 5 | Routes to sub-agents | native OTel |
-| `nutrition_langgraph/` | LangGraph | Claude Sonnet 5 | Diet matching + RAG | `aws_langchain` |
+| `orchestrator_strands/` | Strands | Claude Sonnet 4.6 | Routes to sub-agents | native OTel |
+| `nutrition_langgraph/` | LangGraph | Claude Sonnet 4.6 | Diet matching + RAG | `aws_langchain` |
 | `ordering_crewai/` | CrewAI | Nova 2 Lite | Cart / checkout / order | `aws_crewai` |
 | `adoption_llamaindex/` | LlamaIndex | Llama 4 Maverick | Browse + adopt | `aws_llama-index` |
 | `concierge_openai/` | OpenAI Agents SDK | gpt-oss-120b | Conversational Q&A | `aws_openai_agents` |
@@ -59,7 +59,7 @@ waggle_ai_agents/
 - **`.env`** → optional local overrides only (region, model ids), loaded by explicit
   path in `config.py` so it works from the parent directory.
 
-Requires **Bedrock model access** in the region for Claude Sonnet 5, Nova 2 Lite,
+Requires **Bedrock model access** in the region for Claude Sonnet 4.6, Nova 2 Lite,
 Llama 4 Maverick, gpt-oss-120b, and Titan Text Embeddings v2 (embeddings for RAG).
 
 ## RAG

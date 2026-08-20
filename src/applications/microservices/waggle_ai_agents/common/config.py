@@ -24,7 +24,7 @@ os.environ.setdefault("AWS_REGION_NAME", AWS_REGION)  # LiteLLM's bedrock provid
 # --- Models: ids must be ENABLED in your Bedrock account/region; per-agent mapping in models.py.
 CLAUDE_MODEL_ID: str = os.getenv(
     "BEDROCK_CLAUDE_MODEL_ID",
-    "us.anthropic.claude-sonnet-5",
+    "us.anthropic.claude-sonnet-4-6",
 )
 # gpt-oss powers the OpenAI Agents SDK concierge (via LiteLLM's Bedrock provider).
 GPT_OSS_MODEL_ID: str = os.getenv("BEDROCK_GPT_OSS_MODEL_ID", "openai.gpt-oss-120b-1:0")
