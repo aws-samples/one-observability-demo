@@ -4,72 +4,54 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 /**
- * Pet Food AI Agent construct (Python on Bedrock AgentCore).
- *
- * Deploys an AI-powered pet food recommendation agent using Amazon Bedrock:
- *
- * - **Bedrock AgentCore Runtime** for managed agent hosting
- * - **Strands Agents SDK** for agent orchestration with tool use
- * - **IAM roles** with Bedrock model invocation and SSM parameter access
- *
- * The agent is invoked from the petsite-net frontend's "Waggle" chat interface
- * and can query the petfood-rs service for food recommendations.
- *
- * > **Note**: The container is built in the Containers stage but deployed via
- * > Bedrock AgentCore (not ECS/EKS), so `disableService: true` is set in the
- * > microservice placement configuration.
+ * One containerized agent (Python, ARM64) on Amazon Bedrock AgentCore Runtime.
  *
  * @packageDocumentation
  */
 import { CfnOutput, Stack } from 'aws-cdk-lib';
 import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
 import { CfnRuntime } from 'aws-cdk-lib/aws-bedrockagentcore';
-// Note: BedrockAgentCore L2 constructs may not be available in all CDK versions
-// Using L1 constructs (CfnResource) as fallback
 import { Construct } from 'constructs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
-import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 
-/** Properties for the Pet Food AI Agent construct. */
-export interface PetFoodAgentProperties {
-    /** ECR repository URI for the agent container image */
-    readonly ecrRepositoryUri: string; // ECR repository URI from containers pipeline
-    /** Security groups for the agent runtime */
+/** Properties for a single AgentCore agent runtime. */
+export interface AgentRuntimeProperties {
+    /** AgentCore runtime name (e.g. 'WaggleAIOrchestrator'). Must match `[A-Za-z0-9_]`. */
+    readonly runtimeName: string;
+    /** ECR repository URI for the agent container image (from the containers pipeline). */
+    readonly ecrRepositoryUri: string;
+    /** Security groups for the agent runtime ENIs. */
     readonly securityGroups: ISecurityGroup[];
-    /** VPC for network placement */
+    /** VPC for network placement. */
     readonly vpc: IVpc;
+    /** Extra environment variables merged over the observability defaults. */
+    readonly environmentVariables?: { [key: string]: string };
+    /** Optional SSM parameter (short name under PARAMETER_STORE_PREFIX) to publish the runtime ARN. */
+    readonly ssmArnParameterName?: string;
+    /** app:name tag (defaults to the runtime name). */
+    readonly appName?: string;
 }
 
-/**
- * Pet Food AI Agent construct (Python/Strands on Bedrock AgentCore).
- *
- * Creates a Bedrock AgentCore Runtime with IAM roles for model invocation,
- * SSM parameter access, and CloudWatch logging. The agent uses the Strands
- * Agents SDK for tool-use orchestration and is invoked from the petsite-net
- * frontend's "Waggle" chat interface.
- */
-export class PetFoodAgentConstruct extends Construct {
+/** A Bedrock AgentCore Runtime for one Waggle AI agent (orchestrator or sub-agent). */
+export class AgentRuntimeConstruct extends Construct {
     public readonly agentRuntime: CfnRuntime;
 
-    constructor(scope: Construct, id: string, properties: PetFoodAgentProperties) {
+    constructor(scope: Construct, id: string, properties: AgentRuntimeProperties) {
         super(scope, id);
 
-        // Create IAM role for Agent Runtime
         const agentRuntimeRole = new Role(this, 'AgentRuntimeRole', {
             assumedBy: new PrincipalWithConditions(new ServicePrincipal('bedrock-agentcore.amazonaws.com'), {
-                StringEquals: {
-                    'aws:SourceAccount': Stack.of(this).account,
-                },
+                StringEquals: { 'aws:SourceAccount': Stack.of(this).account },
                 ArnLike: {
                     'aws:SourceArn': `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:*`,
                 },
             }),
         });
 
-        const petFoodAgentPolicy = new Policy(this, 'PetFoodAgentPolicy', {
+        const agentPolicy = new Policy(this, 'AgentPolicy', {
             statements: [
                 new PolicyStatement({
                     effect: Effect.ALLOW,
@@ -80,10 +62,50 @@ export class PetFoodAgentConstruct extends Construct {
                 }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
-                    actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+                    actions: [
+                        'bedrock:InvokeModel',
+                        'bedrock:InvokeModelWithResponseStream',
+                        'bedrock:CountTokens',
+                        'bedrock:ApplyGuardrail',
+                    ],
                     resources: [
                         `arn:aws:bedrock:*::foundation-model/*`,
                         `arn:aws:bedrock:*:${Stack.of(this).account}:*`,
+                    ],
+                }),
+                // Knowledge Base retrieval (nutrition RAG).
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['bedrock:Retrieve', 'bedrock:RetrieveAndGenerate'],
+                    resources: [`arn:aws:bedrock:${Stack.of(this).region}:${Stack.of(this).account}:knowledge-base/*`],
+                }),
+                // Invoke other agent runtimes directly (fallback / non-gateway transport).
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+                    resources: [`arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:*`],
+                }),
+                // Gateway inbound auth is AWS_IAM, so without InvokeGateway the invocations POST is 403.
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: ['bedrock-agentcore:InvokeGateway'],
+                    resources: [
+                        `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:gateway/*`,
+                    ],
+                }),
+                // AgentCore Memory: store conversation events + retrieve memory (actorId + sessionId).
+                new PolicyStatement({
+                    effect: Effect.ALLOW,
+                    actions: [
+                        'bedrock-agentcore:CreateEvent',
+                        'bedrock-agentcore:ListEvents',
+                        'bedrock-agentcore:GetEvent',
+                        'bedrock-agentcore:RetrieveMemoryRecords',
+                        'bedrock-agentcore:ListMemoryRecords',
+                        'bedrock-agentcore:GetMemoryRecord',
+                    ],
+                    resources: [
+                        `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:memory/*`,
                     ],
                 }),
                 new PolicyStatement({
@@ -103,6 +125,7 @@ export class PetFoodAgentConstruct extends Construct {
                     actions: ['logs:DescribeLogGroups'],
                     resources: [`arn:aws:logs:${Stack.of(this).region}:${Stack.of(this).account}:log-group:*`],
                 }),
+                new PolicyStatement({ effect: Effect.ALLOW, actions: ['logs:PutResourcePolicy'], resources: ['*'] }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
                     actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
@@ -115,11 +138,7 @@ export class PetFoodAgentConstruct extends Construct {
                     actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer'],
                     resources: [`arn:aws:ecr:${Stack.of(this).region}:${Stack.of(this).account}:repository/*`],
                 }),
-                new PolicyStatement({
-                    effect: Effect.ALLOW,
-                    actions: ['ecr:GetAuthorizationToken'],
-                    resources: ['*'],
-                }),
+                new PolicyStatement({ effect: Effect.ALLOW, actions: ['ecr:GetAuthorizationToken'], resources: ['*'] }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
                     actions: [
@@ -134,11 +153,7 @@ export class PetFoodAgentConstruct extends Construct {
                     effect: Effect.ALLOW,
                     actions: ['cloudwatch:PutMetricData'],
                     resources: ['*'],
-                    conditions: {
-                        StringEquals: {
-                            'cloudwatch:namespace': 'bedrock-agentcore',
-                        },
-                    },
+                    conditions: { StringEquals: { 'cloudwatch:namespace': 'bedrock-agentcore' } },
                 }),
                 new PolicyStatement({
                     effect: Effect.ALLOW,
@@ -156,24 +171,23 @@ export class PetFoodAgentConstruct extends Construct {
             roles: [agentRuntimeRole],
         });
 
-        this.agentRuntime = new CfnRuntime(this, 'PetFoodAgent', {
+        this.agentRuntime = new CfnRuntime(this, 'Runtime', {
             agentRuntimeArtifact: {
-                containerConfiguration: {
-                    containerUri: `${properties.ecrRepositoryUri}:latest`,
-                },
+                containerConfiguration: { containerUri: `${properties.ecrRepositoryUri}:latest` },
             },
-            agentRuntimeName: 'PetFoodAgent',
-            networkConfiguration: {
-                networkMode: 'VPC',
-            },
+            agentRuntimeName: properties.runtimeName,
+            networkConfiguration: { networkMode: 'VPC' },
             roleArn: agentRuntimeRole.roleArn,
-            description: 'Petfood Agent based on AgentCore',
+            description: `Waggle AI agent runtime: ${properties.runtimeName}`,
             environmentVariables: {
                 OTEL_PYTHON_EXCLUDED_URLS: '/ping',
                 PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
                 AWS_REGION: Stack.of(this).region,
-                SEARCH_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
-                PETFOOD_API_URL_PARAMETER_NAME: SSM_PARAMETER_NAMES.FOOD_API_URL,
+                AGENT_OBSERVABILITY_ENABLED: 'true',
+                AWS_AGENTIC_INSTRUMENTATION_OPT_IN: 'true',
+                AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT: 'true',
+                UNIFIED_TRACES_DESTINATION_ENABLED: 'true',
+                ...properties.environmentVariables,
             },
             protocolConfiguration: 'HTTP',
         });
@@ -183,49 +197,34 @@ export class PetFoodAgentConstruct extends Construct {
             Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
         });
 
-        this.createOutputs(PARAMETER_STORE_PREFIX);
-        // Apply NAG suppressions
+        if (properties.ssmArnParameterName) {
+            Utilities.createSsmParameters(
+                this,
+                PARAMETER_STORE_PREFIX,
+                new Map(Object.entries({ [properties.ssmArnParameterName]: this.agentRuntime.attrAgentRuntimeArn })),
+            );
+        }
+
+        new CfnOutput(this, 'AgentRuntimeArn', {
+            value: this.agentRuntime.attrAgentRuntimeArn,
+            description: `ARN of the ${properties.runtimeName} AgentCore runtime`,
+        });
 
         NagSuppressions.addResourceSuppressions(
-            [agentRuntimeRole, petFoodAgentPolicy],
+            [agentRuntimeRole, agentPolicy],
             [
-                {
-                    id: 'AwsSolutions-IAM4',
-                    reason: 'Managed Policies are acceptable for the Agent Runtime role',
-                },
-                {
-                    id: 'AwsSolutions-IAM5',
-                    reason: 'Permissions are acceptable for the Agent Runtime role',
-                },
+                { id: 'AwsSolutions-IAM4', reason: 'Managed policies acceptable for the agent runtime role' },
+                { id: 'AwsSolutions-IAM5', reason: 'Wildcard permissions acceptable for the agent runtime role' },
             ],
             true,
         );
 
-        // Tag the construct
         Utilities.TagConstruct(this, {
             'app:owner': 'petstore',
             'app:project': 'workshop',
-            'app:name': 'petfoodagent-strands-py',
+            'app:name': properties.appName ?? properties.runtimeName,
             'app:computeType': 'bedrock-agentcore',
             'app:hostType': 'managed',
-        });
-    }
-
-    private createOutputs(parameterStorePrefix: string): void {
-        // Create SSM parameters for the agent runtime information
-        Utilities.createSsmParameters(
-            this,
-            parameterStorePrefix,
-            new Map(
-                Object.entries({
-                    [SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN_NAME]: this.agentRuntime.attrAgentRuntimeArn,
-                }),
-            ),
-        );
-
-        new CfnOutput(this, 'AgentRuntimeArn', {
-            value: this.agentRuntime.attrAgentRuntimeArn,
-            description: 'ARN of the Bedrock Agent Runtime for pet food recommendations',
         });
     }
 }
