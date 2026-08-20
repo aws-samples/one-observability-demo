@@ -700,13 +700,12 @@ export abstract class EcsService extends Microservice {
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
-                // OpenTelemetry Protocol - receives OTLP for traces (→ X-Ray).
-                // Metrics routing to the CloudWatch OTLP endpoint is handled by an appended
-                // OTel YAML config with the otlphttp/sigv4auth exporter — see the OTLP init
-                // container added in addCloudWatchAgentSidecar(). We do NOT add
-                // metrics.metrics_collected.otlp here because it routes via awscloudwatch
-                // (classic PutMetricData) which is not queryable via PromQL.
-                tracesCollected.otlp = {};
+                // OpenTelemetry Protocol - all OTLP handling (both traces and metrics) is
+                // done via the appended OTel YAML config (see buildOtelYamlConfig).
+                // We intentionally do NOT set traces.traces_collected.otlp here because it
+                // would create a duplicate OTLP receiver on port 4318 conflicting with our
+                // YAML's otlp/cwagent receiver. YAML also handles metrics routing to the
+                // CloudWatch OTLP endpoint (queryable via PromQL).
                 break;
             }
 
@@ -742,21 +741,26 @@ export abstract class EcsService extends Microservice {
 processors:
   batch/cwagent: {}
 exporters:
-  otlphttp/cwagent:
+  otlphttp/metrics_cwagent:
     metrics_endpoint: https://monitoring.${region}.amazonaws.com/v1/metrics
     auth:
-      authenticator: sigv4auth/cwagent
+      authenticator: sigv4auth/monitoring_cwagent
+  awsxray/cwagent: {}
 extensions:
-  sigv4auth/cwagent:
+  sigv4auth/monitoring_cwagent:
     region: "${region}"
     service: "monitoring"
 service:
-  extensions: [sigv4auth/cwagent]
+  extensions: [sigv4auth/monitoring_cwagent]
   pipelines:
     metrics/cwagent:
       receivers: [otlp/cwagent]
       processors: [batch/cwagent]
-      exporters: [otlphttp/cwagent]
+      exporters: [otlphttp/metrics_cwagent]
+    traces/cwagent:
+      receivers: [otlp/cwagent]
+      processors: [batch/cwagent]
+      exporters: [awsxray/cwagent]
 `;
     }
 
