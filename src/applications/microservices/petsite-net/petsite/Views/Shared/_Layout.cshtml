@@ -26,91 +26,97 @@
     <title>@ViewData["Title"] - Observability PetAdoptions</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300..900&family=Varela+Round&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/petstyles.css" />
-    <style>
-        .active-page {
-            border-bottom-color: #ffff00 !important;
-        }
-        @@media (max-width: 768px) {
-            .pet-header .row {
-                flex-direction: column !important;
-                align-items: stretch !important;
-            }
-            .pet-header section:last-child {
-                justify-content: center !important;
-                margin-top: 10px;
-                gap: 0.5rem !important;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="~/css/waggle-chat.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/petsite-modern.css" asp-append-version="true" />
+    @* sets data-theme before paint so there is no flash of the wrong theme *@
+    <script src="~/js/petsite-ui.js" asp-append-version="true"></script>
+    @* the old .pet-header / .active-page rules went with the black bar; the nav now
+       lives in petsite-modern.css *@
 
 </head>
 
-<body style="padding-bottom: 60px;">
+<body>
     <div class="pet-wrapper">
-        <header class="pet-header">
+        @{
+            var ctrl = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+            var act = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+        }
+        <div class="ps-topbar" id="ps-topbar">
+            <div class="ps-shell">
+                <nav class="ps-nav">
+                    <a class="ps-brand" asp-controller="home" asp-action="index" asp-route-userId="@ViewBag.UserId">
+                        <span class="ps-logo" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <ellipse cx="12" cy="15.6" rx="4.5" ry="3.8" />
+                                <ellipse cx="5.7" cy="9.8" rx="2.2" ry="2.85" transform="rotate(-18 5.7 9.8)" />
+                                <ellipse cx="18.3" cy="9.8" rx="2.2" ry="2.85" transform="rotate(18 18.3 9.8)" />
+                                <ellipse cx="9.2" cy="5.4" rx="2" ry="2.55" />
+                                <ellipse cx="14.8" cy="5.4" rx="2" ry="2.55" />
+                            </svg>
+                        </span>
+                        <span>
+                            <span class="ps-brandmark">PetAdoptions</span>
+                            <span class="ps-brandsub">Observability</span>
+                        </span>
+                    </a>
 
-            <div class="container">
-                <article class="row" style="display: flex; align-items: center;">
-
-                    <section class="col-lg-4 col-md-4 col-12 align-self-center">
-                        <a asp-controller="home" asp-action="index" asp-route-userId="@ViewBag.UserId">
-                            <img src="~/images/brand.png" alt="Petadoption" />
+                    <div class="ps-navlinks">
+                        <a class="ps-link @(ctrl == "Waggle" ? "ps-on" : "")" asp-controller="Waggle"
+                           asp-action="Index" asp-route-userId="@ViewBag.UserId">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.8l1.45 4.15 4.15 1.55-4.15 1.45L12 14.1l-1.45-4.15L6.4 8.5l4.15-1.55L12 2.8z" />
+                                <path d="M18.7 13.6l.8 2.3 2.3.8-2.3.8-.8 2.3-.8-2.3-2.3-.8 2.3-.8.8-2.3z" />
+                            </svg> Waggle AI
                         </a>
-                    </section>
-
-                    <section class="col-lg-8 col-md-8 col-12 align-self-center"
-                        style="display: flex; justify-content: flex-end; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                        <a asp-controller="Waggle" asp-action="Index" asp-route-userId="@ViewBag.UserId"
-                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "Waggle" ? "active-page" : "")"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
-                            Waggle AI
+                        <a class="ps-link @(ctrl == "FoodService" ? "ps-on" : "")" asp-controller="FoodService"
+                           asp-action="Index" asp-route-userId="@ViewBag.UserId" asp-route-petType="puppy">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                                <path d="M4.5 8.5h15l-1.4 10.2H5.9L4.5 8.5zM9.2 8.5V6.4a2.8 2.8 0 015.6 0v2.1" />
+                            </svg> Buy Food
                         </a>
-
-                        <a asp-controller="FoodService" asp-action="Index" asp-route-userId="@ViewBag.UserId"
-                            asp-route-petType="puppy"
-                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "FoodService" ? "active-page" : "")"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
-                            Buy Food
+                        <a class="ps-link @(ctrl == "PetListAdoptions" ? "ps-on" : "")" id="seeadoptionlist"
+                           asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                                <path d="M4 6.5h16M4 12h16M4 17.5h10" />
+                            </svg> Adoption List
                         </a>
-
-                        <a asp-controller="PetListAdoptions" asp-action="index" asp-route-userId="@ViewBag.UserId"
-                            id="seeadoptionlist"
-                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "PetListAdoptions" ? "active-page" : "")"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
-                            See Adoption List
+                        <a class="ps-link @(ctrl == "Home" && act == "HouseKeeping" ? "ps-on" : "")"
+                           id="performhousekeeping" asp-controller="Home" asp-action="HouseKeeping"
+                           asp-route-userId="@ViewBag.UserId">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                                <path d="M12 3.4l7.5 3.7v5.6c0 4.7-7.5 7.6-7.5 7.6S4.5 17.4 4.5 12.7V7.1z" />
+                            </svg> Housekeeping
                         </a>
+                    </div>
 
-                        <a asp-controller="Home" asp-action="HouseKeeping" asp-route-userId="@ViewBag.UserId"
-                            id="performhousekeeping"
-                            class="@(ViewContext.RouteData.Values["controller"].ToString() == "Home" && ViewContext.RouteData.Values["action"].ToString() == "HouseKeeping" ? "active-page" : "")"
-                            style="color: #7abaff; white-space: nowrap; text-decoration: none; border-bottom: 3px solid #2d7f83;">
-                            Perform Housekeeping
+                    <div class="ps-navact">
+                        <button type="button" class="ps-icon" id="ps-theme" title="Switch theme" aria-label="Switch theme">
+                            <svg id="ps-theme-icon" viewBox="0 0 24 24"></svg>
+                        </button>
+                        <a class="ps-icon" asp-controller="Checkout" asp-action="Index"
+                           asp-route-userId="@ViewBag.UserId" aria-label="Cart">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M6.2 6.4h14.3l-1.5 8.6H7.4L6.2 6.4zM6.2 6.4L5.3 3.4H2.4" />
+                                <circle cx="9.2" cy="19.6" r="1.5" /><circle cx="17.8" cy="19.6" r="1.5" />
+                            </svg>
+                            <span id="cart-count" class="ps-badge" style="display: none;"></span>
                         </a>
-
-                        <a asp-controller="Checkout" asp-action="Index" asp-route-userId="@ViewBag.UserId"
-                            style="color: #00ff00; font-size: 1.5rem; text-decoration: none; position: relative; filter: brightness(1.5) saturate(2);">
-                            🛒
-                            <span id="cart-count"
-                                style="position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; display: none;"></span>
-                        </a>
-                    </section>
-                </article>
-
+                    </div>
+                </nav>
             </div>
-        </header>
-        @RenderBody()
+        </div>
+        <main class="ps-main">
+            @RenderBody()
+        </main>
 
-        <footer
-            style="position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f8f9fa; border-top: 1px solid #dee2e6; text-align: center; padding: 10px 0; z-index: 1000;">
-            <div class="container">
-                <p class="mb-0" style="color: #6c757d; font-size: 0.9rem;">
-                    Built with ❤️ in association with <a href="https://kiro.dev/" target="_blank"
-                        style="background: linear-gradient(135deg, #4A90E2 0%, #7B68EE 50%, #9B59B6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-decoration: none; font-weight: 600;">Kiro</a>
-                </p>
+        <footer class="ps-footer">
+            <div class="ps-shell">
+                Built with ❤️ in association with
+                <a href="https://kiro.dev/" target="_blank" rel="noopener">Kiro</a>
             </div>
         </footer>
 
@@ -118,6 +124,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/waggle-chat.js" asp-append-version="true"></script>
     <script>
         $(document).ready(function () {
             // Update cart count on every page load
@@ -141,6 +148,13 @@
             }
         });
     </script>
+    @* Floating Waggle chat on every page. Skipped on the full Waggle page, which is
+       already a chat — both share the same sessionStorage conversation. *@
+    @if (!string.Equals(ViewContext.RouteData.Values["controller"]?.ToString(), "Waggle",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        await Html.RenderPartialAsync("_WaggleWidget");
+    }
     @RenderSection("Scripts", required: false)
 </body>
 
