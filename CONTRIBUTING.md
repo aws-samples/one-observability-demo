@@ -163,7 +163,7 @@ The script validates your environment and prepares the repository for deployment
     - `AWS_ACCOUNT_ID`: Your AWS account ID
     - `AWS_REGION`: Your target AWS region
     - `EKS_CLUSTER_ACCESS_ROLE_NAME`: Name of the role that will receive ClusterAdmin access on the EKS Cluster (optional)
-    - `ENABLE_PET_FOOD_AGENT`: Set to `true` to enable AgentCore deployment (optional)
+    - `ENABLE_WAGGLE_AI_AGENTS`: Set to `true` to deploy the Waggle AI agents on Bedrock AgentCore (optional)
 
 ### CodeConnection and Parameter Store Integration
 
@@ -262,7 +262,7 @@ The `src/cdk/scripts/validate-account.sh` script validates account-specific conf
 The script will:
 
 - Check if X-Ray transaction search is configured for CloudWatch Logs
-- When `ENABLE_PET_FOOD_AGENT=true`, retrieve and map availability zones for AgentCore deployment
+- When `ENABLE_WAGGLE_AI_AGENTS=true`, retrieve and map availability zones for AgentCore deployment
 - Update the `.env` file with:
     - `AUTO_TRANSACTION_SEARCH_CONFIGURED`: Whether X-Ray is configured
     - `AVAILABILITY_ZONES`: Comma-separated list of AZ names (when AgentCore is enabled)
