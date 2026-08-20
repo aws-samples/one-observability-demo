@@ -702,10 +702,10 @@ export abstract class EcsService extends Microservice {
             case CloudWatchAgentTraceMode.OTLP: {
                 // OpenTelemetry Protocol - all OTLP handling (both traces and metrics) is
                 // done via the appended OTel YAML config (see buildOtelYamlConfig).
-                // We intentionally do NOT set traces.traces_collected.otlp here because it
-                // would create a duplicate OTLP receiver on port 4318 conflicting with our
-                // YAML's otlp/cwagent receiver. YAML also handles metrics routing to the
-                // CloudWatch OTLP endpoint (queryable via PromQL).
+                // Remove the traces section entirely from JSON so it does not conflict with
+                // the YAML's otlp/cwagent receiver and does not fail JSON validation with an
+                // empty traces_collected block.
+                delete config.traces;
                 break;
             }
 
