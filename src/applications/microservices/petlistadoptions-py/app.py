@@ -12,6 +12,7 @@ import psycopg2
 import requests
 from fastapi import FastAPI
 from fastapi import HTTPException
+from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST
 from prometheus_client import Counter
 from prometheus_client import generate_latest
@@ -355,7 +356,7 @@ async def list_adoptions():
 @app.get("/metrics", tags=["monitoring"])
 async def metrics():
     """Prometheus metrics endpoint"""
-    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 if __name__ == "__main__":
