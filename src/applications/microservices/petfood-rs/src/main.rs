@@ -212,6 +212,7 @@ fn create_app(
         food_service: food_service.clone(),
         cart_service,
         assets_cdn_url: assets_cdn_url.clone(),
+        metrics: metrics.clone(),
     };
 
     // Create the admin state
@@ -221,6 +222,7 @@ fn create_app(
         foods_table_name,
         carts_table_name,
         assets_cdn_url,
+        metrics: metrics.clone(),
     };
 
     Router::new()

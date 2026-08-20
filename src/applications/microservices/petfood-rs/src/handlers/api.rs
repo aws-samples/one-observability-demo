@@ -14,6 +14,7 @@ use crate::models::{
     AddCartItemRequest, CartItemResponse, CartResponse, FoodFilters, FoodListApiResponse,
     FoodResponse, ServiceError, UpdateCartItemRequest,
 };
+use crate::observability::{BusinessTracingMiddleware, DatabaseTracingMiddleware, Metrics};
 use crate::services::{CartService, FoodService};
 
 /// Shared application state containing all services
@@ -22,6 +23,7 @@ pub struct ApiState {
     pub food_service: Arc<FoodService>,
     pub cart_service: Arc<CartService>,
     pub assets_cdn_url: String,
+    pub metrics: Arc<Metrics>,
 }
 
 /// Query parameters for listing foods
@@ -50,11 +52,13 @@ pub fn create_api_router(
     food_service: Arc<FoodService>,
     cart_service: Arc<CartService>,
     assets_cdn_url: String,
+    metrics: Arc<Metrics>,
 ) -> Router {
     let state = ApiState {
         food_service,
         cart_service,
         assets_cdn_url,
+        metrics,
     };
 
     Router::new()
@@ -105,7 +109,23 @@ pub async fn list_foods(
         }
     };
 
-    match state.food_service.list_foods(filters).await {
+    // Capture low-cardinality attributes (bounded enums) before the filters move.
+    let pet_type_label = filters.pet_type.as_ref().map(|p| p.to_string());
+    let food_type_label = filters.food_type.as_ref().map(|f| f.to_string());
+
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_food_operation(
+            "list",
+            pet_type_label.as_deref(),
+            food_type_label.as_deref(),
+            database.trace_operation("find_all", "foods", state.food_service.list_foods(filters)),
+        )
+        .await;
+
+    match result {
         Ok(response) => {
             info!("Successfully listed {} foods", response.total_count);
 
@@ -140,7 +160,29 @@ pub async fn get_food(
 ) -> Result<Json<FoodResponse>, (StatusCode, Json<Value>)> {
     info!("Getting food with ID: {}", food_id);
 
-    match state.food_service.get_food(&food_id).await {
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+    let result = database
+        .trace_operation("get_item", "foods", state.food_service.get_food(&food_id))
+        .await;
+
+    // Record the business operation with low-cardinality pet/food type derived
+    // from the result (never the raw food_id).
+    let (pet_type_label, food_type_label, success) = match &result {
+        Ok(food) => (
+            Some(food.pet_type.to_string()),
+            Some(food.food_type.to_string()),
+            true,
+        ),
+        Err(_) => (None, None, false),
+    };
+    state.metrics.record_food_operation(
+        "get",
+        pet_type_label.as_deref(),
+        food_type_label.as_deref(),
+        success,
+    );
+
+    match result {
         Ok(food) => {
             info!("Successfully retrieved food: {}", food.name);
             let food_response = food.to_response(&state.assets_cdn_url);
@@ -165,7 +207,19 @@ pub async fn get_cart(
 ) -> Result<Json<CartResponse>, (StatusCode, Json<Value>)> {
     info!("Getting cart for user: {}", user_id);
 
-    match state.cart_service.get_cart(&user_id).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    // user_id is intentionally NOT passed as a metric attribute (high cardinality).
+    let result = business
+        .trace_cart_operation(
+            "get",
+            None,
+            database.trace_operation("get_item", "carts", state.cart_service.get_cart(&user_id)),
+        )
+        .await;
+
+    match result {
         Ok(cart) => {
             info!(
                 "Successfully retrieved cart with {} items",
@@ -198,7 +252,22 @@ pub async fn add_cart_item(
         request.quantity
     );
 
-    match state.cart_service.add_item(&user_id, request).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "add_item",
+            None,
+            database.trace_operation(
+                "put_item",
+                "carts",
+                state.cart_service.add_item(&user_id, request),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(item) => {
             crate::info_with_trace!("Successfully added item to cart");
             Ok((StatusCode::CREATED, Json(item)))
@@ -228,11 +297,22 @@ pub async fn update_cart_item(
         request.quantity
     );
 
-    match state
-        .cart_service
-        .update_item(&user_id, &food_id, request)
-        .await
-    {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "update_item",
+            None,
+            database.trace_operation(
+                "put_item",
+                "carts",
+                state.cart_service.update_item(&user_id, &food_id, request),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(item) => {
             crate::info_with_trace!("Successfully updated cart item");
             Ok(Json(item))
@@ -259,7 +339,22 @@ pub async fn remove_cart_item(
         food_id
     );
 
-    match state.cart_service.remove_item(&user_id, &food_id).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "remove_item",
+            None,
+            database.trace_operation(
+                "put_item",
+                "carts",
+                state.cart_service.remove_item(&user_id, &food_id),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(()) => {
             crate::info_with_trace!("Successfully removed item from cart");
             Ok(StatusCode::NO_CONTENT)
@@ -281,7 +376,18 @@ pub async fn clear_cart(
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
     crate::info_with_trace!("Clearing cart for user: {}", user_id);
 
-    match state.cart_service.clear_cart(&user_id).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "clear",
+            None,
+            database.trace_operation("put_item", "carts", state.cart_service.clear_cart(&user_id)),
+        )
+        .await;
+
+    match result {
         Ok(()) => {
             crate::info_with_trace!("Successfully cleared cart");
             Ok(StatusCode::NO_CONTENT)
@@ -303,7 +409,22 @@ pub async fn delete_cart(
 ) -> Result<StatusCode, (StatusCode, Json<Value>)> {
     crate::info_with_trace!("Deleting cart for user: {}", user_id);
 
-    match state.cart_service.delete_cart(&user_id).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "delete",
+            None,
+            database.trace_operation(
+                "delete_item",
+                "carts",
+                state.cart_service.delete_cart(&user_id),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(()) => {
             crate::info_with_trace!("Successfully deleted cart");
             Ok(StatusCode::NO_CONTENT)
@@ -328,7 +449,22 @@ pub async fn checkout_cart(
 ) -> Result<Json<crate::models::CheckoutResponse>, (StatusCode, Json<Value>)> {
     info!("Processing checkout for user: {}", user_id);
 
-    match state.cart_service.checkout(&user_id, request).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_cart_operation(
+            "checkout",
+            None,
+            database.trace_operation(
+                "put_item",
+                "carts",
+                state.cart_service.checkout(&user_id, request),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(checkout_response) => {
             crate::info_with_trace!(
                 "Checkout completed successfully for order: {}",
