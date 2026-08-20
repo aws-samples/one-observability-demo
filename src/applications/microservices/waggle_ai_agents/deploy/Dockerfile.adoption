@@ -1,0 +1,23 @@
+# Adoption (LlamaIndex) — Bedrock AgentCore Runtime, ARM64.
+#   docker build -f deploy/Dockerfile.adoption -t <repo>:latest .
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+WORKDIR /app
+
+ENV UV_SYSTEM_PYTHON=1 UV_COMPILE_BYTECODE=1 \
+    AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1 \
+    AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true DOCKER_CONTAINER=1
+
+COPY deploy/requirements.adoption.txt /tmp/requirements.txt
+RUN uv pip install -r /tmp/requirements.txt
+
+RUN useradd -m -u 1000 bedrock_agentcore
+COPY --chown=bedrock_agentcore:bedrock_agentcore . /app/waggle_ai_agents/
+USER bedrock_agentcore
+
+EXPOSE 8080
+
+# `/ping` is the AgentCore health endpoint; urllib keeps curl out of the slim base image.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)"]
+
+CMD ["opentelemetry-instrument", "python", "-m", "waggle_ai_agents.adoption_llamaindex.server"]

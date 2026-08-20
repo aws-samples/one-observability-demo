@@ -1,0 +1,7 @@
+# Concierge runtime (OpenAI Agents SDK -> Bedrock via LiteLLM / SigV4).
+openai-agents[litellm]
+boto3
+httpx
+python-dotenv
+bedrock-agentcore
+aws-opentelemetry-distro>=0.18.0

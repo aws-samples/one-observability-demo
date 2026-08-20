@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+docs/
+*.tar.gz
+*.png
