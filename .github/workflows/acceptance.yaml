@@ -19,7 +19,7 @@ jobs:
     environment: acceptance
     steps:
       - name: Configure AWS credentials from Test account
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
           aws-region: us-east-2
@@ -27,11 +27,15 @@ jobs:
           role-session-name: GithubActions-Session
 
       - name: Run AWS Pipeline
+        env:
+          PIPELINE_NAME: ${{ secrets.PIPELINE_NAME }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           echo "Triggering AWS Pipeline"
-          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }} \
+          aws codepipeline start-pipeline-execution --name "$PIPELINE_NAME" \
             --region us-east-2 \
-            --variables name=GithubUser,value=${{ github.repository_owner }} name=GithubBranch,value=${{ github.ref_name }} \
+            --variables name=GithubUser,value="$REPO_OWNER" name=GithubBranch,value="$REF_NAME" \
             --output text \
             --query 'pipelineExecutionId'
           sleep 30

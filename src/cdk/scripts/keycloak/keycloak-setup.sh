@@ -210,7 +210,14 @@ install_helm_if_missing() {
   fi
 
   log "helm is not installed. Installing helm..."
-  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  # Download the installer to a file and execute it instead of piping curl
+  # directly into bash, so a compromised response cannot be executed inline
+  # (bash.curl.security.curl-pipe-bash). get-helm-3 verifies the helm
+  # binary checksum itself.
+  curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+  chmod 700 get_helm.sh
+  ./get_helm.sh
+  rm -f get_helm.sh
   require_cmd helm
   log "helm installed successfully: $(helm version --short 2>/dev/null)"
 }

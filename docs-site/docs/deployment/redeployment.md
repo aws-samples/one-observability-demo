@@ -36,7 +36,7 @@ The script prompts you to:
 | petsearch-java | ECS | Pet search (Java/Spring Boot) |
 | petsite-net | EKS | Frontend (.NET) |
 | petfood-rs | ECS | Food catalog (Rust/Axum) |
-| petfoodagent-strands-py | AgentCore | AI agent (container build only) |
+| waggle-ai-* (5 agents) | AgentCore | Waggle AI agents (container build only) |
 
 ## Monitoring ECS Deployments
 
