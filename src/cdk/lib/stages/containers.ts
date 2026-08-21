@@ -13,13 +13,13 @@ SPDX-License-Identifier: Apache-2.0
  * - **Multi-architecture support** (AMD64/ARM64) via {@link EcrBuildAndPublishWithArchitectureAction}
  * - **Source integration** via S3 or AWS CodeConnections (GitHub)
  *
- * Six microservices are built in parallel:
+ * Microservices are built in parallel:
  * - `payforadoption-go` (Go, AMD64) — Payment processing
  * - `petlistadoption-py` (Python, AMD64) — Adoption listing
  * - `petsearch-java` (Java, AMD64) — Pet search with DynamoDB
  * - `petsite-net` (.NET, AMD64) — Web frontend (deployed to EKS)
  * - `petfood-rs` (Rust, AMD64) — Food catalog and cart service
- * - `petfoodagent-strands-py` (Python, ARM64) — AI agent on Bedrock AgentCore
+ * - `waggle-ai-*` (Python, ARM64) — multi-framework AI agents on Bedrock AgentCore
  *
  * @packageDocumentation
  */
@@ -49,6 +49,8 @@ export interface EcrBuildAndPublishWithArchitectureActionProperties {
     repositoryName: string;
     registryType: RegistryType;
     dockerfileDirectoryPath: string;
+    /** Optional Dockerfile relative to dockerfileDirectoryPath, so images can share one build context. */
+    dockerfile?: string;
     input: Artifact;
     imageTags: string[];
     role: Role;
@@ -87,7 +89,7 @@ export class EcrBuildAndPublishWithArchitectureAction extends CodeBuildAction {
                         commands: [
                             `echo Building Docker image with platform ${platform}...`,
                             `cd ${properties.dockerfileDirectoryPath}`,
-                            `docker build --platform ${platform} -t $REPOSITORY_URI:${imageTagsString} .`,
+                            `docker build ${properties.dockerfile ? `-f ${properties.dockerfile} ` : ''}--platform ${platform} -t $REPOSITORY_URI:${imageTagsString} .`,
                         ],
                     },
                     post_build: {
@@ -124,8 +126,10 @@ export class EcrBuildAndPublishWithArchitectureAction extends CodeBuildAction {
 export interface ContainerDefinition {
     /** The name of the application */
     name: string;
-    /** Path to the Dockerfile for building the application */
+    /** Build context directory */
     dockerFilePath: string;
+    /** Optional Dockerfile relative to the build context, so images can share one context. */
+    dockerfile?: string;
     /** Architecture */
     architecture?: ContainerArchitecture;
 }
@@ -327,6 +331,7 @@ export class ContainersStack extends Stack {
                     repositoryName: repository.repositoryName,
                     registryType: RegistryType.PRIVATE,
                     dockerfileDirectoryPath: app.dockerFilePath,
+                    dockerfile: app.dockerfile,
                     input: sourceOutput,
                     imageTags: ['latest'],
                     role: codeBuildRole,

@@ -1,0 +1,8 @@
+# Orchestrator runtime (Strands). Calls sub-agent runtimes via boto3 InvokeAgentRuntime.
+strands-agents
+strands-agents-tools
+boto3
+httpx
+python-dotenv
+bedrock-agentcore
+aws-opentelemetry-distro>=0.18.0

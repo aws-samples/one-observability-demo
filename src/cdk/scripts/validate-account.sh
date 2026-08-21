@@ -21,7 +21,7 @@ fi
 echo "[DEBUG] CLEAN_MODE=$CLEAN_MODE"
 echo "[DEBUG] ENV_FILE=$ENV_FILE"
 AUTO_TRANSACTION_SEARCH_CONFIGURED=""
-ENABLE_PET_FOOD_AGENT=""
+ENABLE_WAGGLE_AI_AGENTS=""
 AWS_REGION="${AWS_REGION:-}"
 AVAILABILITY_ZONES=""
 EKS_CLUSTER_ACCESS_ROLE_NAME=""
@@ -42,9 +42,9 @@ read_env_file() {
             value="$(echo "$value" | xargs)"
             if [[ "$key" == "AUTO_TRANSACTION_SEARCH_CONFIGURED" ]]; then
                 AUTO_TRANSACTION_SEARCH_CONFIGURED="$value"
-            elif [[ "$key" == "ENABLE_PET_FOOD_AGENT" ]]; then
-                ENABLE_PET_FOOD_AGENT="$value"
-                echo "[INFO] ENABLE_PET_FOOD_AGENT from .env: $value"
+            elif [[ "$key" == "ENABLE_WAGGLE_AI_AGENTS" ]]; then
+                ENABLE_WAGGLE_AI_AGENTS="$value"
+                echo "[INFO] ENABLE_WAGGLE_AI_AGENTS from .env: $value"
             elif [[ "$key" == "AWS_REGION" ]]; then
                 if [[ -z "$AWS_REGION" ]]; then
                     AWS_REGION="$value"
@@ -178,8 +178,8 @@ validate_support_stack() {
 # Function to retrieve and map availability zones
 retrieve_availability_zones() {
     local region="$AWS_REGION"
-    echo "[INFO] Checking AZ retrieval conditions: ENABLE_PET_FOOD_AGENT=$ENABLE_PET_FOOD_AGENT, region=$region"
-    if [[ "$ENABLE_PET_FOOD_AGENT" == "true" && -n "$region" ]]; then
+    echo "[INFO] Checking AZ retrieval conditions: ENABLE_WAGGLE_AI_AGENTS=$ENABLE_WAGGLE_AI_AGENTS, region=$region"
+    if [[ "$ENABLE_WAGGLE_AI_AGENTS" == "true" && -n "$region" ]]; then
         echo "[INFO] Retrieving availability zones for region: $region"
         local az_data
         local error_output
@@ -245,7 +245,7 @@ retrieve_availability_zones() {
         AVAILABILITY_ZONES=$(IFS=','; echo "${mapped_zones[*]}")
         echo "[INFO] Mapped availability zones: $AVAILABILITY_ZONES"
     else
-        echo "[INFO] Skipping AZ retrieval (ENABLE_PET_FOOD_AGENT=$ENABLE_PET_FOOD_AGENT, region=$region)"
+        echo "[INFO] Skipping AZ retrieval (ENABLE_WAGGLE_AI_AGENTS=$ENABLE_WAGGLE_AI_AGENTS, region=$region)"
     fi
 }
 

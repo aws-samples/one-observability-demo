@@ -90,7 +90,7 @@ nav:
       - petlistadoptions-py: microservices/petlistadoptions-py.md
       - petsite-net: microservices/petsite-net.md
       - petfood-rs: microservices/petfood-rs.md
-      - petfoodagent-strands-py: microservices/petfoodagent-strands-py.md
+      - waggle-ai-agents: microservices/waggle-ai-agents.md
   - Deployment:
       - Quick Start: deployment/quick-start.md
       - CodeBuild Template: deployment/codebuild-template.md

@@ -44,8 +44,8 @@ Sample "pet adoption" application powering the [AWS One Observability Workshop](
 ## 4. Tech stack
 
 - **Infra:** AWS CDK v2 (`aws-cdk-lib` 2.241, TypeScript ~5.9), cdk-nag, CodePipeline/CodeBuild. Node 22.
-- **Microservices:** Go (`payforadoption-go`), Rust/Axum (`petfood-rs`), Java/Spring Boot + Gradle (`petsearch-java`), Python/FastAPI (`petlistadoptions-py`), .NET 8 (`petsite-net`), Python/Strands agent on Bedrock AgentCore (`petfoodagent-strands-py`).
-- **Runtimes/platforms:** ECS Fargate (most services), EKS (petsite), Bedrock AgentCore (agent), Lambda (Node 22 / Python 3.13).
+- **Microservices:** Go (`payforadoption-go`), Rust/Axum (`petfood-rs`), Java/Spring Boot + Gradle (`petsearch-java`), Python/FastAPI (`petlistadoptions-py`), .NET 8 (`petsite-net`), Python multi-agent system on Bedrock AgentCore (`waggle_ai_agents`: Strands, LangGraph, CrewAI, LlamaIndex, OpenAI Agents SDK).
+- **Runtimes/platforms:** ECS Fargate (most services), EKS (petsite), Bedrock AgentCore (Waggle AI agents), Lambda (Node 22 / Python 3.13).
 - **Data:** Aurora PostgreSQL, DynamoDB, S3, SQS, EventBridge, OpenSearch Serverless.
 - **Observability:** CloudWatch, Application Signals, X-Ray, ADOT/OpenTelemetry, Prometheus, CloudWatch Synthetics, RUM.
 - **Docs:** MkDocs (Material) + TypeDoc for CDK API reference.
@@ -105,8 +105,9 @@ User -> petsite-net (.NET/EKS)
           -> petlistadoptions-py (ECS) -> Aurora
           -> payforadoption-go (ECS)   -> Aurora + DynamoDB
           -> petfood-rs (Rust/ECS)     -> DynamoDB
-                -> petfoodagent-strands-py (AgentCore)
                 -> EventBridge -> Stock Processor Lambda / Image Generator Lambda
+          -> waggle-ai-orchestrator (AgentCore) -> Gateway -> 4 sub-agent runtimes
+                -> Memory + Guardrail + nutrition Knowledge Base
 ```
 Cross-stack wiring uses CloudFormation exports and SSM parameters — names centralized in `src/cdk/bin/constants.ts` (`SSM_PARAMETER_NAMES` and `*_EXPORT_NAME`).
 
@@ -115,7 +116,7 @@ Cross-stack wiring uses CloudFormation exports and SSM parameters — names cent
 - **`src/cdk/bin/`** — `workshop.ts` (pipeline entry, instantiates `CDKPipeline`), `local.ts` (builds each Stack directly for dev), `environment.ts` (resolves all config from env/context), `constants.ts` (export names, SSM keys, enums like `ContainerArchitecture`, `CloudWatchAgentTraceMode`).
 - **`src/cdk/lib/stages/`** — each file exports both a `*Stage` (pipeline stage) and a `*Stack` (used by `local.ts`). `containers.ts` also defines the ECR build action and `ContainerDefinition` used to describe each service.
 - **`src/cdk/lib/microservices/`** — glue between stages and service source; `manifests/` holds EKS YAML for petsite.
-- **`src/applications/microservices/<svc>/`** — each has a `Dockerfile` + `README.md`. Notable: `petfood-rs/API_DOCUMENTATION.md`, `petsearch-java/manual-instrumentation-complete/`, `petsite-net/petsite.sln`, `petfoodagent-strands-py/agent.py`.
+- **`src/applications/microservices/<svc>/`** — each has a `Dockerfile` + `README.md`. Notable: `petfood-rs/API_DOCUMENTATION.md`, `petsearch-java/manual-instrumentation-complete/`, `petsite-net/petsite.sln`, `waggle_ai_agents/<agent>/agent.py`.
 - **`src/applications/lambda/`** — feature Lambdas: image generation, stock/cleanup processors, status updater, RDS seeder, traffic generator, user creator, pipeline-retry, capacity test.
 - **`docs-site/docs/`** — authoritative human docs: `architecture/`, `deployment/`, `operations/`, `microservices/`. Prefer these over `archive/`.
 

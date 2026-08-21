@@ -1,0 +1,69 @@
+@*
+    Site-wide Waggle chat widget: a launcher bubble bottom-right that opens a small
+    chat panel. Conversation state lives in sessionStorage (see waggle-chat.js), so
+    minimizing or navigating to another page continues the same conversation.
+    Rendered from _Layout on every page except the full /Waggle page.
+*@
+<div id="wg-root" data-user-id="@ViewBag.UserId">
+    <div id="wg-teaser" class="wg-teaser" role="button" tabindex="0" hidden>
+        <button type="button" class="wg-teaser-close" id="wg-teaser-close" aria-label="Dismiss">&times;</button>
+        <div>Hi, this is <strong>Waggle</strong>! 🐾</div>
+        <div class="wg-teaser-sub">Need to adopt? Need nutrition advice? Ask me.</div>
+    </div>
+
+    <button type="button" id="wg-launcher" class="wg-launcher" aria-label="Chat with Waggle AI"
+            title="Chat with Waggle AI"><svg class="wg-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <g fill="currentColor">
+                    <ellipse cx="16" cy="20.6" rx="6.2" ry="5.2" />
+                    <ellipse cx="7.7" cy="13.1" rx="3" ry="3.9" transform="rotate(-20 7.7 13.1)" />
+                    <ellipse cx="24.3" cy="13.1" rx="3" ry="3.9" transform="rotate(20 24.3 13.1)" />
+                    <ellipse cx="12.3" cy="7.3" rx="2.7" ry="3.5" />
+                    <ellipse cx="19.7" cy="7.3" rx="2.7" ry="3.5" />
+                </g>
+                <path d="M27.6 2.2l.72 1.98 1.98.72-1.98.72-.72 1.98-.72-1.98-1.98-.72 1.98-.72.72-1.98z" fill="#FFE3B0" />
+            </svg></button>
+
+    <section id="wg-panel" class="wg-panel" aria-label="Waggle AI chat" hidden>
+        @* drag this corner to resize; the panel is anchored bottom right *@
+        <span id="wg-resize" class="wg-resize" title="Drag to resize" aria-hidden="true"></span>
+        <header class="wg-header">
+            <span class="wg-avatar"><svg class="wg-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <g fill="currentColor">
+                        <ellipse cx="16" cy="20.6" rx="6.2" ry="5.2" />
+                        <ellipse cx="7.7" cy="13.1" rx="3" ry="3.9" transform="rotate(-20 7.7 13.1)" />
+                        <ellipse cx="24.3" cy="13.1" rx="3" ry="3.9" transform="rotate(20 24.3 13.1)" />
+                        <ellipse cx="12.3" cy="7.3" rx="2.7" ry="3.5" />
+                        <ellipse cx="19.7" cy="7.3" rx="2.7" ry="3.5" />
+                    </g>
+                    <path d="M27.6 2.2l.72 1.98 1.98.72-1.98.72-.72 1.98-.72-1.98-1.98-.72 1.98-.72.72-1.98z" fill="#FFE3B0" />
+            </svg></span>
+            <span class="wg-title">Waggle AI</span>
+            <span class="wg-dot"></span>
+            <a id="wg-maximize" class="wg-icon-btn" title="Open in full screen"
+               aria-label="Open in full screen"
+               href="@Url.Action("Index", "Waggle", new { userId = ViewBag.UserId })">&#10530;</a>
+            <button type="button" id="wg-minimize" class="wg-icon-btn" title="Minimize"
+                    aria-label="Minimize">&#9662;</button>
+            <div id="wg-session" class="wg-session"></div>
+        </header>
+        <div id="wg-messages" class="wg-messages"></div>
+        <div class="wg-input-row">
+            <input type="text" id="wg-input" class="wg-input" maxlength="500"
+                   placeholder="Ask Waggle anything..." aria-label="Message" />
+            <button type="button" id="wg-send" class="wg-send" aria-label="Send">
+                <span class="send-icon">➤</span>
+                <div class="spinner" style="display: none;"></div>
+            </button>
+        </div>
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Behaviour lives in wwwroot/js/waggle-chat.js so the widget and the preview harness cannot drift.
+    window.WaggleChat.mountWidget({
+        welcome: "Hi, I'm **Waggle AI** \ud83d\udc3e I can recommend food, order it, help you adopt a pet, " +
+                 "or answer any pet question. What can I help with?"
+    });
+});
+</script>

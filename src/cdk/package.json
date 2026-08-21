@@ -33,8 +33,8 @@
         "typescript": "~5.9.3"
     },
     "dependencies": {
-        "@aws-cdk/aws-applicationsignals-alpha": "^2.240.0-alpha.0",
-        "@aws-cdk/aws-lambda-python-alpha": "2.240.0-alpha.0",
+        "@aws-cdk/aws-applicationsignals-alpha": "^2.265.0-alpha.0",
+        "@aws-cdk/aws-lambda-python-alpha": "2.265.0-alpha.0",
         "@aws-cdk/lambda-layer-kubectl-v33": "^2.0.0",
         "@aws-sdk/client-cloudwatch-logs": "^3.914.0",
         "@aws-sdk/client-ec2": "^3.914.0",

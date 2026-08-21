@@ -130,6 +130,8 @@ export class PetSite extends EKSDeployment {
             defaultBehavior: {
                 origin: new LoadBalancerV2Origin(this.loadBalancer, {
                     protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
+                    // A delegating round-trip runs ~30-40s, past CloudFront's default 30s timeout; 60s is the max.
+                    readTimeout: Duration.seconds(60),
                     customHeaders: {
                         'X-Custom-Header': 'petsite-asset-validation-string',
                     },
@@ -288,6 +290,8 @@ export class PetSite extends EKSDeployment {
         // Remember to add the parameter to the manifest too or the change won't be applied
         const deploymentYaml = nunjucks.renderString(manifestTemplate, {
             ECR_IMAGE_URL: properties.repositoryURI,
+            // Changes each deploy so the pod-template annotation rolls the pods; k8s never re-pulls :latest alone.
+            REDEPLOY_TOKEN: process.env.CODEBUILD_RESOLVED_SOURCE_VERSION || process.env.BRANCH_NAME || 'dev',
             NAMESPACE: this.namespace,
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
@@ -304,7 +308,7 @@ export class PetSite extends EKSDeployment {
             CART_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.PET_FOOD_CART_URL,
             SEARCH_API_URL_PARAM_NAME: SSM_PARAMETER_NAMES.SEARCH_API_URL,
             RUM_SCRIPT_PARAMETER_NAME: SSM_PARAMETER_NAMES.RUM_SCRIPT_PARAMETER,
-            PETFOOD_AGENT_RUNTIME_ARN_NAME: SSM_PARAMETER_NAMES.PETFOOD_AGENT_RUNTIME_ARN_NAME,
+            WAGGLE_AI_RUNTIME_ARN_PARAM_NAME: SSM_PARAMETER_NAMES.WAGGLE_AI_RUNTIME_ARN,
         });
         return yaml.parseAllDocuments(deploymentYaml).map((document) => document.toJS());
     }
@@ -332,7 +336,7 @@ export class PetSite extends EKSDeployment {
                     new PolicyStatement({
                         actions: ['bedrock-agentcore:InvokeAgentRuntime'],
                         resources: [
-                            `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:runtime/PetFoodAgent*`,
+                            `arn:aws:bedrock-agentcore:${Stack.of(this).region}:${Stack.of(this).account}:runtime/WaggleAI*`,
                         ],
                     }),
                 ],
