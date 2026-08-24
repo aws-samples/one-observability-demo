@@ -32,7 +32,7 @@ import {
 /**
  * Properties for the ManagedPrometheusCollector construct.
  */
-export interface ManagedPrometheusCollectorProps {
+export interface ManagedPrometheusCollectorProperties {
     /** VPC where the scraper will be deployed */
     readonly vpc: IVpc;
     /** Security group for the scraper's ENIs */
@@ -69,17 +69,17 @@ export class ManagedPrometheusCollector extends Construct {
     /** The full scrape config YAML including additional update targets (for hands-on exercise) */
     public readonly updateScrapeConfigYaml?: string;
 
-    constructor(scope: Construct, id: string, props: ManagedPrometheusCollectorProps) {
+    constructor(scope: Construct, id: string, properties: ManagedPrometheusCollectorProperties) {
         super(scope, id);
 
-        const alias = props.alias ?? 'workshop-ecs-collector';
-        const parameterPrefix = props.parameterPrefix ?? '/petstore/prometheus-collector';
+        const alias = properties.alias ?? 'workshop-ecs-collector';
+        const parameterPrefix = properties.parameterPrefix ?? '/petstore/prometheus-collector';
         const datasetArn =
-            props.datasetArn ??
+            properties.datasetArn ??
             `arn:aws:cloudwatch:${Stack.of(this).region}:${Stack.of(this).account}:dataset/default`;
 
         // Build scrape configuration YAML
-        this.scrapeConfigYaml = this.buildScrapeConfig(props.targetServices, props.cloudMapNamespaceName);
+        this.scrapeConfigYaml = this.buildScrapeConfig(properties.targetServices, properties.cloudMapNamespaceName);
 
         // Pass the raw YAML string directly. The AWS SDK v3 encodes Blob-typed fields
         // automatically for JSON transport. Pre-base64-encoding causes the SDK to encode
@@ -87,8 +87,8 @@ export class ManagedPrometheusCollector extends Construct {
         // "Invalid Prometheus scrape configuration".
 
         // Add self-referencing ingress rule for scraper ENIs to reach targets on port 8080
-        props.securityGroup.addIngressRule(
-            props.securityGroup,
+        properties.securityGroup.addIngressRule(
+            properties.securityGroup,
             Port.tcp(8080),
             'Managed Prometheus Collector self-reference',
         );
@@ -106,8 +106,8 @@ export class ManagedPrometheusCollector extends Construct {
                     alias: alias,
                     source: {
                         vpcConfiguration: {
-                            subnetIds: props.privateSubnetIds,
-                            securityGroupIds: [props.securityGroup.securityGroupId],
+                            subnetIds: properties.privateSubnetIds,
+                            securityGroupIds: [properties.securityGroup.securityGroupId],
                         },
                     },
                     destination: {
@@ -183,14 +183,15 @@ export class ManagedPrometheusCollector extends Construct {
         // If additional update targets are provided, generate a full scrape config
         // containing BOTH initial services and the additional targets.
         // This is stored in a separate SSM parameter for the hands-on update-scraper exercise.
-        if (props.additionalUpdateTargets && props.additionalUpdateTargets.length > 0) {
-            const allTargets = [...props.targetServices, ...props.additionalUpdateTargets];
-            this.updateScrapeConfigYaml = this.buildScrapeConfig(allTargets, props.cloudMapNamespaceName);
+        if (properties.additionalUpdateTargets && properties.additionalUpdateTargets.length > 0) {
+            const allTargets = [...properties.targetServices, ...properties.additionalUpdateTargets];
+            this.updateScrapeConfigYaml = this.buildScrapeConfig(allTargets, properties.cloudMapNamespaceName);
 
             new StringParameter(this, 'ScrapeConfigWithAllTargetsParam', {
                 parameterName: `${parameterPrefix}/scrape-config-yaml-with-all-targets`,
                 stringValue: this.updateScrapeConfigYaml,
-                description: 'Full scrape configuration YAML with all targets (used for hands-on update-scraper exercise)',
+                description:
+                    'Full scrape configuration YAML with all targets (used for hands-on update-scraper exercise)',
             });
         }
     }

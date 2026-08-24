@@ -551,7 +551,9 @@ export class MicroservicesStack extends Stack {
 
         // Managed Prometheus Collector - scrapes ECS services and delivers to CloudWatch
         const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
-        const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
+        const privateSubnetIds = imports.vpcExports.privateSubnets.map(
+            (subnet: { subnetId: string }) => subnet.subnetId,
+        );
 
         const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
             vpc: imports.vpcExports,
@@ -562,9 +564,7 @@ export class MicroservicesStack extends Stack {
                 { name: 'payforadoption-go', port: 8080 },
                 // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
             ],
-            additionalUpdateTargets: [
-                { name: 'petlistadoption-py', port: 8080 },
-            ],
+            additionalUpdateTargets: [{ name: 'petlistadoption-py', port: 8080 }],
         });
     }
 
