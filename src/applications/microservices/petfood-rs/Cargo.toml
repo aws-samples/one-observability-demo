@@ -22,16 +22,13 @@ aws-sdk-eventbridge = { version = "1.88", features = ["behavior-version-latest"]
 aws-smithy-types = "1.0"
 aws-smithy-runtime-api = "1.0"
 
-# Observability - OpenTelemetry
-opentelemetry = "0.21"
-opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
-opentelemetry-otlp = "0.14"
+# Observability - OpenTelemetry (traces + metrics via OTLP)
+opentelemetry = { version = "0.21", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio", "metrics"] }
+opentelemetry-otlp = { version = "0.14", features = ["metrics"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.22"
-
-# Metrics - Prometheus
-prometheus = "0.14"
 
 # Error handling
 thiserror = "1.0"

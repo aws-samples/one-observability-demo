@@ -9,7 +9,7 @@ use tracing::{info, warn};
 
 use petfood_rs::{
     handlers::{
-        admin, api, cors_middleware, health_check, metrics_handler, request_validation_middleware,
+        admin, api, cors_middleware, health_check, request_validation_middleware,
         security_headers_middleware,
     },
     init_observability,
@@ -212,6 +212,7 @@ fn create_app(
         food_service: food_service.clone(),
         cart_service,
         assets_cdn_url: assets_cdn_url.clone(),
+        metrics: metrics.clone(),
     };
 
     // Create the admin state
@@ -221,13 +222,12 @@ fn create_app(
         foods_table_name,
         carts_table_name,
         assets_cdn_url,
+        metrics: metrics.clone(),
     };
 
     Router::new()
-        // Health and metrics endpoints (with metrics state)
+        // Health endpoint
         .route("/health/status", get(health_check))
-        .route("/metrics", get(metrics_handler))
-        .with_state(metrics)
         // API endpoints (with API state) - read-only food endpoints
         .route("/api/foods", get(api::list_foods))
         .route("/api/foods/:food_id", get(api::get_food))
