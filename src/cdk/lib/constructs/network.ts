@@ -39,7 +39,7 @@ import {
 } from 'aws-cdk-lib/aws-route53resolver';
 import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
 import { VpcEndpoints } from './vpc-endpoints';
-import { ENABLE_PET_FOOD_AGENT, MAX_AVAILABILITY_ZONES, AVAILABILITY_ZONES } from '../../bin/environment';
+import { ENABLE_WAGGLE_AI_AGENTS, MAX_AVAILABILITY_ZONES, AVAILABILITY_ZONES } from '../../bin/environment';
 import {
     VPC_AVAILABILITY_ZONES_EXPORT_NAME,
     VPC_CIDR_EXPORT_NAME,
@@ -105,8 +105,8 @@ export class WorkshopNetwork extends Construct {
         this.vpc = new Vpc(this, 'VPC-' + properties.name, {
             ipAddresses: IpAddresses.cidr(properties.cidrRange),
             natGateways: 1,
-            maxAzs: ENABLE_PET_FOOD_AGENT ? undefined : MAX_AVAILABILITY_ZONES,
-            availabilityZones: ENABLE_PET_FOOD_AGENT ? AVAILABILITY_ZONES : undefined,
+            maxAzs: ENABLE_WAGGLE_AI_AGENTS ? undefined : MAX_AVAILABILITY_ZONES,
+            availabilityZones: ENABLE_WAGGLE_AI_AGENTS ? AVAILABILITY_ZONES : undefined,
             subnetConfiguration: [
                 {
                     name: 'Public',

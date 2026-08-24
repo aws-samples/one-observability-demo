@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
  * - **Deployment placement** configuration (ECS Fargate, ECS EC2, EKS, or None)
  *
  * All six microservices (payforadoption-go, petlistadoption-py, petsearch-java,
- * petsite-net, petfood-rs, petfoodagent-strands-py) extend this base class
+ * petsite-net, petfood-rs, waggle-ai-*) extend this base class
  * through either {@link EcsService} or {@link EKSDeployment}.
  *
  * @packageDocumentation
@@ -32,7 +32,11 @@ import {
     PETFOOD_RS,
     HostType,
     ComputeType,
-    PETFOODAGENT_STRANDS_PY,
+    WAGGLE_AI_ORCHESTRATOR,
+    WAGGLE_AI_NUTRITION,
+    WAGGLE_AI_ORDERING,
+    WAGGLE_AI_ADOPTION,
+    WAGGLE_AI_CONCIERGE,
 } from '../../bin/environment';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Stack } from 'aws-cdk-lib';
@@ -44,7 +48,11 @@ export const MicroservicesNames = {
     PetSearch: PETSEARCH_JAVA.name,
     PetSite: PETSITE_NET.name,
     PetFood: PETFOOD_RS.name,
-    PetFoodAgent: PETFOODAGENT_STRANDS_PY.name,
+    WaggleAIOrchestrator: WAGGLE_AI_ORCHESTRATOR.name,
+    WaggleAINutrition: WAGGLE_AI_NUTRITION.name,
+    WaggleAIOrdering: WAGGLE_AI_ORDERING.name,
+    WaggleAIAdoption: WAGGLE_AI_ADOPTION.name,
+    WaggleAIConcierge: WAGGLE_AI_CONCIERGE.name,
 } as const;
 
 /** Common properties shared by all microservice constructs (ECS, EKS, and AgentCore). */

@@ -1,0 +1,7 @@
+# Ordering runtime (CrewAI, talks to Bedrock via LiteLLM).
+crewai
+boto3
+httpx
+python-dotenv
+bedrock-agentcore
+aws-opentelemetry-distro>=0.18.0

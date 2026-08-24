@@ -24,9 +24,9 @@ Builds and pushes container images for all microservices using a dedicated CodeP
 | `petsearch-java` | Java/Spring Boot | AMD64 |
 | `petsite-net` | .NET | AMD64 |
 | `petfood-rs` | Rust/Axum | AMD64 |
-| `petfoodagent-strands-py` | Python/Strands | ARM64 |
+| `waggle-ai-*` (5 agents) | Python | ARM64 |
 
-Pipeline: Source Stage → Parallel Build Stage (all 6 services)
+Pipeline: Source Stage → Parallel Build Stage (all services)
 
 ## 3. Storage Stage
 
@@ -63,7 +63,7 @@ Deploys all microservices, serverless functions, canaries, and WAF rules.
 
 - 4 ECS services: payforadoption-go, petlistadoptions-py, petsearch-java, petfood-rs
 - 1 EKS deployment: petsite-net (with CloudFront distribution)
-- 1 Bedrock AgentCore deployment: petfoodagent-strands-py
+- 5 Bedrock AgentCore runtimes: waggle-ai-orchestrator, -nutrition, -ordering, -adoption, -concierge
 
 ### Lambda Functions
 

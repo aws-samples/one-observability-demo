@@ -48,6 +48,6 @@ Deployed on EKS with a CloudWatch agent providing Application Signals. The .NET 
 
 Uses the OpenTelemetry Rust SDK with custom Prometheus metrics. Demonstrates manual instrumentation in Rust with both trace and metric signal types.
 
-### petfoodagent-strands-py
+### waggle-ai-agents
 
-AI agent deployed on Bedrock AgentCore. Uses the Strands Agents SDK for natural-language food recommendations with built-in observability.
+Five agents on Bedrock AgentCore — a Strands orchestrator over LangGraph, CrewAI, LlamaIndex and OpenAI-Agents sub-agents. Each is auto-instrumented by the matching ADOT instrumentor, so one trace spans several agent frameworks.

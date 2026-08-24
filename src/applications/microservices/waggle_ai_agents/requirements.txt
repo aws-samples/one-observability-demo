@@ -1,0 +1,27 @@
+# Orchestrator
+strands-agents
+strands-agents-tools
+
+# Nutrition sub-agent (LangGraph)
+langgraph
+langchain-aws
+langchain-core
+
+# Ordering sub-agent (CrewAI, talks to Bedrock via LiteLLM)
+crewai
+
+# Adoption sub-agent (LlamaIndex on Bedrock Converse)
+llama-index-core
+llama-index-llms-bedrock-converse
+
+# Concierge sub-agent (OpenAI Agents SDK -> Bedrock via LiteLLM / SigV4)
+openai-agents[litellm]
+
+# Shared
+httpx
+python-dotenv
+boto3
+
+# Observability — ADOT auto-instruments CrewAI, LangChain/LangGraph,
+# LlamaIndex, and OpenAI Agents; Strands emits OTel natively.
+aws-opentelemetry-distro>=0.18.0

@@ -171,14 +171,31 @@ export const PETFOOD_RS = {
     architecture: ContainerArchitecture.AMD64,
 };
 
-export const PETFOODAGENT_STRANDS_PY = {
-    name: 'petfoodagent-strands-py',
-    dockerFilePath: 'src/applications/microservices/petfoodagent-strands-py',
-    hostType: HostType.None, // Note: This is for container building only, actual deployment is via Bedrock AgentCore
+/** Waggle AI multi-agent system: 5 ARM64 agents sharing one build context, deployed via AgentCore. */
+const WAGGLE_AI_AGENTS_CONTEXT = 'src/applications/microservices/waggle_ai_agents';
+const waggleAiAgent = (name: string, dockerfile: string) => ({
+    name,
+    dockerFilePath: WAGGLE_AI_AGENTS_CONTEXT,
+    dockerfile,
+    hostType: HostType.None, // container build only; deployed via Bedrock AgentCore
     computeType: ComputeType.Fargate,
-    disableService: true, // Disable ECS service since it runs on Bedrock AgentCore
+    disableService: true,
     architecture: ContainerArchitecture.ARM64,
-};
+});
+
+export const WAGGLE_AI_ORCHESTRATOR = waggleAiAgent('waggle-ai-orchestrator', 'deploy/Dockerfile.orchestrator');
+export const WAGGLE_AI_NUTRITION = waggleAiAgent('waggle-ai-nutrition', 'deploy/Dockerfile.nutrition');
+export const WAGGLE_AI_ORDERING = waggleAiAgent('waggle-ai-ordering', 'deploy/Dockerfile.ordering');
+export const WAGGLE_AI_ADOPTION = waggleAiAgent('waggle-ai-adoption', 'deploy/Dockerfile.adoption');
+export const WAGGLE_AI_CONCIERGE = waggleAiAgent('waggle-ai-concierge', 'deploy/Dockerfile.concierge');
+
+export const WAGGLE_AI_AGENTS = [
+    WAGGLE_AI_ORCHESTRATOR,
+    WAGGLE_AI_NUTRITION,
+    WAGGLE_AI_ORDERING,
+    WAGGLE_AI_ADOPTION,
+    WAGGLE_AI_CONCIERGE,
+];
 
 /** Complete list of all microservice applications */
 export const APPLICATION_LIST = [
@@ -187,7 +204,7 @@ export const APPLICATION_LIST = [
     PETSEARCH_JAVA,
     PETSITE_NET,
     PETFOOD_RS,
-    PETFOODAGENT_STRANDS_PY,
+    ...WAGGLE_AI_AGENTS,
 ];
 
 /** Map of microservice names to their deployment configurations */
@@ -197,7 +214,7 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
     [PETSITE_NET.name, PETSITE_NET],
     [PETFOOD_RS.name, PETFOOD_RS],
-    [PETFOODAGENT_STRANDS_PY.name, PETFOODAGENT_STRANDS_PY],
+    ...WAGGLE_AI_AGENTS.map((a) => [a.name, a] as [string, MicroserviceApplicationPlacement]),
 ]);
 
 /** Paths to pet image assets for seeding the application */
@@ -350,7 +367,13 @@ export const CUSTOM_ENABLE_ZEUS = process.env.CUSTOM_ENABLE_ZEUS == 'true' || fa
  */
 
 export const AUTO_TRANSACTION_SEARCH_CONFIGURED = process.env.AUTO_TRANSACTION_SEARCH_CONFIGURED == 'true' || false;
-export const ENABLE_PET_FOOD_AGENT = process.env.ENABLE_PET_FOOD_AGENT == 'true' || false;
+/**
+ * Deploys the Waggle AI agents on Bedrock AgentCore.
+ * `ENABLE_PET_FOOD_AGENT` is the pre-rename name, still honored so an existing `.env` or stored
+ * configuration parameter keeps working; drop that fallback once every environment is migrated.
+ */
+export const ENABLE_WAGGLE_AI_AGENTS =
+    (process.env.ENABLE_WAGGLE_AI_AGENTS ?? process.env.ENABLE_PET_FOOD_AGENT) == 'true' || false;
 export const AVAILABILITY_ZONES = process.env.AVAILABILITY_ZONES?.split(',') || undefined;
 /** Enables OpenSearch components (collection, pipeline, and application) creation */
 export const ENABLE_OPENSEARCH = process.env.ENABLE_OPENSEARCH == 'true' || false;

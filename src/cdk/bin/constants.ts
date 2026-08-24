@@ -182,6 +182,11 @@ export const SSM_PARAMETER_NAMES = {
     // event bridge
     EVENT_BUS_NAME: 'eventbusname',
 
-    // PetFood Agent parameters
-    PETFOOD_AGENT_RUNTIME_ARN_NAME: 'petfoodagent-runtime-arn',
+    // Waggle AI agent parameters
+    WAGGLE_AI_RUNTIME_ARN: 'waggleai/runtimearn',
+    WAGGLE_AI_GATEWAY_URL: 'waggleai/gatewayurl',
+    WAGGLE_AI_MEMORY_ID: 'waggleai/memoryid',
+    WAGGLE_AI_NUTRITION_KB_ID: 'waggleai/nutritionkbid',
+    WAGGLE_AI_GUARDRAIL_ID: 'waggleai/guardrailid',
+    WAGGLE_AI_GUARDRAIL_VERSION: 'waggleai/guardrailversion',
 } as const;
