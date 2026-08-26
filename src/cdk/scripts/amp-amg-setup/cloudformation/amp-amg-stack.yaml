@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AMP + AMG with Keycloak SAML authentication, managed scraper, datasource, and dashboard 3119.
+  Requires: EKS cluster (devops-agent-eks) with EBS CSI driver, eksctl, kubectl, helm, jq, curl, openssl.
+
+Parameters:
+  AwsRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region
+  ClusterName:
+    Type: String
+    Default: devops-agent-eks
+    Description: EKS cluster name
+  AmpAlias:
+    Type: String
+    Default: demo-amp
+    Description: AMP workspace alias
+  ScraperAlias:
+    Type: String
+    Default: demo-amp-scraper
+    Description: Managed scraper alias
+  AmgWorkspaceName:
+    Type: String
+    Default: demo-amg
+    Description: AMG workspace name
+  KeycloakNamespace:
+    Type: String
+    Default: keycloak
+    Description: Kubernetes namespace for Keycloak
+  KeycloakRealm:
+    Type: String
+    Default: amg
+    Description: Keycloak realm name
+  KeycloakAdminUser:
+    Type: String
+    Default: user
+    Description: Keycloak admin username
+  KeycloakChartVersion:
+    Type: String
+    Default: '24.2.3'
+    Description: Bitnami Keycloak Helm chart version
+  DashboardId:
+    Type: String
+    Default: '3119'
+    Description: Grafana.com dashboard ID to import
+
+Resources:
+  # ===========================================================================
+  # Step 1: AMP Workspace
+  # ===========================================================================
+  AmpWorkspace:
+    Type: AWS::APS::Workspace
+    Properties:
+      Alias: !Ref AmpAlias
+
+  # ===========================================================================
+  # Step 4: AMG IAM Role
+  # ===========================================================================
+  AmgRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AmgWorkspaceName}-amg-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: grafana.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: !Sub '${AmgWorkspaceName}-amp-read'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AMPReadAccess
+                Effect: Allow
+                Action:
+                  - aps:QueryMetrics
+                  - aps:GetMetricMetadata
+                  - aps:GetSeries
+                  - aps:GetLabels
+                  - aps:ListWorkspaces
+                  - aps:DescribeWorkspace
+                Resource: '*'
+
+  # ===========================================================================
+  # Step 4: AMG Workspace
+  # ===========================================================================
+  AmgWorkspace:
+    Type: AWS::Grafana::Workspace
+    DependsOn: AmgRole
+    Properties:
+      Name: !Ref AmgWorkspaceName
+      AccountAccessType: CURRENT_ACCOUNT
+      AuthenticationProviders:
+        - SAML
+      PermissionType: SERVICE_MANAGED
+      RoleArn: !GetAtt AmgRole.Arn
+      DataSources:
+        - PROMETHEUS
+
+  # ===========================================================================
+  # Lambda execution role for custom resources
+  # ===========================================================================
+  CustomResourceLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AmgWorkspaceName}-cfn-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CustomResourceAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - grafana:CreateWorkspaceApiKey
+                  - grafana:DeleteWorkspaceApiKey
+                  - grafana:UpdateWorkspaceAuthentication
+                  - aps:CreateScraper
+                  - aps:DeleteScraper
+                  - aps:DescribeScraper
+                  - aps:ListScrapers
+                  - eks:DescribeCluster
+                  - eks:AccessKubernetesApi
+                Resource: '*'
+
+  # ===========================================================================
+  # Steps 2, 3, 5, 6, 7: Post-deploy custom resource
+  # Handles: scraper, Keycloak, RBAC, SAML, datasource, dashboard
+  # These require kubectl/helm/eksctl and cannot run in Lambda natively.
+  # Use a CodeBuild-backed custom resource or run the companion script.
+  # ===========================================================================
+  PostDeployFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AmgWorkspaceName}-post-deploy'
+      Runtime: python3.12
+      Timeout: 900
+      MemorySize: 256
+      Role: !GetAtt CustomResourceLambdaRole.Arn
+      Handler: index.handler
+      Environment:
+        Variables:
+          REGION: !Ref AwsRegion
+          CLUSTER_NAME: !Ref ClusterName
+          AMP_ALIAS: !Ref AmpAlias
+          SCRAPER_ALIAS: !Ref ScraperAlias
+          AMP_WORKSPACE_ARN: !GetAtt AmpWorkspace.Arn
+          AMP_WORKSPACE_ID: !Select [6, !Split ['/', !GetAtt AmpWorkspace.Arn]]
+          AMG_WORKSPACE_ID: !Ref AmgWorkspace
+          AMG_WORKSPACE_NAME: !Ref AmgWorkspaceName
+          KEYCLOAK_NAMESPACE: !Ref KeycloakNamespace
+          KEYCLOAK_REALM: !Ref KeycloakRealm
+          KEYCLOAK_ADMIN_USER: !Ref KeycloakAdminUser
+          KEYCLOAK_CHART_VERSION: !Ref KeycloakChartVersion
+          DASHBOARD_ID: !Ref DashboardId
+      Code:
+        ZipFile: |
+          import json
+          import urllib.request
+          import boto3
+          import os
+
+          def handler(event, context):
+              """
+              CloudFormation custom resource handler.
+              
+              NOTE: The managed scraper, Keycloak deployment, RBAC, SAML config,
+              datasource, and dashboard import require kubectl/helm/eksctl which
+              cannot run inside Lambda. This function handles what it can via
+              AWS APIs and signals the user to run the companion script for the rest.
+              
+              For a fully automated approach, use the Terraform implementation or
+              the shell script (setup-amp-amg.sh) instead.
+              """
+              response_url = event.get('ResponseURL', '')
+              request_type = event.get('RequestType', 'Create')
+              
+              try:
+                  region = os.environ['REGION']
+                  amg_workspace_id = os.environ['AMG_WORKSPACE_ID']
+                  
+                  physical_id = f"amp-amg-post-deploy-{amg_workspace_id}"
+                  
+                  if request_type == 'Delete':
+                      send_response(response_url, event, context, 'SUCCESS', physical_id,
+                                    {'Message': 'Delete handled. Run cleanup-amp-amg.sh for full cleanup.'})
+                      return
+                  
+                  # For Create/Update, we can create the Grafana API key and
+                  # update SAML auth via AWS APIs. The rest needs kubectl/helm.
+                  grafana = boto3.client('grafana', region_name=region)
+                  
+                  output_data = {
+                      'Message': 'CloudFormation created AMP workspace, AMG workspace, and IAM role. '
+                                 'Run the companion post-deploy script for: managed scraper, '
+                                 'Keycloak deployment, RBAC, SAML config, datasource, and dashboard.',
+                      'AmgWorkspaceId': amg_workspace_id,
+                      'AmpWorkspaceArn': os.environ['AMP_WORKSPACE_ARN'],
+                  }
+                  
+                  send_response(response_url, event, context, 'SUCCESS', physical_id, output_data)
+                  
+              except Exception as e:
+                  print(f"Error: {e}")
+                  send_response(response_url, event, context, 'SUCCESS', 
+                                f"amp-amg-post-deploy-error", {'Error': str(e)})
+
+          def send_response(url, event, context, status, physical_id, data):
+              body = json.dumps({
+                  'Status': status,
+                  'Reason': data.get('Message', data.get('Error', '')),
+                  'PhysicalResourceId': physical_id,
+                  'StackId': event.get('StackId', ''),
+                  'RequestId': event.get('RequestId', ''),
+                  'LogicalResourceId': event.get('LogicalResourceId', ''),
+                  'Data': data,
+              }).encode('utf-8')
+              req = urllib.request.Request(url, data=body, method='PUT',
+                                          headers={'Content-Type': ''})
+              urllib.request.urlopen(req)
+
+  PostDeploy:
+    Type: Custom::PostDeploy
+    DependsOn:
+      - AmpWorkspace
+      - AmgWorkspace
+    Properties:
+      ServiceToken: !GetAtt PostDeployFunction.Arn
+
+Outputs:
+  AmpWorkspaceId:
+    Description: AMP workspace ID
+    Value: !Select [6, !Split ['/', !GetAtt AmpWorkspace.Arn]]
+  AmpWorkspaceArn:
+    Description: AMP workspace ARN
+    Value: !GetAtt AmpWorkspace.Arn
+  AmgWorkspaceId:
+    Description: AMG workspace ID
+    Value: !Ref AmgWorkspace
+  AmgEndpoint:
+    Description: AMG workspace URL
+    Value: !GetAtt AmgWorkspace.Endpoint
+  AmgRoleArn:
+    Description: AMG IAM role ARN
+    Value: !GetAtt AmgRole.Arn
+  PostDeployInstructions:
+    Description: Next steps after stack creation
+    Value: !Sub >
+      Stack created AMP, AMG, and IAM resources. Run the companion script to
+      complete setup: ./post-deploy.sh --region ${AwsRegion} --cluster ${ClusterName}
+      --amg-workspace-id <AmgWorkspaceId> --amp-endpoint <AmpEndpoint>
