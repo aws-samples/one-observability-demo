@@ -91,7 +91,7 @@ service:
     # ECS container metrics pipeline
     metrics/ecs:
       receivers: [awsecscontainermetrics]
-      processors: [resource]
+      processors: [batch/metrics]
       exporters: [prometheusremotewrite, debug]
 EOF
 
