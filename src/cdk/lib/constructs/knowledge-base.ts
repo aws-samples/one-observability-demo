@@ -4,25 +4,35 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 /**
- * Amazon Bedrock Knowledge Base construct for the One Observability Workshop.
+ * Amazon Bedrock Knowledge Base construct for the TDIR workshop track.
  *
- * This module provisions a Bedrock Knowledge Base backed by an S3 data source
- * containing pet food product information. The knowledge base is used by the
- * Pet Food AI Agent for retrieval-augmented generation (RAG).
+ * This module provisions a Bedrock Knowledge Base backed by an S3 data source and an
+ * S3 Vectors index, controlled by the `CUSTOM_ENABLE_KNOWLEDGE_BASE` flag.
  *
- * In the TDIR workshop scenario, this knowledge base represents a target for
- * "knowledge base corruption" attacks where adversarial content is injected
- * into the data source to manipulate agent responses.
+ * In the TDIR workshop scenario, this knowledge base is the target of a "knowledge base
+ * corruption" attack: `scripts/tdir-seed-scenarios.py` uploads adversarial documents
+ * alongside the legitimate corpus and re-runs ingestion, so participants can observe
+ * poisoned content being retrieved and trace it back through object metadata.
+ *
+ * > **Isolation note**: this is the workshop's *own* knowledge base. It deliberately does
+ * > not touch the shared `waggle-ai-nutrition-kb` that the Waggle AI agents retrieve from,
+ * > because poisoning that one would degrade every other workshop built on this scaffolding.
  *
  * @packageDocumentation
  */
 
 import { Construct } from 'constructs';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { CfnOutput, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Bucket, BlockPublicAccess, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { Role, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { CfnKnowledgeBase, CfnDataSource } from 'aws-cdk-lib/aws-bedrock';
+import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
 import { NagSuppressions } from 'cdk-nag';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { Utilities } from '../utils/utilities';
+
+/** Dimensions and data type must match the embedding model below. */
+const EMBED_DIM = 1024;
 
 /**
  * Configuration properties for the WorkshopKnowledgeBase construct.
@@ -30,18 +40,17 @@ import { NagSuppressions } from 'cdk-nag';
 export interface WorkshopKnowledgeBaseProperties {
     /** Embedding model ID for vectorizing documents */
     embeddingModelId?: string;
-    /** Tags to apply to resources */
-    tags?: { [key: string]: string };
 }
 
 /**
- * A CDK construct that creates a Bedrock Knowledge Base with an S3 data source
- * for the pet food AI agent's retrieval-augmented generation.
+ * A CDK construct that creates a Bedrock Knowledge Base with an S3 data source and an
+ * S3 Vectors index for the TDIR workshop's corruption scenario.
  *
  * The knowledge base uses:
- * - S3 bucket for storing product documents
- * - Bedrock embedding model for vectorization
- * - Built-in vector store for similarity search
+ * - an S3 bucket for source documents (versioned, so corruption is auditable)
+ * - an S3 Vectors bucket and index as the vector store
+ * - a Bedrock embedding model for vectorization
+ * - a one-shot ingestion job so seeded documents are actually embedded
  *
  * Workshop participants investigate this knowledge base for signs of
  * data corruption (adversarial document injection).
@@ -53,6 +62,8 @@ export class WorkshopKnowledgeBase extends Construct {
     public readonly knowledgeBase: CfnKnowledgeBase;
     /** The data source connecting S3 to the knowledge base */
     public readonly dataSource: CfnDataSource;
+    /** The knowledge base id, published to SSM for the seeding script */
+    public readonly knowledgeBaseId: string;
 
     /**
      * Creates a new WorkshopKnowledgeBase construct.
@@ -68,8 +79,12 @@ export class WorkshopKnowledgeBase extends Construct {
         const embeddingModelId = props.embeddingModelId || 'amazon.titan-embed-text-v2:0';
         const region = Stack.of(this).region;
         const account = Stack.of(this).account;
+        const embedModelArn = `arn:aws:bedrock:${region}::foundation-model/${embeddingModelId}`;
 
-        // S3 bucket for knowledge base documents
+        // S3 bucket for knowledge base documents.
+        // Seeded at runtime by scripts/tdir-seed-scenarios.py, not by a BucketDeployment:
+        // BucketDeployment defaults to prune=true and would delete the planted documents
+        // on any redeploy, silently resetting the scenario mid-workshop.
         this.dataBucket = new Bucket(this, 'DataBucket', {
             encryption: BucketEncryption.S3_MANAGED,
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
@@ -78,6 +93,22 @@ export class WorkshopKnowledgeBase extends Construct {
             autoDeleteObjects: true,
             versioned: true, // Versioning helps detect corruption
         });
+
+        // --- S3 Vectors: bucket + index backing the knowledge base ---
+        // Physical name must be known up front so the IAM policy below can cover `.../index/*`
+        // at knowledge base creation time.
+        const vectorBucketName = `tdir-workshop-vectors-${account}`;
+        const vectorBucketArn = `arn:aws:s3vectors:${region}:${account}:bucket/${vectorBucketName}`;
+
+        const vectorBucket = new CfnVectorBucket(this, 'VectorBucket', { vectorBucketName });
+        const vectorIndex = new CfnIndex(this, 'VectorIndex', {
+            vectorBucketName,
+            indexName: 'petfood-product-index',
+            dataType: 'float32',
+            dimension: EMBED_DIM,
+            distanceMetric: 'cosine',
+        });
+        vectorIndex.addDependency(vectorBucket);
 
         // IAM role for Bedrock to access the knowledge base resources
         const kbRole = new Role(this, 'KnowledgeBaseRole', {
@@ -97,7 +128,15 @@ export class WorkshopKnowledgeBase extends Construct {
             new PolicyStatement({
                 effect: Effect.ALLOW,
                 actions: ['bedrock:InvokeModel'],
-                resources: [`arn:aws:bedrock:${region}::foundation-model/${embeddingModelId}`],
+                resources: [embedModelArn],
+            }),
+        );
+
+        kbRole.addToPolicy(
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: ['s3vectors:*'],
+                resources: [vectorBucketArn, `${vectorBucketArn}/*`],
             }),
         );
 
@@ -109,7 +148,7 @@ export class WorkshopKnowledgeBase extends Construct {
             }),
         );
 
-        // Knowledge Base with built-in vector store
+        // Knowledge Base backed by the S3 Vectors index.
         this.knowledgeBase = new CfnKnowledgeBase(this, 'KnowledgeBase', {
             name: 'petfood-product-knowledge',
             description: 'Pet food product information for the AI recommendation agent',
@@ -117,15 +156,29 @@ export class WorkshopKnowledgeBase extends Construct {
             knowledgeBaseConfiguration: {
                 type: 'VECTOR',
                 vectorKnowledgeBaseConfiguration: {
-                    embeddingModelArn: `arn:aws:bedrock:${region}::foundation-model/${embeddingModelId}`,
+                    embeddingModelArn: embedModelArn,
+                    embeddingModelConfiguration: {
+                        bedrockEmbeddingModelConfiguration: {
+                            dimensions: EMBED_DIM,
+                            embeddingDataType: 'FLOAT32',
+                        },
+                    },
                 },
             },
             storageConfiguration: {
-                type: 'INTERNAL',
+                type: 'S3_VECTORS',
+                s3VectorsConfiguration: { indexArn: vectorIndex.attrIndexArn },
             },
         });
+        this.knowledgeBase.addDependency(vectorIndex);
+        // Depend on the whole role, not just roleArn, or the knowledge base races the
+        // DefaultPolicy attachment and fails with a 403.
+        this.knowledgeBase.node.addDependency(kbRole);
+        this.knowledgeBaseId = this.knowledgeBase.attrKnowledgeBaseId;
 
-        // Data source connecting S3 bucket to the knowledge base
+        // Data source connecting S3 bucket to the knowledge base.
+        // No inclusionPrefixes: the whole bucket is in scope, so the seeding script can
+        // choose its own key prefixes without the two definitions drifting apart.
         this.dataSource = new CfnDataSource(this, 'S3DataSource', {
             knowledgeBaseId: this.knowledgeBase.attrKnowledgeBaseId,
             name: 'petfood-documents',
@@ -137,13 +190,33 @@ export class WorkshopKnowledgeBase extends Construct {
                 },
             },
         });
+        this.dataSource.addDependency(this.knowledgeBase);
+
+        // Deliberately no create-time ingestion job: the source bucket is empty at deploy
+        // time (documents are uploaded later by scripts/tdir-seed-scenarios.py), so a job
+        // here would index nothing. The seeding script starts ingestion after uploading,
+        // which is also the only point at which the corpus is complete.
+
+        // Published so scripts/tdir-seed-scenarios.py can find the knowledge base and its
+        // source bucket without guessing CloudFormation stack or logical resource names.
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map([
+                ['tdir/knowledgebaseid', this.knowledgeBaseId],
+                ['tdir/knowledgebasebucket', this.dataBucket.bucketName],
+            ]),
+        );
+
+        new CfnOutput(this, 'TdirKnowledgeBaseId', { value: this.knowledgeBaseId });
+        new CfnOutput(this, 'TdirKnowledgeBaseBucket', { value: this.dataBucket.bucketName });
 
         NagSuppressions.addResourceSuppressions(
             kbRole,
             [
                 {
                     id: 'AwsSolutions-IAM5',
-                    reason: 'Knowledge base role needs access to all objects in the data bucket',
+                    reason: 'Knowledge base role needs access to all objects in the data bucket and its own S3 Vectors index',
                 },
             ],
             true,

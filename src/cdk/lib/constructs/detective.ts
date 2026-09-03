@@ -18,14 +18,6 @@ import { CfnGraph } from 'aws-cdk-lib/aws-detective';
 import { Stack } from 'aws-cdk-lib';
 
 /**
- * Configuration properties for the WorkshopDetective construct.
- */
-export interface WorkshopDetectiveProperties {
-    /** Tags to apply to the Detective graph */
-    tags?: { [key: string]: string };
-}
-
-/**
  * A CDK construct that creates an Amazon Detective behavior graph
  * for security investigation in the observability workshop.
  *
@@ -46,21 +38,15 @@ export class WorkshopDetective extends Construct {
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
-     * @param properties - Configuration properties for Detective
      */
-    constructor(scope: Construct, id: string, properties?: WorkshopDetectiveProperties) {
+    constructor(scope: Construct, id: string) {
         super(scope, id);
 
-        const tags = properties?.tags
-            ? Object.entries(properties.tags).map(([key, value]) => ({ key, value }))
-            : undefined;
-
+        // Only the Name tag is set here. The stage's tags are applied recursively by
+        // Utilities.TagConstruct and propagated onto this L1 resource by CDK.
         this.graph = new CfnGraph(this, 'BehaviorGraph', {
             autoEnableMembers: false,
-            tags: [
-                ...(tags || []),
-                { key: 'Name', value: `${Stack.of(this).stackName}-detective-graph` },
-            ],
+            tags: [{ key: 'Name', value: `${Stack.of(this).stackName}-detective-graph` }],
         });
     }
 }

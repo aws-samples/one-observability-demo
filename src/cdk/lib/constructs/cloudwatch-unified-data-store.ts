@@ -20,9 +20,10 @@ SPDX-License-Identifier: Apache-2.0
 import { Construct } from 'constructs';
 import { CfnTelemetryRule } from 'aws-cdk-lib/aws-observabilityadmin';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { Names, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
 import { CloudWatchLogGroup } from 'aws-cdk-lib/aws-events-targets';
+import { NagSuppressions } from 'cdk-nag';
 
 /**
  * Configuration properties for the CloudWatchUnifiedDataStore construct.
@@ -67,7 +68,8 @@ export class CloudWatchUnifiedDataStore extends Construct {
     constructor(scope: Construct, id: string, properties: CloudWatchUnifiedDataStoreProperties) {
         super(scope, id);
 
-        const stackName = Stack.of(this).stackName;
+        const stack = Stack.of(this);
+        const stackName = stack.stackName;
         const retention = properties.logRetentionDays || RetentionDays.ONE_WEEK;
 
         // --- Services with native TelemetryRule support ---
@@ -88,6 +90,20 @@ export class CloudWatchUnifiedDataStore extends Construct {
                 rule: {
                     resourceType: 'AWS::CloudTrail',
                     telemetryType: 'Logs',
+                    // Required for AWS::CloudTrail: ObservabilityAdmin rejects the rule with
+                    // "CloudTrail parameters cannot be null" if no event selectors are given.
+                    // Management events are the API-activity trail the TDIR scenarios read;
+                    // data events for the workshop's own resources come from WorkshopCloudTrail.
+                    destinationConfiguration: {
+                        cloudtrailParameters: {
+                            advancedEventSelectors: [
+                                {
+                                    name: 'Management events',
+                                    fieldSelectors: [{ field: 'eventCategory', equalTo: ['Management'] }],
+                                },
+                            ],
+                        },
+                    },
                 },
             });
         }
@@ -124,6 +140,10 @@ export class CloudWatchUnifiedDataStore extends Construct {
                 rule: {
                     resourceType: 'AWS::EKS::Cluster',
                     telemetryType: 'Logs',
+                    // Required for AWS::EKS::Cluster: ObservabilityAdmin rejects the rule
+                    // without explicit source types. Audit and authenticator logs are the
+                    // two the TDIR investigation scenarios actually read.
+                    telemetrySourceTypes: ['EKS_AUDIT_LOGS', 'EKS_AUTHENTICATOR_LOGS'],
                 },
             });
         }
@@ -133,13 +153,23 @@ export class CloudWatchUnifiedDataStore extends Construct {
         if (properties.ingestGuardDutyFindings) {
             // GuardDuty publishes findings to EventBridge automatically.
             // Route them to a CloudWatch Logs log group for Unified Data Store ingestion.
+            // The name is explicit so operators and the Unified Data Store can find it, but
+            // carries a uniqueId suffix so two stacks in one account do not collide.
             this.guardDutyLogGroup = new LogGroup(this, 'GuardDutyFindingsLogGroup', {
-                logGroupName: `/aws/events/guardduty-findings`,
+                logGroupName: '/aws/events/guardduty-findings-' + Names.uniqueId(this),
                 retention: retention,
                 removalPolicy: RemovalPolicy.DESTROY,
             });
+            // Names.uniqueId resolves at synthesis, so CWL3 still sees a literal string.
+            // Suppressed the same way waf.ts does for its aws-waf-logs- prefixed groups.
+            NagSuppressions.addResourceSuppressions(this.guardDutyLogGroup, [
+                {
+                    id: 'Workshop-CWL3',
+                    reason: 'Name is discoverable by design and suffixed with uniqueId to avoid collisions',
+                },
+            ]);
 
-            new Rule(this, 'GuardDutyToCloudWatch', {
+            const guardDutyRule = new Rule(this, 'GuardDutyToCloudWatch', {
                 description: 'Route GuardDuty findings to CloudWatch Logs for Unified Data Store',
                 eventPattern: {
                     source: ['aws.guardduty'],
@@ -147,6 +177,46 @@ export class CloudWatchUnifiedDataStore extends Construct {
                 } as EventPattern,
                 targets: [new CloudWatchLogGroup(this.guardDutyLogGroup)],
             });
+
+            // Targeting a log group makes CDK synthesize an `EventsLogGroupPolicy<uniqueId>`
+            // custom resource at stack scope, whose policy is on `*` and is not configurable.
+            // It is a sibling of this construct, so it has to be suppressed by path.
+            NagSuppressions.addResourceSuppressionsByPath(
+                stack,
+                `/${stack.stackName}/EventsLogGroupPolicy${Names.uniqueId(guardDutyRule)}`,
+                [
+                    {
+                        id: 'AwsSolutions-IAM5',
+                        reason: 'CDK-generated EventBridge to CloudWatch Logs resource policy; scope is not configurable',
+                    },
+                ],
+                true,
+            );
+
+            // That custom resource is backed by CDK's shared AwsCustomResource provider, a
+            // stack-level singleton we neither create nor configure. Looked up rather than
+            // referenced by path so this is a no-op if CDK ever renames or drops it.
+            const customResourceProvider = stack.node.tryFindChild('AWS679f53fac002430cb0da5b7982bd2287');
+            if (customResourceProvider) {
+                NagSuppressions.addResourceSuppressions(
+                    customResourceProvider,
+                    [
+                        {
+                            id: 'AwsSolutions-IAM4',
+                            reason: 'CDK-managed AwsCustomResource provider; its execution role is not configurable',
+                        },
+                        {
+                            id: 'Workshop-Lambda1',
+                            reason: 'CDK-managed AwsCustomResource provider; log group is created by CDK',
+                        },
+                        {
+                            id: 'Workshop-CWL2',
+                            reason: 'CDK-managed AwsCustomResource provider log group; retention is not configurable here',
+                        },
+                    ],
+                    true,
+                );
+            }
         }
 
         // --- CloudFront logs ---
@@ -160,11 +230,17 @@ export class CloudWatchUnifiedDataStore extends Construct {
             // Note: CloudFront standard logs require a log group in us-east-1 which
             // is handled by the existing CUSTOM_ENABLE_CLOUDFRONT_LOGS flag in core.ts.
             // This log group is for real-time log configuration if needed in the deployment region.
-            new LogGroup(this, 'CloudFrontRealTimeLogGroup', {
-                logGroupName: `/aws/cloudfront/realtime-logs`,
+            const cloudFrontLogGroup = new LogGroup(this, 'CloudFrontRealTimeLogGroup', {
+                logGroupName: '/aws/cloudfront/realtime-logs-' + Names.uniqueId(this),
                 retention: retention,
                 removalPolicy: RemovalPolicy.DESTROY,
             });
+            NagSuppressions.addResourceSuppressions(cloudFrontLogGroup, [
+                {
+                    id: 'Workshop-CWL3',
+                    reason: 'Name must be predictable for CloudFront real-time log delivery configuration',
+                },
+            ]);
         }
     }
 }
