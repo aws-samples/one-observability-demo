@@ -31,6 +31,7 @@ import {
     CUSTOM_ENABLE_KNOWLEDGE_BASE,
     CUSTOM_ENABLE_NETWORKING_TRAIL,
     CUSTOM_ENABLE_SECURITY_HUB,
+    CUSTOM_ENABLE_TDIR_ESCALATED_ROLE,
     CUSTOM_ENABLE_TDIR_REMEDIATION,
     CUSTOM_ENABLE_WAF,
     CUSTOM_CW_UDS_INGEST_BEDROCK_AGENTCORE_LOGS,
@@ -48,6 +49,7 @@ import { WorkshopSecurityHub } from '../constructs/security-hub';
 import { WorkshopKnowledgeBase } from '../constructs/knowledge-base';
 import { TdirRemediation } from '../constructs/tdir-remediation';
 import { CloudWatchUnifiedDataStore } from '../constructs/cloudwatch-unified-data-store';
+import { TdirEscalatedRole } from '../constructs/tdir-escalated-role';
 
 /**
  * Configuration properties for the CoreStage.
@@ -215,9 +217,7 @@ export class CoreStack extends Stack {
         }
 
         if (CUSTOM_ENABLE_DETECTIVE) {
-            new WorkshopDetective(this, 'Detective', {
-                tags: properties.tags,
-            });
+            new WorkshopDetective(this, 'Detective');
         }
 
         if (CUSTOM_ENABLE_GUARDDUTY) {
@@ -238,9 +238,13 @@ export class CoreStack extends Stack {
         }
 
         if (CUSTOM_ENABLE_KNOWLEDGE_BASE) {
-            new WorkshopKnowledgeBase(this, 'KnowledgeBase', {
-                tags: properties.tags,
-            });
+            new WorkshopKnowledgeBase(this, 'KnowledgeBase', {});
+        }
+
+        // Simulated compromise evidence: the role the scenario blames for guardrail
+        // disablement and credential exfiltration. Unassumable by construction.
+        if (CUSTOM_ENABLE_TDIR_ESCALATED_ROLE) {
+            new TdirEscalatedRole(this, 'TdirEscalatedRole');
         }
 
         if (CUSTOM_ENABLE_TDIR_REMEDIATION) {

@@ -112,12 +112,7 @@ export class TdirRemediation extends Construct {
         remediationRole.addToPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: [
-                    'iam:PutRolePolicy',
-                    'iam:GetRole',
-                    'iam:ListRolePolicies',
-                    'iam:ListAttachedRolePolicies',
-                ],
+                actions: ['iam:PutRolePolicy', 'iam:GetRole', 'iam:ListRolePolicies', 'iam:ListAttachedRolePolicies'],
                 resources: [`arn:aws:iam::${account}:role/*PetFoodAgent*`],
             }),
         );
@@ -314,5 +309,12 @@ def revoke_agent_sessions(account_id):
             ],
             true,
         );
+
+        NagSuppressions.addResourceSuppressions(this.remediationFunction, [
+            {
+                id: 'AwsSolutions-L1',
+                reason: 'PYTHON_3_13 is the newest runtime available to this construct; the rule lags new releases',
+            },
+        ]);
     }
 }
