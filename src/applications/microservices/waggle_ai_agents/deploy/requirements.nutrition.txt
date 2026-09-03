@@ -1,0 +1,9 @@
+# Nutrition runtime (LangGraph + Bedrock KB retrieval).
+langgraph
+langchain-aws
+langchain-core
+boto3
+httpx
+python-dotenv
+bedrock-agentcore
+aws-opentelemetry-distro>=0.18.0

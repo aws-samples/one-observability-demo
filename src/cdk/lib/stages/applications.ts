@@ -9,13 +9,13 @@ SPDX-License-Identifier: Apache-2.0
  * The final pipeline stage that deploys all microservices and serverless functions
  * onto the compute infrastructure provisioned by earlier stages:
  *
- * **Microservices** (6 applications across 4 languages):
+ * **Microservices** (across 4 languages plus the AgentCore agents):
  * - `payforadoption-go` — Go service on ECS Fargate with OpenTelemetry Go SDK, Aurora correlation
  * - `petlistadoption-py` — Python/FastAPI on ECS Fargate with ADOT auto-instrumentation, Prometheus metrics
  * - `petsearch-java` — Java/Spring Boot on ECS Fargate with Application Signals, manual + auto instrumentation
  * - `petsite-net` — .NET on EKS with CloudWatch agent, Application Signals
  * - `petfood-rs` — Rust/Axum on ECS Fargate with OpenTelemetry Rust SDK, custom Prometheus metrics
- * - `petfoodagent-strands-py` — Python AI agent on Bedrock AgentCore
+ * - `waggle-ai-*` — multi-framework AI agents on Bedrock AgentCore (orchestrator + sub-agents)
  *
  * **Lambda Functions** (8 functions):
  * - Status updater, traffic generator, RDS seeder, user creator
@@ -44,7 +44,7 @@ import {
     CUSTOM_ENABLE_SLO,
     CUSTOM_ENABLE_WAF,
     ENABLE_OPENSEARCH,
-    ENABLE_PET_FOOD_AGENT,
+    ENABLE_WAGGLE_AI_AGENTS,
     HostType,
     PARAMETER_STORE_PREFIX,
 } from '../../bin/environment';
@@ -81,7 +81,12 @@ import { PetfoodStockProcessorFunction } from '../serverless/functions/petfood/s
 import { UserCreatorFunction } from '../serverless/functions/user-creator/user-creator';
 import { KubernetesObjectValue } from 'aws-cdk-lib/aws-eks';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
-import { PetFoodAgentConstruct } from '../microservices/petfood-agent';
+import { AgentRuntimeConstruct } from '../microservices/waggle-ai-agents-runtime';
+import { AgentGatewayTarget, WaggleAIGateway } from '../microservices/waggle-ai-agents-gateway';
+import { WaggleAIMemory } from '../microservices/waggle-ai-agents-memory';
+import { WaggleAINutritionKb } from '../microservices/waggle-ai-nutrition-kb';
+import { WaggleAIGuardrail } from '../microservices/waggle-ai-agents-guardrail';
+import { WaggleAIAutoReload } from '../microservices/waggle-ai-agents-autoreload';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
@@ -96,7 +101,35 @@ export interface MicroserviceApplicationPlacement {
     disableService: boolean;
     /** Path to Kubernetes manifest template (EKS deployments only) */
     manifestPath?: string;
+    /** Dockerfile relative to the build context (agents share one context) */
+    dockerfile?: string;
 }
+
+/**
+ * Maps each agent app (ECR repo) to its AgentCore runtime. The runtime name doubles as the CDK
+ * construct id, so one name drives the logical id, the physical runtime name and the IAM wildcards.
+ */
+const WAGGLE_AI_AGENT_RUNTIMES: {
+    appName: string;
+    /** AgentCore runtime name, also the construct id. Must match `[A-Za-z0-9_]`. */
+    runtimeName: string;
+    /** Gateway target path segment ({gatewayUrl}/{targetName}/invocations) — matches delegate.py. */
+    targetName: string;
+    env?: { [key: string]: string };
+    ssmArnParameterName?: string;
+}[] = [
+    {
+        appName: MicroservicesNames.WaggleAIOrchestrator,
+        runtimeName: 'WaggleAIOrchestrator',
+        targetName: 'orchestrator',
+        env: { AGENT_TRANSPORT: 'gateway' },
+        ssmArnParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_RUNTIME_ARN,
+    },
+    { appName: MicroservicesNames.WaggleAINutrition, runtimeName: 'WaggleAINutrition', targetName: 'nutrition' },
+    { appName: MicroservicesNames.WaggleAIOrdering, runtimeName: 'WaggleAIOrdering', targetName: 'ordering' },
+    { appName: MicroservicesNames.WaggleAIAdoption, runtimeName: 'WaggleAIAdoption', targetName: 'adoption' },
+    { appName: MicroservicesNames.WaggleAIConcierge, runtimeName: 'WaggleAIConcierge', targetName: 'concierge' },
+];
 
 interface ImportedResources {
     vpcExports: any;
@@ -226,6 +259,7 @@ export class MicroservicesStack extends Stack {
 
     private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
         this.microservices = new Map<string, Microservice>();
+        const agentGatewayTargets: AgentGatewayTarget[] = [];
 
         const albEKSCheck = new KubernetesObjectValue(this, 'ALBEKS', {
             cluster: imports.eksExports.cluster,
@@ -472,13 +506,46 @@ export class MicroservicesStack extends Stack {
                 }
             }
 
-            if (name == MicroservicesNames.PetFoodAgent && ENABLE_PET_FOOD_AGENT) {
-                new PetFoodAgentConstruct(this, 'PetFoodAgent', {
+            const agentCfg = WAGGLE_AI_AGENT_RUNTIMES.find((a) => a.appName === name);
+            if (agentCfg && ENABLE_WAGGLE_AI_AGENTS) {
+                const runtime = new AgentRuntimeConstruct(this, agentCfg.runtimeName, {
+                    runtimeName: agentCfg.runtimeName,
+                    appName: name,
                     ecrRepositoryUri: `${imports.baseURI}/${name}`,
                     vpc: imports.vpcExports,
                     securityGroups: [imports.ecsExports.securityGroup],
+                    environmentVariables: agentCfg.env,
+                    ssmArnParameterName: agentCfg.ssmArnParameterName,
+                });
+                agentGatewayTargets.push({
+                    targetName: agentCfg.targetName,
+                    runtimeArn: runtime.agentRuntime.attrAgentRuntimeArn,
                 });
             }
+        }
+
+        // Gateway fronts the runtimes (ingress + delegation); one shared Memory serves all agents.
+        if (ENABLE_WAGGLE_AI_AGENTS && agentGatewayTargets.length > 0) {
+            new WaggleAIGateway(this, 'WaggleAIGateway', {
+                targets: agentGatewayTargets,
+                ssmGatewayUrlParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_GATEWAY_URL,
+            });
+            new WaggleAIMemory(this, 'WaggleAIMemory', {
+                ssmMemoryIdParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_MEMORY_ID,
+            });
+            new WaggleAINutritionKb(this, 'WaggleAINutritionKb', {
+                ssmKbIdParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_NUTRITION_KB_ID,
+            });
+            new WaggleAIGuardrail(this, 'WaggleAIGuardrail', {
+                ssmGuardrailIdParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_GUARDRAIL_ID,
+                ssmGuardrailVersionParameterName: SSM_PARAMETER_NAMES.WAGGLE_AI_GUARDRAIL_VERSION,
+            });
+            // Reload each runtime on a new :latest push, or agent code changes never reach it.
+            const repoToRuntime: { [repoName: string]: string } = {};
+            for (const a of WAGGLE_AI_AGENT_RUNTIMES) {
+                repoToRuntime[a.appName] = a.runtimeName;
+            }
+            new WaggleAIAutoReload(this, 'WaggleAIAutoReload', { repoToRuntime });
         }
     }
 

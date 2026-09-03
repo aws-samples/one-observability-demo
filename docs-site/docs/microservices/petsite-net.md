@@ -1,17 +1,17 @@
 # petsite-net
 
-Web frontend written in .NET, deployed on EKS Fargate.
+Web frontend written in .NET, deployed on EKS with managed node groups.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
 | Language | .NET |
-| Platform | EKS Fargate |
+| Platform | EKS (managed node group) |
 | Architecture | AMD64 |
 | Observability | CloudWatch agent |
 | CDN | CloudFront |
-| Security | Regional + Global WAF |
+| Security | Regional + Global WAF (optional, feature-flagged) |
 
 ## Observability
 

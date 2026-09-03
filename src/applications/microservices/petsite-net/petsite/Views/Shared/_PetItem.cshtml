@@ -1,63 +1,81 @@
-@using Microsoft.AspNetCore.Http.Features
-@using Microsoft.CodeAnalysis.CSharp.Syntax
 @model Pet;
 
 @{
     var showTakeMeHomeButton = ViewData["ShowTakeMeHomeButton"] as bool? ?? true;
+    var available = !string.IsNullOrEmpty(Model.availability)
+        && Model.availability.Equals("yes", StringComparison.OrdinalIgnoreCase);
+    var stars = 0;
+    Int32.TryParse(Model.cuteness_rate, out stars);
 }
 
-<div style="position: relative; display: inline-block;">
-    <img class="pet-thumbnail" src="@Model.peturl"
-        style="border: 1px solid #000000; border-radius: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
-
-    <!-- Pet type and color overlay - top left -->
-    <span
-        style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">@Model.pettype-@Model.petcolor</span>
-
-    <!-- Price overlay - bottom right -->
-    <span
-        style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;font-size: 18px;">$@Model.price</span>
-
-    <!-- Cuteness rating overlay - bottom center -->
-    <div
-        style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px;">
-        @if (!string.IsNullOrEmpty(Model.cuteness_rate) && Int32.TryParse(Model.cuteness_rate, out int rating))
-        {
-            @for (int i = 0; i < rating; i++)
-            {
-                <span style="color: #f4d10d;">★</span>
-            }
-        }
+@* Card shows only what the pet-search API actually returns: petid, pettype, petcolor,
+   price, cuteness_rate, availability, peturl. The photo opens the full size image,
+   which is a real capability (there is no favourites API to back a heart). *@
+<article class="ps-card">
+    <div class="ps-photo">
+        <img src="@Model.peturl" alt="@Model.petcolor @Model.pettype" loading="lazy" />
+        <span class="ps-chip">@Model.petcolor @Model.pettype</span>
+        <a class="ps-photolink" href="@Model.peturl" target="_blank" rel="noopener noreferrer"
+           aria-label="View full size photo of @Model.petcolor @Model.pettype">
+            <span class="ps-zoom">
+                <svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></svg>
+            </span>
+        </a>
     </div>
-</div>
 
-@if (showTakeMeHomeButton)
-{
-    <form asp-controller="adoption" asp-action="takemehome" method="post">
-        @if (Model.availability.ToLower() == "yes")
-        {
-            <input class="pet-button" type="submit" value="Take me home" style="margin-top: 8px; background: linear-gradient(135deg, #7abaff 0%, #2d7f83 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'" />
-        }
-        else
-        {
-            <span style="color: red; font-weight: bold; margin-top: 8px; display: inline-block;">Unavailable</span>
-        }
+    <div class="ps-cardbody">
+        <div class="ps-cardrow">
+            <span class="ps-petid">Pet #@Model.petid</span>
+            <span class="ps-price">$@Model.price</span>
+        </div>
 
-        <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
-        <input type="hidden" asp-for="@Model.petid" name="petid" />
-        <input type="hidden" asp-for="@Model.pettype" name="pettype" />
-        <input type="hidden" asp-for="@Model.peturl" name="peturl" />
-        <input type="hidden" asp-for="@Model.price" name="price" />
-        <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
-        <input type="hidden" name="userId" value="@ViewBag.UserId" />
-    </form>
-}
-else
-{
-    <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
-    <input type="hidden" asp-for="@Model.petid" name="petid" />
-    <input type="hidden" asp-for="@Model.pettype" name="pettype" />
-    <input type="hidden" asp-for="@Model.peturl" name="peturl" />
-    <input type="hidden" asp-for="@Model.price" name="price" />
-    <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
-}
+        <div class="ps-cardfoot">
+            <span class="ps-stars" title="Cuteness @stars of 5">
+                @for (int i = 0; i < stars; i++)
+                {
+                    <text>&#9733;</text>
+                }
+            </span>
+
+            @if (showTakeMeHomeButton)
+            {
+                <form asp-controller="adoption" asp-action="takemehome" method="post">
+                    @if (available)
+                    {
+                        <button class="pet-button" type="submit">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                                <ellipse cx="12" cy="15.6" rx="4.2" ry="3.5" />
+                                <ellipse cx="6.2" cy="10.2" rx="2" ry="2.6" />
+                                <ellipse cx="17.8" cy="10.2" rx="2" ry="2.6" />
+                                <ellipse cx="9.4" cy="6.2" rx="1.8" ry="2.3" />
+                                <ellipse cx="14.6" cy="6.2" rx="1.8" ry="2.3" />
+                            </svg>
+                            Take me home
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="ps-unavailable">Unavailable</span>
+                    }
+
+                    <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
+                    <input type="hidden" asp-for="@Model.petid" name="petid" />
+                    <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+                    <input type="hidden" asp-for="@Model.peturl" name="peturl" />
+                    <input type="hidden" asp-for="@Model.price" name="price" />
+                    <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+                    <input type="hidden" name="userId" value="@ViewBag.UserId" />
+                </form>
+            }
+            else
+            {
+                <input type="hidden" asp-for="@Model.petcolor" name="petcolor" />
+                <input type="hidden" asp-for="@Model.petid" name="petid" />
+                <input type="hidden" asp-for="@Model.pettype" name="pettype" />
+                <input type="hidden" asp-for="@Model.peturl" name="peturl" />
+                <input type="hidden" asp-for="@Model.price" name="price" />
+                <input type="hidden" asp-for="@Model.cuteness_rate" name="cuteness_rate" />
+            }
+        </div>
+    </div>
+</article>

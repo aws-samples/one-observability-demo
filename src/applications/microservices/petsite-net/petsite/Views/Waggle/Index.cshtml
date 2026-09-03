@@ -13,9 +13,23 @@
         <div class="col-md-8">
             <div class="chat-container">
                 <div class="chat-header">
-                    <div class="chat-avatar">🐕</div>
+                    <div class="chat-avatar">
+                        <svg class="wg-mark" viewBox="0 0 32 32" aria-hidden="true">
+                            <g fill="currentColor">
+                                <ellipse cx="16" cy="20.6" rx="6.2" ry="5.2" />
+                                <ellipse cx="7.7" cy="13.1" rx="3" ry="3.9" transform="rotate(-20 7.7 13.1)" />
+                                <ellipse cx="24.3" cy="13.1" rx="3" ry="3.9" transform="rotate(20 24.3 13.1)" />
+                                <ellipse cx="12.3" cy="7.3" rx="2.7" ry="3.5" />
+                                <ellipse cx="19.7" cy="7.3" rx="2.7" ry="3.5" />
+                            </g>
+                            <path d="M27.6 2.2l.72 1.98 1.98.72-1.98.72-.72 1.98-.72-1.98-1.98-.72 1.98-.72.72-1.98z"
+                                  fill="#FFE3B0" />
+                        </svg>
+                    </div>
                     <h4 class="mb-0">Waggle AI</h4>
                     <div class="online-status"></div>
+                    <button type="button" id="page-minimize" class="wg-icon-btn"
+                            title="Minimize to corner" aria-label="Minimize to corner">&#9662;</button>
                     <div id="session-id-display" class="session-id-text"></div>
                 </div>
                 <div id="chat-messages" class="chat-messages">
@@ -40,11 +54,11 @@
         border-radius: 20px;
         box-shadow: 0 20px 40px rgba(0,0,0,0.15);
         overflow: hidden;
-        font-family: 'Roboto', sans-serif !important;
+        font-family: 'Nunito Sans', 'Roboto', sans-serif !important;
     }
 
     .chat-container * {
-        font-family: 'Roboto', sans-serif !important;
+        font-family: 'Nunito Sans', 'Roboto', sans-serif !important;
     }
 
     .chat-header {
@@ -60,10 +74,11 @@
         width: 50px;
         height: 50px;
         border-radius: 50%;
-        background: linear-gradient(45deg, #dc7406, #19dc91);
+        background: linear-gradient(145deg, #2DD4BF 0%, #0D9488 100%);
         display: flex;
         align-items: center;
         justify-content: center;
+        color: #ffffff;
         font-size: 24px;
         animation: bounce 2s infinite;
     }
@@ -179,6 +194,93 @@
         margin-bottom: 5px;
     }
 
+    .pet-card {
+        display: inline-block;
+        vertical-align: top;
+        margin: 8px 10px 4px 0;
+        padding: 6px;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        background: #ffffff;
+        text-align: center;
+        outline: 3px solid transparent;
+        transition: outline-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .pet-card-selected {
+        outline-color: #dc7406;
+        box-shadow: 0 6px 16px rgba(220,116,6,0.35);
+    }
+
+    .pet-photo {
+        display: block;
+        width: 132px;
+        height: 132px;
+        object-fit: cover;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .pet-photo:hover {
+        transform: scale(1.03);
+    }
+
+    .pet-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .pet-btn {
+        flex: 1;
+        display: inline-block;
+        padding: 5px 8px;
+        border: none;
+        border-radius: 7px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .pet-btn:hover {
+        transform: translateY(-1px);
+        text-decoration: none;
+    }
+
+
+    .pet-btn-adopt {
+        background: #dc7406;
+        color: #ffffff;
+    }
+
+    .pet-btn-adopt:hover {
+        background: #0fa828;
+    }
+
+    .pet-btn-buy {
+        background: #2d7f83;
+        color: #ffffff;
+    }
+
+    .pet-btn-buy:hover {
+        background: #0fa828;
+    }
+
+    /* Repeated from waggle-chat.css: this page's own .pet-btn rules would otherwise win on order. */
+    .pet-btn-done {
+        background: #e7f2e9;
+        color: #2f6b3a;
+        cursor: default;
+    }
+
+    .pet-btn-done:hover {
+        transform: none;
+    }
+
     .timestamp {
         color: #999999;
         font-size: 10px;
@@ -244,7 +346,7 @@
         background: #ffffff;
         outline: none;
         color: #333333;
-        font-family: 'Roboto', sans-serif !important;
+        font-family: 'Nunito Sans', 'Roboto', sans-serif !important;
     }
 
     .chat-input:focus {
@@ -363,175 +465,71 @@
         animation: tailWag 1s ease-in-out infinite;
         transform-origin: center;
     }
+
+    /* Dark mode. This page redeclares .chat-messages, .message-bubble and the input
+       colours locally, and a page style block beats the shared stylesheet, so the
+       dark variants have to live here too. */
+    [data-theme="dark"] .chat-container {
+        background: linear-gradient(135deg, #0F766E 0%, #0D9488 100%);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    [data-theme="dark"] .chat-messages {
+        background: #10151F;
+    }
+
+    [data-theme="dark"] .bot-message .message-bubble {
+        background: #1A2230;
+        color: #ECF1F7;
+        border-color: #263141;
+    }
+
+    [data-theme="dark"] .user-message .message-bubble {
+        background: #0D9488;
+        color: #ffffff;
+    }
+
+    [data-theme="dark"] .message-bubble strong { color: #5EEAD4 !important; }
+    [data-theme="dark"] .message-bubble em { color: #A9BACD !important; }
+    [data-theme="dark"] .sender-name { color: #5EEAD4; }
+    [data-theme="dark"] .timestamp { color: #7D8CA0; }
+
+    [data-theme="dark"] .chat-input-container {
+        background: #0D131C;
+        border-top: 1px solid #263141;
+    }
+
+    [data-theme="dark"] .chat-input {
+        background: #161E2B;
+        color: #ECF1F7;
+        border-color: #2A3949;
+    }
+
+    [data-theme="dark"] .chat-input::placeholder { color: #7D8CA0; }
+    [data-theme="dark"] .session-id-text { color: #7D8CA0; }
+    [data-theme="dark"] .thinking-message { color: #5EEAD4; }
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const messageInput = document.getElementById('message-input');
-    const sendButton = document.getElementById('send-button');
-    const chatMessages = document.getElementById('chat-messages');
-    const userId = '@ViewBag.UserId';
-    let sessionId = null;
-    let isProcessing = false;
-
-    function formatMessage(message) {
-        // Convert newlines to <br> tags
-        let formatted = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
-
-        // Convert markdown-style formatting
-        formatted = formatted
-            // Headers (### Header, ## Header, # Header) - improved to handle emojis and special characters
-            .replace(/^### (.*)$/gm, '<h5 style="color: #2d7f83; margin: 15px 0 8px 0; font-weight: 600; font-size: 16px;">$1</h5>')
-            .replace(/^## (.*)$/gm, '<h4 style="color: #2d7f83; margin: 15px 0 8px 0; font-weight: 600; font-size: 18px;">$1</h4>')
-            .replace(/^# (.*)$/gm, '<h3 style="color: #2d7f83; margin: 15px 0 10px 0; font-weight: 600; font-size: 20px;">$1</h3>')
-            // Bold text (**text**) - improved to handle multiline and special characters
-            .replace(/\*\*(.*?)\*\*/gs, '<strong style="color: #2d7f83; font-weight: 600;">$1</strong>')
-            // Italic text (*text*) - improved
-            .replace(/\*([^*\n]+)\*/g, '<em style="color: #555;">$1</em>')
-            // Numbered lists (1. item, 2. item) - improved
-            .replace(/^(\d+)\. (.*)$/gm, '<div style="margin-left: 15px; margin-bottom: 5px; font-weight: 500;"><span style="color: #2d7f83; font-weight: 600;">$1.</span> $2</div>')
-            // Bullet points (- item) - improved
-            .replace(/^- (.*)$/gm, '<div style="margin-left: 15px; margin-bottom: 3px;">• $1</div>')
-            // Price formatting ($XX.XX and $XX)
-            .replace(/\$(\d+(?:\.\d{2})?)/g, '<span style="color: #dc7406; font-weight: 600;">$$1</span>')
-            // Preserve multiple spaces and indentation
-            .replace(/  /g, '&nbsp;&nbsp;')
-            // Add spacing after periods for better readability (but not after abbreviations)
-            .replace(/\. ([A-Z][a-z])/g, '. <br><br>$1');
-
-        return formatted;
-    }
-
-    function addMessage(message, isUser = false, skipAnimation = false) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
-
-        // Only add animation class if not skipping
-        if (!skipAnimation) {
-            messageDiv.className += isUser ? ' animate-in-user' : ' animate-in';
-        }
-
-        const senderDiv = document.createElement('div');
-        senderDiv.className = 'sender-name';
-        senderDiv.textContent = isUser ? 'You' : 'Waggle';
-
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.className = 'message-bubble';
-
-        if (isUser) {
-            // For user messages, keep as plain text
-            bubbleDiv.textContent = message;
-        } else {
-            // For bot messages, apply formatting
-            bubbleDiv.innerHTML = formatMessage(message);
-        }
-
-        const timestampDiv = document.createElement('div');
-        timestampDiv.className = 'timestamp';
-        timestampDiv.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-        bubbleDiv.appendChild(timestampDiv);
-        messageDiv.appendChild(senderDiv);
-        messageDiv.appendChild(bubbleDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function addThinkingMessage() {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message bot-message animate-in';
-        messageDiv.id = 'thinking-message';
-
-        const senderDiv = document.createElement('div');
-        senderDiv.className = 'sender-name';
-        senderDiv.textContent = 'Waggle';
-
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.className = 'message-bubble';
-        bubbleDiv.innerHTML = '<div class="thinking-message"><span class="paw">🐾</span><span class="paw">🐾</span><span class="paw">🐾</span><span class="tail">🦴</span></div>';
-
-        messageDiv.appendChild(senderDiv);
-        messageDiv.appendChild(bubbleDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        return messageDiv;
-    }
-
-    function sendMessage() {
-        const message = messageInput.value.trim();
-        if (!message || isProcessing) return;
-
-        isProcessing = true;
-
-        // Add user message to chat
-        addMessage(message, true);
-        messageInput.value = '';
-        sendButton.disabled = true;
-        sendButton.querySelector('.send-icon').style.display = 'none';
-        sendButton.querySelector('.spinner').style.display = 'block';
-
-        // Add thinking message
-        const thinkingMsg = addThinkingMessage();
-
-        // Send AJAX request
-        fetch('/Waggle/SendMessage', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: message,
-                userId: userId,
-                sessionId: sessionId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Remove thinking message
-            if (thinkingMsg && thinkingMsg.parentNode) {
-                thinkingMsg.remove();
-            }
-
-            if (data.sessionId) {
-                sessionId = data.sessionId;
-                // Update session ID display
-                document.getElementById('session-id-display').textContent = `Session ID: ${sessionId}`;
-            }
-            // Add message without animation to avoid jarring transition
-            addMessage(data.message, false, true);
-        })
-        .catch(error => {
-            // Remove thinking message
-            if (thinkingMsg && thinkingMsg.parentNode) {
-                thinkingMsg.remove();
-            }
-
-            console.error('Error:', error);
-            // Add error message without animation
-            addMessage('Sorry, there was an error sending your message. Please try again.', false, true);
-        })
-        .finally(() => {
-            isProcessing = false;
-            sendButton.disabled = false;
-            sendButton.querySelector('.send-icon').style.display = 'block';
-            sendButton.querySelector('.spinner').style.display = 'none';
-            messageInput.focus();
-        });
-    }
-
-    sendButton.addEventListener('click', sendMessage);
-
-    messageInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
+document.addEventListener('DOMContentLoaded', function () {
+    // Chat engine is shared with the widget (wwwroot/js/waggle-chat.js) via the same sessionStorage.
+    var input = document.getElementById('message-input');
+    var chat = window.WaggleChat.create({
+        messagesEl: document.getElementById('chat-messages'),
+        inputEl: input,
+        sendButtonEl: document.getElementById('send-button'),
+        sessionLabelEl: document.getElementById('session-id-display'),
+        userId: '@ViewBag.UserId',
+        welcome: "Hi, I'm **Waggle AI** \ud83d\udc3e I can recommend food, order it, help you adopt a pet, " +
+                 "or answer any pet question. What can I help with?"
     });
+    chat.restore();
+    input.focus();
 
-    messageInput.focus();
-
-    // Add initial welcome message
-    const welcomeMessage = "Hello! I'm **Waggle AI**, your pet care assistant. I can give food recommendations for your pet. Ask away! 🐾";
-    addMessage(welcomeMessage, false);
+    // Collapse into the widget: mark it open and leave; the conversation lives in sessionStorage.
+    document.getElementById('page-minimize').addEventListener('click', function () {
+        try { sessionStorage.setItem(window.WaggleChat.keys.open, '1'); } catch (e) { /* ignore */ }
+        window.location.href = '@Url.Action("Index", "Home", new { userId = ViewBag.UserId })';
+    });
 });
 </script>
