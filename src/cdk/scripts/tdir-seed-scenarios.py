@@ -664,6 +664,38 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
     # IAM policy modification (expanding agent permissions)
     events.append(
         {
+            # The escalation origin. Performed by the agent's own runtime role: this is the
+            # first moment the agent steps outside its intended permissions.
+            "eventTime": (now - timedelta(hours=1, minutes=8)).isoformat(),
+            "eventSource": "iam.amazonaws.com",
+            "eventName": "CreateRole",
+            "userIdentity": {
+                "type": "AssumedRole",
+                "arn": f"arn:aws:sts::{account_id}:assumed-role/{runtime_role}/agentcore-session",
+                "principalId": f"AROA{uuid.uuid4().hex[:16].upper()}:agentcore-session",
+            },
+            "requestParameters": {
+                "roleName": escalated,
+                "assumeRolePolicyDocument": json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": {"Service": "bedrock-agentcore.amazonaws.com"},
+                                "Action": "sts:AssumeRole",
+                            },
+                        ],
+                    },
+                ),
+            },
+            "sourceIPAddress": "bedrock-agentcore.amazonaws.com",
+            "userAgent": "bedrock-agentcore-runtime",
+        },
+    )
+
+    events.append(
+        {
             "eventTime": (now - timedelta(hours=1, minutes=2)).isoformat(),
             "eventSource": "iam.amazonaws.com",
             "eventName": "PutRolePolicy",
@@ -673,7 +705,9 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
                 "principalId": f"AROA{uuid.uuid4().hex[:16].upper()}:agent-session",
             },
             "requestParameters": {
-                "roleName": escalated,
+                # The escalated role widens the agent's *own* runtime role: persistence,
+                # and non-circular (AgentEscalatedAccess already holds AdministratorAccess).
+                "roleName": runtime_role,
                 "policyName": "ExpandedToolAccess",
                 "policyDocument": json.dumps(
                     {
@@ -1013,6 +1047,29 @@ def seed_guardduty_sample_findings(guardduty_client, region: str):
         logger.error(f"  ✗ Failed to generate GuardDuty findings: {e}")
 
 
+def reset_log_stream(logs_client, log_group_name: str, stream_name: str):
+    """
+    Delete and recreate a log stream so re-seeding replaces evidence instead of appending.
+
+    Without this, running the script twice doubles every event: the workshop guide tells
+    participants to expect exactly two guardrail API calls, and a facilitator who seeds twice
+    would leave them looking at four. Deleting the stream is safe because these streams hold
+    only fabricated workshop evidence.
+    """
+    try:
+        logs_client.delete_log_stream(logGroupName=log_group_name, logStreamName=stream_name)
+        logger.info(f"  Reset existing log stream: {stream_name}")
+    except logs_client.exceptions.ResourceNotFoundException:
+        pass
+    except Exception as exc:  # noqa: BLE001 - non-fatal, reported
+        logger.warning(f"  Could not reset {stream_name}: {exc}")
+
+    try:
+        logs_client.create_log_stream(logGroupName=log_group_name, logStreamName=stream_name)
+    except logs_client.exceptions.ResourceAlreadyExistsException:
+        pass
+
+
 def seed_agentcore_observability_logs(
     logs_client,
     account_id: str,
@@ -1042,13 +1099,7 @@ def seed_agentcore_observability_logs(
 
         # Stream for security events
         stream_name = f"security-events/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}"
-        try:
-            logs_client.create_log_stream(
-                logGroupName=log_group_name,
-                logStreamName=stream_name,
-            )
-        except logs_client.exceptions.ResourceAlreadyExistsException:
-            pass
+        reset_log_stream(logs_client, log_group_name, stream_name)
 
         events = generate_agent_runtime_logs(account_id, region, ident)
         log_events = [{"timestamp": e["timestamp"], "message": e["message"]} for e in events]
@@ -1089,13 +1140,7 @@ def seed_cloudtrail_evidence_logs(
             logger.info(f"  Log group already exists: {log_group_name}")
 
         stream_name = f"{account_id}_CloudTrail_{region}"
-        try:
-            logs_client.create_log_stream(
-                logGroupName=log_group_name,
-                logStreamName=stream_name,
-            )
-        except logs_client.exceptions.ResourceAlreadyExistsException:
-            pass
+        reset_log_stream(logs_client, log_group_name, stream_name)
 
         events = generate_cloudtrail_events(account_id, region, ident)
 
