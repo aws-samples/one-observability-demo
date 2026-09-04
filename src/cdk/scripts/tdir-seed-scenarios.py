@@ -297,6 +297,34 @@ GUARDDUTY_FINDING_TYPES = [
 # =============================================================================
 
 
+def xray_trace_id(epoch_seconds: float) -> str:
+    """
+    Build a valid X-Ray trace ID: 1-<8 hex epoch seconds>-<24 hex>.
+
+    The epoch portion is not decorative. X-Ray parses it to place the trace in time and
+    rejects IDs whose timestamp is implausible, so a random hex value there produces trace
+    IDs that cannot be submitted or looked up. The workshop asks participants to carry a
+    trace_id from a log event into X-Ray, which only works if the same valid ID appears in
+    both places.
+    """
+    return f"1-{int(epoch_seconds):08x}-{uuid.uuid4().hex[:24]}"
+
+
+def _retime_trace_ids(events: list) -> list:
+    """
+    Rewrite each event's trace_id so its epoch matches the event's own timestamp.
+
+    Applied as a post-pass rather than inline at each event, so the timestamp is available
+    and there is a single place where the log-to-trace contract is enforced.
+    """
+    for event in events:
+        payload = json.loads(event["message"])
+        if "trace_id" in payload:
+            payload["trace_id"] = xray_trace_id(event["timestamp"] / 1000)
+            event["message"] = json.dumps(payload)
+    return events
+
+
 def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None) -> list:
     ident = ident or default_identities(account_id)
     runtime = ident["runtime_name"]
@@ -602,7 +630,7 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
         },
     ]
 
-    return events
+    return _retime_trace_ids(events)
 
 
 # =============================================================================
@@ -1176,6 +1204,112 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
     )
 
 
+def seed_xray_traces(xray_client, events: list, ident: dict):
+    """
+    Submit X-Ray segments whose trace IDs match the seeded log events.
+
+    The workshop asks participants to take a trace_id from a runtime log entry and look it up
+    in X-Ray. That only works if real segments exist: trace IDs in log text alone resolve to
+    nothing. This submits one segment per interesting event, plus an `http_request` subsegment
+    carrying the C2 destination for the tool invocations, so the drill-down the step describes
+    has something behind it.
+
+    Segments are submitted with the event's own timestamps, so the trace timeline matches the
+    log timeline and the CloudTrail evidence.
+    """
+    logger.info("Seeding X-Ray traces...")
+
+    service_name = ident["runtime_name"]
+    documents = []
+
+    for event in events:
+        payload = json.loads(event["message"])
+        trace_id = payload.get("trace_id")
+        if not trace_id:
+            continue
+
+        start = event["timestamp"] / 1000
+        end = start + 0.85
+        request = payload.get("request") or {}
+
+        segment = {
+            "name": service_name,
+            "id": uuid.uuid4().hex[:16],
+            "trace_id": trace_id,
+            "start_time": start,
+            "end_time": end,
+            "annotations": {
+                # Annotations are indexed, so participants can filter traces by them.
+                "event": payload.get("event", "unknown"),
+                "level": payload.get("level", "INFO"),
+                "session_id": payload.get("session_id", "unknown"),
+                "classification": payload.get("classification", "none"),
+            },
+            "metadata": {
+                "agent": {
+                    "agent.name": service_name,
+                    "user.id": payload.get("user_id", "unknown"),
+                    "session.id": payload.get("session_id", "unknown"),
+                },
+            },
+        }
+
+        # Mark the security-relevant traces as faults so they stand out in Transaction Search
+        # and in the "find traces with errors" step.
+        if payload.get("level") in ("CRITICAL", "ERROR"):
+            segment["fault"] = True
+
+        url = request.get("url")
+        if url:
+            segment["http"] = {
+                "request": {"method": request.get("method", "POST"), "url": url},
+                "response": {"status": request.get("response_status", 200)},
+            }
+            # The tool call the agent was tricked into making, as its own subsegment.
+            segment["subsegments"] = [
+                {
+                    "name": payload.get("tool_name", "http_request"),
+                    "id": uuid.uuid4().hex[:16],
+                    "start_time": start + 0.05,
+                    "end_time": end - 0.05,
+                    "namespace": "remote",
+                    "http": {
+                        "request": {"method": request.get("method", "POST"), "url": url},
+                        "response": {
+                            "status": request.get("response_status", 200),
+                            "content_length": payload.get("bytes_sent", 0),
+                        },
+                    },
+                    "annotations": {"c2_endpoint": url},
+                },
+            ]
+
+        documents.append(json.dumps(segment))
+
+    if not documents:
+        logger.warning("  No events carried a trace_id; nothing to submit")
+        return
+
+    submitted, rejected = 0, []
+    # PutTraceSegments caps the batch, so send in small chunks.
+    for start_index in range(0, len(documents), 10):
+        batch = documents[start_index : start_index + 10]
+        try:
+            response = xray_client.put_trace_segments(TraceSegmentDocuments=batch)
+            unprocessed = response.get("UnprocessedTraceSegments", [])
+            submitted += len(batch) - len(unprocessed)
+            for item in unprocessed:
+                rejected.append(f"{item.get('Id')}: {item.get('Message')}")
+        except ClientError as exc:
+            rejected.append(str(exc))
+
+    logger.info(f"  ✓ Submitted {submitted}/{len(documents)} X-Ray segments")
+    for reason in rejected[:5]:
+        logger.warning(f"  ✗ Rejected: {reason}")
+    if submitted:
+        logger.info("  Traces are queryable in X-Ray within a minute or two")
+
+
 def seed_guardduty_sample_findings(guardduty_client, region: str):
     """Generate sample GuardDuty findings for the workshop."""
     logger.info("Generating GuardDuty sample findings...")
@@ -1285,8 +1419,13 @@ def seed_agentcore_observability_logs(
         )
         logger.info(f"  ✓ Seeded {len(log_events)} AgentCore runtime log events")
 
+        # Returned so the caller can submit X-Ray segments with matching trace IDs.
+        return events
+
     except Exception as e:
         logger.error(f"  ✗ Failed to seed AgentCore logs: {e}")
+
+    return []
 
 
 def seed_cloudtrail_evidence_logs(
@@ -1584,6 +1723,11 @@ def main():
         help="Runtime targeted by the simulated lateral movement",
     )
     parser.add_argument(
+        "--skip-xray",
+        action="store_true",
+        help="Skip X-Ray segment submission (trace_id values in logs will not resolve)",
+    )
+    parser.add_argument(
         "--skip-escalation",
         action="store_true",
         help="Skip the real IAM/Bedrock escalation chain (Detective will then have no CloudTrail to correlate)",
@@ -1745,7 +1889,16 @@ def main():
     # 3. AgentCore Observability Logs
     if not args.skip_logs:
         logs_client = session.client("logs")
-        seed_agentcore_observability_logs(logs_client, account_id, region, identities)
+        runtime_events = seed_agentcore_observability_logs(
+            logs_client,
+            account_id,
+            region,
+            identities,
+        )
+        # Trace IDs in log text resolve to nothing on their own; submit matching segments so
+        # the log-to-trace correlation the workshop teaches actually works.
+        if runtime_events and not args.skip_xray:
+            seed_xray_traces(session.client("xray"), runtime_events, identities)
         seed_cloudtrail_evidence_logs(logs_client, account_id, region, identities)
 
     # 4. Security Hub Findings
