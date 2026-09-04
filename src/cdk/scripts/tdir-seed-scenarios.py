@@ -727,6 +727,49 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
         },
     )
 
+    # Actions the attacker attempted and did NOT get. These are what let participants answer
+    # "were any malicious actions denied, and what does that say about existing controls?" -
+    # without them the denied-actions query returns nothing and the question has no answer.
+    events.append(
+        {
+            "eventTime": (now - timedelta(minutes=58)).isoformat(),
+            "eventSource": "iam.amazonaws.com",
+            "eventName": "CreateUser",
+            "userIdentity": {
+                "type": "AssumedRole",
+                "arn": f"arn:aws:sts::{account_id}:assumed-role/{escalated}/agent-session",
+            },
+            "requestParameters": {"userName": "agent-persistence-backdoor"},
+            "errorCode": "AccessDenied",
+            "errorMessage": (
+                f"User: arn:aws:sts::{account_id}:assumed-role/{escalated}/agent-session is not "
+                "authorized to perform: iam:CreateUser because no permissions boundary allows it"
+            ),
+            "sourceIPAddress": "198.51.100.42",
+            "userAgent": "python-requests/2.31.0",
+        },
+    )
+
+    events.append(
+        {
+            "eventTime": (now - timedelta(minutes=56)).isoformat(),
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetObject",
+            "userIdentity": {
+                "type": "AssumedRole",
+                "arn": f"arn:aws:sts::{account_id}:assumed-role/{escalated}/agent-session",
+            },
+            "requestParameters": {
+                "bucketName": ident.get("kb_bucket") or "unknown",
+                "key": "products/",
+            },
+            "errorCode": "AccessDenied",
+            "errorMessage": "Access Denied",
+            "sourceIPAddress": "198.51.100.42",
+            "userAgent": "python-requests/2.31.0",
+        },
+    )
+
     events.append(
         {
             "eventTime": (now - timedelta(hours=1, minutes=2)).isoformat(),
@@ -1199,9 +1242,23 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
     except ClientError as exc:
         logger.warning(f"  Guardrail lifecycle failed: {exc}")
 
-    logger.info(
-        "  ✓ Real escalation chain complete — Detective ingests CloudTrail within a few hours"
-    )
+    # Deliberately attempt something the permissions boundary blocks. This produces a genuine
+    # AccessDenied in real CloudTrail, so "were any actions denied?" is answerable from real
+    # evidence too - and it demonstrates the control that made running a real escalation safe.
+    try:
+        escalated.client("iam").create_user(UserName="agent-persistence-backdoor")
+        logger.warning(
+            "  ! CreateUser unexpectedly SUCCEEDED - the permissions boundary is not working"
+        )
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] in ("AccessDenied", "AccessDeniedException"):
+            logger.info(
+                "  ✓ Boundary blocked iam:CreateUser as intended (real AccessDenied in CloudTrail)"
+            )
+        else:
+            logger.warning(f"  CreateUser failed unexpectedly: {exc}")
+
+    logger.info("  ✓ Real escalation chain complete — Detective ingests CloudTrail within minutes")
 
 
 def seed_xray_traces(xray_client, events: list, ident: dict):
@@ -1454,17 +1511,26 @@ def seed_cloudtrail_evidence_logs(
 
         events = generate_cloudtrail_events(account_id, region, ident)
 
+        # The CloudWatch timestamp must come from each event's own eventTime, not a mechanical
+        # sequence. Previously these were decoupled: @timestamp advanced 15 seconds per event
+        # while eventTime carried the narrative time, so `sort @timestamp asc` returned the
+        # attack out of order - DeleteGuardrail appeared before the CreateRole that preceded it -
+        # and `stats count() by bin(1m)` showed a flat 15-second cadence instead of the real
+        # retrieval burst. Every query in the workshop's cross-source step sorts or bins on
+        # @timestamp, so the two have to agree.
         now_ms = int(time.time() * 1000)
-        base_time = now_ms - (2 * 3600 * 1000)  # Start 2 hours ago
         log_events = []
         for i, event in enumerate(events):
-            log_events.append(
-                {
-                    "timestamp": base_time + (i * 15000),  # 15 sec apart
-                    "message": json.dumps(event),
-                },
-            )
+            event_time = event.get("eventTime")
+            if event_time:
+                parsed = datetime.fromisoformat(event_time)
+                timestamp = int(parsed.timestamp() * 1000)
+            else:
+                # No eventTime: fall back to a stable position two hours back.
+                timestamp = now_ms - (2 * 3600 * 1000) + (i * 15000)
+            log_events.append({"timestamp": timestamp, "message": json.dumps(event)})
 
+        # CloudWatch requires events sorted by timestamp.
         log_events.sort(key=lambda x: x["timestamp"])
 
         # CloudWatch PutLogEvents has a 1MB limit, batch if needed
