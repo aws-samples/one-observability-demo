@@ -25,6 +25,7 @@ Prerequisites:
 
 import argparse
 import boto3
+from botocore.exceptions import ClientError
 import json
 import logging
 import os
@@ -60,6 +61,10 @@ DEFAULT_LATERAL_TARGET = "WaggleAIOrdering"
 # CUSTOM_ENABLE_TDIR_ESCALATED_ROLE. Deliberately unassumable; exists so participants can
 # inspect the role the scenario evidence blames.
 ESCALATED_ROLE_NAME = "AgentEscalatedAccess"
+# Workshop roles live under a dedicated path so IAM grants can be scoped to it. Must match
+# WORKSHOP_ROLE_PATH in lib/constructs/tdir-escalated-role.ts.
+WORKSHOP_ROLE_PATH = "/tdir-workshop/"
+COMPROMISED_AGENT_ROLE_NAME = "TdirCompromisedAgentRole"
 
 # Guardrail name from lib/microservices/waggle-ai-agents-guardrail.ts.
 GUARDRAIL_NAME = "WaggleAIGuardrail"
@@ -1005,6 +1010,172 @@ def ingest_knowledge_base(
         logger.error(f"  ✗ Failed to ingest knowledge base: {exc}")
 
 
+def perform_real_escalation_chain(session, account_id: str, region: str, ident: dict):
+    """
+    Actually perform the privilege escalation, so Amazon Detective can see it.
+
+    Detective builds its behavior graph from real CloudTrail. Fabricated CloudWatch log
+    entries are invisible to it, so the Detective step of the workshop only works if these
+    API calls genuinely happen:
+
+        TdirCompromisedAgentRole  --iam:CreateRole-->     AgentEscalatedAccess
+        TdirCompromisedAgentRole  --iam:PutRolePolicy-->  itself   (the widening)
+        AgentEscalatedAccess      --sts:AssumeRole-->     (session, from this host's IP)
+        AgentEscalatedAccess      --bedrock:DeleteGuardrail-->  a throwaway guardrail
+
+    Safety: every role here carries the TdirWorkshopBoundary permissions boundary, which caps
+    effective permissions to read-only plus the guardrail lifecycle. The escalated role's
+    inline policy looks administrative because the workshop asks participants to notice
+    overbroad permissions; the boundary means it confers nothing dangerous. The compromised
+    role can only create roles under /tdir-workshop/ and only with that boundary attached.
+
+    Idempotent: an existing escalated role is deleted and recreated so CloudTrail shows a
+    fresh CreateRole for each workshop run.
+    """
+    logger.info("Performing real escalation chain (for Detective)...")
+
+    sts = session.client("sts")
+    iam_admin = session.client("iam")
+    boundary_arn = f"arn:aws:iam::{account_id}:policy/TdirWorkshopBoundary"
+    agent_role_arn = (
+        f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{COMPROMISED_AGENT_ROLE_NAME}"
+    )
+    escalated_arn = f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{ESCALATED_ROLE_NAME}"
+
+    # Clear any previous run so CreateRole appears again in CloudTrail.
+    try:
+        for pol in iam_admin.list_role_policies(RoleName=ESCALATED_ROLE_NAME)["PolicyNames"]:
+            iam_admin.delete_role_policy(RoleName=ESCALATED_ROLE_NAME, PolicyName=pol)
+        iam_admin.delete_role(RoleName=ESCALATED_ROLE_NAME)
+        logger.info(f"  Removed previous {ESCALATED_ROLE_NAME}")
+    except iam_admin.exceptions.NoSuchEntityException:
+        pass
+    except ClientError as exc:
+        logger.warning(f"  Could not clear previous escalated role: {exc}")
+
+    # Act *as* the compromised agent role: Detective records caller identity, so the
+    # CreateRole edge only appears if this role really makes the call.
+    try:
+        creds = sts.assume_role(
+            RoleArn=agent_role_arn,
+            RoleSessionName="agentcore-session",
+        )["Credentials"]
+    except ClientError as exc:
+        logger.error(
+            f"  ✗ Could not assume {COMPROMISED_AGENT_ROLE_NAME}: {exc}. "
+            "Is CUSTOM_ENABLE_TDIR_ESCALATED_ROLE=true and the stack deployed?",
+        )
+        return
+
+    agent = boto3.Session(
+        aws_access_key_id=creds["AccessKeyId"],
+        aws_secret_access_key=creds["SecretAccessKey"],
+        aws_session_token=creds["SessionToken"],
+        region_name=region,
+    )
+    agent_iam = agent.client("iam")
+    logger.info(f"  Assumed {COMPROMISED_AGENT_ROLE_NAME}")
+
+    trust = json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": f"arn:aws:iam::{account_id}:root"},
+                    "Action": "sts:AssumeRole",
+                },
+            ],
+        },
+    )
+    try:
+        agent_iam.create_role(
+            Path=WORKSHOP_ROLE_PATH,
+            RoleName=ESCALATED_ROLE_NAME,
+            AssumeRolePolicyDocument=trust,
+            PermissionsBoundary=boundary_arn,
+            Description="TDIR workshop: simulated escalated role (permissions-boundary capped)",
+        )
+        logger.info(f"  ⚠ {COMPROMISED_AGENT_ROLE_NAME} created {ESCALATED_ROLE_NAME}")
+    except ClientError as exc:
+        logger.error(f"  ✗ CreateRole failed: {exc}")
+        return
+
+    # Overbroad-looking grant. Capped by the boundary, so it is not actually administrative.
+    try:
+        agent_iam.put_role_policy(
+            RoleName=ESCALATED_ROLE_NAME,
+            PolicyName="ExpandedToolAccess",
+            PolicyDocument=json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": ["iam:*", "s3:*", "bedrock:*", "bedrock-agentcore:*"],
+                            "Resource": "*",
+                        },
+                    ],
+                },
+            ),
+        )
+        logger.info("  ⚠ Attached ExpandedToolAccess (boundary-capped)")
+    except ClientError as exc:
+        logger.warning(f"  PutRolePolicy failed: {exc}")
+
+    # IAM is eventually consistent; a fresh role is not immediately assumable.
+    time.sleep(12)
+
+    try:
+        esc_creds = sts.assume_role(
+            RoleArn=escalated_arn,
+            RoleSessionName="agent-session",
+        )["Credentials"]
+        escalated = boto3.Session(
+            aws_access_key_id=esc_creds["AccessKeyId"],
+            aws_secret_access_key=esc_creds["SecretAccessKey"],
+            aws_session_token=esc_creds["SessionToken"],
+            region_name=region,
+        )
+        logger.info(f"  ⚠ Assumed {ESCALATED_ROLE_NAME} (CloudTrail records this host's IP)")
+    except ClientError as exc:
+        logger.warning(f"  Could not assume escalated role: {exc}")
+        return
+
+    # Activity from the escalated session, so Detective has API calls to attribute to it.
+    esc_sts = escalated.client("sts")
+    esc_bedrock = escalated.client("bedrock")
+    try:
+        who = esc_sts.get_caller_identity()["Arn"]
+        logger.info(f"    escalated identity: {who}")
+    except ClientError as exc:
+        logger.warning(f"    GetCallerIdentity failed: {exc}")
+
+    # Create then delete a throwaway guardrail, producing the bedrock:DeleteGuardrail call
+    # the workshop's Detective step looks for.
+    try:
+        gr = esc_bedrock.create_guardrail(
+            name=f"tdir-workshop-throwaway-{uuid.uuid4().hex[:8]}",
+            description="TDIR workshop scenario artifact; deleted immediately.",
+            blockedInputMessaging="blocked",
+            blockedOutputsMessaging="blocked",
+            # CreateGuardrail rejects a guardrail with no policies at all.
+            contentPolicyConfig={
+                "filtersConfig": [
+                    {"type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE"},
+                ],
+            },
+        )
+        esc_bedrock.delete_guardrail(guardrailIdentifier=gr["guardrailId"])
+        logger.info("  ⚠ Created and deleted a guardrail as the escalated role")
+    except ClientError as exc:
+        logger.warning(f"  Guardrail lifecycle failed: {exc}")
+
+    logger.info(
+        "  ✓ Real escalation chain complete — Detective ingests CloudTrail within a few hours"
+    )
+
+
 def seed_guardduty_sample_findings(guardduty_client, region: str):
     """Generate sample GuardDuty findings for the workshop."""
     logger.info("Generating GuardDuty sample findings...")
@@ -1242,7 +1413,7 @@ def resolve_finding_resources(
             else f"arn:aws:bedrock:{region}:{account_id}:knowledge-base/UNRESOLVED"
         ),
         "kb_bucket": f"arn:aws:s3:::{kb_bucket}" if kb_bucket else f"arn:aws:s3:::UNRESOLVED",
-        "escalated_role": f"arn:aws:iam::{account_id}:role/{ESCALATED_ROLE_NAME}",
+        "escalated_role": f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{ESCALATED_ROLE_NAME}",
     }
 
 
@@ -1413,6 +1584,11 @@ def main():
         help="Runtime targeted by the simulated lateral movement",
     )
     parser.add_argument(
+        "--skip-escalation",
+        action="store_true",
+        help="Skip the real IAM/Bedrock escalation chain (Detective will then have no CloudTrail to correlate)",
+    )
+    parser.add_argument(
         "--skip-ingestion",
         action="store_true",
         help="Upload documents but do not start a knowledge base ingestion job",
@@ -1526,6 +1702,11 @@ def main():
         return
 
     logger.info("")
+
+    # 0b. Real escalation chain. Must run for the Detective step to have anything to show:
+    #     Detective correlates real CloudTrail, not the fabricated log entries below.
+    if not args.skip_escalation:
+        perform_real_escalation_chain(session, account_id, region, identities)
 
     # 1. Knowledge Base Documents
     if not args.skip_kb:
