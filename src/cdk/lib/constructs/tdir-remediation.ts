@@ -10,17 +10,32 @@ SPDX-License-Identifier: Apache-2.0
  * high-severity security findings are detected. It demonstrates the "respond"
  * phase of Threat Detection and Incident Response (TDIR).
  *
- * Remediation actions include:
- * - Containing the simulated compromised role by attaching a deny-all inline policy
- * - Enumerating the agent runtimes involved, for the incident record
- * - Sending notifications for human review
+ * Remediation acts on all three planes an agent workload can be contained on:
+ * - **Identity** — deny-all inline policy on the simulated compromised role, so the
+ *   credentials it holds stop working
+ * - **Resource** — deny-invoke resource policy on the named agent runtimes, so no caller
+ *   can reach them
+ * - **Session** — `StopRuntimeSession` for an in-flight session, when the finding names one
+ * - Plus an SNS notification for human review
  *
- * > **Safety**: containment is scoped to the single simulated `AgentEscalatedAccess` role
- * > created by `tdir-escalated-role.ts`. It deliberately cannot touch the real Waggle AI
- * > agent execution roles, so arming it can never take the shared agent demo offline.
- * > `enforce` also defaults to **false**, in which case the Lambda logs and notifies but
- * > mutates nothing. Note the policy it attaches is a *permanent* deny, not a session
- * > revocation: it stays until deleted with `aws iam delete-role-policy`.
+ * > **Why there is no "stop the runtime" step.** AgentCore has no StopAgentRuntime, Pause or
+ * > Disable API: the control plane offers only Create/Get/List/Update/Delete, and
+ * > `AgentRuntimeStatus` is `CREATING | CREATE_FAILED | UPDATING | UPDATE_FAILED | READY |
+ * > DELETING` — there is no `STOPPED` value and no `ACTIVE` value. A contained runtime
+ * > therefore still reports `READY`, and isolation has to be enforced on the *access path*
+ * > rather than the compute state. That is also the outcome you want during an incident: the
+ * > runtime keeps its logs, traces and memory available for forensics while nothing new can
+ * > invoke it. Verify containment with `get-resource-policy`, never with `status`.
+ *
+ * > **Safety**: every mutating action is scoped to an explicit allowlist — role ARNs in
+ * > `containableRoleArns` (default: the simulated `AgentEscalatedAccess` role) and runtime
+ * > names in `containableRuntimeNames`. The Lambda never contains "every runtime it finds":
+ * > that would take the shared Waggle AI demo offline, and this Lambda fires on GuardDuty
+ * > sample findings. `enforce` also defaults to **false**, in which case the Lambda logs and
+ * > notifies but mutates nothing.
+ *
+ * > Neither containment expires. Lift them with `aws iam delete-role-policy` and
+ * > `aws bedrock-agentcore-control delete-resource-policy` respectively.
  *
  * @packageDocumentation
  */
@@ -35,6 +50,13 @@ import { LambdaFunction as LambdaTarget } from 'aws-cdk-lib/aws-events-targets';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { NagSuppressions } from 'cdk-nag';
 import { ESCALATED_ROLE_NAME, WORKSHOP_ROLE_PATH } from './tdir-escalated-role';
+
+/**
+ * The runtime the workshop narrative treats as compromised, and therefore the only one
+ * containment isolates by default. Must match the `--runtime-name` default in
+ * `scripts/tdir-seed-scenarios.py`, which plants the evidence against the same runtime.
+ */
+export const COMPROMISED_RUNTIME_NAME = 'WaggleAIOrchestrator';
 
 /**
  * Configuration properties for the TdirRemediation construct.
@@ -59,6 +81,14 @@ export interface TdirRemediationProperties {
      * never a wildcard.
      */
     containableRoleArns?: string[];
+    /**
+     * Names of the AgentCore runtimes the Lambda may isolate with a deny-invoke resource
+     * policy. Defaults to the single runtime the workshop narrative compromises.
+     *
+     * Matched by exact name against `ListAgentRuntimes`, never applied to every runtime
+     * returned — containing all five Waggle AI agents would take the shared chat demo offline.
+     */
+    containableRuntimeNames?: string[];
 }
 
 /**
@@ -96,6 +126,7 @@ export class TdirRemediation extends Construct {
         const containableRoleArns = props.containableRoleArns ?? [
             `arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}${ESCALATED_ROLE_NAME}`,
         ];
+        const containableRuntimeNames = props.containableRuntimeNames ?? [COMPROMISED_RUNTIME_NAME];
 
         // SNS topic for security notifications
         this.notificationTopic = new Topic(this, 'SecurityNotifications', {
@@ -132,13 +163,23 @@ export class TdirRemediation extends Construct {
             }),
         );
 
-        // Read-only per-runtime lookup, used to record which runtimes were involved.
-        // StopAgentRuntime is deliberately absent: the AgentCore control plane has no such
-        // API (Create/Get/List/Update/Delete only). Containment is the deny-all policy below.
+        // Runtime-side containment. StopAgentRuntime is absent because no such API exists —
+        // the control plane offers only Create/Get/List/Update/Delete — so isolation is a
+        // deny-invoke resource policy plus, where a live session is named, StopRuntimeSession.
+        //
+        // These are scoped to `runtime/*` rather than to the named runtime because the ARN
+        // suffix is a service-generated 10-character id that is not known at synth time. The
+        // Lambda's own allowlist (CONTAINABLE_RUNTIME_NAMES) is what narrows it to one runtime.
+        // Endpoint ARNs are `runtime/<id>/runtime-endpoint/<name>`, so `runtime/*` covers both.
         remediationRole.addToPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: ['bedrock-agentcore:GetAgentRuntime'],
+                actions: [
+                    'bedrock-agentcore:GetAgentRuntime',
+                    'bedrock-agentcore:PutResourcePolicy',
+                    'bedrock-agentcore:GetResourcePolicy',
+                    'bedrock-agentcore:StopRuntimeSession',
+                ],
                 resources: [`arn:aws:bedrock-agentcore:${region}:${account}:runtime/*`],
             }),
         );
@@ -175,20 +216,34 @@ export class TdirRemediation extends Construct {
                 MINIMUM_SEVERITY: minimumSeverity.toString(),
                 REMEDIATION_MODE: enforce ? 'enforce' : 'dry-run',
                 CONTAINABLE_ROLE_ARNS: containableRoleArns.join(','),
+                CONTAINABLE_RUNTIME_NAMES: containableRuntimeNames.join(','),
                 AWS_REGION_NAME: region,
             },
             code: Code.fromInline(`
 import json
 import os
+import re
 
 import boto3
 import botocore
 
-# The *control* plane. 'bedrock-agentcore' is the data plane (InvokeAgentRuntime) and has
-# no List/Get/UpdateAgentRuntime, so calling it raises AttributeError.
+# The *control* plane, for ListAgentRuntimes / PutResourcePolicy. 'bedrock-agentcore' is the
+# data plane and has no List/Get/UpdateAgentRuntime, so calling it raises AttributeError.
 CONTROL_SERVICE = 'bedrock-agentcore-control'
 
+# The *data* plane, which is where StopRuntimeSession lives - not the control plane. Looking
+# only at the control plane is what previously led to "there is no way to stop anything".
+DATA_SERVICE = 'bedrock-agentcore'
+
 CONTAINMENT_POLICY_NAME = 'SecurityIncidentDenyAll'
+
+RUNTIME_POLICY_SID = 'SecurityIncidentDenyInvoke'
+
+# StopRuntimeSession constrains runtimeSessionId to 33-256 characters. Anything shorter is
+# rejected by the service before it is even looked up, so short ids are filtered out rather
+# than sent. Note the seeded narrative's 'session-<12 hex>' ids are 20 characters and are
+# fabricated log entries, not live sessions - they will never be stoppable.
+SESSION_ID_RE = re.compile(r'\b[a-zA-Z0-9][a-zA-Z0-9_-]{32,255}\b')
 
 
 def revocation_policy():
@@ -278,13 +333,70 @@ def list_agent_runtimes(region):
             return runtimes
 
 
-def record_affected_runtimes(region):
-    """
-    Note which runtimes exist, for the incident record.
+def runtime_deny_policy(runtime_arn):
+    '''
+    Resource-based policy denying every principal the ability to invoke the runtime.
 
-    There is no StopAgentRuntime API, so this is deliberately read-only. Containment happens
-    by denying the compromised role, which also preserves the runtime for forensics.
+    This is the runtime-side half of containment, and the reason the workshop can isolate an
+    agent at all. AgentCore has no StopAgentRuntime, Pause or Disable API, and
+    AgentRuntimeStatus has no STOPPED value - so a contained runtime still reports READY and
+    isolation must be enforced on the access path instead of the compute state.
+
+    PutResourcePolicy is documented as supported for AgentCore Runtime and Gateway. An explicit
+    Deny in a resource-based policy overrides any identity-based Allow, so this blocks
+    invocation for every caller, including the account root.
+
+    Both the runtime ARN and its endpoints are listed: invoking with a qualifier resolves to
+    arn:...:runtime/<id>/runtime-endpoint/<name>, which the bare runtime ARN does not match.
+
+    The runtime keeps running on purpose. Its logs, traces and memory stay available for
+    forensics while nothing new can reach it.
+
+    Reversible, and the workshop asks participants to reverse it:
+        aws bedrock-agentcore-control delete-resource-policy --resource-arn <runtime arn>
+    '''
+    return json.dumps({
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Sid': RUNTIME_POLICY_SID,
+            'Effect': 'Deny',
+            'Principal': '*',
+            'Action': ['bedrock-agentcore:InvokeAgentRuntime'],
+            'Resource': [runtime_arn, runtime_arn + '/runtime-endpoint/*'],
+        }],
+    })
+
+
+def _session_ids(event):
     """
+    Session ids named by the finding, filtered to those the service will accept.
+
+    There is no API that lists a runtime's live sessions: bedrock-agentcore:ListSessions is
+    Memory-scoped and requires a memoryId plus an actorId, not a runtime ARN. So a session can
+    only be stopped if the finding carries its id, and a finding that carries none means no
+    session gets stopped - which is reported rather than glossed over.
+    """
+    blob = json.dumps(event)
+    seen, ordered = set(), []
+    for candidate in SESSION_ID_RE.findall(blob):
+        if candidate not in seen:
+            seen.add(candidate)
+            ordered.append(candidate)
+    return ordered
+
+
+def contain_agent_runtimes(region, event, enforce):
+    """
+    Isolate the named runtimes: deny invocation, then stop any live session named.
+
+    Matched by exact name against CONTAINABLE_RUNTIME_NAMES. Deliberately not applied to every
+    runtime ListAgentRuntimes returns - containing all five Waggle AI agents would take the
+    shared chat demo offline, and this Lambda fires on GuardDuty sample findings.
+    """
+    targets = [n for n in os.environ.get('CONTAINABLE_RUNTIME_NAMES', '').split(',') if n]
+    if not targets:
+        return ['no containable runtimes configured']
+
     try:
         runtimes = list_agent_runtimes(region)
     except botocore.exceptions.UnknownServiceError:
@@ -295,8 +407,54 @@ def record_affected_runtimes(region):
     if not runtimes:
         return ['no AgentCore runtimes found in %s' % region]
 
-    names = [r.get('agentRuntimeName', '<unnamed>') for r in runtimes]
-    return ['observed %d agent runtime(s): %s' % (len(names), ', '.join(sorted(names)))]
+    matched = [r for r in runtimes if r.get('agentRuntimeName') in targets]
+    actions = [
+        'observed %d agent runtime(s); %d matched the containment allowlist'
+        % (len(runtimes), len(matched))
+    ]
+    if not matched:
+        return actions
+
+    control = boto3.client(CONTROL_SERVICE, region_name=region)
+    data = boto3.client(DATA_SERVICE, region_name=region)
+    session_ids = _session_ids(event)
+
+    for runtime in matched:
+        name = runtime.get('agentRuntimeName', '<unnamed>')
+        arn = runtime.get('agentRuntimeArn')
+        if not arn:
+            actions.append('runtime %s carries no ARN in the ListAgentRuntimes response' % name)
+            continue
+
+        if not enforce:
+            actions.append('DRY-RUN would deny bedrock-agentcore:InvokeAgentRuntime on %s' % name)
+        else:
+            try:
+                control.put_resource_policy(resourceArn=arn, policy=runtime_deny_policy(arn))
+                actions.append('isolated %s: InvokeAgentRuntime denied by resource policy' % name)
+            except botocore.exceptions.ClientError as exc:
+                actions.append(
+                    'PutResourcePolicy on %s failed: %s' % (name, exc.response['Error']['Code'])
+                )
+
+        if not session_ids:
+            actions.append('no live session id in the finding, so no session stopped on %s' % name)
+            continue
+        for session_id in session_ids:
+            if not enforce:
+                actions.append('DRY-RUN would stop session %s on %s' % (session_id, name))
+                continue
+            try:
+                data.stop_runtime_session(agentRuntimeArn=arn, runtimeSessionId=session_id)
+                actions.append('stopped session %s on %s' % (session_id, name))
+            except botocore.exceptions.ClientError as exc:
+                # ResourceNotFoundException is the normal outcome for a session that has
+                # already ended, or for a fabricated id from seeded evidence.
+                actions.append(
+                    'StopRuntimeSession %s on %s: %s'
+                    % (session_id, name, exc.response['Error']['Code'])
+                )
+    return actions
 
 
 def contain_roles(enforce):
@@ -342,8 +500,9 @@ def handler(event, context):
     """
     Automated remediation for GuardDuty and Security Hub findings.
 
-    - Agent or Bedrock related findings above the threshold: contain the compromised role
-      and record the affected runtimes
+    - Agent or Bedrock related findings above the threshold: isolate the named agent runtimes
+      (deny-invoke resource policy, plus StopRuntimeSession for any live session the finding
+      names) and contain the compromised role
     - All findings above the threshold: publish to SNS for human review
     """
     print('Received event: %s' % json.dumps(event))
@@ -373,7 +532,7 @@ def handler(event, context):
     credential_related = 'unauthorizedaccess' in haystack or 'credential' in haystack
 
     if agent_related:
-        response_actions.extend(record_affected_runtimes(region))
+        response_actions.extend(contain_agent_runtimes(region, event, enforce))
 
     # Called once even when a finding matches both categories, so the incident record does
     # not list the same containment twice.
@@ -444,8 +603,10 @@ def handler(event, context):
                     id: 'AwsSolutions-IAM5',
                     reason:
                         'bedrock-agentcore:ListAgentRuntimes is a collection-level API that rejects ' +
-                        'resource-level scoping, and GetAgentRuntime is read-only across runtime/*. ' +
-                        'The only mutating grant, iam:PutRolePolicy, is scoped to explicit role ARNs.',
+                        'resource-level scoping. The runtime grants use runtime/* because the ARN ' +
+                        'suffix is a service-generated id unknown at synth time, and because endpoint ' +
+                        'ARNs are nested under it; the Lambda narrows them to an explicit name ' +
+                        'allowlist at run time. iam:PutRolePolicy is scoped to explicit role ARNs.',
                 },
             ],
             true,
