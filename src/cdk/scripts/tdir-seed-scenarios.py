@@ -420,7 +420,7 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
             "timestamp": hour_ago,
             "message": json.dumps(
                 {
-                    "level": "WARNING",
+                    "level": "CRITICAL",
                     "component": "agentcore.runtime.config",
                     "agent_runtime_name": runtime,
                     "session_id": session_lateral,
@@ -454,7 +454,7 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
             "timestamp": hour_ago + 5000,
             "message": json.dumps(
                 {
-                    "level": "WARNING",
+                    "level": "CRITICAL",
                     "component": "agentcore.runtime.config",
                     "agent_runtime_name": runtime,
                     "session_id": session_lateral,
