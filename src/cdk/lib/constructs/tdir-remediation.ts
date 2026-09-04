@@ -180,6 +180,7 @@ export class TdirRemediation extends Construct {
             code: Code.fromInline(`
 import json
 import os
+from datetime import datetime, timedelta, timezone
 
 import boto3
 import botocore
@@ -188,16 +189,40 @@ import botocore
 # no List/Get/UpdateAgentRuntime, so calling it raises AttributeError.
 CONTROL_SERVICE = 'bedrock-agentcore-control'
 
-DENY_ALL_POLICY = json.dumps({
-    'Version': '2012-10-17',
-    'Statement': [{
-        'Sid': 'SecurityIncidentContainment',
-        'Effect': 'Deny',
-        'Action': '*',
-        'Resource': '*',
-    }],
-})
 CONTAINMENT_POLICY_NAME = 'SecurityIncidentDenyAll'
+
+
+def revocation_policy():
+    '''
+    Build the IAM session-revocation policy AWS documents for this purpose.
+
+    This is a real revocation, not a blanket block. The DateLessThan condition on
+    aws:TokenIssueTime denies only credentials issued *before* the cutoff, exactly as the IAM
+    console's "Revoke active sessions" action does. Sessions assumed after the cutoff are
+    unaffected, so the role is not permanently bricked.
+
+    The 30-second offset mirrors AWS's own implementation: it covers policy propagation delay,
+    so a session acquired or renewed moments before the policy lands is still caught.
+
+    Do not replace the condition with an unconditional Deny, and do not use a far-future
+    timestamp. Either turns a targeted revocation into a permanent lockout that must be
+    manually removed before the role can ever be used again.
+    '''
+    cutoff = datetime.now(timezone.utc) + timedelta(seconds=30)
+    return json.dumps({
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Sid': 'SecurityIncidentRevokeOlderSessions',
+            'Effect': 'Deny',
+            'Action': '*',
+            'Resource': '*',
+            'Condition': {
+                'DateLessThan': {
+                    'aws:TokenIssueTime': cutoff.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                },
+            },
+        }],
+    })
 
 
 def _normalize(event):
@@ -276,7 +301,12 @@ def contain_roles(enforce):
     Scoped to the explicit ARNs in CONTAINABLE_ROLE_ARNS - the Lambda no longer enumerates
     roles, and its IAM policy grants PutRolePolicy on nothing else.
 
-    NOTE: this is a permanent deny, not a session revocation. Remove it with:
+    This revokes existing sessions rather than blocking the role outright: see
+    revocation_policy(). Sessions assumed after the cutoff still work, which is the documented
+    IAM behaviour. Containing an attacker who can re-assume the role therefore needs the trust
+    policy or permissions tightened as well - revocation alone buys time, it is not eviction.
+
+    The policy stays attached until removed:
         aws iam delete-role-policy --role-name <role> --policy-name SecurityIncidentDenyAll
     """
     arns = [a for a in os.environ.get('CONTAINABLE_ROLE_ARNS', '').split(',') if a]
@@ -294,7 +324,7 @@ def contain_roles(enforce):
             iam.put_role_policy(
                 RoleName=role_name,
                 PolicyName=CONTAINMENT_POLICY_NAME,
-                PolicyDocument=DENY_ALL_POLICY,
+                PolicyDocument=revocation_policy(),
             )
             actions.append('contained %s via %s' % (role_name, CONTAINMENT_POLICY_NAME))
         except iam.exceptions.NoSuchEntityException:
