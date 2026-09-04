@@ -34,7 +34,7 @@ import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction as LambdaTarget } from 'aws-cdk-lib/aws-events-targets';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { NagSuppressions } from 'cdk-nag';
-import { ESCALATED_ROLE_NAME } from './tdir-escalated-role';
+import { ESCALATED_ROLE_NAME, WORKSHOP_ROLE_PATH } from './tdir-escalated-role';
 
 /**
  * Configuration properties for the TdirRemediation construct.
@@ -94,7 +94,7 @@ export class TdirRemediation extends Construct {
         const account = Stack.of(this).account;
         const enforce = props.enforce ?? false;
         const containableRoleArns = props.containableRoleArns ?? [
-            `arn:aws:iam::${account}:role/${ESCALATED_ROLE_NAME}`,
+            `arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}${ESCALATED_ROLE_NAME}`,
         ];
 
         // SNS topic for security notifications
