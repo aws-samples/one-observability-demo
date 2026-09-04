@@ -11,9 +11,16 @@ SPDX-License-Identifier: Apache-2.0
  * phase of Threat Detection and Incident Response (TDIR).
  *
  * Remediation actions include:
- * - Isolating compromised AI agent runtimes (revoking IAM permissions)
- * - Quarantining knowledge base data sources
+ * - Containing the simulated compromised role by attaching a deny-all inline policy
+ * - Enumerating the agent runtimes involved, for the incident record
  * - Sending notifications for human review
+ *
+ * > **Safety**: containment is scoped to the single simulated `AgentEscalatedAccess` role
+ * > created by `tdir-escalated-role.ts`. It deliberately cannot touch the real Waggle AI
+ * > agent execution roles, so arming it can never take the shared agent demo offline.
+ * > `enforce` also defaults to **false**, in which case the Lambda logs and notifies but
+ * > mutates nothing. Note the policy it attaches is a *permanent* deny, not a session
+ * > revocation: it stays until deleted with `aws iam delete-role-policy`.
  *
  * @packageDocumentation
  */
@@ -27,6 +34,7 @@ import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction as LambdaTarget } from 'aws-cdk-lib/aws-events-targets';
 import { Topic } from 'aws-cdk-lib/aws-sns';
 import { NagSuppressions } from 'cdk-nag';
+import { ESCALATED_ROLE_NAME } from './tdir-escalated-role';
 
 /**
  * Configuration properties for the TdirRemediation construct.
@@ -36,6 +44,21 @@ export interface TdirRemediationProperties {
     minimumSeverity?: number;
     /** Log retention period */
     logRetentionDays?: RetentionDays;
+    /**
+     * Actually mutate IAM when a qualifying finding arrives. Defaults to **false**, i.e.
+     * dry-run: the Lambda logs the containment it would perform and publishes to SNS.
+     *
+     * Leave this false while seeding. GuardDuty sample findings arrive at severity 8, which
+     * clears the default threshold of 7, so an armed Lambda contains the role the moment the
+     * workshop is seeded rather than when a participant triggers it.
+     */
+    enforce?: boolean;
+    /**
+     * Role ARNs the Lambda may contain. Defaults to the simulated `AgentEscalatedAccess`
+     * role. Every ARN listed here is granted `iam:PutRolePolicy`, so keep it explicit —
+     * never a wildcard.
+     */
+    containableRoleArns?: string[];
 }
 
 /**
@@ -69,6 +92,10 @@ export class TdirRemediation extends Construct {
         const retention = props.logRetentionDays || RetentionDays.ONE_WEEK;
         const region = Stack.of(this).region;
         const account = Stack.of(this).account;
+        const enforce = props.enforce ?? false;
+        const containableRoleArns = props.containableRoleArns ?? [
+            `arn:aws:iam::${account}:role/${ESCALATED_ROLE_NAME}`,
+        ];
 
         // SNS topic for security notifications
         this.notificationTopic = new Topic(this, 'SecurityNotifications', {
@@ -95,34 +122,35 @@ export class TdirRemediation extends Construct {
             }),
         );
 
-        // Permissions to isolate agent runtimes
+        // ListAgentRuntimes is a collection-level API: it rejects resource-level scoping and
+        // returns AccessDenied against `runtime/*`, so it has to be granted on `*`.
         remediationRole.addToPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: [
-                    'bedrock-agentcore:StopAgentRuntime',
-                    'bedrock-agentcore:GetAgentRuntime',
-                    'bedrock-agentcore:ListAgentRuntimes',
-                ],
+                actions: ['bedrock-agentcore:ListAgentRuntimes'],
+                resources: ['*'],
+            }),
+        );
+
+        // Read-only per-runtime lookup, used to record which runtimes were involved.
+        // StopAgentRuntime is deliberately absent: the AgentCore control plane has no such
+        // API (Create/Get/List/Update/Delete only). Containment is the deny-all policy below.
+        remediationRole.addToPolicy(
+            new PolicyStatement({
+                effect: Effect.ALLOW,
+                actions: ['bedrock-agentcore:GetAgentRuntime'],
                 resources: [`arn:aws:bedrock-agentcore:${region}:${account}:runtime/*`],
             }),
         );
 
-        // Permissions to revoke IAM sessions (isolate compromised roles)
+        // Containment, scoped to explicit ARNs. Previously this was
+        // `role/*PetFoodAgent*` — an account-wide wildcard paired with a Lambda that
+        // enumerated every role in the account. Keep this list explicit.
         remediationRole.addToPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
-                actions: ['iam:PutRolePolicy', 'iam:GetRole', 'iam:ListRolePolicies', 'iam:ListAttachedRolePolicies'],
-                resources: [`arn:aws:iam::${account}:role/*PetFoodAgent*`],
-            }),
-        );
-
-        // Permissions to quarantine knowledge base
-        remediationRole.addToPolicy(
-            new PolicyStatement({
-                effect: Effect.ALLOW,
-                actions: ['bedrock:GetKnowledgeBase', 'bedrock:DisassociateAgentKnowledgeBase'],
-                resources: [`arn:aws:bedrock:${region}:${account}:knowledge-base/*`],
+                actions: ['iam:PutRolePolicy', 'iam:GetRole'],
+                resources: containableRoleArns,
             }),
         );
 
@@ -145,127 +173,203 @@ export class TdirRemediation extends Construct {
             environment: {
                 SNS_TOPIC_ARN: this.notificationTopic.topicArn,
                 MINIMUM_SEVERITY: minimumSeverity.toString(),
+                REMEDIATION_MODE: enforce ? 'enforce' : 'dry-run',
+                CONTAINABLE_ROLE_ARNS: containableRoleArns.join(','),
+                AWS_REGION_NAME: region,
             },
             code: Code.fromInline(`
 import json
 import os
+
 import boto3
+import botocore
+
+# The *control* plane. 'bedrock-agentcore' is the data plane (InvokeAgentRuntime) and has
+# no List/Get/UpdateAgentRuntime, so calling it raises AttributeError.
+CONTROL_SERVICE = 'bedrock-agentcore-control'
+
+DENY_ALL_POLICY = json.dumps({
+    'Version': '2012-10-17',
+    'Statement': [{
+        'Sid': 'SecurityIncidentContainment',
+        'Effect': 'Deny',
+        'Action': '*',
+        'Resource': '*',
+    }],
+})
+CONTAINMENT_POLICY_NAME = 'SecurityIncidentDenyAll'
+
+
+def _normalize(event):
+    """
+    Flatten GuardDuty and Security Hub events into one shape.
+
+    These two sources deliver different structures. Reading only the GuardDuty shape meant
+    every Security Hub finding scored 0 and was silently dropped below the threshold.
+    """
+    detail = event.get('detail', {})
+
+    if 'findings' in detail:
+        finding = (detail.get('findings') or [{}])[0]
+        severity = finding.get('Severity', {})
+        # Security Hub normalizes 0-100; the threshold is on GuardDuty's 0-10 scale.
+        normalized = severity.get('Normalized')
+        score = (normalized / 10.0) if normalized is not None else 0.0
+        return {
+            'source': 'securityhub',
+            'type': (finding.get('Types') or [''])[0],
+            'severity': score,
+            'title': finding.get('Title', 'Unknown Finding'),
+            'description': finding.get('Description', ''),
+            'resources': json.dumps(finding.get('Resources', [])),
+        }
+
+    return {
+        'source': 'guardduty',
+        'type': detail.get('type', ''),
+        'severity': float(detail.get('severity') or 0),
+        'title': detail.get('title', 'Unknown Finding'),
+        'description': detail.get('description', ''),
+        'resources': json.dumps(detail.get('resource', {})),
+    }
+
+
+def list_agent_runtimes(region):
+    """Every AgentCore runtime in the region, paginated."""
+    control = boto3.client(CONTROL_SERVICE, region_name=region)
+    runtimes, token = [], None
+    while True:
+        kwargs = {'nextToken': token} if token else {}
+        response = control.list_agent_runtimes(**kwargs)
+        # NOT 'agentRuntimeSummaries' - that key does not exist in the response.
+        runtimes.extend(response.get('agentRuntimes', []))
+        token = response.get('nextToken')
+        if not token:
+            return runtimes
+
+
+def record_affected_runtimes(region):
+    """
+    Note which runtimes exist, for the incident record.
+
+    There is no StopAgentRuntime API, so this is deliberately read-only. Containment happens
+    by denying the compromised role, which also preserves the runtime for forensics.
+    """
+    try:
+        runtimes = list_agent_runtimes(region)
+    except botocore.exceptions.UnknownServiceError:
+        return ['%s unavailable in this runtime boto3' % CONTROL_SERVICE]
+    except botocore.exceptions.ClientError as exc:
+        return ['ListAgentRuntimes failed: %s' % exc.response['Error']['Code']]
+
+    if not runtimes:
+        return ['no AgentCore runtimes found in %s' % region]
+
+    names = [r.get('agentRuntimeName', '<unnamed>') for r in runtimes]
+    return ['observed %d agent runtime(s): %s' % (len(names), ', '.join(sorted(names)))]
+
+
+def contain_roles(enforce):
+    """
+    Contain each configured role by attaching a deny-all inline policy.
+
+    Scoped to the explicit ARNs in CONTAINABLE_ROLE_ARNS - the Lambda no longer enumerates
+    roles, and its IAM policy grants PutRolePolicy on nothing else.
+
+    NOTE: this is a permanent deny, not a session revocation. Remove it with:
+        aws iam delete-role-policy --role-name <role> --policy-name SecurityIncidentDenyAll
+    """
+    arns = [a for a in os.environ.get('CONTAINABLE_ROLE_ARNS', '').split(',') if a]
+    if not arns:
+        return ['no containable roles configured']
+
+    iam = boto3.client('iam')
+    actions = []
+    for arn in arns:
+        role_name = arn.rsplit('/', 1)[-1]
+        if not enforce:
+            actions.append('DRY-RUN would attach %s to %s' % (CONTAINMENT_POLICY_NAME, role_name))
+            continue
+        try:
+            iam.put_role_policy(
+                RoleName=role_name,
+                PolicyName=CONTAINMENT_POLICY_NAME,
+                PolicyDocument=DENY_ALL_POLICY,
+            )
+            actions.append('contained %s via %s' % (role_name, CONTAINMENT_POLICY_NAME))
+        except iam.exceptions.NoSuchEntityException:
+            actions.append('role %s not found' % role_name)
+        except botocore.exceptions.ClientError as exc:
+            actions.append('PutRolePolicy on %s failed: %s' % (role_name, exc.response['Error']['Code']))
+    return actions
+
 
 def handler(event, context):
     """
-    Automated remediation for GuardDuty findings.
+    Automated remediation for GuardDuty and Security Hub findings.
 
-    Actions based on finding type:
-    - Agent-related findings: Stop the agent runtime and revoke IAM sessions
-    - Knowledge base findings: Quarantine the data source
-    - All high-severity findings: Publish notification for human review
+    - Agent or Bedrock related findings above the threshold: contain the compromised role
+      and record the affected runtimes
+    - All findings above the threshold: publish to SNS for human review
     """
-    print(f"Received event: {json.dumps(event)}")
+    print('Received event: %s' % json.dumps(event))
 
     sns = boto3.client('sns')
     topic_arn = os.environ['SNS_TOPIC_ARN']
     min_severity = float(os.environ.get('MINIMUM_SEVERITY', '7'))
+    enforce = os.environ.get('REMEDIATION_MODE') == 'enforce'
+    # From the Lambda's own configuration, not the event: Security Hub events carry no
+    # top-level region, which previously produced a client with an empty region.
+    region = os.environ.get('AWS_REGION_NAME') or os.environ.get('AWS_REGION')
 
-    detail = event.get('detail', {})
-    finding_type = detail.get('type', '')
-    severity = detail.get('severity', 0)
-    title = detail.get('title', 'Unknown Finding')
-    description = detail.get('description', '')
-    account_id = detail.get('accountId', '')
-    region = detail.get('region', '')
-
+    finding = _normalize(event)
     response_actions = []
 
-    # Determine remediation based on finding type
-    if severity >= min_severity:
-        # Check if finding involves Bedrock/Agent resources
-        resource = detail.get('resource', {})
-        resource_type = resource.get('resourceType', '')
-
-        if 'Bedrock' in finding_type or 'bedrock' in str(resource):
-            # Isolate the agent runtime
-            response_actions.append(isolate_agent_runtime(region, account_id))
-
-        if 'UnauthorizedAccess' in finding_type or 'CredentialAccess' in finding_type:
-            # Revoke active sessions for agent roles
-            response_actions.append(revoke_agent_sessions(account_id))
-
-        # Always notify for high-severity findings
-        notification = {
-            'finding_type': finding_type,
-            'severity': severity,
-            'title': title,
-            'description': description,
-            'actions_taken': response_actions,
-            'requires_human_review': True,
+    if finding['severity'] < min_severity:
+        print('Severity %s below threshold %s. Logging only.' % (finding['severity'], min_severity))
+        return {
+            'statusCode': 200,
+            'source': finding['source'],
+            'severity': finding['severity'],
+            'actions_taken': [],
         }
 
-        sns.publish(
-            TopicArn=topic_arn,
-            Subject=f'[TDIR] High Severity Finding: {title}',
-            Message=json.dumps(notification, indent=2),
-        )
+    haystack = ' '.join([finding['type'], finding['title'], finding['resources']]).lower()
+    agent_related = 'bedrock' in haystack or 'agent' in haystack
+    credential_related = 'unauthorizedaccess' in haystack or 'credential' in haystack
 
-        print(f"Remediation complete. Actions: {response_actions}")
-    else:
-        print(f"Finding severity {severity} below threshold {min_severity}. Logging only.")
+    if agent_related:
+        response_actions.extend(record_affected_runtimes(region))
 
-    return {
-        'statusCode': 200,
-        'finding_type': finding_type,
-        'severity': severity,
-        'actions_taken': response_actions,
+    # Called once even when a finding matches both categories, so the incident record does
+    # not list the same containment twice.
+    if agent_related or credential_related:
+        response_actions.extend(contain_roles(enforce))
+
+    notification = {
+        'mode': 'enforce' if enforce else 'dry-run',
+        'source': finding['source'],
+        'finding_type': finding['type'],
+        'severity': finding['severity'],
+        'title': finding['title'],
+        'description': finding['description'],
+        'actions_taken': response_actions or ['no automated action matched this finding'],
+        'requires_human_review': True,
     }
 
+    sns.publish(
+        TopicArn=topic_arn,
+        Subject='[TDIR][%s] %s' % ('ENFORCE' if enforce else 'DRY-RUN', finding['title'][:80]),
+        Message=json.dumps(notification, indent=2),
+    )
 
-def isolate_agent_runtime(region, account_id):
-    """Stop the agent runtime to prevent further compromised actions."""
-    try:
-        client = boto3.client('bedrock-agentcore', region_name=region)
-        # List runtimes and stop any PetFoodAgent runtimes
-        runtimes = client.list_agent_runtimes()
-        for runtime in runtimes.get('agentRuntimeSummaries', []):
-            if 'PetFoodAgent' in runtime.get('agentRuntimeName', ''):
-                client.stop_agent_runtime(
-                    agentRuntimeId=runtime['agentRuntimeId']
-                )
-                return f"Stopped agent runtime: {runtime['agentRuntimeId']}"
-        return "No active PetFoodAgent runtimes found"
-    except Exception as e:
-        return f"Agent isolation attempted but failed: {str(e)}"
-
-
-def revoke_agent_sessions(account_id):
-    """Attach a deny-all inline policy to revoke active sessions."""
-    try:
-        iam = boto3.client('iam')
-        # Find agent roles
-        paginator = iam.get_paginator('list_roles')
-        for page in paginator.paginate(PathPrefix='/'):
-            for role in page['Roles']:
-                if 'PetFoodAgent' in role['RoleName'] and 'RuntimeRole' in role['RoleName']:
-                    deny_policy = json.dumps({
-                        "Version": "2012-10-17",
-                        "Statement": [{
-                            "Effect": "Deny",
-                            "Action": "*",
-                            "Resource": "*",
-                            "Condition": {
-                                "DateLessThan": {
-                                    "aws:TokenIssueTime": "2099-01-01T00:00:00Z"
-                                }
-                            }
-                        }]
-                    })
-                    iam.put_role_policy(
-                        RoleName=role['RoleName'],
-                        PolicyName='SecurityIncidentDenyAll',
-                        PolicyDocument=deny_policy,
-                    )
-                    return f"Revoked sessions for role: {role['RoleName']}"
-        return "No agent runtime roles found to revoke"
-    except Exception as e:
-        return f"Session revocation attempted but failed: {str(e)}"
+    print('Remediation complete. Actions: %s' % response_actions)
+    return {
+        'statusCode': 200,
+        'source': finding['source'],
+        'severity': finding['severity'],
+        'actions_taken': response_actions,
+    }
 `),
         });
 
@@ -304,7 +408,10 @@ def revoke_agent_sessions(account_id):
             [
                 {
                     id: 'AwsSolutions-IAM5',
-                    reason: 'Remediation role needs broad access to isolate compromised resources',
+                    reason:
+                        'bedrock-agentcore:ListAgentRuntimes is a collection-level API that rejects ' +
+                        'resource-level scoping, and GetAgentRuntime is read-only across runtime/*. ' +
+                        'The only mutating grant, iam:PutRolePolicy, is scoped to explicit role ARNs.',
                 },
             ],
             true,

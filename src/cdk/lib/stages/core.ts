@@ -33,6 +33,7 @@ import {
     CUSTOM_ENABLE_SECURITY_HUB,
     CUSTOM_ENABLE_TDIR_ESCALATED_ROLE,
     CUSTOM_ENABLE_TDIR_REMEDIATION,
+    CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE,
     CUSTOM_ENABLE_WAF,
     CUSTOM_CW_UDS_INGEST_BEDROCK_AGENTCORE_LOGS,
     CUSTOM_CW_UDS_INGEST_CLOUDFRONT_LOGS,
@@ -250,6 +251,9 @@ export class CoreStack extends Stack {
         if (CUSTOM_ENABLE_TDIR_REMEDIATION) {
             new TdirRemediation(this, 'TdirRemediation', {
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
+                // Off by default: seeded GuardDuty sample findings arrive at severity 8 and
+                // would otherwise contain the role the moment the workshop is seeded.
+                enforce: CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE,
             });
         }
 
