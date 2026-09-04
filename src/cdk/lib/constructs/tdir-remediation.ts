@@ -170,7 +170,8 @@ export class TdirRemediation extends Construct {
         // These are scoped to `runtime/*` rather than to the named runtime because the ARN
         // suffix is a service-generated 10-character id that is not known at synth time. The
         // Lambda's own allowlist (CONTAINABLE_RUNTIME_NAMES) is what narrows it to one runtime.
-        // Endpoint ARNs are `runtime/<id>/runtime-endpoint/<name>`, so `runtime/*` covers both.
+        // `runtime/*` also covers endpoint ARNs, which are nested as
+        // `runtime/<id>/runtime-endpoint/<name>`.
         remediationRole.addToPolicy(
             new PolicyStatement({
                 effect: Effect.ALLOW,
@@ -346,8 +347,14 @@ def runtime_deny_policy(runtime_arn):
     Deny in a resource-based policy overrides any identity-based Allow, so this blocks
     invocation for every caller, including the account root.
 
-    Both the runtime ARN and its endpoints are listed: invoking with a qualifier resolves to
-    arn:...:runtime/<id>/runtime-endpoint/<name>, which the bare runtime ARN does not match.
+    Resource is a single ARN, and must be. AgentCore rejects anything else with
+    "Policy statement block must contain exactly one resource ARN that matches the provided
+    resource ARN" - so a list, or an added <arn>/runtime-endpoint/* entry, fails validation.
+
+    That restriction is not a gap: InvokeAgentRuntime is authorized against the *runtime* ARN
+    whatever qualifier is used. Verified against a live runtime - invocation is denied with the
+    DEFAULT endpoint, with an explicitly named custom endpoint, on a brand-new session and on a
+    session established before the policy was attached.
 
     The runtime keeps running on purpose. Its logs, traces and memory stay available for
     forensics while nothing new can reach it.
@@ -362,7 +369,7 @@ def runtime_deny_policy(runtime_arn):
             'Effect': 'Deny',
             'Principal': '*',
             'Action': ['bedrock-agentcore:InvokeAgentRuntime'],
-            'Resource': [runtime_arn, runtime_arn + '/runtime-endpoint/*'],
+            'Resource': runtime_arn,
         }],
     })
 
