@@ -223,7 +223,6 @@ export class TdirRemediation extends Construct {
             code: Code.fromInline(`
 import json
 import os
-import re
 
 import boto3
 import botocore
@@ -240,11 +239,17 @@ CONTAINMENT_POLICY_NAME = 'SecurityIncidentDenyAll'
 
 RUNTIME_POLICY_SID = 'SecurityIncidentDenyInvoke'
 
+# Keys whose value is a runtime session id. Matched on the key name rather than by pattern:
+# scanning the whole event for any long token would also match finding ids, request ids and
+# base64 blobs, and a false positive here means calling StopRuntimeSession on something that
+# was never part of the incident.
+SESSION_ID_KEYS = ('runtimesessionid', 'sessionid', 'session_id')
+
 # StopRuntimeSession constrains runtimeSessionId to 33-256 characters. Anything shorter is
 # rejected by the service before it is even looked up, so short ids are filtered out rather
 # than sent. Note the seeded narrative's 'session-<12 hex>' ids are 20 characters and are
 # fabricated log entries, not live sessions - they will never be stoppable.
-SESSION_ID_RE = re.compile(r'\b[a-zA-Z0-9][a-zA-Z0-9_-]{32,255}\b')
+SESSION_ID_MIN, SESSION_ID_MAX = 33, 256
 
 
 def revocation_policy():
@@ -382,14 +387,27 @@ def _session_ids(event):
     Memory-scoped and requires a memoryId plus an actorId, not a runtime ARN. So a session can
     only be stopped if the finding carries its id, and a finding that carries none means no
     session gets stopped - which is reported rather than glossed over.
+
+    Walks the event for keys named like a session id, at any depth, because GuardDuty and
+    Security Hub nest their details differently and Security Hub buries custom fields under
+    Resources[].Details.Other.
     """
-    blob = json.dumps(event)
-    seen, ordered = set(), []
-    for candidate in SESSION_ID_RE.findall(blob):
-        if candidate not in seen:
-            seen.add(candidate)
-            ordered.append(candidate)
-    return ordered
+    found = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(value, str) and key.lower() in SESSION_ID_KEYS:
+                    if SESSION_ID_MIN <= len(value) <= SESSION_ID_MAX and value not in found:
+                        found.append(value)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(event)
+    return found
 
 
 def contain_agent_runtimes(region, event, enforce):
