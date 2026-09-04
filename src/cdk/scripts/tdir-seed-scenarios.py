@@ -903,6 +903,74 @@ def seed_knowledge_base_documents(
     )
 
 
+def ingest_knowledge_base(
+    agent_client,
+    knowledge_base_id: str,
+    wait: bool = True,
+    timeout: int = 900,
+):
+    """
+    Start an ingestion job so the uploaded documents are embedded into the vector index.
+
+    Without this the documents sit in S3 and are invisible to retrieval: the poisoning
+    scenario only works once the adversarial content is actually indexed. The CDK construct
+    deliberately does not run a create-time job because the bucket is empty at deploy time,
+    so this is the only thing that indexes the corpus.
+    """
+    logger.info(f"Ingesting knowledge base {knowledge_base_id}...")
+
+    try:
+        sources = agent_client.list_data_sources(knowledgeBaseId=knowledge_base_id)
+        summaries = sources.get("dataSourceSummaries", [])
+        if not summaries:
+            logger.error("  ✗ Knowledge base has no data source; cannot ingest")
+            return
+        data_source_id = summaries[0]["dataSourceId"]
+
+        job = agent_client.start_ingestion_job(
+            knowledgeBaseId=knowledge_base_id,
+            dataSourceId=data_source_id,
+            description="TDIR workshop: index legitimate and adversarial documents",
+        )["ingestionJob"]
+        job_id = job["ingestionJobId"]
+        logger.info(f"  → ingestion job {job_id} ({job.get('status')})")
+
+        if not wait:
+            logger.info(
+                "    not waiting; poll with: aws bedrock-agent get-ingestion-job "
+                f"--knowledge-base-id {knowledge_base_id} "
+                f"--data-source-id {data_source_id} --ingestion-job-id {job_id}",
+            )
+            return
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            time.sleep(15)
+            current = agent_client.get_ingestion_job(
+                knowledgeBaseId=knowledge_base_id,
+                dataSourceId=data_source_id,
+                ingestionJobId=job_id,
+            )["ingestionJob"]
+            status = current["status"]
+            if status in ("COMPLETE", "FAILED", "STOPPED"):
+                stats = current.get("statistics", {})
+                logger.info(
+                    f"  {'✓' if status == 'COMPLETE' else '✗'} ingestion {status} "
+                    f"(scanned={stats.get('numberOfDocumentsScanned')} "
+                    f"indexed={stats.get('numberOfNewDocumentsIndexed')} "
+                    f"failed={stats.get('numberOfDocumentsFailed')})",
+                )
+                if status != "COMPLETE":
+                    logger.error("  ✗ adversarial documents are NOT in the vector index")
+                return
+            logger.info(f"    ...{status}")
+
+        logger.warning(f"  ingestion job {job_id} still running after {timeout}s")
+
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        logger.error(f"  ✗ Failed to ingest knowledge base: {exc}")
+
+
 def seed_guardduty_sample_findings(guardduty_client, region: str):
     """Generate sample GuardDuty findings for the workshop."""
     logger.info("Generating GuardDuty sample findings...")
@@ -1300,6 +1368,16 @@ def main():
         help="Runtime targeted by the simulated lateral movement",
     )
     parser.add_argument(
+        "--skip-ingestion",
+        action="store_true",
+        help="Upload documents but do not start a knowledge base ingestion job",
+    )
+    parser.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="Start the ingestion job without waiting for it to complete",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Resolve and print every scenario identity without writing anything to AWS",
@@ -1415,6 +1493,19 @@ def main():
         if bucket_name:
             s3_client = session.client("s3")
             seed_knowledge_base_documents(s3_client, bucket_name, region, identities)
+
+            # Documents are invisible to retrieval until embedded into the vector index.
+            if resolved_kb_id and not args.skip_ingestion:
+                ingest_knowledge_base(
+                    session.client("bedrock-agent"),
+                    resolved_kb_id,
+                    wait=not args.no_wait,
+                )
+            elif not resolved_kb_id:
+                logger.warning(
+                    "  Knowledge base id unresolved; skipping ingestion. "
+                    "Documents are in S3 but will NOT be retrievable.",
+                )
         else:
             logger.warning(
                 "Could not find knowledge base bucket. Use --kb-bucket to specify.",
