@@ -180,7 +180,6 @@ export class TdirRemediation extends Construct {
             code: Code.fromInline(`
 import json
 import os
-from datetime import datetime, timedelta, timezone
 
 import boto3
 import botocore
@@ -194,32 +193,38 @@ CONTAINMENT_POLICY_NAME = 'SecurityIncidentDenyAll'
 
 def revocation_policy():
     '''
-    Build the IAM session-revocation policy AWS documents for this purpose.
+    Build the containment policy: Deny * on * conditioned on aws:TokenIssueTime.
 
-    This is a real revocation, not a blanket block. The DateLessThan condition on
-    aws:TokenIssueTime denies only credentials issued *before* the cutoff, exactly as the IAM
-    console's "Revoke active sessions" action does. Sessions assumed after the cutoff are
-    unaffected, so the role is not permanently bricked.
+    This is the mechanism AWS documents for revoking a role's temporary credentials, used here
+    with a deliberately far-future cutoff.
 
-    The 30-second offset mirrors AWS's own implementation: it covers policy propagation delay,
-    so a session acquired or renewed moments before the policy lands is still caught.
+    Why 2099 rather than "now + 30 seconds": the IAM console's Revoke active sessions action
+    uses a near-term cutoff, which denies only credentials issued before that moment and lets
+    anything assumed afterwards through. That is the right behaviour when you are logging users
+    out. It is the wrong behaviour for incident containment, because an attacker holding the
+    ability to assume the role simply acquires a fresh session and continues.
 
-    Do not replace the condition with an unconditional Deny, and do not use a far-future
-    timestamp. Either turns a targeted revocation into a permanent lockout that must be
-    manually removed before the role can ever be used again.
+    A far-future cutoff makes the condition true for every token that will realistically ever
+    be issued, so existing *and* new sessions are denied until the policy is removed. AWS
+    documents choosing your own aws:TokenIssueTime value for exactly this kind of control; see
+    "Revoke IAM role temporary security credentials" and "Disabling permissions for temporary
+    security credentials".
+
+    Verified: with this policy attached, sts:AssumeRole still succeeds - STS is not blocked -
+    but every API call made with the resulting credentials fails with AccessDenied.
+
+    Do not change this to a near-term timestamp. It would convert containment into a logout and
+    silently let a re-assuming attacker back in.
     '''
-    cutoff = datetime.now(timezone.utc) + timedelta(seconds=30)
     return json.dumps({
         'Version': '2012-10-17',
         'Statement': [{
-            'Sid': 'SecurityIncidentRevokeOlderSessions',
+            'Sid': 'SecurityIncidentContainment',
             'Effect': 'Deny',
             'Action': '*',
             'Resource': '*',
             'Condition': {
-                'DateLessThan': {
-                    'aws:TokenIssueTime': cutoff.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                },
+                'DateLessThan': {'aws:TokenIssueTime': '2099-01-01T00:00:00Z'},
             },
         }],
     })
@@ -301,12 +306,11 @@ def contain_roles(enforce):
     Scoped to the explicit ARNs in CONTAINABLE_ROLE_ARNS - the Lambda no longer enumerates
     roles, and its IAM policy grants PutRolePolicy on nothing else.
 
-    This revokes existing sessions rather than blocking the role outright: see
-    revocation_policy(). Sessions assumed after the cutoff still work, which is the documented
-    IAM behaviour. Containing an attacker who can re-assume the role therefore needs the trust
-    policy or permissions tightened as well - revocation alone buys time, it is not eviction.
+    Denies existing and future sessions for the role: see revocation_policy() for why the
+    cutoff is far-future rather than near-term. sts:AssumeRole still succeeds, so the attacker
+    can still obtain credentials - they just cannot do anything with them.
 
-    The policy stays attached until removed:
+    The policy stays attached until removed, and nothing expires it:
         aws iam delete-role-policy --role-name <role> --policy-name SecurityIncidentDenyAll
     """
     arns = [a for a in os.environ.get('CONTAINABLE_ROLE_ARNS', '').split(',') if a]
