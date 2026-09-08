@@ -1417,7 +1417,7 @@ def seed_guardduty_sample_findings(guardduty_client, region: str):
         detectors = guardduty_client.list_detectors()
         if not detectors.get("DetectorIds"):
             logger.warning(
-                "No GuardDuty detector found. Ensure CUSTOM_ENABLE_GUARDDUTY=true "
+                "No GuardDuty detector found. Ensure CUSTOM_ENABLE_GUARDDUTY_DETECTOR=true "
                 "and the stack has been deployed.",
             )
             return

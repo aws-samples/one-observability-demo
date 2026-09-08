@@ -26,9 +26,9 @@ import { CloudWatchLogGroup } from 'aws-cdk-lib/aws-events-targets';
 import { NagSuppressions } from 'cdk-nag';
 
 /**
- * Configuration properties for the CloudWatchUnifiedDataStore construct.
+ * Configuration properties for the TdirUnifiedDataStore construct.
  */
-export interface CloudWatchUnifiedDataStoreProperties {
+export interface TdirUnifiedDataStoreProperties {
     /** Enable WAF log ingestion via telemetry rule */
     ingestWafLogs?: boolean;
     /** Enable CloudTrail log ingestion via telemetry rule */
@@ -54,18 +54,18 @@ export interface CloudWatchUnifiedDataStoreProperties {
  * 2. EventBridge rules routing to CloudWatch Logs for services without telemetry rule support (GuardDuty)
  * 3. CloudWatch Logs log groups for CloudFront (configured via CUSTOM_ENABLE_CLOUDFRONT_LOGS)
  */
-export class CloudWatchUnifiedDataStore extends Construct {
+export class TdirUnifiedDataStore extends Construct {
     /** Log group for GuardDuty findings (if enabled) */
     public readonly guardDutyLogGroup?: LogGroup;
 
     /**
-     * Creates a new CloudWatchUnifiedDataStore construct.
+     * Creates a new TdirUnifiedDataStore construct.
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
      * @param properties - Configuration properties specifying which log sources to enable
      */
-    constructor(scope: Construct, id: string, properties: CloudWatchUnifiedDataStoreProperties) {
+    constructor(scope: Construct, id: string, properties: TdirUnifiedDataStoreProperties) {
         super(scope, id);
 
         const stack = Stack.of(this);
