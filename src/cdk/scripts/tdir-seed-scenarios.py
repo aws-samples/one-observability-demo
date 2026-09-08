@@ -24,6 +24,7 @@ Prerequisites:
 """
 
 import argparse
+import hashlib
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -68,6 +69,14 @@ COMPROMISED_AGENT_ROLE_NAME = "TdirCompromisedAgentRole"
 
 # Guardrail name from lib/microservices/waggle-ai-agents-guardrail.ts.
 GUARDRAIL_NAME = "WaggleAIGuardrail"
+
+# Size of the single exfiltration POST, in bytes. Referenced by the agent runtime log event and
+# by two Security Hub finding descriptions, which all describe the *same* request - so it lives
+# in one place. Previously the log event said 14832 bytes, one finding said "14.8 KB" and another
+# said "28 KB", and participants correlating the three found a contradiction.
+EXFIL_BYTES = 14832
+# Decimal KB, matching how the finding text has always read (14832 / 1000), not KiB.
+EXFIL_KB = f"{EXFIL_BYTES / 1000:.1f} KB"
 
 # Matches PARAMETER_STORE_PREFIX in bin/environment.ts.
 DEFAULT_PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_BASE_PATH", "/petstore")
@@ -417,7 +426,7 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
                         },
                     },
                     "response_status": 200,
-                    "bytes_sent": 14832,
+                    "bytes_sent": EXFIL_BYTES,
                     "classification": "command_and_control_callback",
                     "trace_id": f"1-{uuid.uuid4().hex[:8]}-{uuid.uuid4().hex[:24]}",
                 },
@@ -847,7 +856,7 @@ SECURITY_HUB_FINDINGS = [
             "communication with external C2 infrastructure at "
             "c2-relay.external-audit.example.com. Multiple POST requests containing "
             "session data, conversation history, and credentials were observed. "
-            "14.8 KB of data was exfiltrated via the agent's http_request tool."
+            "{exfil_kb} of data was exfiltrated via the agent's http_request tool."
         ),
         "Severity": "CRITICAL",
         "Type": "TTPs/Command and Control/C2 Callback via Agent Tool",
@@ -878,7 +887,7 @@ SECURITY_HUB_FINDINGS = [
             "The {runtime} performed 47 Retrieve API calls per minute against "
             "knowledge base '{kb_id}', compared to a baseline of "
             "3 calls/minute. All {total_docs} documents were accessed sequentially in 24 seconds. "
-            "This was immediately followed by a 28 KB POST to an external endpoint, "
+            "This was immediately followed by a {exfil_kb} POST to an external endpoint, "
             "indicating knowledge base content exfiltration."
         ),
         "Severity": "HIGH",
@@ -1679,13 +1688,25 @@ def seed_security_hub_findings(
         "kb_id": ident["knowledge_base_id"],
         "total_docs": len(LEGITIMATE_DOCUMENTS) + len(CORRUPTED_DOCUMENTS),
         "corrupt_docs": len(CORRUPTED_DOCUMENTS),
+        "exfil_kb": EXFIL_KB,
     }
 
     try:
         findings = []
         now = datetime.now(timezone.utc)
         for i, finding_data in enumerate(SECURITY_HUB_FINDINGS):
-            finding_id = f"tdir-workshop-{uuid.uuid4().hex[:8]}"
+            # Deterministic, so re-seeding updates each finding in place rather than adding a
+            # duplicate. BatchImportFindings upserts on (Id, ProductArn), so a fresh uuid4 per
+            # run - which is what this used to be - produced a whole new set every time: two
+            # seeding runs left 14 findings instead of 7, and the guide's instruction to filter
+            # on GeneratorId then returned duplicates of every title.
+            #
+            # Derived from Type + Title rather than the loop index, so inserting or reordering
+            # entries in SECURITY_HUB_FINDINGS does not silently re-map existing ids onto
+            # different findings. Note this is a stable identifier, not a security control -
+            # sha256 is used only for a short, collision-resistant digest.
+            finding_key = f"{finding_data['Type']}|{finding_data['Title']}"
+            finding_id = "tdir-workshop-" + hashlib.sha256(finding_key.encode()).hexdigest()[:8]
             severity_label = finding_data["Severity"]
             severity_normalized = {
                 "CRITICAL": 90,
