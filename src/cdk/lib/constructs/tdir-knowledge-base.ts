@@ -35,9 +35,9 @@ import { Utilities } from '../utils/utilities';
 const EMBED_DIM = 1024;
 
 /**
- * Configuration properties for the WorkshopKnowledgeBase construct.
+ * Configuration properties for the TdirKnowledgeBase construct.
  */
-export interface WorkshopKnowledgeBaseProperties {
+export interface TdirKnowledgeBaseProperties {
     /** Embedding model ID for vectorizing documents */
     embeddingModelId?: string;
 }
@@ -55,7 +55,7 @@ export interface WorkshopKnowledgeBaseProperties {
  * Workshop participants investigate this knowledge base for signs of
  * data corruption (adversarial document injection).
  */
-export class WorkshopKnowledgeBase extends Construct {
+export class TdirKnowledgeBase extends Construct {
     /** The S3 bucket containing knowledge base documents */
     public readonly dataBucket: Bucket;
     /** The Bedrock Knowledge Base */
@@ -66,13 +66,13 @@ export class WorkshopKnowledgeBase extends Construct {
     public readonly knowledgeBaseId: string;
 
     /**
-     * Creates a new WorkshopKnowledgeBase construct.
+     * Creates a new TdirKnowledgeBase construct.
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
      * @param properties - Configuration properties for the knowledge base
      */
-    constructor(scope: Construct, id: string, properties?: WorkshopKnowledgeBaseProperties) {
+    constructor(scope: Construct, id: string, properties?: TdirKnowledgeBaseProperties) {
         super(scope, id);
 
         const props = properties || {};

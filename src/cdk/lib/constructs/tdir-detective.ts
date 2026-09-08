@@ -29,12 +29,12 @@ import { Stack } from 'aws-cdk-lib';
  *
  * These data sources are enabled by default when the graph is created.
  */
-export class WorkshopDetective extends Construct {
+export class TdirDetective extends Construct {
     /** The Detective behavior graph */
     public readonly graph: CfnGraph;
 
     /**
-     * Creates a new WorkshopDetective construct.
+     * Creates a new TdirDetective construct.
      *
      * @param scope - The parent construct
      * @param id - The construct identifier

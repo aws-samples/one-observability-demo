@@ -18,9 +18,9 @@ import { Construct } from 'constructs';
 import { CfnDetector } from 'aws-cdk-lib/aws-guardduty';
 
 /**
- * Configuration properties for the WorkshopGuardDuty construct.
+ * Configuration properties for the TdirGuardDuty construct.
  */
-export interface WorkshopGuardDutyProperties {
+export interface TdirGuardDutyProperties {
     /** Enable EKS audit log monitoring */
     enableEksProtection?: boolean;
     /** Enable S3 data event monitoring */
@@ -46,18 +46,18 @@ export interface WorkshopGuardDutyProperties {
  * - Lambda network activity monitoring
  * - Runtime monitoring (EKS, ECS, EC2)
  */
-export class WorkshopGuardDuty extends Construct {
+export class TdirGuardDuty extends Construct {
     /** The GuardDuty detector */
     public readonly detector: CfnDetector;
 
     /**
-     * Creates a new WorkshopGuardDuty construct.
+     * Creates a new TdirGuardDuty construct.
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
      * @param properties - Configuration properties for GuardDuty
      */
-    constructor(scope: Construct, id: string, properties?: WorkshopGuardDutyProperties) {
+    constructor(scope: Construct, id: string, properties?: TdirGuardDutyProperties) {
         super(scope, id);
 
         const props = properties || {};

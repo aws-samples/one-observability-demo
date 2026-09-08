@@ -17,9 +17,9 @@ import { Construct } from 'constructs';
 import { CfnHub } from 'aws-cdk-lib/aws-securityhub';
 
 /**
- * Configuration properties for the WorkshopSecurityHub construct.
+ * Configuration properties for the TdirSecurityHub construct.
  */
-export interface WorkshopSecurityHubProperties {
+export interface TdirSecurityHubProperties {
     /** Enable auto-enable controls for new resources */
     autoEnableControls?: boolean;
     /** Enable the default standards (AWS Foundational Security Best Practices) */
@@ -38,18 +38,18 @@ export interface WorkshopSecurityHubProperties {
  * These findings are correlated with Detective investigations and
  * can trigger automated remediation via EventBridge.
  */
-export class WorkshopSecurityHub extends Construct {
+export class TdirSecurityHub extends Construct {
     /** The Security Hub instance */
     public readonly hub: CfnHub;
 
     /**
-     * Creates a new WorkshopSecurityHub construct.
+     * Creates a new TdirSecurityHub construct.
      *
      * @param scope - The parent construct
      * @param id - The construct identifier
      * @param properties - Configuration properties for Security Hub
      */
-    constructor(scope: Construct, id: string, properties?: WorkshopSecurityHubProperties) {
+    constructor(scope: Construct, id: string, properties?: TdirSecurityHubProperties) {
         super(scope, id);
 
         const props = properties || {};
