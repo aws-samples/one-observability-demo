@@ -61,7 +61,7 @@ export class WaggleAINutritionKb extends Construct {
         // Built without `node:path` on purpose: `unicorn/import-style` requires a
         // default import, which this package's tsconfig rejects (no `esModuleInterop`).
         const knowledgeDirectory = `${__dirname}/../../../applications/microservices/waggle_ai_agents/rag/knowledge`;
-        const kbDocs = new BucketDeployment(this, 'KbDocs', {
+        const kbDocuments = new BucketDeployment(this, 'KbDocs', {
             sources: [Source.asset(knowledgeDirectory)],
             destinationBucket: sourceBucket,
             destinationKeyPrefix: 'nutrition/',
@@ -158,7 +158,7 @@ export class WaggleAINutritionKb extends Construct {
         // that uploads the corpus: the sync then scans zero documents and the KB
         // stays empty, so retrieve() returns no hits and the agent silently
         // answers ungrounded. Wait for the docs to actually be in the bucket.
-        ingestion.node.addDependency(kbDocs);
+        ingestion.node.addDependency(kbDocuments);
 
         Utilities.createSsmParameters(
             this,
