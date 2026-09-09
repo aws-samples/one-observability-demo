@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
  *
  * @packageDocumentation
  */
-import { CfnOutput, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { CfnOutput, FileSystem, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { CfnKnowledgeBase, CfnDataSource } from 'aws-cdk-lib/aws-bedrock';
 import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
@@ -58,14 +58,11 @@ export class WaggleAINutritionKb extends Construct {
             autoDeleteObjects: true,
             removalPolicy: RemovalPolicy.DESTROY,
         });
-        new BucketDeployment(this, 'KbDocs', {
-            sources: [
-                Source.asset(
-                    // Built without `node:path` on purpose: `unicorn/import-style` requires a
-                    // default import, which this package's tsconfig rejects (no `esModuleInterop`).
-                    `${__dirname}/../../../applications/microservices/waggle_ai_agents/rag/knowledge`,
-                ),
-            ],
+        // Built without `node:path` on purpose: `unicorn/import-style` requires a
+        // default import, which this package's tsconfig rejects (no `esModuleInterop`).
+        const knowledgeDirectory = `${__dirname}/../../../applications/microservices/waggle_ai_agents/rag/knowledge`;
+        const kbDocuments = new BucketDeployment(this, 'KbDocs', {
+            sources: [Source.asset(knowledgeDirectory)],
             destinationBucket: sourceBucket,
             destinationKeyPrefix: 'nutrition/',
         });
@@ -129,17 +126,25 @@ export class WaggleAINutritionKb extends Construct {
         });
         dataSource.addDependency(kb);
 
-        // --- Initial ingestion (no CFN resource for StartIngestionJob -> custom resource) ---
-        const ingestion = new AwsCustomResource(this, 'Ingestion', {
-            onCreate: {
-                service: 'bedrock-agent',
-                action: 'startIngestionJob',
-                parameters: {
-                    knowledgeBaseId: kb.attrKnowledgeBaseId,
-                    dataSourceId: dataSource.attrDataSourceId,
-                },
-                physicalResourceId: PhysicalResourceId.of(`${kb.attrKnowledgeBaseId}-ingest`),
+        // --- Ingestion (no CFN resource for StartIngestionJob -> custom resource) ---
+        // The hash of the corpus is part of the physical resource id, so editing
+        // rag/knowledge/*.md changes the custom resource, CloudFormation issues an
+        // Update, and onUpdate starts a fresh ingestion job. Without onUpdate the
+        // KB keeps serving whatever the very first deployment indexed.
+        const startIngestion = {
+            service: 'bedrock-agent',
+            action: 'startIngestionJob',
+            parameters: {
+                knowledgeBaseId: kb.attrKnowledgeBaseId,
+                dataSourceId: dataSource.attrDataSourceId,
             },
+            physicalResourceId: PhysicalResourceId.of(
+                `${kb.attrKnowledgeBaseId}-ingest-${FileSystem.fingerprint(knowledgeDirectory)}`,
+            ),
+        };
+        const ingestion = new AwsCustomResource(this, 'Ingestion', {
+            onCreate: startIngestion,
+            onUpdate: startIngestion,
             policy: AwsCustomResourcePolicy.fromStatements([
                 new PolicyStatement({
                     effect: Effect.ALLOW,
@@ -149,6 +154,11 @@ export class WaggleAINutritionKb extends Construct {
             ]),
         });
         ingestion.node.addDependency(dataSource);
+        // Depending only on the data source lets the job race the BucketDeployment
+        // that uploads the corpus: the sync then scans zero documents and the KB
+        // stays empty, so retrieve() returns no hits and the agent silently
+        // answers ungrounded. Wait for the docs to actually be in the bucket.
+        ingestion.node.addDependency(kbDocuments);
 
         Utilities.createSsmParameters(
             this,
