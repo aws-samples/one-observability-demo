@@ -18,6 +18,10 @@
     --ps-cta-to: #0D9488;
     --ps-cta-ink: #ffffff;
     --ps-cta-glow: rgba(13, 148, 136, .28);
+    --ps-food-from: #FB923C;
+    --ps-food-to: #EA580C;
+    --ps-food-ink: #ffffff;
+    --ps-food-glow: rgba(234, 88, 12, .30);
     --ps-r-lg: 22px;
     --ps-r-md: 14px;
     --ps-shadow: 0 1px 2px rgba(15, 27, 42, .05), 0 8px 24px rgba(15, 27, 42, .06);
@@ -43,6 +47,10 @@
     --ps-cta-to: #0B7268;
     --ps-cta-ink: #ffffff;
     --ps-cta-glow: rgba(0, 0, 0, .45);
+    /* deeper amber so white ink keeps AA against the darker page */
+    --ps-food-from: #F97316;
+    --ps-food-to: #C2410C;
+    --ps-food-glow: rgba(0, 0, 0, .45);
 }
 
 html, body {
@@ -368,6 +376,15 @@ select.pet-filter:focus-visible, .ps-select:focus-visible {
     border-radius: var(--ps-r-md);
 }
 
+/* the demo payment fields are all readonly; Bootstrap's own grey fill made the
+   card look light-mode and swallowed the values */
+.form-control[readonly], .form-control:disabled,
+.form-select[readonly], .form-select:disabled {
+    background-color: var(--ps-surface);
+    color: var(--ps-ink);
+    opacity: 1;
+}
+
 .form-control:focus, .form-select:focus {
     background: var(--ps-canvas); border-color: var(--ps-teal); color: var(--ps-ink);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ps-teal) 22%, transparent);
@@ -377,6 +394,41 @@ select.pet-filter:focus-visible, .ps-select:focus-visible {
 .text-muted, .form-text, small.text-muted { color: var(--ps-muted) !important; }
 
 .alert { border-radius: var(--ps-r-md); border: 1px solid var(--ps-hairline); }
+
+/* Bootstrap's dark tints are near-black fills with dim ink, so a banner like
+   "Adoption Complete" reads as a muddy rectangle. Rebuild them as a tinted
+   surface with full-strength body text. */
+[data-theme="dark"] .alert {
+    background: var(--ps-surface);
+    border-color: var(--ps-hairline);
+    color: var(--ps-ink);
+    box-shadow: var(--ps-shadow);
+}
+
+[data-theme="dark"] .alert hr { border-top-color: var(--ps-hairline); opacity: 1; }
+[data-theme="dark"] .alert .alert-heading { color: var(--ps-ink); }
+
+[data-theme="dark"] .alert-success {
+    background: color-mix(in srgb, var(--ps-teal) 12%, var(--ps-surface));
+    border-color: color-mix(in srgb, var(--ps-teal) 28%, var(--ps-hairline));
+}
+
+[data-theme="dark"] .alert-success .alert-heading { color: var(--ps-teal-2); }
+
+/* amber needs a heavier mix than teal to read as amber rather than brown */
+[data-theme="dark"] .alert-warning {
+    background: color-mix(in srgb, var(--ps-accent) 24%, var(--ps-surface));
+    border-color: color-mix(in srgb, var(--ps-accent) 50%, var(--ps-hairline));
+}
+
+[data-theme="dark"] .alert-warning .alert-heading { color: var(--ps-accent); }
+
+[data-theme="dark"] .alert-danger {
+    background: color-mix(in srgb, var(--ps-danger) 14%, var(--ps-surface));
+    border-color: color-mix(in srgb, var(--ps-danger) 30%, var(--ps-hairline));
+}
+
+[data-theme="dark"] .alert-danger .alert-heading { color: #FCA5A5; }
 
 /* radio and checkbox glyphs need a visible tint on dark */
 [data-theme="dark"] input[type="radio"],
@@ -405,6 +457,39 @@ select.pet-filter:focus-visible, .ps-select:focus-visible {
 
 /* the page headings were inline styled bright green */
 h2[style], h3[style], .food-heading { color: var(--ps-ink) !important; }
+
+/* ---------------- after the adoption: the two next steps ---------------- */
+
+/* these were btn-primary / btn-info, which resolve to the near-black and near-white
+   pill pair; a hue each reads as a choice rather than a default */
+.ps-nextrow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+
+.ps-next {
+    display: inline-flex; align-items: center; gap: 9px; border: none;
+    border-radius: 999px; padding: 12px 22px; text-decoration: none; cursor: pointer;
+    font-family: 'Nunito Sans', sans-serif; font-weight: 800; font-size: 15px;
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+
+.ps-next:hover { transform: translateY(-2px); filter: brightness(1.05); text-decoration: none; }
+.ps-next svg { width: 17px; height: 17px; flex: none; fill: currentColor; }
+.ps-next:focus-visible { outline: 2px solid var(--ps-ink); outline-offset: 3px; }
+
+.ps-next-food, .ps-next-food:hover {
+    background: linear-gradient(180deg, var(--ps-food-from), var(--ps-food-to));
+    color: var(--ps-food-ink);
+}
+
+.ps-next-food { box-shadow: 0 4px 14px var(--ps-food-glow); }
+.ps-next-food:hover { box-shadow: 0 9px 22px var(--ps-food-glow); }
+
+.ps-next-waggle, .ps-next-waggle:hover {
+    background: linear-gradient(180deg, var(--ps-cta-from), var(--ps-cta-to));
+    color: var(--ps-cta-ink);
+}
+
+.ps-next-waggle { box-shadow: 0 4px 14px var(--ps-cta-glow); }
+.ps-next-waggle:hover { box-shadow: 0 9px 22px var(--ps-cta-glow); }
 
 /* ---------------- adoption list ---------------- */
 
@@ -442,7 +527,7 @@ h2[style], h3[style], .food-heading { color: var(--ps-ink) !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ps-topbar, .ps-card, .pet-button, .ps-adopt, .ps-icon, #searchpets, .ps-btn {
+    .ps-topbar, .ps-card, .pet-button, .ps-adopt, .ps-icon, #searchpets, .ps-btn, .ps-next {
         transition: none !important;
     }
 }
