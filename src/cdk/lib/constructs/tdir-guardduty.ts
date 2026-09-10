@@ -41,7 +41,7 @@ export interface TdirGuardDutyProperties {
  * - CloudTrail management and data event analysis
  * - VPC Flow Log analysis
  * - DNS query log analysis
- * - EKS audit log and runtime monitoring
+ * - EKS audit log analysis
  * - S3 data event monitoring
  * - Lambda network activity monitoring
  * - Runtime monitoring (EKS, ECS, EC2)
@@ -75,23 +75,24 @@ export class TdirGuardDuty extends Construct {
             },
             features: [
                 {
-                    name: 'EKS_RUNTIME_MONITORING',
-                    status: properties?.enableEksProtection === false ? 'DISABLED' : 'ENABLED',
-                    additionalConfiguration: [
-                        {
-                            name: 'EKS_ADDON_MANAGEMENT',
-                            status: 'ENABLED',
-                        },
-                    ],
-                },
-                {
                     name: 'LAMBDA_NETWORK_LOGS',
                     status: properties?.enableLambdaProtection === false ? 'DISABLED' : 'ENABLED',
                 },
+                // RUNTIME_MONITORING supersedes EKS_RUNTIME_MONITORING and covers EKS, ECS/Fargate
+                // and EC2 through its own additionalConfiguration. GuardDuty rejects a request that
+                // names both ("EKS_RUNTIME_MONITORING and RUNTIME_MONITORING cannot be provided in
+                // the same request"), so EKS coverage is requested here rather than as its own
+                // feature. EKS_ADDON_MANAGEMENT lets GuardDuty own the aws-guardduty-agent addon;
+                // CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON must stay false so the CDK addon in
+                // lib/constructs/eks.ts does not race it.
                 {
                     name: 'RUNTIME_MONITORING',
                     status: properties?.enableRuntimeMonitoring === false ? 'DISABLED' : 'ENABLED',
                     additionalConfiguration: [
+                        {
+                            name: 'EKS_ADDON_MANAGEMENT',
+                            status: properties?.enableEksProtection === false ? 'DISABLED' : 'ENABLED',
+                        },
                         {
                             name: 'ECS_FARGATE_AGENT_MANAGEMENT',
                             status: 'ENABLED',
