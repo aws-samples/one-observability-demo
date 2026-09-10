@@ -35,7 +35,10 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { CfnOutput, Stack } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
+import { stableCfnOutput } from '../utils/stable-output';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { AccountRootPrincipal, Effect, ManagedPolicy, Policy, PolicyStatement, Role } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 
@@ -162,17 +165,45 @@ export class TdirEscalatedRole extends Construct {
         });
         escalationPolicy.attachToRole(this.compromisedAgentRole);
 
-        new CfnOutput(this, 'CompromisedAgentRoleArn', {
+        stableCfnOutput(this, 'TdirCompromisedAgentRoleArn', {
             value: this.compromisedAgentRole.roleArn,
             description: 'Assume this to run the TDIR escalation chain (boundary-capped)',
         });
-        new CfnOutput(this, 'EscalatedRoleArn', {
+        stableCfnOutput(this, 'TdirEscalatedRoleArn', {
             value: this.escalatedRoleArn,
             description: 'Created at seed time by the compromised agent role',
         });
-        new CfnOutput(this, 'WorkshopBoundaryArn', {
+        stableCfnOutput(this, 'TdirWorkshopBoundaryArn', {
             value: this.boundary.managedPolicyArn,
             description: 'Permissions boundary capping every TDIR workshop role',
+        });
+        // Published to SSM as well as to outputs. Participants read environment-specific values
+        // with `aws ssm get-parameter`, which is the idiom the observability workshop already
+        // documents; CloudFormation outputs are for facilitators reading the deployment stack.
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map([
+                ['tdir/escalatedrolename', ESCALATED_ROLE_NAME],
+                ['tdir/compromisedagentrolename', COMPROMISED_AGENT_ROLE_NAME],
+                // The ARN as well as the name: these roles live under a non-default IAM path, so
+                // the ARN cannot be assembled from the name alone. sts:AssumeRole needs the full
+                // ARN, and a participant who guesses `role/AgentEscalatedAccess` gets a failure.
+                ['tdir/escalatedrolearn', this.escalatedRoleArn],
+                ['tdir/compromisedagentrolearn', this.compromisedAgentRole.roleArn],
+            ]),
+        );
+
+        // Names, not just ARNs: every IAM CLI call the workshop asks participants to run takes
+        // --role-name, and these roles live under a non-default path so the name cannot be
+        // derived from the ARN by splitting on '/'.
+        stableCfnOutput(this, 'TdirEscalatedRoleName', {
+            value: ESCALATED_ROLE_NAME,
+            description: 'Role the scenario evidence blames; target of iam delete-role-policy',
+        });
+        stableCfnOutput(this, 'TdirCompromisedAgentRoleName', {
+            value: COMPROMISED_AGENT_ROLE_NAME,
+            description: 'Stand-in for the compromised agent runtime role',
         });
 
         NagSuppressions.addResourceSuppressions(
