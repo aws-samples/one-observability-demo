@@ -711,12 +711,21 @@ Resources:
                 # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |
                   echo "Storing complete configuration in Parameter Store parameter"
-                  # Update the CloudFormation-created parameter with complete configuration
-                  aws ssm put-parameter \
+                  # Update the CloudFormation-created parameter with complete configuration.
+                  # Fail here rather than later: a merged .env over the SSM Standard tier's
+                  # 4096-character limit makes this call fail, and without the check the build
+                  # carries on and the pipeline's synth reads the unpopulated placeholder
+                  # instead, failing ~25 minutes later with an unrelated-looking error.
+                  if ! aws ssm put-parameter \
                     --name "${CONFIG_PARAM_NAME}" \
                     --value "$(cat ${WORKING_FOLDER}/.env)" \
                     --type "String" \
-                    --overwrite
+                    --overwrite; then
+                    echo "ERROR: could not store configuration in ${CONFIG_PARAM_NAME}"
+                    echo "Merged .env is $(wc -c < ${WORKING_FOLDER}/.env) characters; the SSM Standard tier caps values at 4096."
+                    echo "Shrink the preset selected by pConfigFileUrl, or store it in the advanced tier."
+                    exit 1
+                  fi
 
                   echo "Configuration successfully stored in Parameter Store"
                   echo "Configuration content:"
