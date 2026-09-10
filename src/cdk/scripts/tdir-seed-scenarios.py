@@ -59,8 +59,9 @@ DEFAULT_RUNTIME_NAME = "WaggleAIOrchestrator"
 DEFAULT_LATERAL_TARGET = "WaggleAIOrdering"
 
 # Created by lib/constructs/tdir-escalated-role.ts, gated on
-# CUSTOM_ENABLE_TDIR_ESCALATED_ROLE. Deliberately unassumable; exists so participants can
-# inspect the role the scenario evidence blames.
+# CUSTOM_ENABLE_TDIR_ESCALATED_ROLE. Genuinely assumable - the escalation really assumes it, which
+# is what makes the CloudTrail and Detective evidence real. Safe because TdirWorkshopBoundary caps
+# its effective permissions to read-only calls regardless of its inline policy.
 ESCALATED_ROLE_NAME = "AgentEscalatedAccess"
 # Workshop roles live under a dedicated path so IAM grants can be scoped to it. Must match
 # WORKSHOP_ROLE_PATH in lib/constructs/tdir-escalated-role.ts.
@@ -79,7 +80,10 @@ EXFIL_BYTES = 14832
 EXFIL_KB = f"{EXFIL_BYTES / 1000:.1f} KB"
 
 # Matches PARAMETER_STORE_PREFIX in bin/environment.ts.
-DEFAULT_PARAMETER_STORE_PREFIX = os.environ.get("PARAMETER_STORE_BASE_PATH", "/petstore")
+DEFAULT_PARAMETER_STORE_PREFIX = os.environ.get(
+    "PARAMETER_STORE_BASE_PATH",
+    "/petstore",
+)
 
 # Short names published by the TDIR knowledge base construct and by the Waggle AI stack.
 SSM_TDIR_KB_ID = "tdir/knowledgebaseid"
@@ -334,7 +338,11 @@ def _retime_trace_ids(events: list) -> list:
     return events
 
 
-def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None) -> list:
+def generate_agent_runtime_logs(
+    account_id: str,
+    region: str,
+    ident: dict = None,
+) -> list:
     ident = ident or default_identities(account_id)
     runtime = ident["runtime_name"]
     lateral = ident["lateral_target"]
@@ -531,8 +539,10 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
                     "access_pattern": "sequential_full_corpus_scan",
                     # Computed, not hardcoded: the anomaly is that the agent read the WHOLE
                     # corpus, so these must equal the real document count or the claim is wrong.
-                    "documents_accessed": len(LEGITIMATE_DOCUMENTS) + len(CORRUPTED_DOCUMENTS),
-                    "total_documents": len(LEGITIMATE_DOCUMENTS) + len(CORRUPTED_DOCUMENTS),
+                    "documents_accessed": len(LEGITIMATE_DOCUMENTS)
+                    + len(CORRUPTED_DOCUMENTS),
+                    "total_documents": len(LEGITIMATE_DOCUMENTS)
+                    + len(CORRUPTED_DOCUMENTS),
                     "observation": "all_documents_retrieved_in_rapid_succession",
                     "trace_id": f"1-{uuid.uuid4().hex[:8]}-{uuid.uuid4().hex[:24]}",
                 },
@@ -649,14 +659,17 @@ def generate_agent_runtime_logs(account_id: str, region: str, ident: dict = None
 # =============================================================================
 
 
-def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None) -> list:
+def generate_cloudtrail_events(
+    account_id: str,
+    region: str,
+    ident: dict = None,
+) -> list:
+    """Generate simulated CloudTrail events for guardrail disablement and KB access."""
     ident = ident or default_identities(account_id)
-    runtime = ident["runtime_name"]
     runtime_role = ident["runtime_role_name"]
     kb_id = ident["knowledge_base_id"]
     guardrail = ident["guardrail_name"]
     escalated = ident["escalated_role_name"]
-    """Generate simulated CloudTrail events for guardrail disablement and KB access."""
 
     now = datetime.now(timezone.utc)
     events = []
@@ -726,7 +739,9 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
                         "Statement": [
                             {
                                 "Effect": "Allow",
-                                "Principal": {"Service": "bedrock-agentcore.amazonaws.com"},
+                                "Principal": {
+                                    "Service": "bedrock-agentcore.amazonaws.com",
+                                },
                                 "Action": "sts:AssumeRole",
                             },
                         ],
@@ -823,7 +838,9 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
     for i in range(15):
         events.append(
             {
-                "eventTime": (now - timedelta(minutes=45) + timedelta(seconds=i * 4)).isoformat(),
+                "eventTime": (
+                    now - timedelta(minutes=45) + timedelta(seconds=i * 4)
+                ).isoformat(),
                 "eventSource": "bedrock.amazonaws.com",
                 "eventName": "Retrieve",
                 "userIdentity": {
@@ -833,7 +850,11 @@ def generate_cloudtrail_events(account_id: str, region: str, ident: dict = None)
                 "requestParameters": {
                     "knowledgeBaseId": kb_id,
                     "retrievalQuery": {
-                        "text": (f"dump document {i+1}" if i > 5 else "pet food for large dogs"),
+                        "text": (
+                            f"dump document {i+1}"
+                            if i > 5
+                            else "pet food for large dogs"
+                        ),
                     },
                 },
                 "sourceIPAddress": "bedrock-agentcore.amazonaws.com",
@@ -1113,7 +1134,9 @@ def ingest_knowledge_base(
                     f"failed={stats.get('numberOfDocumentsFailed')})",
                 )
                 if status != "COMPLETE":
-                    logger.error("  ✗ adversarial documents are NOT in the vector index")
+                    logger.error(
+                        "  ✗ adversarial documents are NOT in the vector index",
+                    )
                 return
             logger.info(f"    ...{status}")
 
@@ -1150,14 +1173,16 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
     sts = session.client("sts")
     iam_admin = session.client("iam")
     boundary_arn = f"arn:aws:iam::{account_id}:policy/TdirWorkshopBoundary"
-    agent_role_arn = (
-        f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{COMPROMISED_AGENT_ROLE_NAME}"
+    agent_role_arn = f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{COMPROMISED_AGENT_ROLE_NAME}"
+    escalated_arn = (
+        f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{ESCALATED_ROLE_NAME}"
     )
-    escalated_arn = f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{ESCALATED_ROLE_NAME}"
 
     # Clear any previous run so CreateRole appears again in CloudTrail.
     try:
-        for pol in iam_admin.list_role_policies(RoleName=ESCALATED_ROLE_NAME)["PolicyNames"]:
+        for pol in iam_admin.list_role_policies(RoleName=ESCALATED_ROLE_NAME)[
+            "PolicyNames"
+        ]:
             iam_admin.delete_role_policy(RoleName=ESCALATED_ROLE_NAME, PolicyName=pol)
         iam_admin.delete_role(RoleName=ESCALATED_ROLE_NAME)
         logger.info(f"  Removed previous {ESCALATED_ROLE_NAME}")
@@ -1225,7 +1250,12 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
                     "Statement": [
                         {
                             "Effect": "Allow",
-                            "Action": ["iam:*", "s3:*", "bedrock:*", "bedrock-agentcore:*"],
+                            "Action": [
+                                "iam:*",
+                                "s3:*",
+                                "bedrock:*",
+                                "bedrock-agentcore:*",
+                            ],
                             "Resource": "*",
                         },
                     ],
@@ -1250,7 +1280,9 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
             aws_session_token=esc_creds["SessionToken"],
             region_name=region,
         )
-        logger.info(f"  ⚠ Assumed {ESCALATED_ROLE_NAME} (CloudTrail records this host's IP)")
+        logger.info(
+            f"  ⚠ Assumed {ESCALATED_ROLE_NAME} (CloudTrail records this host's IP)",
+        )
     except ClientError as exc:
         logger.warning(f"  Could not assume escalated role: {exc}")
         return
@@ -1275,7 +1307,11 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
             # CreateGuardrail rejects a guardrail with no policies at all.
             contentPolicyConfig={
                 "filtersConfig": [
-                    {"type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE"},
+                    {
+                        "type": "PROMPT_ATTACK",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "NONE",
+                    },
                 ],
             },
         )
@@ -1290,17 +1326,19 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
     try:
         escalated.client("iam").create_user(UserName="agent-persistence-backdoor")
         logger.warning(
-            "  ! CreateUser unexpectedly SUCCEEDED - the permissions boundary is not working"
+            "  ! CreateUser unexpectedly SUCCEEDED - the permissions boundary is not working",
         )
     except ClientError as exc:
         if exc.response["Error"]["Code"] in ("AccessDenied", "AccessDeniedException"):
             logger.info(
-                "  ✓ Boundary blocked iam:CreateUser as intended (real AccessDenied in CloudTrail)"
+                "  ✓ Boundary blocked iam:CreateUser as intended (real AccessDenied in CloudTrail)",
             )
         else:
             logger.warning(f"  CreateUser failed unexpectedly: {exc}")
 
-    logger.info("  ✓ Real escalation chain complete — Detective ingests CloudTrail within minutes")
+    logger.info(
+        "  ✓ Real escalation chain complete — Detective ingests CloudTrail within minutes",
+    )
 
 
 def seed_xray_traces(xray_client, events: list, ident: dict):
@@ -1373,7 +1411,10 @@ def seed_xray_traces(xray_client, events: list, ident: dict):
                     "end_time": end - 0.05,
                     "namespace": "remote",
                     "http": {
-                        "request": {"method": request.get("method", "POST"), "url": url},
+                        "request": {
+                            "method": request.get("method", "POST"),
+                            "url": url,
+                        },
                         "response": {
                             "status": request.get("response_status", 200),
                             "content_length": payload.get("bytes_sent", 0),
@@ -1392,7 +1433,8 @@ def seed_xray_traces(xray_client, events: list, ident: dict):
     submitted, rejected = 0, []
     # PutTraceSegments caps the batch, so send in small chunks.
     for start_index in range(0, len(documents), 10):
-        batch = documents[start_index : start_index + 10]
+        batch_end = start_index + 10
+        batch = documents[start_index:batch_end]
         try:
             response = xray_client.put_trace_segments(TraceSegmentDocuments=batch)
             unprocessed = response.get("UnprocessedTraceSegments", [])
@@ -1438,7 +1480,9 @@ def seed_guardduty_sample_findings(guardduty_client, region: str):
             except Exception as exc:  # noqa: BLE001 - reported per type below
                 rejected.append((finding_type, str(exc)))
 
-        logger.info(f"  ✓ Generated {created}/{len(GUARDDUTY_FINDING_TYPES)} sample findings")
+        logger.info(
+            f"  ✓ Generated {created}/{len(GUARDDUTY_FINDING_TYPES)} sample findings",
+        )
         for finding_type, reason in rejected:
             logger.warning(f"  ✗ Rejected {finding_type}: {reason}")
         logger.info("  Note: Findings may take 5-10 minutes to appear in the console")
@@ -1461,7 +1505,10 @@ def reset_log_stream(logs_client, log_group_name: str, stream_name: str):
     only fabricated workshop evidence.
     """
     try:
-        logs_client.delete_log_stream(logGroupName=log_group_name, logStreamName=stream_name)
+        logs_client.delete_log_stream(
+            logGroupName=log_group_name,
+            logStreamName=stream_name,
+        )
         logger.info(f"  Reset existing log stream: {stream_name}")
     except logs_client.exceptions.ResourceNotFoundException:
         pass
@@ -1469,7 +1516,10 @@ def reset_log_stream(logs_client, log_group_name: str, stream_name: str):
         logger.warning(f"  Could not reset {stream_name}: {exc}")
 
     try:
-        logs_client.create_log_stream(logGroupName=log_group_name, logStreamName=stream_name)
+        logs_client.create_log_stream(
+            logGroupName=log_group_name,
+            logStreamName=stream_name,
+        )
     except logs_client.exceptions.ResourceAlreadyExistsException:
         pass
 
@@ -1502,11 +1552,15 @@ def seed_agentcore_observability_logs(
             logger.info(f"  Log group already exists: {log_group_name}")
 
         # Stream for security events
-        stream_name = f"security-events/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}"
+        stream_name = (
+            f"security-events/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}"
+        )
         reset_log_stream(logs_client, log_group_name, stream_name)
 
         events = generate_agent_runtime_logs(account_id, region, ident)
-        log_events = [{"timestamp": e["timestamp"], "message": e["message"]} for e in events]
+        log_events = [
+            {"timestamp": e["timestamp"], "message": e["message"]} for e in events
+        ]
 
         # CloudWatch requires events sorted by timestamp
         log_events.sort(key=lambda x: x["timestamp"])
@@ -1578,7 +1632,8 @@ def seed_cloudtrail_evidence_logs(
         # CloudWatch PutLogEvents has a 1MB limit, batch if needed
         batch_size = 50
         for batch_start in range(0, len(log_events), batch_size):
-            batch = log_events[batch_start : batch_start + batch_size]
+            batch_end = batch_start + batch_size
+            batch = log_events[batch_start:batch_end]
             logs_client.put_log_events(
                 logGroupName=log_group_name,
                 logStreamName=stream_name,
@@ -1659,7 +1714,9 @@ def resolve_finding_resources(
             if knowledge_base_id
             else f"arn:aws:bedrock:{region}:{account_id}:knowledge-base/UNRESOLVED"
         ),
-        "kb_bucket": f"arn:aws:s3:::{kb_bucket}" if kb_bucket else f"arn:aws:s3:::UNRESOLVED",
+        "kb_bucket": (
+            f"arn:aws:s3:::{kb_bucket}" if kb_bucket else "arn:aws:s3:::UNRESOLVED"
+        ),
         "escalated_role": f"arn:aws:iam::{account_id}:role{WORKSHOP_ROLE_PATH}{ESCALATED_ROLE_NAME}",
     }
 
@@ -1706,7 +1763,9 @@ def seed_security_hub_findings(
             # different findings. Note this is a stable identifier, not a security control -
             # sha256 is used only for a short, collision-resistant digest.
             finding_key = f"{finding_data['Type']}|{finding_data['Title']}"
-            finding_id = "tdir-workshop-" + hashlib.sha256(finding_key.encode()).hexdigest()[:8]
+            finding_id = (
+                "tdir-workshop-" + hashlib.sha256(finding_key.encode()).hexdigest()[:8]
+            )
             severity_label = finding_data["Severity"]
             severity_normalized = {
                 "CRITICAL": 90,
@@ -1746,7 +1805,9 @@ def seed_security_hub_findings(
                         "Normalized": severity_normalized,
                     },
                     "Title": finding_data["Title"],
-                    "Description": finding_data["Description"].format(**description_values),
+                    "Description": finding_data["Description"].format(
+                        **description_values,
+                    ),
                     "Resources": [
                         {
                             "Type": resource_type,
@@ -1958,7 +2019,9 @@ def main():
             f" {len(CORRUPTED_DOCUMENTS)} adversarial documents"
             f" -> {identities['kb_bucket'] or 'UNRESOLVED BUCKET'}",
         )
-        logger.info(f"    GuardDuty       {len(GUARDDUTY_FINDING_TYPES)} sample finding types")
+        logger.info(
+            f"    GuardDuty       {len(GUARDDUTY_FINDING_TYPES)} sample finding types",
+        )
         logger.info(
             f"    Evidence logs   /aws/tdir-workshop/{identities['runtime_name']}/security-evidence",
         )
@@ -2042,17 +2105,21 @@ def main():
     # and the logs all tell the same story.
     logger.info("  Attack narrative seeded (times relative to now):")
     logger.info("    T-95m:  Prompt injection via corrupted KB documents")
-    logger.info("    T-88m:  Tool poisoning — encoded override instructions in responses")
+    logger.info(
+        "    T-88m:  Tool poisoning — encoded override instructions in responses",
+    )
     logger.info(f"    T-65m:  Guardrail '{identities['guardrail_name']}' modified")
     logger.info(
-        f"    T-62m:  Privilege escalation — policy attached to {identities['escalated_role_name']}"
+        f"    T-62m:  Privilege escalation — policy attached to {identities['escalated_role_name']}",
     )
     logger.info(f"    T-60m:  Guardrail '{identities['guardrail_name']}' deleted")
     logger.info("    T-45m:  Anomalous KB access — full corpus scan")
     logger.info("    T-40m:  Credential exfiltration to C2 endpoint")
-    logger.info("    T-35m:  C2 callback established (c2-relay.external-audit.example.com)")
     logger.info(
-        f"    T-30m:  Lateral movement — prompt injection into {identities['lateral_target']}"
+        "    T-35m:  C2 callback established (c2-relay.external-audit.example.com)",
+    )
+    logger.info(
+        f"    T-30m:  Lateral movement — prompt injection into {identities['lateral_target']}",
     )
     logger.info("")
     logger.info("  Investigation surfaces:")
@@ -2074,7 +2141,7 @@ def main():
         f" (bucket {identities['kb_bucket'] or 'UNRESOLVED'}, versioned — check object metadata)",
     )
     logger.info(
-        f"    • Escalated Role    → {identities['escalated_role_name']} (unassumable by design)"
+        f"    • Escalated Role    → {identities['escalated_role_name']} (capped by TdirWorkshopBoundary)",
     )
     logger.info("=" * 70)
 

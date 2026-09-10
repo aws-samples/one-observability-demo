@@ -60,25 +60,23 @@ export class TdirGuardDuty extends Construct {
     constructor(scope: Construct, id: string, properties?: TdirGuardDutyProperties) {
         super(scope, id);
 
-        const props = properties || {};
-
         this.detector = new CfnDetector(this, 'Detector', {
             enable: true,
-            findingPublishingFrequency: props.findingPublishingFrequency || 'FIFTEEN_MINUTES',
+            findingPublishingFrequency: properties?.findingPublishingFrequency || 'FIFTEEN_MINUTES',
             dataSources: {
                 s3Logs: {
-                    enable: props.enableS3Protection !== false,
+                    enable: properties?.enableS3Protection !== false,
                 },
                 kubernetes: {
                     auditLogs: {
-                        enable: props.enableEksProtection !== false,
+                        enable: properties?.enableEksProtection !== false,
                     },
                 },
             },
             features: [
                 {
                     name: 'EKS_RUNTIME_MONITORING',
-                    status: props.enableEksProtection !== false ? 'ENABLED' : 'DISABLED',
+                    status: properties?.enableEksProtection === false ? 'DISABLED' : 'ENABLED',
                     additionalConfiguration: [
                         {
                             name: 'EKS_ADDON_MANAGEMENT',
@@ -88,11 +86,11 @@ export class TdirGuardDuty extends Construct {
                 },
                 {
                     name: 'LAMBDA_NETWORK_LOGS',
-                    status: props.enableLambdaProtection !== false ? 'ENABLED' : 'DISABLED',
+                    status: properties?.enableLambdaProtection === false ? 'DISABLED' : 'ENABLED',
                 },
                 {
                     name: 'RUNTIME_MONITORING',
-                    status: props.enableRuntimeMonitoring !== false ? 'ENABLED' : 'DISABLED',
+                    status: properties?.enableRuntimeMonitoring === false ? 'DISABLED' : 'ENABLED',
                     additionalConfiguration: [
                         {
                             name: 'ECS_FARGATE_AGENT_MANAGEMENT',

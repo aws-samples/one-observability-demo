@@ -120,16 +120,15 @@ export class TdirRemediation extends Construct {
     constructor(scope: Construct, id: string, properties?: TdirRemediationProperties) {
         super(scope, id);
 
-        const props = properties || {};
-        const minimumSeverity = props.minimumSeverity || 7;
-        const retention = props.logRetentionDays || RetentionDays.ONE_WEEK;
+        const minimumSeverity = properties?.minimumSeverity || 7;
+        const retention = properties?.logRetentionDays || RetentionDays.ONE_WEEK;
         const region = Stack.of(this).region;
         const account = Stack.of(this).account;
-        const enforce = props.enforce ?? false;
-        const containableRoleArns = props.containableRoleArns ?? [
+        const enforce = properties?.enforce ?? false;
+        const containableRoleArns = properties?.containableRoleArns ?? [
             `arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}${ESCALATED_ROLE_NAME}`,
         ];
-        const containableRuntimeNames = props.containableRuntimeNames ?? [COMPROMISED_RUNTIME_NAME];
+        const containableRuntimeNames = properties?.containableRuntimeNames ?? [COMPROMISED_RUNTIME_NAME];
 
         // SNS topic for security notifications
         this.notificationTopic = new Topic(this, 'SecurityNotifications', {

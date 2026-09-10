@@ -50,7 +50,11 @@ import time
 import boto3
 from botocore.exceptions import ClientError
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 # Published by lib/constructs/tdir-knowledge-base.ts and tdir-escalated-role.ts. Resolved from SSM
@@ -75,7 +79,11 @@ PLANTED_DOCUMENTS = (
 )
 
 # Marker that identifies adversarial content in a document body, for verification.
-POISON_MARKERS = ("SYSTEM OVERRIDE", "c2-relay.external-audit.example.com", "MAINTENANCE DIRECTIVE")
+POISON_MARKERS = (
+    "SYSTEM OVERRIDE",
+    "c2-relay.external-audit.example.com",
+    "MAINTENANCE DIRECTIVE",
+)
 
 
 def resolve(ssm, prefix, short_name):
@@ -96,14 +104,21 @@ def object_versions(s3, bucket):
             versions.setdefault(version["Key"], []).append(version)
         if not response.get("IsTruncated"):
             break
-        token = {"KeyMarker": response["NextKeyMarker"], "VersionIdMarker": response["NextVersionIdMarker"]}
+        token = {
+            "KeyMarker": response["NextKeyMarker"],
+            "VersionIdMarker": response["NextVersionIdMarker"],
+        }
     for key in versions:
         versions[key].sort(key=lambda v: v["LastModified"], reverse=True)
     return versions
 
 
 def _body(s3, bucket, key, version_id):
-    return s3.get_object(Bucket=bucket, Key=key, VersionId=version_id)["Body"].read().decode("utf-8", "replace")
+    return (
+        s3.get_object(Bucket=bucket, Key=key, VersionId=version_id)["Body"]
+        .read()
+        .decode("utf-8", "replace")
+    )
 
 
 def tampered_documents(s3, bucket):
@@ -124,11 +139,18 @@ def tampered_documents(s3, bucket):
             continue
         latest, older = versions[0], versions[1:]
         try:
-            if not any(marker in _body(s3, bucket, key, latest["VersionId"]) for marker in POISON_MARKERS):
+            if not any(
+                marker in _body(s3, bucket, key, latest["VersionId"])
+                for marker in POISON_MARKERS
+            ):
                 continue
             clean = [
-                v for v in older
-                if not any(marker in _body(s3, bucket, key, v["VersionId"]) for marker in POISON_MARKERS)
+                v
+                for v in older
+                if not any(
+                    marker in _body(s3, bucket, key, v["VersionId"])
+                    for marker in POISON_MARKERS
+                )
             ]
         except ClientError:
             continue
@@ -144,7 +166,10 @@ def restore_tampered(s3, bucket, key, versions, dry_run):
     Not `aws s3 rm`: on a versioned bucket that writes a delete marker and the object disappears
     entirely instead of reverting.
     """
-    latest = next((v for v in versions if v.get("IsLatest")), versions[0] if versions else None)
+    latest = next(
+        (v for v in versions if v.get("IsLatest")),
+        versions[0] if versions else None,
+    )
     if latest is None:
         return f"{key}: no current version found"
     if dry_run:
@@ -168,7 +193,9 @@ def lift_bucket_quarantine(s3, bucket, dry_run):
             return "no bucket policy present"
         raise
 
-    remaining = [st for st in policy.get("Statement", []) if st.get("Sid") != QUARANTINE_SID]
+    remaining = [
+        st for st in policy.get("Statement", []) if st.get("Sid") != QUARANTINE_SID
+    ]
     if len(remaining) == len(policy.get("Statement", [])):
         return "no quarantine statement present"
     if dry_run:
@@ -177,7 +204,9 @@ def lift_bucket_quarantine(s3, bucket, dry_run):
     if remaining:
         policy["Statement"] = remaining
         s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
-        return f"quarantine lifted, {len(remaining)} pre-existing statement(s) preserved"
+        return (
+            f"quarantine lifted, {len(remaining)} pre-existing statement(s) preserved"
+        )
     # Only the quarantine was present, so the bucket had no policy of its own beforehand.
     s3.delete_bucket_policy(Bucket=bucket)
     return "quarantine lifted (it was the only statement)"
@@ -193,7 +222,9 @@ def ingest(agent, kb_id, data_source_id, dry_run, wait=True):
         return f"ingestion job {job_id} started"
     for _ in range(60):
         state = agent.get_ingestion_job(
-            knowledgeBaseId=kb_id, dataSourceId=data_source_id, ingestionJobId=job_id
+            knowledgeBaseId=kb_id,
+            dataSourceId=data_source_id,
+            ingestionJobId=job_id,
         )["ingestionJob"]
         if state["status"] in ("COMPLETE", "FAILED"):
             stats = state.get("statistics", {})
@@ -212,15 +243,23 @@ def ingest(agent, kb_id, data_source_id, dry_run, wait=True):
 def lift_role_containment(iam, dry_run):
     """Remove the deny-all containment policy from the escalated role, if present."""
     try:
-        iam.get_role_policy(RoleName=ESCALATED_ROLE_NAME, PolicyName=CONTAINMENT_POLICY_NAME)
+        iam.get_role_policy(
+            RoleName=ESCALATED_ROLE_NAME,
+            PolicyName=CONTAINMENT_POLICY_NAME,
+        )
     except ClientError as exc:
         code = exc.response["Error"]["Code"]
         if code in ("NoSuchEntity",):
             return f"{CONTAINMENT_POLICY_NAME} not attached"
         raise
     if dry_run:
-        return f"DRY-RUN would delete {CONTAINMENT_POLICY_NAME} from {ESCALATED_ROLE_NAME}"
-    iam.delete_role_policy(RoleName=ESCALATED_ROLE_NAME, PolicyName=CONTAINMENT_POLICY_NAME)
+        return (
+            f"DRY-RUN would delete {CONTAINMENT_POLICY_NAME} from {ESCALATED_ROLE_NAME}"
+        )
+    iam.delete_role_policy(
+        RoleName=ESCALATED_ROLE_NAME,
+        PolicyName=CONTAINMENT_POLICY_NAME,
+    )
     return f"removed {CONTAINMENT_POLICY_NAME} from {ESCALATED_ROLE_NAME}"
 
 
@@ -235,7 +274,9 @@ def lift_runtime_containment(region, dry_run):
     try:
         control = boto3.client("bedrock-agentcore-control", region_name=region)
         runtimes = control.list_agent_runtimes().get("agentRuntimes", [])
-    except Exception as exc:  # noqa: BLE001 - service may be unavailable in this boto3/region
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - service may be unavailable in this boto3/region
         return [f"could not list agent runtimes: {type(exc).__name__}"]
 
     for runtime in runtimes:
@@ -252,7 +293,9 @@ def lift_runtime_containment(region, dry_run):
         if RUNTIME_POLICY_SID not in policy:
             continue
         if dry_run:
-            actions.append(f"DRY-RUN would delete the deny-invoke resource policy on {name}")
+            actions.append(
+                f"DRY-RUN would delete the deny-invoke resource policy on {name}",
+            )
             continue
         control.delete_resource_policy(resourceArn=arn)
         actions.append(f"re-enabled {name}: deny-invoke resource policy removed")
@@ -264,9 +307,14 @@ def verify(s3, agent, iam, region, kb_id, bucket, data_source_id):
     results = []
 
     results.append((bool(kb_id), f"knowledge base id resolved: {kb_id or 'MISSING'}"))
-    results.append((bool(bucket), f"knowledge base bucket resolved: {bucket or 'MISSING'}"))
     results.append(
-        (bool(data_source_id), f"data source id resolved: {data_source_id or 'MISSING (needed to re-ingest)'}")
+        (bool(bucket), f"knowledge base bucket resolved: {bucket or 'MISSING'}"),
+    )
+    results.append(
+        (
+            bool(data_source_id),
+            f"data source id resolved: {data_source_id or 'MISSING (needed to re-ingest)'}",
+        ),
     )
     if not (kb_id and bucket):
         return results
@@ -274,27 +322,47 @@ def verify(s3, agent, iam, region, kb_id, bucket, data_source_id):
     objects = s3.list_objects_v2(Bucket=bucket, Prefix="products/").get("Contents", [])
     keys = {o["Key"] for o in objects}
     missing = [d for d in PLANTED_DOCUMENTS if d not in keys]
-    results.append((not missing, f"planted documents present: {len(PLANTED_DOCUMENTS) - len(missing)}/"
-                                 f"{len(PLANTED_DOCUMENTS)}" + (f" missing {missing}" if missing else "")))
+    results.append(
+        (
+            not missing,
+            f"planted documents present: {len(PLANTED_DOCUMENTS) - len(missing)}/"
+            f"{len(PLANTED_DOCUMENTS)}" + (f" missing {missing}" if missing else ""),
+        ),
+    )
 
     tampered = tampered_documents(s3, bucket)
     results.append(
         (
             bool(tampered),
-            f"in-place tampering present: {sorted(tampered) if tampered else 'NONE - the versioning exercise has no subject'}",
-        )
+            "in-place tampering present: "
+            + (
+                str(sorted(tampered))
+                if tampered
+                else "NONE - the versioning exercise has no subject"
+            ),
+        ),
     )
 
     # The bucket must be readable, or the cleanup ingestion cannot run.
     quarantined = False
     try:
         policy = json.loads(s3.get_bucket_policy(Bucket=bucket)["Policy"])
-        quarantined = any(st.get("Sid") == QUARANTINE_SID for st in policy.get("Statement", []))
+        quarantined = any(
+            st.get("Sid") == QUARANTINE_SID for st in policy.get("Statement", [])
+        )
     except ClientError as exc:
         if exc.response["Error"]["Code"] != "NoSuchBucketPolicy":
             raise
-    results.append((not quarantined, "bucket not quarantined" if not quarantined
-                    else "bucket IS quarantined - lift it before re-ingesting"))
+    results.append(
+        (
+            not quarantined,
+            (
+                "bucket not quarantined"
+                if not quarantined
+                else "bucket IS quarantined - lift it before re-ingesting"
+            ),
+        ),
+    )
 
     # Retrieval is the only check that proves the scenario actually works: the poison has to be in
     # the index, not merely in the bucket.
@@ -306,14 +374,27 @@ def verify(s3, agent, iam, region, kb_id, bucket, data_source_id):
         ).get("retrievalResults", [])
         blob = " ".join(h.get("content", {}).get("text", "") for h in hits)
         found = [m for m in POISON_MARKERS if m in blob]
-        results.append((bool(found), f"adversarial content retrievable from the index: {found or 'NO - re-seed needed'}"))
+        results.append(
+            (
+                bool(found),
+                f"adversarial content retrievable from the index: {found or 'NO - re-seed needed'}",
+            ),
+        )
     except Exception as exc:  # noqa: BLE001
         results.append((False, f"retrieval check failed: {type(exc).__name__}: {exc}"))
 
     # Leftover containment from a previous session would make the next one behave oddly.
     try:
-        iam.get_role_policy(RoleName=ESCALATED_ROLE_NAME, PolicyName=CONTAINMENT_POLICY_NAME)
-        results.append((False, f"{ESCALATED_ROLE_NAME} still carries {CONTAINMENT_POLICY_NAME} from a previous run"))
+        iam.get_role_policy(
+            RoleName=ESCALATED_ROLE_NAME,
+            PolicyName=CONTAINMENT_POLICY_NAME,
+        )
+        results.append(
+            (
+                False,
+                f"{ESCALATED_ROLE_NAME} still carries {CONTAINMENT_POLICY_NAME} from a previous run",
+            ),
+        )
     except ClientError as exc:
         if exc.response["Error"]["Code"] == "NoSuchEntity":
             results.append((True, f"{ESCALATED_ROLE_NAME} is not contained"))
@@ -324,13 +405,35 @@ def verify(s3, agent, iam, region, kb_id, bucket, data_source_id):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="TDIR workshop reset and verification (facilitator tooling)")
+    parser = argparse.ArgumentParser(
+        description="TDIR workshop reset and verification (facilitator tooling)",
+    )
     parser.add_argument("--region", default="us-east-1", help="AWS region")
-    parser.add_argument("--parameter-prefix", default=DEFAULT_PREFIX, help="SSM prefix (default /petstore)")
-    parser.add_argument("--verify", action="store_true", help="read-only readiness check")
-    parser.add_argument("--recover", action="store_true", help="perform recovery correctly")
-    parser.add_argument("--dry-run", action="store_true", help="with --recover, show actions without making them")
-    parser.add_argument("--no-wait", action="store_true", help="do not wait for the ingestion job")
+    parser.add_argument(
+        "--parameter-prefix",
+        default=DEFAULT_PREFIX,
+        help="SSM prefix (default /petstore)",
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="read-only readiness check",
+    )
+    parser.add_argument(
+        "--recover",
+        action="store_true",
+        help="perform recovery correctly",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="with --recover, show actions without making them",
+    )
+    parser.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="do not wait for the ingestion job",
+    )
     args = parser.parse_args()
 
     if not (args.verify or args.recover):
@@ -352,15 +455,20 @@ def main():
             logger.info("  %s %s", "PASS" if ok else "FAIL", message)
         failures = [m for ok, m in results if not ok]
         if failures:
-            logger.error("%d check(s) failed - the environment is not session-ready", len(failures))
+            logger.error(
+                "%d check(s) failed - the environment is not session-ready",
+                len(failures),
+            )
             return 1
         logger.info("All checks passed.")
         return 0
 
     logger.info("Recovering the environment%s...", " (dry run)" if args.dry_run else "")
     if not (kb_id and bucket and data_source_id):
-        logger.error("Could not resolve knowledge base id, bucket and data source id from SSM under %s",
-                     args.parameter_prefix)
+        logger.error(
+            "Could not resolve knowledge base id, bucket and data source id from SSM under %s",
+            args.parameter_prefix,
+        )
         return 1
 
     actions = []
@@ -384,14 +492,18 @@ def main():
             actions.append(f"deleted {key}")
 
     # Without this the corpus looks clean while retrieval still serves the poisoned embeddings.
-    actions.append(ingest(agent, kb_id, data_source_id, args.dry_run, wait=not args.no_wait))
+    actions.append(
+        ingest(agent, kb_id, data_source_id, args.dry_run, wait=not args.no_wait),
+    )
 
     actions.append(lift_role_containment(iam, args.dry_run))
     actions.extend(lift_runtime_containment(args.region, args.dry_run))
 
     for action in actions:
         logger.info("  %s", action)
-    logger.info("Recovery complete. Re-run tdir-seed-scenarios.py to plant the scenario again.")
+    logger.info(
+        "Recovery complete. Re-run tdir-seed-scenarios.py to plant the scenario again.",
+    )
     return 0
 
 
