@@ -52,11 +52,9 @@ export class TdirSecurityHub extends Construct {
     constructor(scope: Construct, id: string, properties?: TdirSecurityHubProperties) {
         super(scope, id);
 
-        const props = properties || {};
-
         this.hub = new CfnHub(this, 'Hub', {
-            autoEnableControls: props.autoEnableControls !== false,
-            enableDefaultStandards: props.enableDefaultStandards !== false,
+            autoEnableControls: properties?.autoEnableControls !== false,
+            enableDefaultStandards: properties?.enableDefaultStandards !== false,
         });
     }
 }

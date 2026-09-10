@@ -76,8 +76,7 @@ export class TdirKnowledgeBase extends Construct {
     constructor(scope: Construct, id: string, properties?: TdirKnowledgeBaseProperties) {
         super(scope, id);
 
-        const props = properties || {};
-        const embeddingModelId = props.embeddingModelId || 'amazon.titan-embed-text-v2:0';
+        const embeddingModelId = properties?.embeddingModelId || 'amazon.titan-embed-text-v2:0';
         const region = Stack.of(this).region;
         const account = Stack.of(this).account;
         const embedModelArn = `arn:aws:bedrock:${region}::foundation-model/${embeddingModelId}`;
