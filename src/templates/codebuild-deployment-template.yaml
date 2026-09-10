@@ -784,6 +784,24 @@ Resources:
                 # Wait for pipeline to complete
                 - |
                   ./scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
+                # Seed the TDIR scenario. Runs here, after wait-for-pipeline.sh, because seeding needs
+                # resources from every stack the pipeline creates - the knowledge base, the workshop
+                # roles, and the agent runtimes. Deliberately non-fatal: an environment that deployed
+                # correctly but failed to seed is fixed by re-running one script, whereas failing the
+                # build triggers the cleanup state machine and destroys it.
+                - |
+                  if grep -q '^CUSTOM_ENABLE_TDIR_ESCALATED_ROLE=true' .env 2>/dev/null; then
+                    echo "TDIR preset detected - seeding scenario evidence"
+                    pip install -q -r ./scripts/requirements.txt
+                    if python3 ./scripts/tdir-seed-scenarios.py --region "$AWS_REGION"; then
+                      echo "Scenario seeded"
+                    else
+                      echo "WARNING: seeding failed. The environment is deployed but the labs have no"
+                      echo "evidence to investigate. Re-run: python3 scripts/tdir-seed-scenarios.py --region $AWS_REGION"
+                    fi
+                  else
+                    echo "Not a TDIR deployment - skipping scenario seeding"
+                  fi
             post_build:
               commands:
                 - |
