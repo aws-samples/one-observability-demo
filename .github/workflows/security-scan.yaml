@@ -9,10 +9,10 @@ jobs:
     security:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@master
-            - uses: snyk/actions/setup@master
+            - uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+            - uses: snyk/actions/setup@12140f4059e244892ae643824a95459a102120dd # master
     ash:
-        uses: awslabs/automated-security-helper/.github/workflows/run-ash-security-scan.yml@v3
+        uses: awslabs/automated-security-helper/.github/workflows/run-ash-security-scan.yml@60d2a8c1be4a57211925d127be1699b6a609bc60 # v3
         permissions:
             #checkov:skip=CKV2_GHA_1:The permissions are not set to write-all at the top-level, or any level
             contents: read # Required to read the repository contents in order to scan them with ASH

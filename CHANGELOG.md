@@ -14,6 +14,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > structured release management.
 
 ## [Unreleased]
+## [3.1.0] - 2026-08-19
+### Added
+- **Waggle AI agents** (`waggle_ai_agents`): multi-agent system on Amazon Bedrock AgentCore (ARM64). A Strands orchestrator delegates to four framework-diverse sub-agents — nutrition (LangGraph), ordering (CrewAI), adoption (LlamaIndex), and concierge (OpenAI Agents SDK) — each on a different model, so a single trace spans several agent frameworks
+- **AgentCore Memory**: short and long-term strategies giving the agents recall across turns and sessions
+- **AgentCore Gateway**: single entry point fronting the sub-agents
+- **Bedrock Guardrail**: content filtering on the orchestrator
+- **Nutrition Knowledge Base**: RAG over S3 Vectors across a 10-document nutrition corpus
+- **Waggle chat widget** (`petsite-net`): floating chat in PetSite that streams orchestrator responses over SigV4-signed requests, resolving the AgentCore endpoint from SSM at startup
+- **`ENABLE_WAGGLE_AI_AGENTS`**: feature flag gating the agent stack; the pre-rename `ENABLE_PET_FOOD_AGENT` is still honored for existing configurations
+
+### Changed
+- **CDK**: upgraded `aws-cdk-lib` from 2.241 to 2.265 (plus alpha modules) for AgentCore and S3 Vectors support
+- **PetSite UI**: refreshed navigation, cards, and dark-mode contrast so the chat widget sits in a consistent design
+
+### Removed
+- **Pet Food Agent** (`petfoodagent-strands-py`): the single-agent service is superseded by the Waggle AI agents
+
 ## [3.0.2] - 2026-03-10
 ### Changed
 - **Documentation site**: Migrated from TypeDoc HTML + Jekyll to MkDocs Material with navigation sidebar, search, dark/light mode, and mermaid diagram support

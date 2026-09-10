@@ -8,15 +8,15 @@ Each microservice demonstrates a different observability instrumentation strateg
 
 | Service | Approach | Details |
 |---------|----------|---------|
-| `payforadoption-go` | OpenTelemetry Go SDK | ADOT collector sidecar |
+| `payforadoption-go` | OpenTelemetry Go SDK | CloudWatch agent sidecar (OTLP mode) |
 | `petlistadoptions-py` | ADOT auto-instrumentation | CloudWatch agent sidecar (manual config for FastAPI) |
 | `petsearch-java` | Application Signals | L2 construct with auto + manual instrumentation, SLO definitions |
-| `petsite-net` | CloudWatch agent | Application Signals on EKS |
+| `petsite-net` | CloudWatch agent | Application Signals on EKS (managed node group) |
 | `petfood-rs` | OpenTelemetry Rust SDK | Custom Prometheus metrics |
 
 ## Log Routing
 
-- **FireLens** (Fluent Bit) sidecar on ECS tasks routes logs to CloudWatch Logs
+- **FireLens** (Fluent Bit) sidecar on ECS tasks routes logs to OpenSearch (optional, requires `ENABLE_OPENSEARCH=true`)
 - **Container Insights** on ECS and EKS clusters for infrastructure metrics
 - **OpenSearch** ingestion pipeline for centralized log analytics
 
@@ -30,7 +30,7 @@ Each microservice demonstrates a different observability instrumentation strateg
 
 ### payforadoption-go
 
-Uses the OpenTelemetry Go SDK with an ADOT collector sidecar container. Traces are exported via OTLP to the collector, which forwards them to X-Ray. This demonstrates manual SDK instrumentation in Go.
+Uses the OpenTelemetry Go SDK with a CloudWatch agent sidecar in OTLP mode. Traces are exported via OTLP to the agent, which forwards them to X-Ray. This demonstrates manual SDK instrumentation in Go with custom SQL span processing for Aurora correlation.
 
 ### petlistadoptions-py
 
@@ -48,6 +48,6 @@ Deployed on EKS with a CloudWatch agent providing Application Signals. The .NET 
 
 Uses the OpenTelemetry Rust SDK with custom Prometheus metrics. Demonstrates manual instrumentation in Rust with both trace and metric signal types.
 
-### petfoodagent-strands-py
+### waggle-ai-agents
 
-AI agent deployed on Bedrock AgentCore. Uses the Strands Agents SDK for natural-language food recommendations with built-in observability.
+Five agents on Bedrock AgentCore — a Strands orchestrator over LangGraph, CrewAI, LlamaIndex and OpenAI-Agents sub-agents. Each is auto-instrumented by the matching ADOT instrumentor, so one trace spans several agent frameworks.

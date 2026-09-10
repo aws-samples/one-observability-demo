@@ -1,6 +1,6 @@
 # Architecture Overview
 
-The One Observability Demo is deployed using AWS CDK with a multi-stage pipeline architecture. The infrastructure is organized into five deployment stages across two waves, plus a standalone microservices stage.
+The One Observability Demo is deployed using AWS CDK with a multi-stage pipeline architecture. The infrastructure is organized into five deployment stages: two waves of two stages each, followed by a standalone Microservices stage.
 
 ## CDK Pipeline Architecture
 

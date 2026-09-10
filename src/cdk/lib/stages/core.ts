@@ -25,29 +25,32 @@ import { CfnDiscovery } from 'aws-cdk-lib/aws-applicationsignals';
 import { CloudWatchTransactionSearch, CloudWatchTransactionSearchProperties } from '../constructs/cloudwatch';
 import {
     CUSTOM_ENABLE_CLOUDFRONT_LOGS,
-    CUSTOM_ENABLE_CW_UNIFIED_DATA_STORE,
+    CUSTOM_ENABLE_UDS,
     CUSTOM_ENABLE_DETECTIVE,
-    CUSTOM_ENABLE_GUARDDUTY,
+    CUSTOM_ENABLE_GUARDDUTY_DETECTOR,
     CUSTOM_ENABLE_KNOWLEDGE_BASE,
     CUSTOM_ENABLE_NETWORKING_TRAIL,
     CUSTOM_ENABLE_SECURITY_HUB,
+    CUSTOM_ENABLE_TDIR_ESCALATED_ROLE,
     CUSTOM_ENABLE_TDIR_REMEDIATION,
+    CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE,
     CUSTOM_ENABLE_WAF,
-    CUSTOM_CW_UDS_INGEST_BEDROCK_AGENTCORE_LOGS,
-    CUSTOM_CW_UDS_INGEST_CLOUDFRONT_LOGS,
-    CUSTOM_CW_UDS_INGEST_CLOUDTRAIL_LOGS,
-    CUSTOM_CW_UDS_INGEST_EKS_LOGS,
-    CUSTOM_CW_UDS_INGEST_GUARDDUTY_FINDINGS,
-    CUSTOM_CW_UDS_INGEST_WAF_LOGS,
+    CUSTOM_ENABLE_UDS_BEDROCK_AGENTCORE_LOGS,
+    CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS,
+    CUSTOM_ENABLE_UDS_CLOUDTRAIL_LOGS,
+    CUSTOM_ENABLE_UDS_EKS_LOGS,
+    CUSTOM_ENABLE_UDS_GUARDDUTY_FINDINGS,
+    CUSTOM_ENABLE_UDS_WAF_LOGS,
     DEFAULT_RETENTION_DAYS,
 } from '../../bin/environment';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
-import { WorkshopDetective } from '../constructs/detective';
-import { WorkshopGuardDuty } from '../constructs/guardduty';
-import { WorkshopSecurityHub } from '../constructs/security-hub';
-import { WorkshopKnowledgeBase } from '../constructs/knowledge-base';
+import { TdirDetective } from '../constructs/tdir-detective';
+import { TdirGuardDuty } from '../constructs/tdir-guardduty';
+import { TdirSecurityHub } from '../constructs/tdir-security-hub';
+import { TdirKnowledgeBase } from '../constructs/tdir-knowledge-base';
 import { TdirRemediation } from '../constructs/tdir-remediation';
-import { CloudWatchUnifiedDataStore } from '../constructs/cloudwatch-unified-data-store';
+import { TdirUnifiedDataStore } from '../constructs/tdir-unified-data-store';
+import { TdirEscalatedRole } from '../constructs/tdir-escalated-role';
 
 /**
  * Configuration properties for the CoreStage.
@@ -215,13 +218,11 @@ export class CoreStack extends Stack {
         }
 
         if (CUSTOM_ENABLE_DETECTIVE) {
-            new WorkshopDetective(this, 'Detective', {
-                tags: properties.tags,
-            });
+            new TdirDetective(this, 'Detective');
         }
 
-        if (CUSTOM_ENABLE_GUARDDUTY) {
-            new WorkshopGuardDuty(this, 'GuardDuty', {
+        if (CUSTOM_ENABLE_GUARDDUTY_DETECTOR) {
+            new TdirGuardDuty(this, 'GuardDuty', {
                 enableEksProtection: true,
                 enableS3Protection: true,
                 enableLambdaProtection: true,
@@ -231,32 +232,39 @@ export class CoreStack extends Stack {
         }
 
         if (CUSTOM_ENABLE_SECURITY_HUB) {
-            new WorkshopSecurityHub(this, 'SecurityHub', {
+            new TdirSecurityHub(this, 'SecurityHub', {
                 autoEnableControls: true,
                 enableDefaultStandards: true,
             });
         }
 
         if (CUSTOM_ENABLE_KNOWLEDGE_BASE) {
-            new WorkshopKnowledgeBase(this, 'KnowledgeBase', {
-                tags: properties.tags,
-            });
+            new TdirKnowledgeBase(this, 'KnowledgeBase', {});
+        }
+
+        // Simulated compromise evidence: the role the scenario blames for guardrail
+        // disablement and credential exfiltration. Unassumable by construction.
+        if (CUSTOM_ENABLE_TDIR_ESCALATED_ROLE) {
+            new TdirEscalatedRole(this, 'TdirEscalatedRole');
         }
 
         if (CUSTOM_ENABLE_TDIR_REMEDIATION) {
             new TdirRemediation(this, 'TdirRemediation', {
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
+                // Off by default: seeded GuardDuty sample findings arrive at severity 8 and
+                // would otherwise contain the role the moment the workshop is seeded.
+                enforce: CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE,
             });
         }
 
-        if (CUSTOM_ENABLE_CW_UNIFIED_DATA_STORE) {
-            new CloudWatchUnifiedDataStore(this, 'UnifiedDataStore', {
-                ingestWafLogs: CUSTOM_CW_UDS_INGEST_WAF_LOGS,
-                ingestCloudTrailLogs: CUSTOM_CW_UDS_INGEST_CLOUDTRAIL_LOGS,
-                ingestGuardDutyFindings: CUSTOM_CW_UDS_INGEST_GUARDDUTY_FINDINGS,
-                ingestBedrockAgentCoreLogs: CUSTOM_CW_UDS_INGEST_BEDROCK_AGENTCORE_LOGS,
-                ingestEksLogs: CUSTOM_CW_UDS_INGEST_EKS_LOGS,
-                ingestCloudFrontLogs: CUSTOM_CW_UDS_INGEST_CLOUDFRONT_LOGS,
+        if (CUSTOM_ENABLE_UDS) {
+            new TdirUnifiedDataStore(this, 'UnifiedDataStore', {
+                ingestWafLogs: CUSTOM_ENABLE_UDS_WAF_LOGS,
+                ingestCloudTrailLogs: CUSTOM_ENABLE_UDS_CLOUDTRAIL_LOGS,
+                ingestGuardDutyFindings: CUSTOM_ENABLE_UDS_GUARDDUTY_FINDINGS,
+                ingestBedrockAgentCoreLogs: CUSTOM_ENABLE_UDS_BEDROCK_AGENTCORE_LOGS,
+                ingestEksLogs: CUSTOM_ENABLE_UDS_EKS_LOGS,
+                ingestCloudFrontLogs: CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS,
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
             });
         }

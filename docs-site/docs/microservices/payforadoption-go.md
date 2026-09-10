@@ -10,16 +10,16 @@ Payment processing service written in Go, deployed on ECS Fargate.
 | Platform | ECS Fargate |
 | Architecture | AMD64 |
 | Observability | OpenTelemetry Go SDK |
-| Data Store | DynamoDB |
+| Data Store | Aurora PostgreSQL + DynamoDB |
 
 ## Observability
 
-Uses the **OpenTelemetry Go SDK** with an ADOT collector sidecar container:
+Uses the **OpenTelemetry Go SDK** with a CloudWatch agent sidecar in OTLP mode:
 
-- Traces exported via OTLP to the ADOT collector sidecar
-- Collector forwards traces to AWS X-Ray
+- Traces exported via OTLP to the CloudWatch agent sidecar
+- Agent forwards traces to AWS X-Ray
 - Demonstrates manual SDK instrumentation in Go
-- FireLens (Fluent Bit) sidecar routes logs to CloudWatch Logs
+- Custom SQL span processor for Aurora database correlation
 
 ## Source
 

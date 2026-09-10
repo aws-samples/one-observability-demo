@@ -46,6 +46,8 @@ spec:
                 app: petsite
             annotations:
                 instrumentation.opentelemetry.io/inject-dotnet: "true"
+                # Changes each deploy so k8s rolls the pods and re-pulls :latest.
+                petfood.dev/redeploy-token: "{{ REDEPLOY_TOKEN }}"
         spec:
             serviceAccountName: {{ SERVICE_ACCOUNT_NAME }}
             containers:
@@ -74,8 +76,8 @@ spec:
                         value: {{ SEARCH_API_URL_PARAM_NAME }}
                       - name: RUM_SCRIPT_PARAMETER_NAME
                         value: {{ RUM_SCRIPT_PARAMETER_NAME }}
-                      - name: PETFOOD_AGENT_RUNTIME_ARN_NAME
-                        value: {{ PETFOOD_AGENT_RUNTIME_ARN_NAME }}
+                      - name: WAGGLE_AI_RUNTIME_ARN_PARAM_NAME
+                        value: {{ WAGGLE_AI_RUNTIME_ARN_PARAM_NAME }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
                       - name: RESOURCE_DETECTORS_ENABLED

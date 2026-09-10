@@ -36,7 +36,7 @@
     - [Pet List Adoptions](microservices/petlist-adoptions/index.md)
     - [Pet Site](microservices/petsite/index.md)
     - [Pet Food](microservices/petfood/index.md)
-    - [Pet Food Agent](microservices/petfood-agent/index.md)
+    - [Waggle AI Agents](microservices/waggle-ai-agents-runtime/index.md)
 - Serverless
     - [Housekeeping Canary](serverless/canaries/housekeeping/housekeeping/index.md)
     - [Traffic Generator Canary](serverless/canaries/traffic-generator/traffic-generator/index.md)

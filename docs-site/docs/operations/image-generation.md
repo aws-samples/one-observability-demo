@@ -1,11 +1,11 @@
 # Image Generation
 
-The image generation system creates pet and food images using Amazon Bedrock Titan Image Generator v2.
+The image generation system creates pet and food images using Amazon Nova Canvas v1.
 
 ## Prerequisites
 
 - AWS CLI v2 with Bedrock support
-- Bedrock model access enabled for **Amazon Titan Image Generator G1 v2**
+- Bedrock model access enabled for **Amazon Nova Canvas v1**
 - `jq` installed
 
 ## Usage
@@ -47,7 +47,7 @@ Images are deployed via CDK:
 ## Model Access Setup
 
 1. Go to [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
-2. Enable access for **Amazon Titan Image Generator G1 v2**
+2. Enable access for **Amazon Nova Canvas v1**
 3. Wait for approval (typically instant)
 
 ## Features

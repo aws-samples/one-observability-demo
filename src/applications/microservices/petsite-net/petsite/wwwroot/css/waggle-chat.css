@@ -1,0 +1,663 @@
+/* Shared Waggle chat styles, so the /Waggle page and the floating widget render identically. */
+
+/* ---------- conversation ---------- */
+
+.message {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sender-name {
+    font-weight: 600;
+    color: #2d7f83;
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.message-bubble {
+    max-width: 85%;
+    padding: 15px 20px;
+    border-radius: 15px;
+    font-size: 15px;
+    line-height: 1.6;
+    position: relative;
+    font-weight: 400;
+    /* break-word splits only what cannot fit; 'anywhere' broke ordinary words mid-character */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.message-bubble strong {
+    font-weight: 600 !important;
+    color: #2d7f83 !important;
+}
+
+.message-bubble em {
+    font-style: italic !important;
+    color: #555 !important;
+}
+
+.message-bubble br {
+    line-height: 1.8;
+}
+
+.timestamp {
+    color: #999999;
+    font-size: 10px;
+    text-align: right;
+    margin-top: 5px;
+    opacity: 0.7;
+}
+
+.user-message {
+    align-items: flex-end;
+}
+
+.user-message .sender-name {
+    align-self: flex-end;
+    text-align: right;
+}
+
+.user-message .message-bubble {
+    background: #2d7f83;
+    color: #ffffff;
+    border-bottom-right-radius: 5px;
+    align-self: flex-end;
+}
+
+.user-message .timestamp {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.bot-message .message-bubble {
+    background: #f8f9fa;
+    color: #333333;
+    border: 1px solid #e9ecef;
+    border-bottom-left-radius: 5px;
+    text-align: left;
+}
+
+/* ---------- markdown rendered by waggle-chat.js ---------- */
+
+.wg-h3, .wg-h4, .wg-h5 {
+    color: #2d7f83;
+    font-weight: 600;
+    margin: 14px 0 8px 0;
+    line-height: 1.3;
+}
+
+.wg-h3 { font-size: 20px; }
+.wg-h4 { font-size: 18px; }
+.wg-h5 { font-size: 16px; }
+
+/* Block, not flex: as flex items the bullet, label and text each got their own column */
+.wg-li {
+    display: block;
+    margin: 5px 0 5px 4px;
+    padding-left: 17px;
+    text-indent: -17px;
+    line-height: 1.5;
+}
+
+.wg-li-marker { margin-right: 6px; }
+
+.wg-li-num {
+    font-weight: 500;
+}
+
+.wg-li-marker {
+    color: #2d7f83;
+    font-weight: 600;
+    flex: none;
+}
+
+.wg-price {
+    color: #dc7406;
+    font-weight: 600;
+}
+
+.wg-link {
+    color: #2d7f83;
+    text-decoration: underline;
+}
+
+/* ---------- pet / food cards ---------- */
+
+.pet-card {
+    display: inline-block;
+    vertical-align: top;
+    margin: 8px 10px 4px 0;
+    padding: 6px;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    background: #ffffff;
+    text-align: center;
+    outline: 3px solid transparent;
+    transition: outline-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pet-card-selected {
+    outline-color: #dc7406;
+    box-shadow: 0 6px 16px rgba(220, 116, 6, 0.35);
+}
+
+.pet-photo {
+    display: block;
+    width: 132px;
+    height: 132px;
+    object-fit: cover;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.pet-photo:hover {
+    transform: scale(1.03);
+}
+
+.pet-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.pet-btn {
+    flex: 1;
+    display: inline-block;
+    padding: 5px 8px;
+    border: none;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.pet-btn:hover {
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+.pet-btn-adopt {
+    background: #dc7406;
+    color: #ffffff;
+}
+
+.pet-btn-adopt:hover {
+    background: #0fa828;
+}
+
+.pet-btn-buy {
+    background: #2d7f83;
+    color: #ffffff;
+}
+
+.pet-btn-buy:hover {
+    background: #0fa828;
+}
+
+/* Replaces the Adopt button once the pet is adopted: still reads as a state, not a control. */
+.pet-btn-done {
+    background: #e7f2e9;
+    color: #2f6b3a;
+    cursor: default;
+}
+
+.pet-btn-done:hover {
+    transform: none;
+}
+
+/* ---------- thinking indicator + animations ---------- */
+
+.thinking-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #2d7f83;
+    font-weight: 500;
+    font-size: 15px;
+}
+
+.thinking-message .paw {
+    display: inline-block;
+    font-size: 18px;
+    animation: wgPawBounce 0.6s ease-in-out infinite;
+}
+
+.thinking-message .paw:nth-child(2) { animation-delay: 0.15s; }
+.thinking-message .paw:nth-child(3) { animation-delay: 0.3s; }
+
+.thinking-message .tail {
+    display: inline-block;
+    font-size: 20px;
+    animation: wgTailWag 1s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes wgPawBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.1); }
+}
+
+@keyframes wgTailWag {
+    0%, 50%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(15deg); }
+    75% { transform: rotate(-15deg); }
+}
+
+@keyframes wgSlideInLeft {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes wgSlideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-in { animation: wgSlideInLeft 0.4s ease-out; }
+.animate-in-user { animation: wgSlideInRight 0.4s ease-out; }
+
+/* ---------- floating widget ---------- */
+
+.wg-resize {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    z-index: 5;
+    touch-action: none;
+}
+
+/* a small corner mark so the affordance is visible */
+.wg-resize::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid rgba(255, 255, 255, 0.55);
+    border-left: 2px solid rgba(255, 255, 255, 0.55);
+    border-radius: 2px 0 0 0;
+}
+
+.wg-resize:hover::before { border-color: #ffffff; }
+
+#wg-root {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 1080;
+    font-family: 'Nunito Sans', 'Roboto', sans-serif;
+}
+
+/* The panel's display:flex beats the UA [hidden] rule, so without this minimize did nothing */
+#wg-root [hidden] {
+    display: none !important;
+}
+
+.wg-launcher {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    /* Brand teal. The old orange-to-green diagonal muddied in the middle. */
+    background: linear-gradient(145deg, #2DD4BF 0%, #0D9488 58%, #0F766E 100%);
+    color: #ffffff;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    /* grid centring: text-align cannot centre the block-level svg, which sat against the left edge */
+    display: grid;
+    place-items: center;
+    padding: 0;
+    box-shadow: 0 10px 24px rgba(13, 148, 136, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* the Waggle mark (paw + AI sparkle) */
+.wg-mark {
+    width: 31px;
+    height: 31px;
+    display: block;
+}
+
+.wg-avatar .wg-mark {
+    width: 21px;
+    height: 21px;
+    color: #ffffff;
+}
+
+.wg-launcher:hover {
+    transform: scale(1.07);
+    box-shadow: 0 14px 30px rgba(13, 148, 136, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* A short wag every few seconds; most of the 5s timeline is idle because constant motion annoys */
+.wg-launcher {
+    animation: wgWag 5s ease-in-out 2s infinite;
+}
+
+/* No wag while the panel is open or the pointer is on it: a moving target is hard to click */
+.wg-launcher-open,
+.wg-launcher:hover,
+.wg-launcher:focus-visible {
+    animation: none;
+}
+
+@keyframes wgWag {
+    0%, 13%, 100% { transform: translateY(0) rotate(0deg); }
+    2%  { transform: translateY(-7px) rotate(-9deg); }
+    4%  { transform: translateY(0)    rotate(9deg); }
+    6%  { transform: translateY(-5px) rotate(-7deg); }
+    8%  { transform: translateY(0)    rotate(6deg); }
+    11% { transform: translateY(-2px) rotate(0deg); }
+}
+
+.wg-teaser {
+    position: absolute;
+    right: 0;
+    bottom: 74px;
+    width: 258px;
+    padding: 14px 30px 14px 16px;
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: #333333;
+    cursor: pointer;
+    animation: wgSlideInRight 0.35s ease-out;
+}
+
+.wg-teaser strong {
+    color: #2d7f83;
+}
+
+.wg-teaser-sub {
+    color: #6b7787;
+    font-size: 12.5px;
+    margin-top: 4px;
+}
+
+.wg-teaser-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    border: none;
+    background: transparent;
+    color: #9aa7b1;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.wg-teaser-close:hover { color: #dc7406; }
+
+.wg-panel {
+    position: absolute;
+    right: 0;
+    bottom: 74px;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 500px;
+    max-height: calc(100vh - 190px);
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
+    animation: wgPanelIn 0.22s ease-out;
+}
+
+@keyframes wgPanelIn {
+    from { transform: translateY(12px) scale(0.98); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.wg-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #000000;
+    color: #19dc91;
+    flex: none;
+}
+
+/* Session id as on /Waggle, truncated because the panel is narrow; full value in the title */
+.wg-session {
+    width: 100%;
+    text-align: right;
+    font-size: 10.5px;
+    color: #999999;
+    font-weight: 400;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wg-session:empty {
+    display: none;
+}
+
+.wg-header .wg-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2DD4BF 0%, #0D9488 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex: none;
+}
+
+.wg-title {
+    font-weight: 600;
+    font-size: 15px;
+    flex: 1;
+}
+
+.wg-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #0fa828;
+    flex: none;
+}
+
+.wg-icon-btn {
+    min-width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e8f3f1;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 8px;
+    border-radius: 8px;
+}
+
+.wg-icon-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.wg-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    background: #ffffff;
+}
+
+/* Tighter bubbles in the narrow panel */
+.wg-messages .message-bubble {
+    max-width: 94%;
+    padding: 11px 14px;
+    font-size: 14px;
+}
+
+.wg-messages .pet-photo {
+    width: 108px;
+    height: 108px;
+}
+
+.wg-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(19, 126, 68, 0.67);
+    flex: none;
+}
+
+.wg-input {
+    flex: 1;
+    border: 2px solid #19dc91;
+    border-radius: 22px;
+    padding: 9px 15px;
+    font-size: 13.5px;
+    background: #ffffff;
+    color: #333333;
+    outline: none;
+    min-width: 0;
+}
+
+.wg-input:focus {
+    border-color: #0fa828;
+    box-shadow: 0 0 0 3px rgba(25, 220, 145, 0.15);
+}
+
+.wg-send {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #dc7406;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.wg-send:hover:not(:disabled) {
+    background: #0fa828;
+    transform: scale(1.05);
+}
+
+.wg-send:disabled { opacity: 0.75; cursor: default; }
+
+.wg-send .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: wgSpin 1s linear infinite;
+}
+
+@keyframes wgSpin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+    #wg-root { right: 14px; bottom: 14px; }
+    .wg-panel { width: calc(100vw - 28px); height: calc(100vh - 170px); }
+    .wg-teaser { width: calc(100vw - 60px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wg-launcher, .wg-teaser, .wg-panel, .animate-in, .animate-in-user,
+    .thinking-message .paw, .thinking-message .tail, .wg-send .spinner {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+
+/* ---------- dark mode (follows [data-theme] set by petsite-ui.js) ---------- */
+
+[data-theme="dark"] .wg-panel,
+[data-theme="dark"] .wg-messages {
+    background: #10151F;
+}
+
+[data-theme="dark"] .bot-message .message-bubble {
+    background: #1A2230;
+    color: #ECF1F7;
+    border-color: #263141;
+}
+
+[data-theme="dark"] .user-message .message-bubble {
+    background: #0D9488;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .message-bubble strong { color: #5EEAD4 !important; }
+[data-theme="dark"] .message-bubble em { color: #A9BACD !important; }
+[data-theme="dark"] .sender-name { color: #5EEAD4; }
+[data-theme="dark"] .timestamp { color: #7D8CA0; }
+
+[data-theme="dark"] .wg-h3,
+[data-theme="dark"] .wg-h4,
+[data-theme="dark"] .wg-h5,
+[data-theme="dark"] .wg-li-marker,
+[data-theme="dark"] .wg-link { color: #5EEAD4; }
+
+[data-theme="dark"] .wg-price { color: #FB923C; }
+
+[data-theme="dark"] .pet-card {
+    background: #1A2230;
+    border-color: #263141;
+}
+
+[data-theme="dark"] .pet-btn-done {
+    background: #1E3A28;
+    color: #86EFAC;
+}
+
+[data-theme="dark"] .wg-input-row {
+    background: #0D131C;
+    border-top: 1px solid #263141;
+}
+
+[data-theme="dark"] .wg-input {
+    background: #161E2B;
+    color: #ECF1F7;
+    border-color: #2A3949;
+}
+
+[data-theme="dark"] .wg-input::placeholder { color: #7D8CA0; }
+
+[data-theme="dark"] .wg-teaser {
+    background: #131A24;
+    border-color: #263141;
+    color: #ECF1F7;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .wg-teaser strong { color: #5EEAD4; }
+[data-theme="dark"] .wg-teaser-sub { color: #98A6B8; }
+[data-theme="dark"] .wg-teaser-close { color: #7D8CA0; }
+
+[data-theme="dark"] .thinking-message { color: #5EEAD4; }

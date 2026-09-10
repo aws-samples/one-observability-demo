@@ -10,7 +10,7 @@ Pet search service written in Java/Spring Boot, deployed on ECS Fargate.
 | Platform | ECS Fargate |
 | Architecture | AMD64 |
 | Observability | Application Signals |
-| Data Store | Aurora PostgreSQL |
+| Data Store | DynamoDB |
 
 ## Observability
 
