@@ -42,6 +42,9 @@ SPDX-License-Identifier: Apache-2.0
 
 import { Construct } from 'constructs';
 import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { stableCfnOutput } from '../utils/stable-output';
+import { Utilities } from '../utils/utilities';
+import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { Runtime, Function as LambdaFunction, Code } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Role, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
@@ -619,6 +622,40 @@ def handler(event, context):
                 },
             } as EventPattern,
             targets: [new LambdaTarget(this.remediationFunction)],
+        });
+
+        // Participants read these with `aws ssm get-parameter` rather than from CloudFormation,
+        // matching how the observability workshop surfaces environment-specific values.
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map([
+                ['tdir/remediationfunctionname', this.remediationFunction.functionName],
+                ['tdir/remediationtopicarn', this.notificationTopic.topicArn],
+                ['tdir/remediationloggroup', logGroup.logGroupName],
+                ['tdir/remediationmode', enforce ? 'enforce' : 'dry-run'],
+            ]),
+        );
+
+        // Published so the workshop guide can name these by output rather than by string
+        // match. Searching the console for "SecurityNotifications" returns more than one
+        // topic in a full deployment, and the Lambda's generated name is unguessable — both
+        // of which the guide previously worked around with instructions that went stale.
+        stableCfnOutput(this, 'TdirRemediationTopicArn', {
+            value: this.notificationTopic.topicArn,
+            description: 'SNS topic the remediation Lambda publishes incident records to',
+        });
+        stableCfnOutput(this, 'TdirRemediationFunctionName', {
+            value: this.remediationFunction.functionName,
+            description: 'Remediation Lambda to inspect in the console',
+        });
+        stableCfnOutput(this, 'TdirRemediationLogGroup', {
+            value: logGroup.logGroupName,
+            description: 'Log group holding the remediation Lambda decisions',
+        });
+        stableCfnOutput(this, 'TdirRemediationMode', {
+            value: enforce ? 'enforce' : 'dry-run',
+            description: 'Whether remediation mutates IAM, or only logs and notifies',
         });
 
         NagSuppressions.addResourceSuppressions(

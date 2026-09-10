@@ -249,12 +249,89 @@ retrieve_availability_zones() {
     fi
 }
 
+
+# =============================================================================
+# TDIR preflight checks
+# =============================================================================
+# These are warn-only by design. They catch two conditions that otherwise surface much later
+# as confusing failures a participant cannot diagnose, and neither is fixable by editing .env,
+# so failing the build would only block a deployment that is still worth completing.
+
+# The Waggle AI agents deliberately span four model providers (see common/models.py). Access is
+# per-model and per-account: a missing subscription surfaces as an AccessDeniedException naming
+# AWS Marketplace actions, which reads like an IAM problem but is not - the same call fails for
+# a principal holding AdministratorAccess. Without this check the first symptom is an agent
+# returning HTTP 500 mid-workshop.
+validate_bedrock_model_access() {
+    local region="$AWS_REGION"
+    if [[ "$ENABLE_WAGGLE_AI_AGENTS" != "true" ]]; then
+        echo "[INFO] Skipping Bedrock model access check (ENABLE_WAGGLE_AI_AGENTS=$ENABLE_WAGGLE_AI_AGENTS)"
+        return 0
+    fi
+
+    local models=(
+        "us.anthropic.claude-sonnet-4-6:orchestrator,nutrition"
+        "us.amazon.nova-2-lite-v1:0:ordering"
+        "us.meta.llama4-maverick-17b-instruct-v1:0:adoption"
+        "openai.gpt-oss-120b-1:0:concierge"
+    )
+    local unavailable=()
+    for entry in "${models[@]}"; do
+        local model="${entry%:*}"
+        local agents="${entry##*:}"
+        if aws bedrock-runtime converse --region "$region" --model-id "$model" \
+            --messages '[{"role":"user","content":[{"text":"ping"}]}]' >/dev/null 2>&1; then
+            echo "[INFO] Bedrock model available: $model ($agents)"
+        else
+            echo "[WARN] Bedrock model NOT available: $model - the $agents agent(s) will fail at runtime"
+            unavailable+=("$model")
+        fi
+    done
+
+    if [[ ${#unavailable[@]} -gt 0 ]]; then
+        echo "[WARN] ${#unavailable[@]} of ${#models[@]} model families are not accessible in this account."
+        echo "[WARN] Enable model access in the Bedrock console, or override per agent with"
+        echo "[WARN]   ORCHESTRATOR_MODEL_ID / NUTRITION_MODEL_ID / ORDERING_MODEL_ID /"
+        echo "[WARN]   ADOPTION_MODEL_ID / CONCIERGE_MODEL_ID"
+    fi
+}
+
+# Transaction Search stores spans, but the *indexing* rule decides how many become searchable.
+# The AWS default is 1% probabilistic, and validate_auto_transaction_search above only checks
+# the destination. At 1%, a participant who invokes an agent a handful of times finds nothing in
+# Transaction Search and reasonably concludes the workshop is broken.
+validate_trace_indexing() {
+    local region="$AWS_REGION"
+    local pct
+    pct=$(aws xray get-indexing-rules --region "$region" \
+        --query 'IndexingRules[?Name==`Default`].Rule.Probabilistic.DesiredSamplingPercentage' \
+        --output text 2>/dev/null)
+
+    if [[ -z "$pct" || "$pct" == "None" ]]; then
+        echo "[WARN] Could not read the X-Ray Default indexing rule; skipping trace indexing check"
+        return 0
+    fi
+
+    # Compared as an integer so this works without bc.
+    if [[ "${pct%.*}" -lt 100 ]]; then
+        echo "[WARN] X-Ray trace indexing is ${pct}% - most agent traces will not be searchable."
+        echo "[WARN] For a workshop, raise it so every invocation is findable:"
+        echo "[WARN]   aws xray update-indexing-rule --name Default \\"
+        echo "[WARN]     --rule '{\"Probabilistic\":{\"DesiredSamplingPercentage\":100.0}}'"
+        echo "[WARN] Lower it again afterwards: indexing is billed per indexed span."
+    else
+        echo "[INFO] X-Ray trace indexing at ${pct}% - agent traces will be searchable"
+    fi
+}
+
 # Main execution
 main() {
     read_env_file
     validate_auto_transaction_search
     validate_eks_role
     validate_support_stack
+    validate_bedrock_model_access
+    validate_trace_indexing
     retrieve_availability_zones
     write_env_file
 

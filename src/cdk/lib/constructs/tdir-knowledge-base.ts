@@ -22,7 +22,8 @@ SPDX-License-Identifier: Apache-2.0
  */
 
 import { Construct } from 'constructs';
-import { CfnOutput, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { stableOutput } from '../utils/stable-output';
 import { Bucket, BlockPublicAccess, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { Role, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { CfnKnowledgeBase, CfnDataSource } from 'aws-cdk-lib/aws-bedrock';
@@ -199,17 +200,33 @@ export class TdirKnowledgeBase extends Construct {
 
         // Published so scripts/tdir-seed-scenarios.py can find the knowledge base and its
         // source bucket without guessing CloudFormation stack or logical resource names.
+        // The data source id is published too: recovering a poisoned knowledge base means
+        // running an ingestion job to evict the embedded content, and StartIngestionJob
+        // requires --data-source-id. Without this the workshop's recovery step has to tell
+        // participants to look it up, and the value is service-generated so it cannot be
+        // written into the guide.
         Utilities.createSsmParameters(
             this,
             PARAMETER_STORE_PREFIX,
             new Map([
                 ['tdir/knowledgebaseid', this.knowledgeBaseId],
                 ['tdir/knowledgebasebucket', this.dataBucket.bucketName],
+                ['tdir/knowledgebasedatasourceid', this.dataSource.attrDataSourceId],
             ]),
         );
 
-        new CfnOutput(this, 'TdirKnowledgeBaseId', { value: this.knowledgeBaseId });
-        new CfnOutput(this, 'TdirKnowledgeBaseBucket', { value: this.dataBucket.bucketName });
+        // Logical ids are pinned so the workshop guide and runbooks can reference an output by
+        // a stable name. Without overrideLogicalId, CDK appends a hash of the construct path
+        // (e.g. KnowledgeBaseTdirKnowledgeBaseBucket2114C0EE), which is neither readable nor
+        // guaranteed stable if the construct is ever moved.
+        stableOutput(this, 'TdirKbId', this.knowledgeBaseId, 'Knowledge base id');
+        stableOutput(this, 'TdirKbBucket', this.dataBucket.bucketName, 'Knowledge base source bucket');
+        stableOutput(
+            this,
+            'TdirKbDataSourceId',
+            this.dataSource.attrDataSourceId,
+            'Data source id, required by StartIngestionJob when recovering the corpus',
+        );
 
         NagSuppressions.addResourceSuppressions(
             kbRole,
