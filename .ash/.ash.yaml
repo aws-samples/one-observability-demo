@@ -24,6 +24,10 @@ global_settings:
           reason: 'Temporary SAM template, will be moved to CDK'
         - path: .secrets.baseline
           reason: 'Secret Baseline file includes the word secret'
+        - path: 'src/cdk/**/*.js'
+          reason: 'Compiled TypeScript output (tsc) - build artifacts, not source; the .ts sources are scanned instead'
+        - path: 'src/cdk/**/*.d.ts'
+          reason: 'Generated TypeScript declaration files (tsc) - build artifacts, not source'
 
 
     suppressions:
