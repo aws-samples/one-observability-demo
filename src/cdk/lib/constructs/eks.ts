@@ -175,6 +175,7 @@ export class WorkshopEks extends Construct {
         const cloudwatchAddon = new Addon(this, 'cloudwatchObservabilityAddon', {
             cluster: this.cluster,
             addonName: 'amazon-cloudwatch-observability',
+            addonVersion: 'v6.6.0-eksbuild.1',
             preserveOnDelete: false,
         });
 
@@ -239,6 +240,22 @@ export class WorkshopEks extends Construct {
                                     // in-process instead (see orchestrator_strands/delegate.py).
                                     {
                                         selectors: [{ dimension: 'RemoteService', match: '*Bedrock AgentCore*' }],
+                                        replacements: [
+                                            {
+                                                target_dimension: 'RemoteService',
+                                                value: 'WaggleAIOrchestrator.DEFAULT',
+                                            },
+                                            {
+                                                target_dimension: 'RemoteEnvironment',
+                                                value: 'bedrock-agentcore:default',
+                                            },
+                                        ],
+                                        action: 'replace',
+                                    },
+                                    // Same hop when ADOT .NET reports it as a raw HttpClient call
+                                    // (RemoteService 'bedrock-agentcore.<region>.amazonaws.com:443').
+                                    {
+                                        selectors: [{ dimension: 'RemoteService', match: '*bedrock-agentcore*' }],
                                         replacements: [
                                             {
                                                 target_dimension: 'RemoteService',
