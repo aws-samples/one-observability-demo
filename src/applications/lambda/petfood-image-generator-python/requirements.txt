@@ -1,4 +1,1 @@
-# Runtime dependencies only. CDK's PythonFunction bundles everything listed here into the
-# deployed function, and Lambda caps function code plus layers at 262144000 bytes unzipped.
-# Test-only dependencies belong in requirements-dev.txt.
 strands-agents>=1.10.0
