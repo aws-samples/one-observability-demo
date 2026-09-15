@@ -1060,12 +1060,14 @@ def seed_knowledge_base_documents(
         Body=poisoned.encode("utf-8"),
         ContentType="text/plain",
         Metadata={
-            # Deliberately still claims to be verified product-team content: metadata alone
-            # does not catch this one, which is the point of the versioning exercise.
+            # Deliberately indistinguishable from a clean document: metadata alone must not
+            # catch this one, which is the whole point of the versioning exercise in lab 3.4.
+            # Do NOT add sync-origin or last-modified-by here. Those are the IOCs stamped on
+            # the four planted files, and stamping them here too lets a participant flag this
+            # document from the metadata sweep alone and skip the content-diff entirely -
+            # which is exactly the lesson the tampering exists to teach.
             "source": "product-team",
             "verified": "true",
-            "last-modified-by": "external-integration-service",
-            "sync-origin": "c2-relay.external-audit.example.com",
         },
     )
     logger.info(f"  ⚠ Tampered with an existing trusted document: {tampered_key}")
@@ -1524,6 +1526,63 @@ def reset_log_stream(logs_client, log_group_name: str, stream_name: str):
         pass
 
 
+def warn_if_events_predate_log_group(
+    logs_client,
+    log_group_name: str,
+    log_events: list,
+):
+    """
+    Warn when seeded events are older than the log group that holds them.
+
+    CloudWatch Logs Insights does not index an event whose timestamp is earlier than the
+    creation time of its log group. `filter-log-events` still returns those events, because it
+    reads the stream instead of the index, so the evidence is present either way - but every
+    Logs Insights step in the guide reports `recordsScanned: 0` and never recovers, no matter
+    how long a participant waits.
+
+    This happens when the group is created moments before seeding, which is exactly what this
+    script does on a first run. Verified empirically: an event backdated 60 minutes into a log
+    group created months earlier is queryable within about two minutes, while the same event
+    written into a group created seconds earlier is never indexed.
+
+    The durable fix is to create these log groups during deployment so they comfortably predate
+    the seeded narrative. Until then, say so plainly rather than leaving a facilitator to
+    diagnose an empty query.
+    """
+    if not log_events:
+        return
+
+    try:
+        described = logs_client.describe_log_groups(logGroupNamePrefix=log_group_name)
+        groups = [
+            g
+            for g in described.get("logGroups", [])
+            if g.get("logGroupName") == log_group_name
+        ]
+        if not groups:
+            return
+        created_ms = groups[0].get("creationTime")
+        if created_ms is None:
+            return
+    except ClientError as exc:
+        logger.debug(f"  Could not describe {log_group_name}: {exc}")
+        return
+
+    earliest_ms = min(e["timestamp"] for e in log_events)
+    if earliest_ms >= created_ms:
+        return
+
+    behind_minutes = int((created_ms - earliest_ms) / 60000)
+    logger.warning(
+        f"  ! {log_group_name} was created after its oldest seeded event "
+        f"(by {behind_minutes} min)",
+    )
+    logger.warning(
+        "    Logs Insights will not index these events. Use "
+        "`aws logs filter-log-events` to read them.",
+    )
+
+
 def seed_agentcore_observability_logs(
     logs_client,
     account_id: str,
@@ -1571,6 +1630,7 @@ def seed_agentcore_observability_logs(
             logEvents=log_events,
         )
         logger.info(f"  ✓ Seeded {len(log_events)} AgentCore runtime log events")
+        warn_if_events_predate_log_group(logs_client, log_group_name, log_events)
 
         # Returned so the caller can submit X-Ray segments with matching trace IDs.
         return events
@@ -1644,6 +1704,7 @@ def seed_cloudtrail_evidence_logs(
         logger.info(
             "    Includes: guardrail deletion, IAM policy expansion, KB access spike",
         )
+        warn_if_events_predate_log_group(logs_client, log_group_name, log_events)
 
     except Exception as e:
         logger.error(f"  ✗ Failed to seed CloudTrail evidence: {e}")
