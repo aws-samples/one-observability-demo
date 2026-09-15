@@ -1,0 +1,4 @@
+# Test-only dependencies. Kept out of requirements.txt so they are not bundled into the
+# deployed Lambda. CI installs both files; see .github/workflows/build-test.yml.
+-r requirements.txt
+pytest>=8.0.0
