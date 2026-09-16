@@ -272,6 +272,10 @@ export abstract class EcsService extends Microservice {
                               securityGroups: properties.securityGroup ? [properties.securityGroup] : undefined,
                               assignPublicIp: false,
                               enableExecuteCommand: true,
+                              // Fail fast on a bad deployment (e.g. CannotPullContainerError from a
+                              // missing image) instead of silently retrying task placement for ~25 min.
+                              // rollback:false surfaces the failure quickly without auto-rolling back.
+                              circuitBreaker: { rollback: false },
                               cloudMapOptions: properties.cloudMapNamespace
                                   ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                                   : undefined,
@@ -300,6 +304,10 @@ export abstract class EcsService extends Microservice {
                         serviceName: properties.name,
                         loadBalancerName: `LB-${properties.name}`,
                         enableExecuteCommand: true,
+                        // Fail fast on a bad deployment (e.g. CannotPullContainerError from a
+                        // missing image) instead of silently retrying task placement for ~25 min.
+                        // rollback:false surfaces the failure quickly without auto-rolling back.
+                        circuitBreaker: { rollback: false },
                         cloudMapOptions: properties.cloudMapNamespace
                             ? { name: properties.name, cloudMapNamespace: properties.cloudMapNamespace }
                             : undefined,

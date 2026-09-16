@@ -502,7 +502,11 @@ Resources:
     Condition: cWaitForDeployment
     Properties:
       Handle: !Ref rCDKDeploymentWaitConditionHandle
-      Timeout: 3600
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min).
+      # If the waiter (this) expires before the signaller reports, CloudFormation
+      # rolls back into the destructive cleanup path even on a healthy-but-slow
+      # deploy. 7200 (120 min) leaves comfortable headroom. See RCA 2026-09-14.
+      Timeout: 7200
       Count: 1
 
   rCDKOutputRetrieverRole:
@@ -1542,9 +1546,14 @@ Resources:
                   iam_client = boto3.client('iam')
 
                   # Delete Lambda functions
+                  # NOTE: cross-region-stack-ops MUST be in this list. It is retained
+                  # (DeletionPolicy: Retain) with a hardcoded FunctionName but was
+                  # previously never deleted here, so it survived stack teardown and
+                  # blocked every relaunch with the same stack name. See RCA 2026-09-14.
                   for func_name in [
                       f"{stack_name}-cdk-stack-lister",
                       f"{stack_name}-deletion-result-checker",
+                      f"{stack_name}-cross-region-stack-ops",
                       f"{stack_name}-bucket-cleanup",
                       f"{stack_name}-cleanup-monitor"
                   ]:
@@ -1765,6 +1774,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt rCleanupMonitorFunction.Arn
       StateMachineArn: !GetAtt rCDKCleanupStateMachine.Arn
+      DisableCleanup: !Ref pDisableCleanup
 
   # Lambda function to monitor cleanup execution
   rCleanupMonitorFunction:
@@ -1790,7 +1800,19 @@ Resources:
 
               # Delete operation - monitor Step Function
               sf_client = boto3.client('stepfunctions')
-              state_machine_arn = event['ResourceProperties']['StateMachineArn']
+              props = event.get('ResourceProperties', {})
+              state_machine_arn = props['StateMachineArn']
+
+              # Honor pDisableCleanup on the rollback/delete path too. The CodeBuild
+              # buildspec already checks DISABLE_CLEANUP, but this custom-resource
+              # Delete handler is a SEPARATE path (stack rollback / delete) that
+              # previously ran the cleanup state machine unconditionally, destroying
+              # the environment even when pDisableCleanup=true. See RCA 2026-09-14.
+              disable_cleanup = str(props.get('DisableCleanup', 'false')).lower() == 'true'
+              if disable_cleanup:
+                  print("DisableCleanup is true - skipping cleanup state machine, retaining environment.")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
 
               try:
                   # Start the Step Function

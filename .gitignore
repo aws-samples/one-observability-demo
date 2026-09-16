@@ -491,7 +491,6 @@ generated_images/
 **/ash_output/**
 .omni/
 .claude/
-.github/
 .cursor/
 .kiro/
 .agents/
