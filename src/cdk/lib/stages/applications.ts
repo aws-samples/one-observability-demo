@@ -300,6 +300,8 @@ export class MicroservicesStack extends Stack {
                         cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         additionalEnvironment: {
                             PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
+                            OTEL_RESOURCE_ATTRIBUTES:
+                                'service.name=payforadoption-api-go,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -343,7 +345,7 @@ export class MicroservicesStack extends Stack {
                             PYTHONPATH:
                                 '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petlistadoptions-api-py,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petlistadoptions-api-py,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
                             OTEL_METRICS_EXPORTER: 'none',
                             OTEL_LOGS_EXPORTER: 'none',
@@ -398,7 +400,7 @@ export class MicroservicesStack extends Stack {
                         additionalEnvironment: {
                             OTEL_SERVICE_NAME: 'petsearch-api-java',
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petsearch-api-java,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petsearch-api-java,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -441,7 +443,7 @@ export class MicroservicesStack extends Stack {
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petfood-rs-api,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petfood-rs-api,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,

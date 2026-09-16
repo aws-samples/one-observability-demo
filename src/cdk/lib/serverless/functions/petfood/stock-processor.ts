@@ -114,6 +114,7 @@ export class PetfoodStockProcessorFunction extends WokshopLambdaFunction {
             OTEL_LOGS_EXPORTER: 'none',
             OTEL_SERVICE_NAME: properties.name,
             OTEL_SERVICE_VERSION: '0.1.0',
+            OTEL_RESOURCE_ATTRIBUTES: 'service.namespace=petadoptions',
             AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',
         };
     }

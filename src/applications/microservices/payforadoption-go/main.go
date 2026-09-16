@@ -63,6 +63,7 @@ func otelInit(ctx context.Context, cfg payforadoption.Config) {
 	svcNameResource := resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceNameKey.String(serviceName),
+		semconv.ServiceNamespaceKey.String("petadoptions"),
 	)
 
 	ecsResourceDetector := ecs.NewResourceDetector()
