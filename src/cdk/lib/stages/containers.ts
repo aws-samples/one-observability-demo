@@ -23,7 +23,7 @@ SPDX-License-Identifier: Apache-2.0
  *
  * @packageDocumentation
  */
-import { Arn, ArnFormat, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { Arn, ArnFormat, CustomResource, Duration, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
 import { Artifact, Pipeline, PipelineType, Result, RetryMode } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
@@ -39,6 +39,8 @@ import {
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { CompositePrincipal, Policy, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { BuildSpec, LinuxArmBuildImage, LinuxBuildImage, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
+import { Function as LambdaFunction, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
+import { Provider } from 'aws-cdk-lib/custom-resources';
 import { ContainerArchitecture } from '../../bin/constants';
 
 /**
@@ -360,6 +362,25 @@ export class ContainersStack extends Stack {
             },
         });
 
+        // Gate downstream stages on the images actually existing.
+        //
+        // The container images are built by the inner CodePipeline above, which
+        // runs asynchronously — the stack itself reaches CREATE_COMPLETE as soon
+        // as the pipeline *resource* exists, long before any image is published.
+        // Without a gate, the outer CDK pipeline proceeds to the Backend and
+        // Microservices waves and ECS tries to pull images that do not exist yet
+        // (or never will, if a build failed). That is the failure mode from the
+        // 2026-09-14 RCA: a failed image build did not fail the deployment, ECS
+        // span for ~25 min on CannotPull, and the WaitCondition timed out into the
+        // destructive cleanup path.
+        //
+        // This custom resource polls the inner pipeline's latest execution on
+        // Create/Update and only reports success once it has Succeeded (all images
+        // published). A failed/timed-out build fails this resource, which fails the
+        // Containers stack, which fails the Core wave and stops the deployment
+        // before ECS ever tries to pull a missing image.
+        this.addImageBuildGate();
+
         NagSuppressions.addResourceSuppressions(
             this.pipeline.artifactBucket,
             [
@@ -388,6 +409,113 @@ export class ContainersStack extends Stack {
                 {
                     id: 'AwsSolutions-IAM5',
                     reason: 'Allow access to Cloudwatch Log Groups for pipeline execution',
+                },
+            ],
+            true,
+        );
+    }
+
+    /**
+     * Adds a custom resource that blocks stack completion until the inner
+     * container build pipeline has successfully published all images.
+     *
+     * This turns an async image build into a synchronous gate: the Containers
+     * stack (and therefore the Core wave) does not complete until images exist,
+     * so the downstream Backend and Microservices waves never deploy ECS services
+     * against missing images. A failed build fails this resource and stops the
+     * deployment fast, instead of letting ECS spin on CannotPullContainerError.
+     */
+    private addImageBuildGate(): void {
+        const waiterRole = new Role(this, 'ImageBuildGateRole', {
+            assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+        });
+        waiterRole.addToPolicy(
+            new PolicyStatement({
+                actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+                resources: ['*'],
+            }),
+        );
+        waiterRole.addToPolicy(
+            new PolicyStatement({
+                actions: ['codepipeline:GetPipelineState', 'codepipeline:ListPipelineExecutions'],
+                resources: [this.pipeline.pipelineArn],
+            }),
+        );
+
+        const waiterFunction = new LambdaFunction(this, 'ImageBuildGateFunction', {
+            runtime: Runtime.PYTHON_3_13,
+            handler: 'index.handler',
+            role: waiterRole,
+            timeout: Duration.minutes(15),
+            code: Code.fromInline(
+                [
+                    'import boto3',
+                    '',
+                    'cp = boto3.client("codepipeline")',
+                    '',
+                    'def handler(event, context):',
+                    '    # Only gate on Create/Update; Delete is a no-op.',
+                    '    if event.get("RequestType") == "Delete":',
+                    '        return {"PhysicalResourceId": "image-build-gate"}',
+                    '    name = event["ResourceProperties"]["PipelineName"]',
+                    '    # The Lambda timeout (15 min) bounds the wait; CFN retries the',
+                    '    # custom resource, so a still-running build is re-polled.',
+                    '    state = cp.get_pipeline_state(name=name)',
+                    '    for stage in state.get("stageStates", []):',
+                    '        if stage.get("stageName") != "Build":',
+                    '            continue',
+                    '        status = stage.get("latestExecution", {}).get("status")',
+                    '        if status == "Succeeded":',
+                    '            return {"PhysicalResourceId": "image-build-gate"}',
+                    '        if status in ("Failed", "Stopped", "Cancelled"):',
+                    '            raise Exception(',
+                    '                f"Container image build did not succeed (Build stage status={status}). "',
+                    '                "Aborting deployment before ECS attempts to pull missing images."',
+                    '            )',
+                    '        raise Exception(f"Container image build still in progress (status={status}); retrying.")',
+                    '    raise Exception("Build stage not found in container pipeline state; retrying.")',
+                ].join('\n'),
+            ),
+        });
+
+        const provider = new Provider(this, 'ImageBuildGateProvider', {
+            onEventHandler: waiterFunction,
+        });
+
+        const gate = new CustomResource(this, 'ImageBuildGate', {
+            serviceToken: provider.serviceToken,
+            properties: {
+                PipelineName: this.pipeline.pipelineName,
+                // Change on every deploy so the gate re-polls the fresh build.
+                Nonce: Date.now().toString(),
+            },
+        });
+        gate.node.addDependency(this.pipeline);
+
+        NagSuppressions.addResourceSuppressions(
+            waiterRole,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'CloudWatch Logs wildcard is required for Lambda log group creation',
+                },
+            ],
+            true,
+        );
+        NagSuppressions.addResourceSuppressions(
+            provider,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'CDK Provider framework role uses managed wildcard permissions',
+                },
+                {
+                    id: 'AwsSolutions-IAM4',
+                    reason: 'CDK Provider framework uses AWS managed Lambda basic execution policy',
+                },
+                {
+                    id: 'AwsSolutions-L1',
+                    reason: 'CDK Provider framework Lambda runtime is managed by CDK',
                 },
             ],
             true,

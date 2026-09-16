@@ -10,7 +10,7 @@
         "eslint-plugin-prettier": "^5.5.4",
         "eslint-plugin-unicorn": "^60.0.0",
         "jest": "^30.0.5",
-        "jest-junit": "^16.0.0",
+        "jest-junit": "^17.0.0",
         "ts-jest": "^29.4.1",
         "ts-node": "^10.9.2",
         "typedoc": "^0.28.9",
