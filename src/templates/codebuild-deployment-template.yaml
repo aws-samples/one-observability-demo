@@ -307,6 +307,8 @@ Resources:
                 Resource:
                   - !Sub ${rConfigBucket.Arn}/*
                   - !GetAtt rConfigBucket.Arn
+                  - !Sub ${rConfigBucketAccessLogsBucket.Arn}/*
+                  - !GetAtt rConfigBucketAccessLogsBucket.Arn
 
   # Lambda function to clean up resources
   rResourceCleanupFunction:
@@ -323,26 +325,109 @@ Resources:
           def handler(event, context):
               try:
                   if event['RequestType'] == 'Delete':
-                      # Clean up S3 bucket
+                      # Clean up S3 buckets
                       s3 = boto3.client('s3')
-                      bucket = event['ResourceProperties']['BucketName']
-                      paginator = s3.get_paginator('list_object_versions')
-                      for page in paginator.paginate(Bucket=bucket):
-                          delete_keys = []
-                          if 'Versions' in page:
-                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
-                          if 'DeleteMarkers' in page:
-                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
-                          if delete_keys:
-                              s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
+                      props = event['ResourceProperties']
+                      buckets = list(props.get('BucketNames', []))
+                      if props.get('BucketName'):
+                          buckets.append(props['BucketName'])
+                      for bucket in buckets:
+                          paginator = s3.get_paginator('list_object_versions')
+                          for page in paginator.paginate(Bucket=bucket):
+                              delete_keys = []
+                              if 'Versions' in page:
+                                  delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
+                              if 'DeleteMarkers' in page:
+                                  delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
+                              if delete_keys:
+                                  s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Access-log bucket for the config bucket (S3 server access logging)
+  rConfigBucketAccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket-access-logs
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Bucket policy: allow S3 log delivery to write access logs, enforce HTTPS-only
+  rConfigBucketAccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucketAccessLogsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: S3ServerAccessLogsWrite
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub ${rConfigBucketAccessLogsBucket.Arn}/config-bucket-access-logs/*
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !GetAtt rConfigBucket.Arn
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt rConfigBucketAccessLogsBucket.Arn
+              - !Sub ${rConfigBucketAccessLogsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   # Create S3 bucket to store configuration files
   rConfigBucket:
     Type: AWS::S3::Bucket
     Properties:
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rConfigBucketAccessLogsBucket
+        LogFilePrefix: config-bucket-access-logs/
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -388,7 +473,9 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt rResourceCleanupFunction.Arn
-      BucketName: !Ref rConfigBucket
+      BucketNames:
+        - !Ref rConfigBucket
+        - !Ref rConfigBucketAccessLogsBucket
       StackName: !Ref AWS::StackName
 
   # Bucket policy to enforce HTTPS-only access
@@ -1247,7 +1334,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - cloudformation:DeleteStack
-                Resource: "*"
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/*/*"
                 Condition:
                   StringEquals:
                     "aws:ResourceTag/application": !Ref pApplicationName
