@@ -449,6 +449,23 @@ export class ContainersStack extends Stack {
             timeout: Duration.minutes(15),
             code: Code.fromInline(
                 [
+                    'def handler(event, context):',
+                    '    # onEvent: start the wait. The actual polling happens in the',
+                    '    # isComplete handler, which the Provider framework calls on a',
+                    '    # schedule until it returns IsComplete=true or totalTimeout elapses.',
+                    '    # Delete is a no-op.',
+                    '    return {"PhysicalResourceId": "image-build-gate"}',
+                ].join('\n'),
+            ),
+        });
+
+        const isCompleteFunction = new LambdaFunction(this, 'ImageBuildGateIsCompleteFunction', {
+            runtime: Runtime.PYTHON_3_13,
+            handler: 'index.handler',
+            role: waiterRole,
+            timeout: Duration.minutes(1),
+            code: Code.fromInline(
+                [
                     'import boto3',
                     '',
                     'cp = boto3.client("codepipeline")',
@@ -456,30 +473,34 @@ export class ContainersStack extends Stack {
                     'def handler(event, context):',
                     '    # Only gate on Create/Update; Delete is a no-op.',
                     '    if event.get("RequestType") == "Delete":',
-                    '        return {"PhysicalResourceId": "image-build-gate"}',
+                    '        return {"IsComplete": True}',
                     '    name = event["ResourceProperties"]["PipelineName"]',
-                    '    # The Lambda timeout (15 min) bounds the wait; CFN retries the',
-                    '    # custom resource, so a still-running build is re-polled.',
                     '    state = cp.get_pipeline_state(name=name)',
                     '    for stage in state.get("stageStates", []):',
                     '        if stage.get("stageName") != "Build":',
                     '            continue',
                     '        status = stage.get("latestExecution", {}).get("status")',
                     '        if status == "Succeeded":',
-                    '            return {"PhysicalResourceId": "image-build-gate"}',
+                    '            return {"IsComplete": True}',
                     '        if status in ("Failed", "Stopped", "Cancelled"):',
                     '            raise Exception(',
                     '                f"Container image build did not succeed (Build stage status={status}). "',
                     '                "Aborting deployment before ECS attempts to pull missing images."',
                     '            )',
-                    '        raise Exception(f"Container image build still in progress (status={status}); retrying.")',
-                    '    raise Exception("Build stage not found in container pipeline state; retrying.")',
+                    '        # Still InProgress: returning IsComplete=false tells the',
+                    '        # Provider framework to poll again after queryInterval.',
+                    '        return {"IsComplete": False}',
+                    '    # Build stage not observed yet; keep polling.',
+                    '    return {"IsComplete": False}',
                 ].join('\n'),
             ),
         });
 
         const provider = new Provider(this, 'ImageBuildGateProvider', {
             onEventHandler: waiterFunction,
+            isCompleteHandler: isCompleteFunction,
+            queryInterval: Duration.seconds(30),
+            totalTimeout: Duration.minutes(55),
         });
 
         const gate = new CustomResource(this, 'ImageBuildGate', {
