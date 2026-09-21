@@ -20,4 +20,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)"]
 
-CMD ["opentelemetry-instrument", "python", "-m", "waggle_ai_agents.nutrition_langgraph.server"]
+# Append, never set: AgentCore injects service.name and aws.log.group.names into this same variable.
+CMD ["sh", "-c", "export OTEL_RESOURCE_ATTRIBUTES=\"${OTEL_RESOURCE_ATTRIBUTES:+$OTEL_RESOURCE_ATTRIBUTES,}service.namespace=petadoptions\" && exec opentelemetry-instrument python -m waggle_ai_agents.nutrition_langgraph.server"]
