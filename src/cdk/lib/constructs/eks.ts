@@ -203,7 +203,7 @@ export class WorkshopEks extends Construct {
                                         selectors: [{ dimension: 'RemoteService', match: '*petfood-rs*' }],
                                         replacements: [
                                             { target_dimension: 'RemoteService', value: 'petfood-api-rs' },
-                                            { target_dimension: 'RemoteEnvironment', value: 'generic:default' },
+                                            { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
                                         ],
                                         action: 'replace',
                                     },
@@ -219,25 +219,10 @@ export class WorkshopEks extends Construct {
                                         selectors: [{ dimension: 'RemoteService', match: '*payforadoption-go*' }],
                                         replacements: [
                                             { target_dimension: 'RemoteService', value: 'payforadoption-api-go' },
-                                            { target_dimension: 'RemoteEnvironment', value: 'generic:default' },
+                                            { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
                                         ],
                                         action: 'replace',
                                     },
-                                    // petsite -> Waggle orchestrator. The .NET SDK instrumentation stamps
-                                    // RemoteService 'AWS::Bedrock AgentCore' for InvokeAgentRuntime, so the
-                                    // dependency renders as one shared AWS::Service node instead of an edge
-                                    // to the orchestrator. Naming the real service (and giving it an
-                                    // environment, which is what makes Application Signals treat a
-                                    // dependency as a Service rather than an AWS::Service) joins it to the
-                                    // node the orchestrator's own telemetry already reports. Values must
-                                    // match that node exactly: runtime name + qualifier, env
-                                    // 'bedrock-agentcore:default'. Source of truth for the name is
-                                    // WAGGLE_AI_AGENT_RUNTIMES in lib/stages/applications.ts.
-                                    // Only petsite calls AgentCore from this cluster, so a single
-                                    // RemoteService selector is unambiguous here. The orchestrator's own
-                                    // outbound hops cannot be fixed by any rule: AgentCore Runtime is
-                                    // managed and runs no CloudWatch agent, so those set the attributes
-                                    // in-process instead (see orchestrator_strands/delegate.py).
                                     {
                                         selectors: [{ dimension: 'RemoteService', match: '*Bedrock AgentCore*' }],
                                         replacements: [

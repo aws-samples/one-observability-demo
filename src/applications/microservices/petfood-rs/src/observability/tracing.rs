@@ -155,14 +155,13 @@ fn init_opentelemetry_tracer(
 ) -> Result<opentelemetry_sdk::trace::Tracer, ObservabilityError> {
     info!("Initializing OpenTelemetry tracer");
 
-    // Create resource with service information - platform agnostic
+    // Create resource with service information
     let resource_attributes = vec![
         KeyValue::new("service.name", service_name.to_string()),
         KeyValue::new("service.version", service_version.to_string()),
         KeyValue::new("service.namespace", "petadoptions"),
         KeyValue::new("cloud.provider", "aws"),
-        // Generic cloud platform - let the collector/X-Ray detect the actual platform
-        KeyValue::new("cloud.platform", "aws_container"),
+        KeyValue::new("cloud.platform", "aws_ecs"),
         // OpenTelemetry SDK information
         KeyValue::new("telemetry.sdk.name", "opentelemetry"),
         KeyValue::new("telemetry.sdk.language", "rust"),

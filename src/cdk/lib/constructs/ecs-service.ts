@@ -705,10 +705,16 @@ export abstract class EcsService extends Microservice {
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
-                // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
-                tracesCollected.otlp = {};
-                // Note: OTLP mode doesn't include Application Signals metrics collection
-                break;
+                // OpenTelemetry pipeline with resource detection and identity transforms, for OTLP-native
+                // services without an ADOT distro. Adds aws.ecs.cluster.arn so the agent derives
+                // deployment.environment.name as ecs:<cluster> instead of falling back to ecs:default.
+                return {
+                    opentelemetry: {
+                        collect: {
+                            otlp: { span_metrics_enabled: true },
+                        },
+                    },
+                };
             }
 
             default: {

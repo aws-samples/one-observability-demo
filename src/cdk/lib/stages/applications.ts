@@ -443,7 +443,7 @@ export class MicroservicesStack extends Stack {
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petfood-rs-api,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petfood-api-rs,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
