@@ -241,14 +241,6 @@ global_settings:
     path: src/templates/codebuild-deployment-template.yaml
     resource_id: rCDKStackListerFunction
     reason: Function is executed only once, no need for concurrency configurations
-  - rule_id: CKV_AWS_111
-    path: src/templates/codebuild-deployment-template.yaml
-    line_start: 1458
-    line_end: 1481
-    resource_id: rCrossRegionStackOperationRole
-    reason: Wildcard resource needed for cleanup Lambda to delete dynamically-named
-      CDK stacks across regions. Limited to DescribeStacks and DeleteStack actions
-      only.
   - rule_id: CKV_DOCKER_7
     path: src/applications/microservices/payforadoption-go/benchmark/Dockerfile
     line_start: 3
