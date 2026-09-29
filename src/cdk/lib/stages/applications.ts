@@ -90,6 +90,7 @@ import { WaggleAIAutoReload } from '../microservices/waggle-ai-agents-autoreload
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
+import { ManagedPrometheusCollector } from '../constructs/managed-prometheus-collector';
 
 /** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
@@ -547,6 +548,24 @@ export class MicroservicesStack extends Stack {
             }
             new WaggleAIAutoReload(this, 'WaggleAIAutoReload', { repoToRuntime });
         }
+
+        // Managed Prometheus Collector - scrapes ECS services and delivers to CloudWatch
+        const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
+        const privateSubnetIds = imports.vpcExports.privateSubnets.map((subnet: { subnetId: string }) => subnet.subnetId);
+
+        new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
+            vpc: imports.vpcExports,
+            securityGroup: imports.ecsExports.securityGroup,
+            privateSubnetIds: privateSubnetIds,
+            cloudMapNamespaceName: cloudMapNamespaceName,
+            targetServices: [
+                { name: 'payforadoption-go', port: 8080 },
+                // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
+            ],
+            additionalUpdateTargets: [
+                { name: 'petlistadoption-py', port: 8080 },
+            ],
+        });
     }
 
     private createCanariesAndLambdas(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 use crate::models::{CreateFoodRequest, CreationSource, FoodType, PetType, UpdateFoodRequest};
+use crate::observability::{BusinessTracingMiddleware, DatabaseTracingMiddleware, Metrics};
 use crate::repositories::TableManager;
 use crate::services::FoodService;
 
@@ -22,6 +23,7 @@ pub struct AdminState {
     pub foods_table_name: String,
     pub carts_table_name: String,
     pub assets_cdn_url: String,
+    pub metrics: Arc<Metrics>,
 }
 
 /// Response for seeding operations
@@ -55,6 +57,7 @@ pub fn create_admin_router(
     foods_table_name: String,
     carts_table_name: String,
     assets_cdn_url: String,
+    metrics: Arc<Metrics>,
 ) -> Router {
     let state = AdminState {
         food_service,
@@ -62,6 +65,7 @@ pub fn create_admin_router(
         foods_table_name,
         carts_table_name,
         assets_cdn_url,
+        metrics,
     };
 
     Router::new()
@@ -284,11 +288,29 @@ pub async fn create_food(
 
     info!("Admin creating new food: {}", request.name);
 
-    match state
-        .food_service
-        .create_food(request, CreationSource::AdminApi)
-        .await
-    {
+    // Bounded, low-cardinality attributes captured before the request moves.
+    let pet_type_label = request.pet_type.to_string();
+    let food_type_label = request.food_type.to_string();
+
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_food_operation(
+            "create",
+            Some(&pet_type_label),
+            Some(&food_type_label),
+            database.trace_operation(
+                "put_item",
+                "foods",
+                state
+                    .food_service
+                    .create_food(request, CreationSource::AdminApi),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(food) => {
             info!("Successfully created food with ID: {}", food.id);
             let food_response = food.to_response(&state.assets_cdn_url);
@@ -324,7 +346,32 @@ pub async fn update_food(
 
     info!("Admin updating food with ID: {}", food_id);
 
-    match state.food_service.update_food(&food_id, request).await {
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+    let result = database
+        .trace_operation(
+            "put_item",
+            "foods",
+            state.food_service.update_food(&food_id, request),
+        )
+        .await;
+
+    // Business metric with pet/food type derived from the result (never food_id).
+    let (pet_type_label, food_type_label, success) = match &result {
+        Ok(food) => (
+            Some(food.pet_type.to_string()),
+            Some(food.food_type.to_string()),
+            true,
+        ),
+        Err(_) => (None, None, false),
+    };
+    state.metrics.record_food_operation(
+        "update",
+        pet_type_label.as_deref(),
+        food_type_label.as_deref(),
+        success,
+    );
+
+    match result {
         Ok(food) => {
             info!("Successfully updated food: {}", food.name);
             let food_response = food.to_response(&state.assets_cdn_url);
@@ -362,7 +409,23 @@ pub async fn delete_food(
 
     info!("Admin deleting food with ID: {}", food_id);
 
-    match state.food_service.delete_food(&food_id).await {
+    let business = BusinessTracingMiddleware::new(state.metrics.clone());
+    let database = DatabaseTracingMiddleware::new(state.metrics.clone());
+
+    let result = business
+        .trace_food_operation(
+            "delete",
+            None,
+            None,
+            database.trace_operation(
+                "delete_item",
+                "foods",
+                state.food_service.delete_food(&food_id),
+            ),
+        )
+        .await;
+
+    match result {
         Ok(()) => {
             info!("Successfully deleted food: {}", food_id);
             Ok(StatusCode::NO_CONTENT)
