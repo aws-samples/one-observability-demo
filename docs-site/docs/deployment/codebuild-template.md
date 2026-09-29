@@ -71,8 +71,43 @@ Configuration:
 
 - Maximum retries: 3 attempts
 - Retry wait time: 60 seconds
-- Overall timeout: 1 hour (3600 seconds)
+- Overall timeout: 2 hours (7200 seconds)
 - Polling interval: 30 seconds
+
+## Deployment Timeline
+
+The deployment is coordinated by two independent timers that must stay in the
+right order, or a healthy-but-slow deploy is torn down as if it had failed:
+
+| Timer | Where | Value | Role |
+|-------|-------|-------|------|
+| **Pipeline signaller** | `src/cdk/scripts/wait-for-pipeline.sh` (`TIMEOUT`) | 5100s (85 min) | Polls the inner CDK pipeline and signals SUCCESS/FAILURE to the CloudFormation wait condition. |
+| **Wait condition** | `rCDKDeploymentWaitCondition.Timeout` in the template | 7200s (120 min) | How long CloudFormation waits for that signal before declaring failure. |
+
+**Invariant: the wait condition timeout MUST be greater than the signaller
+timeout.** If the wait condition expires first, CloudFormation rolls the stack
+back (and, on the rollback path, triggers the cleanup state machine that deletes
+the environment) even though the deployment was still progressing normally.
+
+```
+0 min ───────────────────────── 85 min ──────────── 120 min
+   |  deploy running              | signaller gives   | wait condition
+   |  (build + pipeline stages)   | up if not done    | gives up
+   +------------------------------+-------------------+
+                                  signaller (5100s) < wait condition (7200s)
+```
+
+A typical full deployment (CloudFormation to CodeBuild to the CDK pipeline
+stages: Core, Backend, Microservices) takes ~40-50 min; the headroom above
+absorbs slow container builds, ECR pulls, and EKS/ECS convergence.
+
+!!! warning "Keep the two copies of the template in sync"
+    There are two copies of this template: the GitHub source
+    (`src/templates/codebuild-deployment-template.yaml`) and the Workshop Studio
+    copy in the workshop content repository (Workshop Studio requires the
+    template to live there). They should differ only in parameter default
+    values. A past incident traced to the wait-condition timeout drifting
+    between the two copies (3600 vs 4500), both below the signaller.
 
 ## Build Phases
 

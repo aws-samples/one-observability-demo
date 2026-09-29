@@ -8,6 +8,9 @@
 
     function apply(theme) {
         document.documentElement.setAttribute('data-theme', theme);
+        // Bootstrap 5.3 keys its own semantic colours (alerts, badges, tables) off
+        // data-bs-theme; without this they stay light and vanish on a dark page.
+        document.documentElement.setAttribute('data-bs-theme', theme);
         var icon = document.getElementById('ps-theme-icon');
         if (icon) {
             icon.innerHTML = theme === 'dark'

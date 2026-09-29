@@ -8,14 +8,20 @@ SPDX-License-Identifier: Apache-2.0
  *
  * @packageDocumentation
  */
-import { CfnOutput, Stack } from 'aws-cdk-lib';
+import { CfnOutput, Names, Stack } from 'aws-cdk-lib';
+import {
+    AgentRuntimeArtifact,
+    CfnRuntime,
+    ProtocolType,
+    Runtime,
+    RuntimeNetworkConfiguration,
+} from 'aws-cdk-lib/aws-bedrockagentcore';
+import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
-import { CfnRuntime } from 'aws-cdk-lib/aws-bedrockagentcore';
 import { Construct } from 'constructs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 
 /** Properties for a single AgentCore agent runtime. */
 export interface AgentRuntimeProperties {
@@ -35,9 +41,16 @@ export interface AgentRuntimeProperties {
     readonly appName?: string;
 }
 
+/** Compute the former L1 logical ID from the path `<AgentRuntimeConstruct>/Runtime`. */
+function legacyRuntimeLogicalId(constructId: string): string {
+    const root = new Construct(undefined as unknown as Construct, '');
+    const legacyScope = new Construct(root, constructId);
+    return Names.uniqueId(new Construct(legacyScope, 'Runtime'));
+}
+
 /** A Bedrock AgentCore Runtime for one Waggle AI agent (orchestrator or sub-agent). */
 export class AgentRuntimeConstruct extends Construct {
-    public readonly agentRuntime: CfnRuntime;
+    public readonly agentRuntime: Runtime;
 
     constructor(scope: Construct, id: string, properties: AgentRuntimeProperties) {
         super(scope, id);
@@ -171,13 +184,15 @@ export class AgentRuntimeConstruct extends Construct {
             roles: [agentRuntimeRole],
         });
 
-        this.agentRuntime = new CfnRuntime(this, 'Runtime', {
-            agentRuntimeArtifact: {
-                containerConfiguration: { containerUri: `${properties.ecrRepositoryUri}:latest` },
-            },
-            agentRuntimeName: properties.runtimeName,
-            networkConfiguration: { networkMode: 'VPC' },
-            roleArn: agentRuntimeRole.roleArn,
+        this.agentRuntime = new Runtime(this, 'Runtime', {
+            runtimeName: properties.runtimeName,
+            agentRuntimeArtifact: AgentRuntimeArtifact.fromImageUri(`${properties.ecrRepositoryUri}:latest`),
+            executionRole: agentRuntimeRole,
+            networkConfiguration: RuntimeNetworkConfiguration.usingVpc(this, {
+                vpc: properties.vpc,
+                vpcSubnets: { subnets: properties.vpc.privateSubnets },
+                securityGroups: properties.securityGroups,
+            }),
             description: `Waggle AI agent runtime: ${properties.runtimeName}`,
             environmentVariables: {
                 OTEL_PYTHON_EXCLUDED_URLS: '/ping',
@@ -189,24 +204,24 @@ export class AgentRuntimeConstruct extends Construct {
                 UNIFIED_TRACES_DESTINATION_ENABLED: 'true',
                 ...properties.environmentVariables,
             },
-            protocolConfiguration: 'HTTP',
+            protocolConfiguration: ProtocolType.HTTP,
+            tracingEnabled: true,
         });
 
-        this.agentRuntime.addOverride('Properties.NetworkConfiguration.NetworkModeConfig', {
-            SecurityGroups: properties.securityGroups.map((sg) => sg.securityGroupId),
-            Subnets: properties.vpc.privateSubnets.map((subnet) => subnet.subnetId),
-        });
+        // The L2's internal Resource child adds a path segment. Restore the former L1 logical ID to avoid replacement.
+        const runtimeResource = this.agentRuntime.node.defaultChild as CfnRuntime;
+        runtimeResource.overrideLogicalId(legacyRuntimeLogicalId(this.node.id));
 
         if (properties.ssmArnParameterName) {
             Utilities.createSsmParameters(
                 this,
                 PARAMETER_STORE_PREFIX,
-                new Map(Object.entries({ [properties.ssmArnParameterName]: this.agentRuntime.attrAgentRuntimeArn })),
+                new Map(Object.entries({ [properties.ssmArnParameterName]: this.agentRuntime.agentRuntimeArn })),
             );
         }
 
         new CfnOutput(this, 'AgentRuntimeArn', {
-            value: this.agentRuntime.attrAgentRuntimeArn,
+            value: this.agentRuntime.agentRuntimeArn,
             description: `ARN of the ${properties.runtimeName} AgentCore runtime`,
         });
 

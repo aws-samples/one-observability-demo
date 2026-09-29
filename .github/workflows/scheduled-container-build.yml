@@ -1,0 +1,59 @@
+name: Scheduled Container Build
+
+# Early-warning build of every microservice container image on a schedule.
+#
+# Why this exists (RCA 2026-09-14): a breaking upstream release (aws-smithy-types
+# 1.7.0) broke the petfood-rs image build in the middle of a live workshop
+# deployment. The committed lockfiles now make builds reproducible, but a lockfile
+# only protects against *silent* drift -- it does NOT protect against a pinned
+# dependency being yanked/removed upstream, a base image changing, or a
+# transitive build-time fetch breaking. This job rebuilds every image from
+# scratch (no cache) on a schedule so we find that class of breakage on our own
+# time, not during an event.
+#
+# It does not push images; it only proves they still build.
+
+permissions:
+    contents: read
+
+on:
+    schedule:
+        # 06:00 UTC daily. Adjust cadence as needed.
+        - cron: '0 6 * * *'
+    # Allow manual runs from the Actions tab.
+    workflow_dispatch:
+
+jobs:
+    scheduled-docker-builds:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service:
+                    - name: payforadoption-go
+                      path: src/applications/microservices/payforadoption-go
+                    - name: petfood-rs
+                      path: src/applications/microservices/petfood-rs
+                    - name: petlistadoptions-py
+                      path: src/applications/microservices/petlistadoptions-py
+                    - name: petsearch-java
+                      path: src/applications/microservices/petsearch-java
+                    - name: petsite-net
+                      path: src/applications/microservices/petsite-net/petsite
+        steps:
+            - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2
+
+            # no-cache + pull forces a fresh dependency resolution and base-image
+            # pull so upstream breakage is not masked by a cached layer.
+            - name: Build ${{ matrix.service.name }} (no cache)
+              uses: docker/build-push-action@0a97817b6ade9f46837855d676c4cca3a2471fc9 # v4
+              with:
+                  context: ${{ matrix.service.path }}
+                  push: false
+                  load: true
+                  no-cache: true
+                  pull: true
+                  tags: ${{ matrix.service.name }}:scheduled

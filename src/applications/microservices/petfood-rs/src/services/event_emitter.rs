@@ -16,7 +16,7 @@ use tracing::{error, info, instrument, warn, Instrument};
 #[derive(Error, Debug)]
 pub enum EventEmitterError {
     #[error("EventBridge client error: {0}")]
-    EventBridge(#[from] EventBridgeError),
+    EventBridge(Box<EventBridgeError>),
     #[error("EventBridge SDK error: {0}")]
     EventBridgeSdk(
         Box<SdkError<aws_sdk_eventbridge::operation::put_events::PutEventsError, Response>>,
@@ -29,6 +29,16 @@ pub enum EventEmitterError {
     MaxRetriesExceeded,
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
+}
+
+// The `EventBridgeError` payload is large, so it is boxed to keep
+// `EventEmitterError` (and every `Result<_, EventEmitterError>`) small on the
+// stack. A manual `From` preserves the `?`/`.into()` ergonomics that a
+// `#[from]` attribute would give, while still boxing the source.
+impl From<EventBridgeError> for EventEmitterError {
+    fn from(err: EventBridgeError) -> Self {
+        EventEmitterError::EventBridge(Box::new(err))
+    }
 }
 
 /// Service responsible for emitting events to AWS EventBridge

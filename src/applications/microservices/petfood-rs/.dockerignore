@@ -1,6 +1,9 @@
 # Build artifacts
 target/
-Cargo.lock
+# NOTE: Cargo.lock is intentionally NOT ignored. It must be copied into the
+# build context so `cargo build` uses the pinned dependency versions
+# (reproducible builds) instead of re-resolving Cargo.toml semver ranges at
+# build time, which can pull in breaking upstream releases. See RCA 2026-09-14.
 
 # IDE files
 .vscode/

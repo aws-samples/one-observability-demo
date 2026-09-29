@@ -520,7 +520,7 @@ export class MicroservicesStack extends Stack {
                 });
                 agentGatewayTargets.push({
                     targetName: agentCfg.targetName,
-                    runtimeArn: runtime.agentRuntime.attrAgentRuntimeArn,
+                    runtimeArn: runtime.agentRuntime.agentRuntimeArn,
                 });
             }
         }

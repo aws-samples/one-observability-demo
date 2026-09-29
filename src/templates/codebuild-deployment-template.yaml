@@ -307,6 +307,8 @@ Resources:
                 Resource:
                   - !Sub ${rConfigBucket.Arn}/*
                   - !GetAtt rConfigBucket.Arn
+                  - !Sub ${rConfigBucketAccessLogsBucket.Arn}/*
+                  - !GetAtt rConfigBucketAccessLogsBucket.Arn
 
   # Lambda function to clean up resources
   rResourceCleanupFunction:
@@ -323,26 +325,109 @@ Resources:
           def handler(event, context):
               try:
                   if event['RequestType'] == 'Delete':
-                      # Clean up S3 bucket
+                      # Clean up S3 buckets
                       s3 = boto3.client('s3')
-                      bucket = event['ResourceProperties']['BucketName']
-                      paginator = s3.get_paginator('list_object_versions')
-                      for page in paginator.paginate(Bucket=bucket):
-                          delete_keys = []
-                          if 'Versions' in page:
-                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
-                          if 'DeleteMarkers' in page:
-                              delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
-                          if delete_keys:
-                              s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
+                      props = event['ResourceProperties']
+                      buckets = list(props.get('BucketNames', []))
+                      if props.get('BucketName'):
+                          buckets.append(props['BucketName'])
+                      for bucket in buckets:
+                          paginator = s3.get_paginator('list_object_versions')
+                          for page in paginator.paginate(Bucket=bucket):
+                              delete_keys = []
+                              if 'Versions' in page:
+                                  delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
+                              if 'DeleteMarkers' in page:
+                                  delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
+                              if delete_keys:
+                                  s3.delete_objects(Bucket=bucket, Delete={'Objects': delete_keys})
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Access-log bucket for the config bucket (S3 server access logging)
+  rConfigBucketAccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket-access-logs
+        - !If
+          - cCreateTag1
+          - Key: !Ref pUserDefinedTagKey1
+            Value: !Ref pUserDefinedTagValue1
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag2
+          - Key: !Ref pUserDefinedTagKey2
+            Value: !Ref pUserDefinedTagValue2
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag3
+          - Key: !Ref pUserDefinedTagKey3
+            Value: !Ref pUserDefinedTagValue3
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag4
+          - Key: !Ref pUserDefinedTagKey4
+            Value: !Ref pUserDefinedTagValue4
+          - !Ref AWS::NoValue
+        - !If
+          - cCreateTag5
+          - Key: !Ref pUserDefinedTagKey5
+            Value: !Ref pUserDefinedTagValue5
+          - !Ref AWS::NoValue
+
+  # Bucket policy: allow S3 log delivery to write access logs, enforce HTTPS-only
+  rConfigBucketAccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucketAccessLogsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: S3ServerAccessLogsWrite
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub ${rConfigBucketAccessLogsBucket.Arn}/config-bucket-access-logs/*
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !GetAtt rConfigBucket.Arn
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt rConfigBucketAccessLogsBucket.Arn
+              - !Sub ${rConfigBucketAccessLogsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 
   # Create S3 bucket to store configuration files
   rConfigBucket:
     Type: AWS::S3::Bucket
     Properties:
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rConfigBucketAccessLogsBucket
+        LogFilePrefix: config-bucket-access-logs/
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -388,7 +473,9 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt rResourceCleanupFunction.Arn
-      BucketName: !Ref rConfigBucket
+      BucketNames:
+        - !Ref rConfigBucket
+        - !Ref rConfigBucketAccessLogsBucket
       StackName: !Ref AWS::StackName
 
   # Bucket policy to enforce HTTPS-only access
@@ -502,7 +589,11 @@ Resources:
     Condition: cWaitForDeployment
     Properties:
       Handle: !Ref rCDKDeploymentWaitConditionHandle
-      Timeout: 3600
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min).
+      # If the waiter (this) expires before the signaller reports, CloudFormation
+      # rolls back into the destructive cleanup path even on a healthy-but-slow
+      # deploy. 7200 (120 min) leaves comfortable headroom. See RCA 2026-09-14.
+      Timeout: 7200
       Count: 1
 
   rCDKOutputRetrieverRole:
@@ -1243,7 +1334,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - cloudformation:DeleteStack
-                Resource: "*"
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/*/*"
                 Condition:
                   StringEquals:
                     "aws:ResourceTag/application": !Ref pApplicationName
@@ -1542,9 +1633,14 @@ Resources:
                   iam_client = boto3.client('iam')
 
                   # Delete Lambda functions
+                  # NOTE: cross-region-stack-ops MUST be in this list. It is retained
+                  # (DeletionPolicy: Retain) with a hardcoded FunctionName but was
+                  # previously never deleted here, so it survived stack teardown and
+                  # blocked every relaunch with the same stack name. See RCA 2026-09-14.
                   for func_name in [
                       f"{stack_name}-cdk-stack-lister",
                       f"{stack_name}-deletion-result-checker",
+                      f"{stack_name}-cross-region-stack-ops",
                       f"{stack_name}-bucket-cleanup",
                       f"{stack_name}-cleanup-monitor"
                   ]:
@@ -1765,6 +1861,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt rCleanupMonitorFunction.Arn
       StateMachineArn: !GetAtt rCDKCleanupStateMachine.Arn
+      DisableCleanup: !Ref pDisableCleanup
 
   # Lambda function to monitor cleanup execution
   rCleanupMonitorFunction:
@@ -1790,7 +1887,19 @@ Resources:
 
               # Delete operation - monitor Step Function
               sf_client = boto3.client('stepfunctions')
-              state_machine_arn = event['ResourceProperties']['StateMachineArn']
+              props = event.get('ResourceProperties', {})
+              state_machine_arn = props['StateMachineArn']
+
+              # Honor pDisableCleanup on the rollback/delete path too. The CodeBuild
+              # buildspec already checks DISABLE_CLEANUP, but this custom-resource
+              # Delete handler is a SEPARATE path (stack rollback / delete) that
+              # previously ran the cleanup state machine unconditionally, destroying
+              # the environment even when pDisableCleanup=true. See RCA 2026-09-14.
+              disable_cleanup = str(props.get('DisableCleanup', 'false')).lower() == 'true'
+              if disable_cleanup:
+                  print("DisableCleanup is true - skipping cleanup state machine, retaining environment.")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
 
               try:
                   # Start the Step Function
