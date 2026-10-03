@@ -1,7 +1,7 @@
 # Orchestrator (Strands) — Bedrock AgentCore Runtime, ARM64.
 # Build context is the waggle_ai_agents package dir:
 #   docker build -f deploy/Dockerfile.orchestrator -t <repo>:latest .
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM public.ecr.aws/docker/library/python:3.13-slim
 WORKDIR /app
 
 ENV UV_SYSTEM_PYTHON=1 UV_COMPILE_BYTECODE=1 \
@@ -9,7 +9,7 @@ ENV UV_SYSTEM_PYTHON=1 UV_COMPILE_BYTECODE=1 \
     AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true DOCKER_CONTAINER=1
 
 COPY deploy/requirements.orchestrator.txt /tmp/requirements.txt
-RUN uv pip install -r /tmp/requirements.txt
+RUN pip install --no-cache-dir uv && uv pip install -r /tmp/requirements.txt
 
 RUN useradd -m -u 1000 bedrock_agentcore
 COPY --chown=bedrock_agentcore:bedrock_agentcore . /app/waggle_ai_agents/
