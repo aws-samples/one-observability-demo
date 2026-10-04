@@ -260,6 +260,7 @@ export class MicroservicesStack extends Stack {
     private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
         this.microservices = new Map<string, Microservice>();
         const agentGatewayTargets: AgentGatewayTarget[] = [];
+        const agentRuntimes: AgentRuntimeConstruct[] = [];
 
         const albEKSCheck = new KubernetesObjectValue(this, 'ALBEKS', {
             cluster: imports.eksExports.cluster,
@@ -519,11 +520,18 @@ export class MicroservicesStack extends Stack {
                     environmentVariables: agentCfg.env,
                     ssmArnParameterName: agentCfg.ssmArnParameterName,
                 });
+                agentRuntimes.push(runtime);
                 agentGatewayTargets.push({
                     targetName: agentCfg.targetName,
                     runtimeArn: runtime.agentRuntime.agentRuntimeArn,
                 });
             }
+        }
+
+        // Resource-level dep (not construct-level, which cycles): serialize the first runtime so it
+        // alone creates the AgentCore service-linked roles, avoiding the concurrent-create 402.
+        for (const runtime of agentRuntimes.slice(1)) {
+            runtime.runtimeResource.addDependency(agentRuntimes[0].runtimeResource);
         }
 
         // Gateway fronts the runtimes (ingress + delegation); one shared Memory serves all agents.
