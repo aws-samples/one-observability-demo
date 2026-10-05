@@ -35,19 +35,19 @@ pre-commit install --hook-type commit-msg
 
 ### Security Hooks
 
-- `python-safety-dependencies-check` — Scans Python dependencies for vulnerabilities
-- `detect-secrets` — Prevents secrets from being committed
-- `detect-private-key` — Detects private keys
-- `detect-aws-credentials` — Prevents AWS credentials from being committed
+- `python-safety-dependencies-check`: Scans Python dependencies for vulnerabilities
+- `detect-secrets`: Prevents secrets from being committed
+- `detect-private-key`: Detects private keys
+- `detect-aws-credentials`: Prevents AWS credentials from being committed
 
 ### Code Quality Hooks
 
-- `commitizen` — Enforces conventional commit format
-- `check-json`, `check-yaml` — Validates file syntax
-- `eslint` — Lints JavaScript/TypeScript
-- `black`, `flake8`, `mypy` — Python formatting, linting, type checking
-- `cfn-python-lint` — CloudFormation template linting
-- `jest` — Unit tests
+- `commitizen`: Enforces conventional commit format
+- `check-json`, `check-yaml`: Validates file syntax
+- `eslint`: Lints JavaScript/TypeScript
+- `black`, `flake8`, `mypy`: Python formatting, linting, type checking
+- `cfn-python-lint`: CloudFormation template linting
+- `jest`: Unit tests
 
 ## Local Development
 
