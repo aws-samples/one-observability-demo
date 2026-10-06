@@ -1,10 +1,11 @@
-use opentelemetry::{global, KeyValue};
+use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    metrics::reader::DefaultTemporalitySelector,
-    trace::{self, RandomIdGenerator, Sampler},
+    metrics::Temporality,
+    trace::{RandomIdGenerator, Sampler, SdkTracerProvider},
     Resource,
 };
+use std::sync::OnceLock;
 use std::time::Duration;
 use thiserror::Error;
 use tracing::{info, warn};
@@ -13,10 +14,15 @@ use tracing_subscriber::{
     fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 
+/// Global storage for the tracer provider so we can shut it down gracefully.
+/// `global::shutdown_tracer_provider()` was removed in 0.28; we must call
+/// `.shutdown()` on the concrete `SdkTracerProvider` instead.
+static TRACER_PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
+
 #[derive(Debug, Error)]
 pub enum ObservabilityError {
     #[error("Failed to initialize OpenTelemetry: {0}")]
-    OpenTelemetryInit(#[from] opentelemetry::trace::TraceError),
+    OpenTelemetryInit(String),
     #[error("Failed to initialize tracing subscriber: {0}")]
     TracingInit(String),
     #[error("Configuration error: {0}")]
@@ -38,8 +44,16 @@ pub fn init_observability(
     // Build shared resource for both traces and metrics
     let resource = build_resource(service_name, service_version);
 
-    // Initialize OpenTelemetry tracer
-    let tracer = init_opentelemetry_tracer(service_name, service_version, otlp_endpoint)?;
+    // Initialize OpenTelemetry tracer provider
+    let tracer_provider = init_opentelemetry_tracer(service_name, service_version, otlp_endpoint)?;
+
+    // Get a tracer from the provider before storing it
+    let tracer = tracer_provider.tracer(service_name.to_string());
+
+    // Store the provider so we can shut it down later, and also set it globally
+    // so other parts of the SDK can find it.
+    let _ = TRACER_PROVIDER.set(tracer_provider.clone());
+    global::set_tracer_provider(tracer_provider);
 
     // Initialize OpenTelemetry metrics pipeline (OTLP export)
     init_opentelemetry_metrics(resource, otlp_endpoint)?;
@@ -156,18 +170,18 @@ macro_rules! warn_with_trace {
 
 /// Build the shared OTel resource describing this service
 fn build_resource(service_name: &str, service_version: &str) -> Resource {
-    let resource_attributes = vec![
-        KeyValue::new("service.name", service_name.to_string()),
-        KeyValue::new("service.version", service_version.to_string()),
-        KeyValue::new("service.namespace", "petadoptions"),
-        KeyValue::new("cloud.provider", "aws"),
-        KeyValue::new("cloud.platform", "aws_container"),
-        KeyValue::new("telemetry.sdk.name", "opentelemetry"),
-        KeyValue::new("telemetry.sdk.language", "rust"),
-        KeyValue::new("telemetry.sdk.version", "0.21.0"),
-    ];
-
-    Resource::new(resource_attributes)
+    Resource::builder()
+        .with_attributes([
+            KeyValue::new("service.name", service_name.to_string()),
+            KeyValue::new("service.version", service_version.to_string()),
+            KeyValue::new("service.namespace", "petadoptions"),
+            KeyValue::new("cloud.provider", "aws"),
+            KeyValue::new("cloud.platform", "aws_container"),
+            KeyValue::new("telemetry.sdk.name", "opentelemetry"),
+            KeyValue::new("telemetry.sdk.language", "rust"),
+            KeyValue::new("telemetry.sdk.version", "0.33.0"),
+        ])
+        .build()
 }
 
 /// Initialize the OpenTelemetry metrics pipeline with OTLP exporter
@@ -177,22 +191,32 @@ fn init_opentelemetry_metrics(
 ) -> Result<(), ObservabilityError> {
     info!("Initializing OpenTelemetry metrics pipeline");
 
-    let mut exporter = opentelemetry_otlp::new_exporter().tonic();
-
-    if !otlp_endpoint.is_empty() {
-        exporter = exporter.with_endpoint(otlp_endpoint);
+    let endpoint = if otlp_endpoint.is_empty() {
+        "http://localhost:4317"
     } else {
-        exporter = exporter.with_endpoint("http://localhost:4317");
-    }
+        otlp_endpoint
+    };
 
-    let meter_provider = opentelemetry_otlp::new_pipeline()
-        .metrics(opentelemetry_sdk::runtime::Tokio)
-        .with_exporter(exporter)
-        .with_resource(resource)
-        .with_period(Duration::from_secs(10))
-        .with_temporality_selector(DefaultTemporalitySelector::new())
+    // Build the OTLP metric exporter
+    let exporter = opentelemetry_otlp::MetricExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint)
+        .with_temporality(Temporality::Cumulative)
         .build()
-        .map_err(|e| ObservabilityError::Config(format!("Failed to init metrics: {}", e)))?;
+        .map_err(|e| {
+            ObservabilityError::Config(format!("Failed to build metric exporter: {}", e))
+        })?;
+
+    // Build a periodic reader that exports metrics on an interval
+    let reader = opentelemetry_sdk::metrics::PeriodicReader::builder(exporter)
+        .with_interval(Duration::from_secs(10))
+        .build();
+
+    // Build the meter provider
+    let meter_provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
+        .with_reader(reader)
+        .with_resource(resource)
+        .build();
 
     global::set_meter_provider(meter_provider);
 
@@ -205,47 +229,40 @@ fn init_opentelemetry_tracer(
     service_name: &str,
     service_version: &str,
     otlp_endpoint: &str,
-) -> Result<opentelemetry_sdk::trace::Tracer, ObservabilityError> {
+) -> Result<SdkTracerProvider, ObservabilityError> {
     info!("Initializing OpenTelemetry tracer");
 
     let resource = build_resource(service_name, service_version);
 
-    // Configure OTLP exporter
-    let mut exporter = opentelemetry_otlp::new_exporter().tonic();
-
-    if !otlp_endpoint.is_empty() {
-        info!("Using custom OTLP endpoint: {}", otlp_endpoint);
-        exporter = exporter.with_endpoint(otlp_endpoint);
-    } else {
-        // Default to localhost for development, will be overridden in production
+    // Configure OTLP exporter endpoint
+    let endpoint = if otlp_endpoint.is_empty() {
         info!("Using default OTLP endpoint: http://localhost:4317");
-        exporter = exporter.with_endpoint("http://localhost:4317");
-    }
+        "http://localhost:4317"
+    } else {
+        info!("Using custom OTLP endpoint: {}", otlp_endpoint);
+        otlp_endpoint
+    };
 
-    // Build tracer pipeline
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(exporter)
-        .with_trace_config(
-            trace::config()
-                .with_sampler(Sampler::AlwaysOn)
-                .with_id_generator(RandomIdGenerator::default())
-                .with_max_events_per_span(64)
-                .with_max_attributes_per_span(16)
-                .with_max_links_per_span(16)
-                .with_resource(resource),
-        )
-        .with_batch_config(
-            trace::BatchConfig::default()
-                .with_max_queue_size(2048)
-                .with_max_export_batch_size(512)
-                .with_max_export_timeout(Duration::from_secs(30))
-                .with_scheduled_delay(Duration::from_millis(500)),
-        )
-        .install_batch(opentelemetry_sdk::runtime::Tokio)?;
+    // Build the OTLP span exporter
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint)
+        .build()
+        .map_err(|e| ObservabilityError::Config(format!("Failed to build span exporter: {}", e)))?;
+
+    // Build tracer provider with batch exporter and configuration
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_sampler(Sampler::AlwaysOn)
+        .with_id_generator(RandomIdGenerator::default())
+        .with_max_events_per_span(64)
+        .with_max_attributes_per_span(16)
+        .with_max_links_per_span(16)
+        .with_resource(resource)
+        .build();
 
     info!("OpenTelemetry tracer initialized successfully");
-    Ok(tracer)
+    Ok(tracer_provider)
 }
 
 /// Shutdown observability gracefully with timeout
@@ -256,7 +273,11 @@ pub async fn shutdown_observability() {
     let shutdown_task = tokio::task::spawn_blocking(|| {
         // Gracefully shutdown the tracer provider
         // This may block if there are pending spans, so we run it in a separate thread
-        global::shutdown_tracer_provider();
+        if let Some(provider) = TRACER_PROVIDER.get() {
+            if let Err(e) = provider.shutdown() {
+                warn!("Error shutting down tracer provider: {}", e);
+            }
+        }
     });
 
     // Apply timeout to prevent hanging indefinitely

@@ -119,7 +119,7 @@ pub async fn observability_middleware(
         // - X-Ray error = true: HTTP 4xx (automatic based on status code)
         // - X-Ray fault = true: HTTP 5xx (automatic based on status code)
         if status_code >= 500 {
-            otel_span.set_status(opentelemetry::trace::Status::error(format!("HTTP {}", status_code)));
+            otel_span.set_status(opentelemetry::trace::Status::Error { description: format!("HTTP {}", status_code).into() });
         } else {
             otel_span.set_status(opentelemetry::trace::Status::Ok);
         }

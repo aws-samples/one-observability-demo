@@ -3,6 +3,7 @@ use opentelemetry::{
     metrics::{Counter, Histogram, UpDownCounter},
     KeyValue,
 };
+
 use thiserror::Error;
 use tracing::info;
 
@@ -46,52 +47,52 @@ impl Metrics {
         let http_requests_total = meter
             .u64_counter("http.server.request.total")
             .with_description("Total number of HTTP requests processed")
-            .init();
+            .build();
 
         let http_request_duration_seconds = meter
             .f64_histogram("http.server.request.duration")
             .with_description("HTTP request duration in seconds")
-            .with_unit(opentelemetry::metrics::Unit::new("s"))
-            .init();
+            .with_unit("s")
+            .build();
 
         let http_requests_in_flight = meter
             .i64_up_down_counter("http.server.active_requests")
             .with_description("Number of HTTP requests currently being processed")
-            .init();
+            .build();
 
         // Database metrics
         let database_operations_total = meter
             .u64_counter("db.client.operation.total")
             .with_description("Total number of database operations")
-            .init();
+            .build();
 
         let database_operation_duration_seconds = meter
             .f64_histogram("db.client.operation.duration")
             .with_description("Database operation duration in seconds")
-            .with_unit(opentelemetry::metrics::Unit::new("s"))
-            .init();
+            .with_unit("s")
+            .build();
 
         // Business logic metrics
         let food_operations_total = meter
             .u64_counter("petfood.food.operation.total")
             .with_description("Total number of food-related operations")
-            .init();
+            .build();
 
         let cart_operations_total = meter
             .u64_counter("petfood.cart.operation.total")
             .with_description("Total number of cart operations")
-            .init();
+            .build();
 
         let recommendation_requests_total = meter
             .u64_counter("petfood.recommendation.request.total")
             .with_description("Total number of recommendation requests")
-            .init();
+            .build();
 
         // Error simulation metrics
         let error_simulation_triggers_total = meter
             .u64_counter("petfood.error_simulation.trigger.total")
             .with_description("Total number of error simulation triggers")
-            .init();
+            .build();
 
         info!("OpenTelemetry metrics initialized successfully");
 
