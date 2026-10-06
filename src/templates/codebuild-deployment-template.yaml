@@ -686,6 +686,10 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min),
+      # otherwise the build is killed before it POSTs SUCCESS and the WaitCondition
+      # falsely times out even though the pipeline succeeded. Default is 60 min.
+      TimeoutInMinutes: 120
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
