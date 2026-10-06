@@ -1,0 +1,697 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+# Standalone teardown template for the One Observability Workshop CDK deployment.
+# Version: 1.0.0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Standalone, opt-in teardown for the One Observability Workshop CDK deployment.
+  Deployed SEPARATELY from the deploy bootstrapper and never triggered
+  automatically (ADR-0001). Provisions a Step Function that discovers the
+  CDK-pipeline-created stacks by tag, deletes them in reverse `sequence` order,
+  then removes the custom CDK bootstrap stack, its assets bucket, and its
+  container-assets ECR repo. Nothing is deleted until an operator starts the
+  state machine with input {"confirm":"DELETE"}; add "dryRun":true to preview
+  without deleting. See the oTeardownCommand / oDryRunCommand outputs.
+
+Parameters:
+  pApplicationName:
+    Type: String
+    Description: Value of the 'application' tag used to identify CDK stacks to delete. Must match the deploy template's pApplicationName.
+    Default: One Observability Workshop
+    AllowedPattern: ^[A-Za-z0-9\s_.-]+$
+    ConstraintDescription: Must contain only alphanumeric characters, spaces, underscores, periods, or hyphens
+
+  pParentStackName:
+    Type: String
+    Description: Value of the 'parent' tag (the deploy bootstrapper stack name) used to scope deletion to one deployment. Pipeline stages are tagged parent=<bootstrapper stack name>.
+    AllowedPattern: '[A-Za-z0-9-]+'
+    ConstraintDescription: Must be a valid CloudFormation stack name
+
+  pBootstrapStackName:
+    Type: String
+    Description: Name of the custom CDK bootstrap stack to delete after application stacks are removed.
+    Default: CDKToolkitPetsite
+    AllowedPattern: '[A-Za-z0-9-]+'
+
+  pBootstrapQualifier:
+    Type: String
+    Description: CDK bootstrap qualifier used for the assets bucket, container-assets ECR repo, and SSM version parameter naming.
+    Default: petsite
+    AllowedPattern: '[a-z0-9]+'
+
+Resources:
+  rCDKCleanupStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${AWS::StackName}-cdk-cleanup
+      RoleArn: !GetAtt rCDKCleanupRole.Arn
+      DefinitionString: !Sub
+        - |
+          {
+            "Comment": "Opt-in CDK Stack Cleanup State Machine (standalone)",
+            "StartAt": "CheckConfirmation",
+            "States": {
+              "CheckConfirmation": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.confirm",
+                    "StringEquals": "DELETE",
+                    "Next": "CheckDryRun"
+                  }
+                ],
+                "Default": "ConfirmationRequired"
+              },
+              "ConfirmationRequired": {
+                "Type": "Fail",
+                "Error": "ConfirmationRequired",
+                "Cause": "Refusing to delete: start the execution with input {\"confirm\":\"DELETE\"} (add \"dryRun\":true to preview without deleting)."
+              },
+              "CheckDryRun": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.dryRun",
+                    "BooleanEquals": true,
+                    "Next": "DryRunListStacks"
+                  }
+                ],
+                "Default": "ListTaggedStacks"
+              },
+              "DryRunListStacks": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${StackListerArn}",
+                  "Payload": {}
+                },
+                "ResultPath": "$.stackList",
+                "Next": "DryRunComplete"
+              },
+              "DryRunComplete": {
+                "Type": "Pass",
+                "Comment": "Preview only: these are the stacks that WOULD be deleted, in order. Nothing was deleted.",
+                "Parameters": {
+                  "message": "DRY RUN - no resources deleted. The stacks listed in wouldDelete would be deleted in this order, followed by the CDK bootstrap stack, assets bucket, and container-assets ECR repo.",
+                  "wouldDelete.$": "$.stackList.Payload.stacks"
+                },
+                "End": true
+              },
+              "ListTaggedStacks": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${StackListerArn}",
+                  "Payload": {}
+                },
+                "ResultPath": "$.stackList",
+                "Next": "CheckStacksFound"
+              },
+              "CheckStacksFound": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.stackList.Payload.stacks",
+                    "IsPresent": true,
+                    "Next": "DeleteStacks"
+                  }
+                ],
+                "Default": "CleanupCDKStagingBucket"
+              },
+              "DeleteStacks": {
+                "Type": "Map",
+                "ItemsPath": "$.stackList.Payload.stacks",
+                "MaxConcurrency": 1,
+                "ResultPath": "$.deletionResults",
+                "Iterator": {
+                  "StartAt": "DescribeStack",
+                  "States": {
+                    "DescribeStack": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "${StackOpsArn}",
+                        "Payload.$": "$"
+                      },
+                      "ResultPath": "$.stackInfo",
+                      "Next": "DeleteStack",
+                      "Catch": [
+                        {
+                          "ErrorEquals": ["States.TaskFailed"],
+                          "ResultPath": "$.error",
+                          "Next": "CheckDescribeError"
+                        }
+                      ]
+                    },
+                    "CheckDescribeError": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.error.Cause",
+                          "StringMatches": "*ValidationError*",
+                          "Next": "StackAlreadyDeleted"
+                        }
+                      ],
+                      "Default": "DeletionFailed"
+                    },
+                    "DeleteStack": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "${StackOpsArn}",
+                        "Payload": {
+                          "operation": "delete",
+                          "name.$": "$.name",
+                          "region.$": "$.region"
+                        }
+                      },
+                      "ResultPath": "$.deleteResult",
+                      "Next": "WaitForDeletion",
+                      "Catch": [
+                        {
+                          "ErrorEquals": ["States.ALL"],
+                          "ResultPath": "$.error",
+                          "Next": "DeletionFailed"
+                        }
+                      ]
+                    },
+                    "WaitForDeletion": {
+                      "Type": "Wait",
+                      "Seconds": 30,
+                      "Next": "CheckDeletionStatus"
+                    },
+                    "CheckDeletionStatus": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "${StackOpsArn}",
+                        "Payload": {
+                          "operation": "status",
+                          "name.$": "$.name",
+                          "region.$": "$.region"
+                        }
+                      },
+                      "ResultPath": "$.stackStatus",
+                      "Next": "EvaluateDeletionStatus",
+                      "Catch": [
+                        {
+                          "ErrorEquals": ["States.ALL"],
+                          "ResultPath": "$.error",
+                          "Next": "DeletionComplete"
+                        }
+                      ]
+                    },
+                    "EvaluateDeletionStatus": {
+                      "Type": "Choice",
+                      "Choices": [
+                        {
+                          "Variable": "$.stackStatus.Payload.status",
+                          "StringEquals": "DELETE_IN_PROGRESS",
+                          "Next": "WaitForDeletion"
+                        },
+                        {
+                          "Variable": "$.stackStatus.Payload.status",
+                          "StringEquals": "DELETE_COMPLETE",
+                          "Next": "DeletionComplete"
+                        }
+                      ],
+                      "Default": "DeletionFailed"
+                    },
+                    "DeletionComplete": {
+                      "Type": "Pass",
+                      "Result": {"status": "success"},
+                      "End": true
+                    },
+                    "DeletionFailed": {
+                      "Type": "Pass",
+                      "Result": {"status": "failed"},
+                      "End": true
+                    },
+                    "StackAlreadyDeleted": {
+                      "Type": "Pass",
+                      "Result": {"status": "success"},
+                      "End": true
+                    }
+                  }
+                },
+                "Next": "CheckDeletionResults"
+              },
+              "CheckDeletionResults": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${ResultCheckerArn}",
+                  "Payload.$": "$.deletionResults"
+                },
+                "ResultPath": "$.allSuccessful",
+                "Next": "EvaluateOverallSuccess"
+              },
+              "EvaluateOverallSuccess": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.allSuccessful.Payload.allSuccessful",
+                    "BooleanEquals": true,
+                    "Next": "CleanupCDKStagingBucket"
+                  }
+                ],
+                "Default": "SkipCleanup"
+              },
+              "SkipCleanup": {
+                "Type": "Pass",
+                "Result": "Stack deletion failed. Skipping CDK bootstrap cleanup to allow retry.",
+                "End": true
+              },
+              "CleanupCDKStagingBucket": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${BucketCleanupArn}",
+                  "Payload": {
+                    "bucketName": "cdk-${BootstrapQualifier}-assets-${AWS::AccountId}-${AWS::Region}",
+                    "deleteBucket": true
+                  }
+                },
+                "Next": "DeleteCDKToolkitStack"
+              },
+              "DeleteCDKToolkitStack": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:cloudformation:deleteStack",
+                "Parameters": {
+                  "StackName": "${BootstrapStackName}"
+                },
+                "Next": "WaitForCDKToolkitDeletion",
+                "Catch": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "CleanupComplete"
+                  }
+                ]
+              },
+              "WaitForCDKToolkitDeletion": {
+                "Type": "Wait",
+                "Seconds": 30,
+                "Next": "CheckCDKToolkitDeletionStatus"
+              },
+              "CheckCDKToolkitDeletionStatus": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:cloudformation:describeStacks",
+                "Parameters": {
+                  "StackName": "${BootstrapStackName}"
+                },
+                "ResultPath": "$.cdkStackStatus",
+                "Next": "EvaluateCDKToolkitDeletionStatus",
+                "Catch": [
+                  {
+                    "ErrorEquals": ["CloudFormation.ValidationError", "CloudFormation.CloudFormationException"],
+                    "Next": "CleanupComplete"
+                  }
+                ]
+              },
+              "EvaluateCDKToolkitDeletionStatus": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.cdkStackStatus.Stacks[0].StackStatus",
+                    "StringEquals": "DELETE_IN_PROGRESS",
+                    "Next": "WaitForCDKToolkitDeletion"
+                  },
+                  {
+                    "Variable": "$.cdkStackStatus.Stacks[0].StackStatus",
+                    "StringEquals": "DELETE_COMPLETE",
+                    "Next": "CleanupComplete"
+                  }
+                ],
+                "Default": "CleanupComplete"
+              },
+              "CleanupComplete": {
+                "Type": "Succeed"
+              }
+            }
+          }
+        - StackListerArn: !GetAtt rCDKStackListerFunction.Arn
+          StackOpsArn: !GetAtt rCrossRegionStackOperationFunction.Arn
+          ResultCheckerArn: !GetAtt rDeletionResultCheckerFunction.Arn
+          BucketCleanupArn: !GetAtt rBucketCleanupFunction.Arn
+          BootstrapQualifier: !Ref pBootstrapQualifier
+          BootstrapStackName: !Ref pBootstrapStackName
+
+  rCDKCleanupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CDKCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt rCDKStackListerFunction.Arn
+                  - !GetAtt rCrossRegionStackOperationFunction.Arn
+                  - !GetAtt rDeletionResultCheckerFunction.Arn
+                  - !GetAtt rBucketCleanupFunction.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudformation:DeleteStack
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/*/*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/application": !Ref pApplicationName
+                    "aws:ResourceTag/parent": !Ref pParentStackName
+              - Effect: Allow
+                Action:
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStackResources
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${pBootstrapStackName}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:GetBucketPolicy
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::cdk-${pBootstrapQualifier}-assets-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::cdk-${pBootstrapQualifier}-assets-${AWS::AccountId}-${AWS::Region}/*'
+              - Effect: Allow
+                Action:
+                  - ecr:DeleteRepository
+                  - ecr:BatchDeleteImage
+                  - ecr:ListImages
+                Resource: !Sub 'arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/cdk-${pBootstrapQualifier}-container-assets-${AWS::AccountId}-${AWS::Region}'
+              - Effect: Allow
+                Action:
+                  - ssm:DeleteParameter
+                  - ssm:GetParameter
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-bootstrap/${pBootstrapQualifier}/*'
+
+  rDeletionResultCheckerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-deletion-result-checker
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rDeletionResultCheckerRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              all_successful = all(
+                  result.get('status') == 'success'
+                  for result in event
+                  if isinstance(result, dict)
+              )
+              return {'allSuccessful': all_successful}
+
+  rDeletionResultCheckerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  rCDKStackListerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cdk-stack-lister
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCDKStackListerRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          APPLICATION_NAME: !Ref pApplicationName
+          PARENT_STACK_NAME: !Ref pParentStackName
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+
+          def handler(event, context):
+              current_region = os.environ['AWS_REGION']
+              application_name = os.environ['APPLICATION_NAME']
+              parent_stack_name = os.environ['PARENT_STACK_NAME']
+              cf_client = boto3.client('cloudformation', region_name=current_region)
+              stacks = []
+
+              try:
+                  paginator = cf_client.get_paginator('list_stacks')
+                  for page in paginator.paginate(StackStatusFilter=['CREATE_COMPLETE', 'CREATE_IN_PROGRESS', 'UPDATE_COMPLETE', 'DELETE_FAILED', 'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED']):
+                      for stack in page['StackSummaries']:
+                          if 'ParentId' in stack:
+                              continue
+                          try:
+                              stack_detail = cf_client.describe_stacks(StackName=stack['StackName'])
+                              tags = stack_detail['Stacks'][0].get('Tags', [])
+
+                              has_app_tag = False
+                              has_parent_tag = False
+                              sequence_value = 1
+
+                              for tag in tags:
+                                  if tag['Key'] == 'application' and tag['Value'] == application_name:
+                                      has_app_tag = True
+                                  elif tag['Key'] == 'parent' and tag['Value'] == parent_stack_name:
+                                      has_parent_tag = True
+                                  elif tag['Key'] == 'sequence':
+                                      try:
+                                          sequence_value = int(tag['Value'])
+                                      except ValueError:
+                                          sequence_value = 1
+
+                              # Require BOTH tags so concurrent deployments in one
+                              # account cannot delete each other's stacks (ADR-0001).
+                              if has_app_tag and has_parent_tag:
+                                  stacks.append({
+                                      'name': stack['StackName'],
+                                      'region': current_region,
+                                      'sequence': sequence_value
+                                  })
+                          except Exception as e:
+                              print(f"Error checking stack {stack['StackName']}: {str(e)}")
+                              continue
+
+                  if current_region != 'us-east-1':
+                      try:
+                          cf_useast1 = boto3.client('cloudformation', region_name='us-east-1')
+                          support_stack_name = 'OneObservability-support-us-east-1'
+                          cf_useast1.describe_stacks(StackName=support_stack_name)
+                          stacks.append({
+                              'name': support_stack_name,
+                              'region': 'us-east-1',
+                              'sequence': 0
+                          })
+                      except Exception as e:
+                          print(f"No support stack in us-east-1 or error checking: {str(e)}")
+
+                  stacks.sort(key=lambda x: x['sequence'], reverse=True)
+                  return {'stacks': stacks}
+              except Exception as e:
+                  print(f"Error listing stacks: {str(e)}")
+                  return {'stacks': []}
+
+  rCDKStackListerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CDKStackListerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:DescribeStacks
+                Resource: "*"
+
+  rCrossRegionStackOperationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cross-region-stack-ops
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rCrossRegionStackOperationRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+
+          def handler(event, context):
+              stack_name = event.get('name')
+              region = event.get('region')
+              operation = event.get('operation', 'describe')
+
+              cf_client = boto3.client('cloudformation', region_name=region)
+
+              try:
+                  if operation == 'delete':
+                      cf_client.delete_stack(StackName=stack_name)
+                      return {'status': 'DELETE_IN_PROGRESS'}
+                  elif operation == 'status':
+                      response = cf_client.describe_stacks(StackName=stack_name)
+                      return {'status': response['Stacks'][0]['StackStatus']}
+                  else:
+                      response = cf_client.describe_stacks(StackName=stack_name)
+                      stack = response['Stacks'][0]
+                      if 'CreationTime' in stack:
+                          stack['CreationTime'] = stack['CreationTime'].isoformat()
+                      if 'LastUpdatedTime' in stack:
+                          stack['LastUpdatedTime'] = stack['LastUpdatedTime'].isoformat()
+                      if 'DeletionTime' in stack:
+                          stack['DeletionTime'] = stack['DeletionTime'].isoformat()
+                      return {'stack': stack}
+              except cf_client.exceptions.ValidationError:
+                  return {'status': 'DELETE_COMPLETE'}
+              except Exception as e:
+                  raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
+
+  rCrossRegionStackOperationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CrossRegionStackOperationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DeleteStack
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/*/*"
+
+  rBucketCleanupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-bucket-cleanup
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rBucketCleanupRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+
+          def handler(event, context):
+              s3_client = boto3.client('s3')
+              bucket_name = event.get('bucketName')
+              delete_bucket = event.get('deleteBucket', False)
+
+              if not bucket_name:
+                  return {'statusCode': 400, 'body': 'Bucket name required'}
+
+              try:
+                  try:
+                      s3_client.head_bucket(Bucket=bucket_name)
+                      print(f"Found bucket: {bucket_name}")
+                  except s3_client.exceptions.NoSuchBucket:
+                      print(f"Bucket {bucket_name} does not exist")
+                      return {'statusCode': 200, 'body': 'Bucket does not exist'}
+
+                  paginator = s3_client.get_paginator('list_object_versions')
+                  delete_keys = []
+
+                  for page in paginator.paginate(Bucket=bucket_name):
+                      if 'Versions' in page:
+                          delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['Versions']])
+                      if 'DeleteMarkers' in page:
+                          delete_keys.extend([{'Key': obj['Key'], 'VersionId': obj['VersionId']} for obj in page['DeleteMarkers']])
+
+                  if delete_keys:
+                      for i in range(0, len(delete_keys), 1000):
+                          s3_client.delete_objects(
+                              Bucket=bucket_name,
+                              Delete={'Objects': delete_keys[i:i+1000]}
+                          )
+                      print(f"Deleted {len(delete_keys)} objects from {bucket_name}")
+
+                  if delete_bucket:
+                      s3_client.delete_bucket(Bucket=bucket_name)
+                      print(f"Deleted bucket: {bucket_name}")
+
+                  return {'statusCode': 200, 'body': f'Successfully cleaned up {bucket_name}'}
+              except Exception as e:
+                  print(f"Error cleaning up bucket: {str(e)}")
+                  return {'statusCode': 500, 'body': f'Error: {str(e)}'}
+
+  rBucketCleanupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BucketCleanupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                  - s3:DeleteBucket
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::cdk-${pBootstrapQualifier}-assets-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::cdk-${pBootstrapQualifier}-assets-${AWS::AccountId}-${AWS::Region}/*'
+
+Outputs:
+  oStateMachineArn:
+    Description: ARN of the standalone teardown state machine. Start it explicitly with input {"confirm":"DELETE"} (add "dryRun":true to preview).
+    Value: !GetAtt rCDKCleanupStateMachine.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-StateMachineArn
+
+  oDryRunCommand:
+    Description: Command to preview what would be deleted, without deleting anything.
+    Value: !Sub 'aws stepfunctions start-execution --state-machine-arn ${rCDKCleanupStateMachine.Arn} --input ''{"confirm":"DELETE","dryRun":true}'''
+
+  oTeardownCommand:
+    Description: Command to perform the teardown.
+    Value: !Sub 'aws stepfunctions start-execution --state-machine-arn ${rCDKCleanupStateMachine.Arn} --input ''{"confirm":"DELETE"}'''

@@ -165,6 +165,23 @@ The script validates your environment and prepares the repository for deployment
     - `EKS_CLUSTER_ACCESS_ROLE_NAME`: Name of the role that will receive ClusterAdmin access on the EKS Cluster (optional)
     - `ENABLE_WAGGLE_AI_AGENTS`: Set to `true` to deploy the Waggle AI agents on Bedrock AgentCore (optional)
 
+### Choosing a deployment template
+
+Three CloudFormation templates live under `src/templates/` (see
+[ADR-0001](https://aws-samples.github.io/one-observability-demo/architecture/decisions/0001-deployment-template-split-and-safer-teardown/)):
+
+- **`codebuild-deployment-template.yaml`** (full) — deploys the self-mutating CDK
+  pipeline and waits for it, reporting status. Use for a normal workshop deploy.
+- **`codebuild-deployment-lite.yaml`** (lite) — the same deploy flow with the
+  smallest footprint and no cleanup machinery; supports fire-and-forget
+  (`pWaitForDeployment=false`). Prefer it for dev iteration and managed accounts.
+- **`teardown-stepfunction.yaml`** (teardown) — standalone, opt-in teardown you
+  deploy and invoke deliberately.
+
+Neither deploy template tears down the CDK stacks on failure: a failed or slow
+deploy is left in place for inspection and retry. Tear down with
+`npm run cleanup -- --discover` or the teardown template.
+
 ### CodeConnection and Parameter Store Integration
 
 The project supports optional CodeConnection integration for GitHub source and Parameter Store for configuration management. These features provide enhanced security and flexibility for deployments.
@@ -368,9 +385,17 @@ k9s
 
 ### CDK Bootstrap Stack Deletion Issue
 
-When the delete step function fails, the CDK bootstrap stack may be removed before some stacks are cleaned up. Under that situation, stacks cannot be deleted because the CloudFormation execution role was removed with the CDK bootstrap stack.
+Teardown is deliberate: the deploy templates do not tear down the CDK stacks
+automatically (see
+[ADR-0001](https://aws-samples.github.io/one-observability-demo/architecture/decisions/0001-deployment-template-split-and-safer-teardown/)).
+Run `npm run cleanup -- --discover` from `src/cdk`, or deploy and run
+`src/templates/teardown-stepfunction.yaml` (start its state machine with
+`{"confirm":"DELETE"}`; add `"dryRun":true` to preview first).
 
-To regain access to delete the resources, bootstrap again from CloudShell by running the following commands:
+If the standalone teardown runs the bootstrap-stack deletion before some stacks
+are cleaned up, those stacks cannot be deleted because the CloudFormation
+execution role was removed with the CDK bootstrap stack. To regain access,
+re-bootstrap from CloudShell:
 
 ```bash
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

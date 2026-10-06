@@ -1,6 +1,21 @@
 # CodeBuild CDK Deployment Template
 
-This CloudFormation template automates the deployment of AWS CDK projects for workshop environments. It provides a simplified, robust solution for bootstrapping AWS accounts, deploying CDK applications, and monitoring pipeline executions with intelligent retry handling.
+This CloudFormation template automates the deployment of AWS CDK projects for workshop environments. It provides a simplified, robust solution for bootstrapping AWS accounts, deploying CDK applications, and monitoring pipeline executions.
+
+!!! info "Three templates (ADR-0001)"
+    This page documents the **full** deploy bootstrapper,
+    `codebuild-deployment-template.yaml`. Two sibling templates exist (see
+    [ADR-0001](../architecture/decisions/0001-deployment-template-split-and-safer-teardown.md)):
+
+    - **`codebuild-deployment-lite.yaml`** — the same deploy flow with the
+      smallest footprint, no cleanup machinery, and an optional fire-and-forget
+      mode (`pWaitForDeployment=false`).
+    - **`teardown-stepfunction.yaml`** — standalone, opt-in teardown (see
+      [CDK Cleanup](../operations/cdk-cleanup.md)).
+
+    Neither deploy template tears down the CDK stacks on failure. A failed or
+    slow deploy leaves them in place for inspection and retry; teardown is a
+    deliberate, separate action.
 
 ## Overview
 
@@ -8,7 +23,7 @@ The template creates:
 
 - **S3 bucket** for configuration storage and CodePipeline source
 - **CodeBuild project** for CDK deployment orchestration with local caching
-- **Lambda functions** for deployment initiation and resource cleanup
+- **Lambda functions** for deployment initiation and config-bucket emptying on stack delete
 - **IAM roles** with appropriate permissions
 - **Wait conditions** for CloudFormation synchronization
 - **Intelligent pipeline monitoring** with retry support
@@ -36,7 +51,7 @@ flowchart TD
     M -->|Failed| P{Retries Left?}
     P -->|Yes| Q[Wait & Retry]
     Q --> L
-    P -->|No| R[Signal FAILURE]
+    P -->|No| R[Signal FAILURE — CDK stacks left in place, no teardown]
 ```
 
 ## Parameters
@@ -50,7 +65,6 @@ flowchart TD
 | `pCodeConnectionArn` | Optional CodeConnection ARN for GitHub | _(empty)_ |
 | `pWorkingFolder` | Working folder for deployment | `src/cdk` |
 | `pApplicationName` | Application name for tagging | `One Observability Workshop` |
-| `pDisableCleanup` | Disable cleanup on failure | `false` |
 | `pCDKStackName` | CDK stack name for outputs | `Microservices-Microservice` |
 | `pParameterStoreBasePath` | Base path in Parameter Store | `/petstore` |
 | `pWaitForDeployment` | Wait for pipeline completion | `true` |
@@ -85,9 +99,11 @@ right order, or a healthy-but-slow deploy is torn down as if it had failed:
 | **Wait condition** | `rCDKDeploymentWaitCondition.Timeout` in the template | 7200s (120 min) | How long CloudFormation waits for that signal before declaring failure. |
 
 **Invariant: the wait condition timeout MUST be greater than the signaller
-timeout.** If the wait condition expires first, CloudFormation rolls the stack
-back (and, on the rollback path, triggers the cleanup state machine that deletes
-the environment) even though the deployment was still progressing normally.
+timeout.** If the wait condition expires first, CloudFormation marks the stack
+failed even though the deployment was still progressing normally. The CDK
+application stacks are left in place either way (this template performs no
+automatic teardown; ADR-0001), but a premature failure still forces an
+unnecessary retry, so keep the ordering correct.
 
 ```
 0 min ───────────────────────── 85 min ──────────── 120 min

@@ -130,16 +130,28 @@ For full architecture details, see the [Architecture Overview](../architecture/o
 
 ## :material-broom: Cleanup
 
+Teardown is deliberate: the deploy templates never tear down the CDK stacks automatically (see [ADR-0001](../architecture/decisions/0001-deployment-template-split-and-safer-teardown.md)). Choose one path:
+
 ```bash
-# Primary cleanup
-cdk destroy --all
+cd src/cdk
 
-# Find remaining resources
+# Discovery-based cleanup script
 npm run cleanup -- --discover
-
-# Clean specific leftovers
 npm run cleanup -- --stack-name MyStack --dry-run
 npm run cleanup -- --stack-name MyStack
+```
+
+Or deploy the standalone teardown state machine and invoke it explicitly:
+
+```bash
+# Preview first (deletes nothing)
+aws stepfunctions start-execution \
+  --state-machine-arn <teardown stack's StateMachineArn output> \
+  --input '{"confirm":"DELETE","dryRun":true}'
+
+# Then perform the teardown
+aws stepfunctions start-execution \
+  --state-machine-arn <...> --input '{"confirm":"DELETE"}'
 ```
 
 See [Cleanup Script](../operations/cleanup.md) and [CDK Cleanup](../operations/cdk-cleanup.md) for detailed instructions.

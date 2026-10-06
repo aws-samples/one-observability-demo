@@ -26,7 +26,7 @@ Welcome to the **One Observability Demo** documentation: a comprehensive AWS obs
 
     ---
 
-    One-click CloudFormation deployment with CodeBuild, CDK Pipelines, and intelligent retry handling.
+    One-click CloudFormation deployment with CodeBuild and CDK Pipelines, with non-destructive teardown.
 
     [:octicons-arrow-right-24: Get started](deployment/quick-start.md)
 

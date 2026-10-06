@@ -8,7 +8,11 @@ This folder contains CloudFormation templates for the One Observability Demo pro
 
 ## Templates
 
-- **[codebuild-deployment-template.yaml](./codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
+- **[codebuild-deployment-template.yaml](./codebuild-deployment-template.yaml)** - Full deploy bootstrapper: deploys the self-mutating CDK pipeline and waits for it, reporting status. Non-destructive: it does NOT auto-roll-back or tear down the CDK stacks on failure.
+- **[codebuild-deployment-lite.yaml](./codebuild-deployment-lite.yaml)** - Lite deploy bootstrapper: the same deploy flow with the smallest footprint, no cleanup machinery, and an optional fire-and-forget mode (`pWaitForDeployment=false`).
+- **[teardown-stepfunction.yaml](./teardown-stepfunction.yaml)** - Standalone, opt-in teardown. Deployed separately and invoked deliberately; start its state machine with `{"confirm":"DELETE"}` (add `"dryRun":true` to preview). Never triggered automatically.
+
+See [ADR-0001](https://aws-samples.github.io/one-observability-demo/architecture/decisions/0001-deployment-template-split-and-safer-teardown/) for the rationale behind the split and the non-destructive teardown design.
 
 ## Documentation
 
