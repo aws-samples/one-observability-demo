@@ -24,6 +24,7 @@ SPDX-License-Identifier: Apache-2.0
  * @packageDocumentation
  */
 import { Arn, ArnFormat, CustomResource, Duration, RemovalPolicy, Stack, StackProps, Stage } from 'aws-cdk-lib';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Artifact, Pipeline, PipelineType, Result, RetryMode } from 'aws-cdk-lib/aws-codepipeline';
 import { Repository, TagMutability } from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
@@ -276,11 +277,24 @@ export class ContainersStack extends Stack {
             Stack.of(this),
         );
 
+        const codeBuildLogArn = Arn.format(
+            {
+                service: 'logs',
+                resource: 'log-group',
+                resourceName: '/aws/codebuild/*',
+                arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+                account: this.account,
+                region: this.region,
+                partition: 'aws',
+            },
+            Stack.of(this),
+        );
+
         const cloudWatchPolicy = new Policy(this, 'CloudwatchPolicy', {
             statements: [
                 new PolicyStatement({
                     actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
-                    resources: [pipelineLogArn],
+                    resources: [pipelineLogArn, codeBuildLogArn],
                 }),
             ],
             roles: [pipelineRole, codeBuildRole],
@@ -447,6 +461,10 @@ export class ContainersStack extends Stack {
             handler: 'index.handler',
             role: waiterRole,
             timeout: Duration.minutes(15),
+            logGroup: new LogGroup(this, 'ImageBuildGateFunctionLogGroup', {
+                retention: RetentionDays.ONE_DAY,
+                removalPolicy: RemovalPolicy.DESTROY,
+            }),
             code: Code.fromInline(
                 [
                     'def handler(event, context):',
@@ -464,6 +482,10 @@ export class ContainersStack extends Stack {
             handler: 'index.handler',
             role: waiterRole,
             timeout: Duration.minutes(1),
+            logGroup: new LogGroup(this, 'ImageBuildGateIsCompleteFunctionLogGroup', {
+                retention: RetentionDays.ONE_DAY,
+                removalPolicy: RemovalPolicy.DESTROY,
+            }),
             code: Code.fromInline(
                 [
                     'import boto3',
@@ -537,6 +559,29 @@ export class ContainersStack extends Stack {
                 {
                     id: 'AwsSolutions-L1',
                     reason: 'CDK Provider framework Lambda runtime is managed by CDK',
+                },
+                {
+                    id: 'AwsSolutions-SF1',
+                    reason: 'CDK Provider waiter state machine logging managed by CDK framework',
+                },
+                {
+                    id: 'AwsSolutions-SF2',
+                    reason: 'X-Ray tracing not needed for internal deployment gate state machine',
+                },
+                {
+                    id: 'Workshop-CWL2',
+                    reason: 'CDK Provider framework log groups are managed by CDK, not user code',
+                },
+            ],
+            true,
+        );
+
+        NagSuppressions.addResourceSuppressions(
+            [waiterFunction, isCompleteFunction],
+            [
+                {
+                    id: 'AwsSolutions-L1',
+                    reason: 'Python 3.13 is the latest supported runtime at time of writing',
                 },
             ],
             true,
