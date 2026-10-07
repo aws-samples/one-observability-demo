@@ -555,7 +555,7 @@ export class MicroservicesStack extends Stack {
             (subnet: { subnetId: string }) => subnet.subnetId,
         );
 
-        const collector = new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
+        new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
             vpc: imports.vpcExports,
             securityGroup: imports.ecsExports.securityGroup,
             privateSubnetIds: privateSubnetIds,
