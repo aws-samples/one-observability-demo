@@ -2,7 +2,9 @@ use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
     metrics::{SdkMeterProvider, Temporality},
-    trace::{BatchConfigBuilder, BatchSpanProcessor, RandomIdGenerator, Sampler, SdkTracerProvider},
+    trace::{
+        BatchConfigBuilder, BatchSpanProcessor, RandomIdGenerator, Sampler, SdkTracerProvider,
+    },
     Resource,
 };
 use std::sync::OnceLock;
