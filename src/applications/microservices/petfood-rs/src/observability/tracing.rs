@@ -1,8 +1,8 @@
 use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    metrics::Temporality,
-    trace::{RandomIdGenerator, Sampler, SdkTracerProvider},
+    metrics::{SdkMeterProvider, Temporality},
+    trace::{BatchConfigBuilder, BatchSpanProcessor, RandomIdGenerator, Sampler, SdkTracerProvider},
     Resource,
 };
 use std::sync::OnceLock;
@@ -18,6 +18,9 @@ use tracing_subscriber::{
 /// `global::shutdown_tracer_provider()` was removed in 0.28; we must call
 /// `.shutdown()` on the concrete `SdkTracerProvider` instead.
 static TRACER_PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
+
+/// Global storage for the meter provider so we can shut it down gracefully.
+static METER_PROVIDER: OnceLock<SdkMeterProvider> = OnceLock::new();
 
 #[derive(Debug, Error)]
 pub enum ObservabilityError {
@@ -218,6 +221,8 @@ fn init_opentelemetry_metrics(
         .with_resource(resource)
         .build();
 
+    // Store the meter provider so we can shut it down later
+    let _ = METER_PROVIDER.set(meter_provider.clone());
     global::set_meter_provider(meter_provider);
 
     info!("OpenTelemetry metrics pipeline initialized successfully");
@@ -250,9 +255,21 @@ fn init_opentelemetry_tracer(
         .build()
         .map_err(|e| ObservabilityError::Config(format!("Failed to build span exporter: {}", e)))?;
 
+    // Build a batch span processor with explicit configuration to ensure
+    // the 500ms scheduled delay is preserved (default would be 5000ms)
+    let batch_config = BatchConfigBuilder::default()
+        .with_scheduled_delay(Duration::from_millis(500))
+        .with_max_queue_size(2048)
+        .with_max_export_batch_size(512)
+        .build();
+
+    let processor = BatchSpanProcessor::builder(exporter)
+        .with_batch_config(batch_config)
+        .build();
+
     // Build tracer provider with batch exporter and configuration
     let tracer_provider = SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
+        .with_span_processor(processor)
         .with_sampler(Sampler::AlwaysOn)
         .with_id_generator(RandomIdGenerator::default())
         .with_max_events_per_span(64)
@@ -276,6 +293,13 @@ pub async fn shutdown_observability() {
         if let Some(provider) = TRACER_PROVIDER.get() {
             if let Err(e) = provider.shutdown() {
                 warn!("Error shutting down tracer provider: {}", e);
+            }
+        }
+
+        // Gracefully shutdown the meter provider to flush pending metrics
+        if let Some(meter_provider) = METER_PROVIDER.get() {
+            if let Err(e) = meter_provider.shutdown() {
+                warn!("Failed to shutdown meter provider: {:?}", e);
             }
         }
     });
