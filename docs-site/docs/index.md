@@ -1,10 +1,12 @@
 # One Observability Workshop
 
-Welcome to the **One Observability Demo** documentation — a comprehensive AWS observability workshop that deploys a multi-service pet adoption platform instrumented with distributed tracing, metrics, and structured logging.
+Welcome to the **One Observability Demo** documentation: a comprehensive AWS observability workshop that deploys a multi-service pet adoption platform instrumented with distributed tracing, metrics, and structured logging.
+
+![PetAdoptions application home page](assets/diagrams/petadoptions-home.png)
 
 <div class="grid cards" markdown>
 
--   :material-architecture-outline:{ .lg .middle } **Architecture**
+-   :material-sitemap-outline:{ .lg .middle } **Architecture**
 
     ---
 
@@ -16,7 +18,7 @@ Welcome to the **One Observability Demo** documentation — a comprehensive AWS 
 
     ---
 
-    Go, Java, Python, .NET, and Rust services — each demonstrating different observability patterns.
+    Go, Java, Python, .NET, and Rust services, each demonstrating different observability patterns.
 
     [:octicons-arrow-right-24: Explore services](microservices/index.md)
 
@@ -32,7 +34,7 @@ Welcome to the **One Observability Demo** documentation — a comprehensive AWS 
 
     ---
 
-    OpenTelemetry, Application Signals, CloudWatch, X-Ray, and Prometheus — all in one workshop.
+    OpenTelemetry, Application Signals, CloudWatch, X-Ray, and Prometheus, all in one workshop.
 
     [:octicons-arrow-right-24: Observability patterns](architecture/observability.md)
 

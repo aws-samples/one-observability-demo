@@ -708,13 +708,17 @@ export abstract class EcsService extends Microservice {
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
-                // OpenTelemetry Protocol - all OTLP handling (both traces and metrics) is
-                // done via the appended OTel YAML config (see buildOtelYamlConfig).
-                // Remove the traces section entirely from JSON so it does not conflict with
-                // the YAML's otlp/cwagent receiver and does not fail JSON validation with an
-                // empty traces_collected block.
-                delete config.traces;
-                break;
+                // OTLP-native services: the agent translates this single key into its full
+                // OTel pipeline (traces to X-Ray, metrics to the CloudWatch OTLP endpoint, and
+                // span-derived RED metrics via the spanmetrics connector). Matches the agent's
+                // own ECS default (translator/config/defaults/otel_ecs.json).
+                return {
+                    opentelemetry: {
+                        collect: {
+                            otlp: { span_metrics_enabled: true },
+                        },
+                    },
+                };
             }
 
             default: {
@@ -725,51 +729,6 @@ export abstract class EcsService extends Microservice {
         }
 
         return config;
-    }
-
-    /**
-     * Build the OpenTelemetry collector YAML configuration to append to the CW Agent.
-     * This YAML uses otlphttp exporter with SigV4 auth to route OTLP metrics directly to the
-     * CloudWatch OTLP endpoint (queryable via PromQL / Query Studio), instead of the classic
-     * awscloudwatch exporter (PutMetricData → CWAgent namespace, not queryable via PromQL).
-     *
-     * Reference: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-OTLPCloudWatchAgent.html
-     *
-     * @returns YAML string to be written to /etc/cwagentconfig/cwagentotelconfig.yaml
-     */
-    private buildOtelYamlConfig(): string {
-        const region = Stack.of(this).region;
-        return `receivers:
-  otlp/cwagent:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-processors:
-  batch/cwagent: {}
-exporters:
-  otlphttp/metrics_cwagent:
-    metrics_endpoint: https://monitoring.${region}.amazonaws.com/v1/metrics
-    auth:
-      authenticator: sigv4auth/monitoring_cwagent
-  awsxray/cwagent: {}
-extensions:
-  sigv4auth/monitoring_cwagent:
-    region: "${region}"
-    service: "monitoring"
-service:
-  extensions: [sigv4auth/monitoring_cwagent]
-  pipelines:
-    metrics/cwagent:
-      receivers: [otlp/cwagent]
-      processors: [batch/cwagent]
-      exporters: [otlphttp/metrics_cwagent]
-    traces/cwagent:
-      receivers: [otlp/cwagent]
-      processors: [batch/cwagent]
-      exporters: [awsxray/cwagent]
-`;
     }
 
     /**
@@ -785,17 +744,6 @@ service:
         // Build CloudWatch agent configuration based on trace mode
         const cloudWatchConfig = this.buildCloudWatchConfig(traceMode);
 
-        // For OTLP mode, we use the dual-config pattern: write both JSON (agent settings)
-        // and YAML (OTel pipeline with otlphttp+sigv4auth) to /etc/cwagentconfig/ via an
-        // init container. This routes OTLP metrics to the CloudWatch OTLP endpoint
-        // (queryable via PromQL) instead of the classic PutMetricData path.
-        const useOtelYaml = traceMode === CloudWatchAgentTraceMode.OTLP;
-        const cwConfigVolumeName = 'cwagentconfig';
-
-        if (useOtelYaml) {
-            taskDefinition.addVolume({ name: cwConfigVolumeName });
-        }
-
         // Add CloudWatch agent container
         const cwAgentContainer = taskDefinition.addContainer('cloudwatch-agent', {
             image: ContainerImage.fromRegistry('public.ecr.aws/cloudwatch-agent/cloudwatch-agent:latest'),
@@ -809,64 +757,11 @@ service:
                     retention: RetentionDays.ONE_WEEK,
                 }),
             }),
-            environment: useOtelYaml
-                ? { AWS_REGION: Stack.of(this).region } // config comes from /etc/cwagentconfig/ files
-                : {
-                      CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
-                      AWS_REGION: Stack.of(this).region,
-                  },
+            environment: {
+                CW_CONFIG_CONTENT: JSON.stringify(cloudWatchConfig),
+                AWS_REGION: Stack.of(this).region,
+            },
         });
-
-        // In OTLP mode, add init container that writes JSON + YAML to shared volume
-        if (useOtelYaml) {
-            const jsonConfig = JSON.stringify(cloudWatchConfig);
-            const yamlConfig = this.buildOtelYamlConfig();
-            // Base64-encode both configs to avoid shell escaping issues (JSON has quotes,
-            // YAML has newlines, and `sh -c` with heredocs can leak marker text into files).
-            const jsonB64 = Buffer.from(jsonConfig).toString('base64');
-            const yamlB64 = Buffer.from(yamlConfig).toString('base64');
-            const initCmd = [
-                'sh',
-                '-c',
-                [
-                    'mkdir -p /etc/cwagentconfig',
-                    `echo '${jsonB64}' | base64 -d > /etc/cwagentconfig/cwagentconfig.json`,
-                    `echo '${yamlB64}' | base64 -d > /etc/cwagentconfig/cwagentotelconfig.yaml`,
-                    'echo Config files written:',
-                    'ls -la /etc/cwagentconfig',
-                    'echo --- cwagentconfig.json ---',
-                    'cat /etc/cwagentconfig/cwagentconfig.json',
-                    'echo --- cwagentotelconfig.yaml ---',
-                    'cat /etc/cwagentconfig/cwagentotelconfig.yaml',
-                ].join(' && '),
-            ];
-            const initContainer = taskDefinition.addContainer('cwa-config-init', {
-                image: ContainerImage.fromRegistry('public.ecr.aws/docker/library/busybox:latest'),
-                essential: false,
-                command: initCmd,
-                logging: new AwsLogDriver({
-                    streamPrefix: 'cwa-config-init',
-                    logGroup: new LogGroup(this, 'cwa-config-init-log-group', {
-                        removalPolicy: RemovalPolicy.DESTROY,
-                        retention: RetentionDays.ONE_WEEK,
-                    }),
-                }),
-            });
-            initContainer.addMountPoints({
-                sourceVolume: cwConfigVolumeName,
-                containerPath: '/etc/cwagentconfig',
-                readOnly: false,
-            });
-            cwAgentContainer.addMountPoints({
-                sourceVolume: cwConfigVolumeName,
-                containerPath: '/etc/cwagentconfig',
-                readOnly: false,
-            });
-            cwAgentContainer.addContainerDependencies({
-                container: initContainer,
-                condition: ContainerDependencyCondition.SUCCESS,
-            });
-        }
 
         // Add necessary permissions for CloudWatch agent
         taskDefinition.taskRole.addToPrincipalPolicy(

@@ -156,7 +156,7 @@ The script validates your environment and prepares the repository for deployment
 
 **Setup:**
 
-1. Copy `src/cdk/.env.sample` to `src/cdk/.env`
+1. Copy a source sample to `src/cdk/.env`: `src/cdk/.env.sample.codeconnection` (recommended) or `src/cdk/.env.sample.s3`
 2. Update the `.env` file with your AWS account details:
     - `CONFIG_BUCKET`: Your S3 bucket name
     - `BRANCH_NAME`: Your git branch name

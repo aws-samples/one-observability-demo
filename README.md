@@ -2,6 +2,10 @@
 
 This repo contains a sample application which is used in the One Observability Demo workshop here - https://observability.workshop.aws/
 
+![PetAdoptions application home page](docs-site/docs/assets/diagrams/petadoptions-home.png)
+
+The PetAdoptions storefront: browse adoptable pets, buy pet food, and ask the Waggle AI assistant for a match and nutrition advice, all instrumented end to end with AWS observability.
+
 ## Documentation
 
 Full documentation is published at the [GitHub Pages site](https://aws-samples.github.io/one-observability-demo/).
@@ -58,7 +62,7 @@ aws cloudformation create-stack \
     ParameterKey=pWorkingFolder,ParameterValue=src/cdk
 ```
 
-For detailed parameter descriptions and advanced usage, refer to the [full documentation](https://aws-samples.github.io/one-observability-demo/deployment/codebuild-template/).
+For step-by-step deployment instructions, source options (CodeConnection or S3), and the local iteration loop, see the [Quick Start guide](https://aws-samples.github.io/one-observability-demo/deployment/quick-start/).
 
 ## Cleanup
 

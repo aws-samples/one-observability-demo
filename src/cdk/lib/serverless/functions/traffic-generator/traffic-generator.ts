@@ -16,7 +16,7 @@ import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,
     getLambdaInsightsLayerArn,
-    getOpenTelemetryPythonLayerArn,
+    getOpenTelemetryNodeJSLayerArn,
 } from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
@@ -111,6 +111,14 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
         return {
             PETSITE_URL_PARAMETER_NAME: `${PARAMETER_STORE_PREFIX}/${SSM_PARAMETER_NAMES.PETSITE_URL}`,
             CONCURRENT_USERS: `${CONCURRENT_USERS}`,
+            OTEL_NODE_DISABLED_INSTRUMENTATIONS: 'none',
+            OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
+            OTEL_METRICS_EXPORTER: 'none',
+            OTEL_LOGS_EXPORTER: 'none',
+            OTEL_SERVICE_NAME: 'traffic-generator-node',
+            OTEL_SERVICE_VERSION: '0.1.0',
+            OTEL_RESOURCE_ATTRIBUTES: 'service.namespace=petadoptions',
+            AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',
         };
     }
 
@@ -131,7 +139,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
             LayerVersion.fromLayerVersionArn(
                 this,
                 'OpenTelemetryLayer',
-                getOpenTelemetryPythonLayerArn(Stack.of(this).region),
+                getOpenTelemetryNodeJSLayerArn(Stack.of(this).region),
             ),
         ];
     }

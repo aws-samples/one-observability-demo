@@ -181,7 +181,7 @@ fn build_resource(service_name: &str, service_version: &str) -> Resource {
             KeyValue::new("service.version", service_version.to_string()),
             KeyValue::new("service.namespace", "petadoptions"),
             KeyValue::new("cloud.provider", "aws"),
-            KeyValue::new("cloud.platform", "aws_container"),
+            KeyValue::new("cloud.platform", "aws_ecs"),
             KeyValue::new("telemetry.sdk.name", "opentelemetry"),
             KeyValue::new("telemetry.sdk.language", "rust"),
             KeyValue::new("telemetry.sdk.version", "0.33.0"),

@@ -79,7 +79,7 @@ spec:
                       - name: WAGGLE_AI_RUNTIME_ARN_PARAM_NAME
                         value: {{ WAGGLE_AI_RUNTIME_ARN_PARAM_NAME }}
                       - name: OTEL_RESOURCE_ATTRIBUTES
-                        value: 'service.name=petsite-frontend-dotnet,deployment.environment=workshop'
+                        value: 'service.name=petsite-frontend-dotnet,service.namespace=petadoptions,deployment.environment=eks:{{ EKS_CLUSTER_NAME }}'
                       - name: RESOURCE_DETECTORS_ENABLED
                         value: 'false'
                       - name: AWS_PAGER
