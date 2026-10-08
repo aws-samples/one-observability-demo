@@ -7,7 +7,7 @@ edition = "2021"
 # Web framework
 axum = "0.7"
 tokio = { version = "1.0", features = ["full"] }
-tower = "0.4"
+tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 
 # Serialization
@@ -22,16 +22,13 @@ aws-sdk-eventbridge = { version = "1.88", features = ["behavior-version-latest"]
 aws-smithy-types = "1.0"
 aws-smithy-runtime-api = "1.0"
 
-# Observability - OpenTelemetry
-opentelemetry = "0.21"
-opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
-opentelemetry-otlp = "0.14"
+# Observability - OpenTelemetry (traces + metrics via OTLP)
+opentelemetry = { version = "0.33", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.33", features = ["rt-tokio", "metrics"] }
+opentelemetry-otlp = { version = "0.33", features = ["metrics", "grpc-tonic"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-opentelemetry = "0.22"
-
-# Metrics - Prometheus
-prometheus = "0.14"
+tracing-opentelemetry = "0.34"
 
 # Error handling
 thiserror = "1.0"
@@ -42,7 +39,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1.0", features = ["serde"] }
 rust_decimal_macros = "1.0"
-async-trait = "0.1"
+async-trait = "0.1.92"
 
 # Configuration
 config = "0.14"
