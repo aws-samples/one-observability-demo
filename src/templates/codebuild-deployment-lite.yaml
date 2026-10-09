@@ -1,0 +1,560 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+# Lite workshop deployment template for the One Observability Workshop CDK project.
+# Version: 1.0.0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Lite deploy-only bootstrapper for the One Observability Workshop CDK project
+  (ADR-0001). Provisions an S3 config bucket, an SSM config parameter, and a
+  CodeBuild project that clones the repo and deploys the self-mutating CDK
+  pipeline. It contains NO cleanup Step Function and does NOT auto-roll-back or
+  tear down the CDK deployment on failure: a failed or slow deploy leaves the
+  CDK application stacks in place for inspection and retry. Teardown is a
+  deliberate, separate action: run `npm run cleanup -- --discover` from src/cdk,
+  or deploy and run teardown-stepfunction.yaml. Small enough to deploy inline
+  (--template-body); no S3 upload required.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Repository Configuration
+        Parameters:
+          - pConfigFileUrl
+          - pOrganizationName
+          - pRepositoryName
+          - pBranchName
+          - pCodeConnectionArn
+          - pWorkingFolder
+          - pApplicationName
+          - pParameterStoreBasePath
+          - pWaitForDeployment
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - pVpcCidr
+
+Parameters:
+
+  pConfigFileUrl:
+    Type: String
+    Description: URL to the initial configuration file
+    AllowedPattern: ^https?://.*$
+    ConstraintDescription: Must be a valid HTTP or HTTPS URL
+    Default: https://raw.githubusercontent.com/aws-samples/one-observability-demo/refs/heads/main/src/presets/default.env
+
+  pOrganizationName:
+    Type: String
+    Description: GitHub/CodeCommit organization name
+    AllowedPattern: '[A-Za-z0-9_.-]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+    Default: aws-samples
+
+  pRepositoryName:
+    Type: String
+    Description: Repository containing the CDK code
+    AllowedPattern: '[A-Za-z0-9_.-]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+    Default: one-observability-demo
+
+  pBranchName:
+    Type: String
+    Description: Branch to deploy from
+    Default: main
+    AllowedPattern: '[A-Za-z0-9_./-]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, slashes, or hyphens
+
+  pWorkingFolder:
+    Type: String
+    Description: Working folder for deployment
+    Default: src/cdk
+    AllowedPattern: '[A-Za-z0-9_.-/]+'
+    ConstraintDescription: Must contain only alphanumeric characters, underscores, periods, or hyphens
+
+  pApplicationName:
+    Type: String
+    Description: Application name used for tagging deployed stacks
+    Default: One Observability Workshop
+    AllowedPattern: ^[A-Za-z0-9\s_.-]+$
+    ConstraintDescription: Must contain only alphanumeric characters, spaces, underscores, periods, or hyphens
+
+  pVpcCidr:
+    Type: String
+    Description: CIDR block for the VPC
+    Default: '10.0.0.0/16'
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+
+  pCodeConnectionArn:
+    Type: String
+    Description: Optional CodeConnection ARN for GitHub integration. If provided, will be used instead of S3 as pipeline source.
+    Default: ''
+    AllowedPattern: '^(arn:aws:codeconnections:[a-z0-9-]+:\d{12}:connection/[a-f0-9-]+)?$'
+    ConstraintDescription: Must be empty or a valid CodeConnection ARN
+
+  pParameterStoreBasePath:
+    Type: String
+    Description: Base path in Parameter Store for storing configuration
+    Default: /petstore
+    AllowedPattern: '^/[a-zA-Z0-9/_-]+$'
+    ConstraintDescription: Must be a valid Parameter Store path starting with /
+
+  pWaitForDeployment:
+    Type: String
+    Description: Wait for the inner CDK pipeline to complete using a CloudFormation wait condition. Set to 'false' to mark the stack complete as soon as the pipeline is launched (fire-and-forget) and watch CodePipeline yourself. On failure the stack is marked failed but the CDK application stacks are LEFT IN PLACE (no teardown).
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either 'true' or 'false'
+
+Conditions:
+  cWaitForDeployment: !Equals
+    - !Ref pWaitForDeployment
+    - 'true'
+
+Resources:
+  # Access-log bucket for the config bucket (S3 server access logging)
+  rConfigBucketAccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket-access-logs
+
+  rConfigBucketAccessLogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucketAccessLogsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: S3ServerAccessLogsWrite
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub ${rConfigBucketAccessLogsBucket.Arn}/config-bucket-access-logs/*
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !GetAtt rConfigBucket.Arn
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt rConfigBucketAccessLogsBucket.Arn
+              - !Sub ${rConfigBucketAccessLogsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  rConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      LoggingConfiguration:
+        DestinationBucketName: !Ref rConfigBucketAccessLogsBucket
+        LogFilePrefix: config-bucket-access-logs/
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-config-bucket
+
+  rConfigBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref rConfigBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt rConfigBucket.Arn
+              - !Sub ${rConfigBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  rWorkshopConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '${pParameterStoreBasePath}/${AWS::StackName}/config'
+      Type: String
+      Value: '# Configuration will be populated by CodeBuild'
+      Description: !Sub 'Workshop configuration for stack ${AWS::StackName}'
+      Tags:
+        Environment: workshop
+        StackName: !Ref AWS::StackName
+
+  rCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+      Policies:
+        - PolicyName: EnhancedPipelineMonitoring
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codepipeline:ListPipelineExecutions
+                  - codepipeline:GetPipelineExecution
+                  - codepipeline:GetPipelineState
+                  - codepipeline:ListActionExecutions
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'aws:RequestedRegion': !Ref AWS::Region
+        - PolicyName: ParameterStoreAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${pParameterStoreBasePath}/*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-codebuild-role
+
+  rCDKDeploymentWaitConditionHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Condition: cWaitForDeployment
+
+  rCDKDeploymentWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    Condition: cWaitForDeployment
+    Properties:
+      Handle: !Ref rCDKDeploymentWaitConditionHandle
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min).
+      Timeout: 7200
+      Count: 1
+
+  rCDKDeploymentProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub ${AWS::StackName}-cdk-deployment
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min),
+      # otherwise the build is killed before it POSTs SUCCESS and the WaitCondition
+      # falsely times out even though the pipeline succeeded. Default is 60 min.
+      TimeoutInMinutes: 120
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: APPLICATION_NAME
+            Value: !Ref pApplicationName
+            Type: PLAINTEXT
+          - Name: CONFIG_FILE_URL
+            Value: !Ref pConfigFileUrl
+            Type: PLAINTEXT
+          - Name: CONFIG_BUCKET
+            Value: !Ref rConfigBucket
+            Type: PLAINTEXT
+          - Name: ORGANIZATION_NAME
+            Value: !Ref pOrganizationName
+            Type: PLAINTEXT
+          - Name: REPOSITORY_NAME
+            Value: !Ref pRepositoryName
+            Type: PLAINTEXT
+          - Name: BRANCH_NAME
+            Value: !Ref pBranchName
+            Type: PLAINTEXT
+          - Name: WORKING_FOLDER
+            Value: !Ref pWorkingFolder
+            Type: PLAINTEXT
+          - Name: STACK_NAME
+            Value: !Ref AWS::StackName
+            Type: PLAINTEXT
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+            Type: PLAINTEXT
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+            Type: PLAINTEXT
+          - Name: VPC_CIDR
+            Value: !Ref pVpcCidr
+            Type: PLAINTEXT
+          - Name: CODE_CONNECTION_ARN
+            Value: !Ref pCodeConnectionArn
+            Type: PLAINTEXT
+          - Name: PARAMETER_STORE_BASE_PATH
+            Value: !Ref pParameterStoreBasePath
+            Type: PLAINTEXT
+          - Name: WAIT_FOR_DEPLOYMENT
+            Value: !Ref pWaitForDeployment
+            Type: PLAINTEXT
+      Cache:
+        Type: LOCAL
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
+      ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 22
+                python: 3.12
+              commands:
+                - npm install -g aws-cdk
+                - pip3 install git-remote-s3
+            pre_build:
+              commands:
+                - git config --global user.email "codebuild@aws.amazon.com"
+                - git config --global user.name "AWS CodeBuild"
+                - git clone --depth 1 --branch $BRANCH_NAME https://github.com/$ORGANIZATION_NAME/$REPOSITORY_NAME.git ./repo
+                - cd ./repo
+                - |
+                  curl -o ./config.env "$CONFIG_FILE_URL"
+                - cat ./config.env >> ${WORKING_FOLDER}/.env
+                - ./${WORKING_FOLDER}/scripts/validate-account.sh ${WORKING_FOLDER}/.env --clean
+                - |
+                  CONFIG_PARAM_NAME="${PARAMETER_STORE_BASE_PATH}/${STACK_NAME}/config"
+                  echo "Parameter path: ${CONFIG_PARAM_NAME}"
+                - |
+                  cat >> ${WORKING_FOLDER}/.env << EOF
+                  CONFIG_FILE_URL=$CONFIG_FILE_URL
+                  CONFIG_BUCKET=$CONFIG_BUCKET
+                  ORGANIZATION_NAME=$ORGANIZATION_NAME
+                  REPOSITORY_NAME=$REPOSITORY_NAME
+                  BRANCH_NAME=$BRANCH_NAME
+                  WORKING_FOLDER=$WORKING_FOLDER
+                  STACK_NAME=$STACK_NAME
+                  AWS_REGION=$AWS_REGION
+                  AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+                  CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
+                  PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
+                  CONFIG_PARAM_NAME=$CONFIG_PARAM_NAME
+                  EOF
+                - |
+                  echo "Storing complete configuration in Parameter Store parameter"
+                  aws ssm put-parameter \
+                    --name "${CONFIG_PARAM_NAME}" \
+                    --value "$(cat ${WORKING_FOLDER}/.env)" \
+                    --type "String" \
+                    --overwrite
+                  echo "Configuration successfully stored in Parameter Store"
+                - |
+                  if [ -n "$CODE_CONNECTION_ARN" ] && [ "$CODE_CONNECTION_ARN" != "" ]; then
+                    echo "CodeConnection ARN provided: $CODE_CONNECTION_ARN"
+                    echo "Will use CodeConnection as pipeline source"
+                  else
+                    echo "No CodeConnection ARN provided, using S3 as fallback source"
+                    git add ${WORKING_FOLDER}/.env -f
+                    git commit -m "Add merged configuration and environment variables to .env"
+                    git remote add s3 s3+zip://$CONFIG_BUCKET/repo
+                    git push s3 $BRANCH_NAME --force
+                  fi
+                - ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} ${AWS_REGION}
+                - |
+                  echo "Checking for WAF configuration..."
+                  grep "CUSTOM_ENABLE_WAF" ${WORKING_FOLDER}/.env || echo "WAF setting not found"
+                  if grep -q "CUSTOM_ENABLE_WAF=true" ${WORKING_FOLDER}/.env; then
+                    echo "WAF enabled, bootstrapping us-east-1..."
+                    ./${WORKING_FOLDER}/scripts/bootstrap-account.sh ${AWS_ACCOUNT_ID} us-east-1
+                  else
+                    echo "WAF not enabled, skipping us-east-1 bootstrap"
+                  fi
+            build:
+              commands:
+                - cd $WORKING_FOLDER
+                - npm install
+                - cdk synth --quiet
+                # --no-rollback: a failed pipeline-stack deploy leaves partial
+                # resources in place for debugging rather than rolling back
+                # (ADR-0001: lite template does not auto-roll-back).
+                - |
+                  cdk deploy OneObservability \
+                    --require-approval never \
+                    --no-rollback \
+                    --outputs-file cdk-outputs.json \
+                    --tags application="$APPLICATION_NAME" \
+                    --tags sequence="0" \
+                    --quiet
+                - PIPELINE_ARN=$(cat cdk-outputs.json | jq -r '.[] | select(has("PipelineArn")) | .PipelineArn')
+                - |
+                  if [ -z "$PIPELINE_ARN" ] || [ "$PIPELINE_ARN" = "null" ]; then
+                    echo "ERROR: Pipeline ARN is empty or null. CDK deployment failed to create pipeline."
+                    exit 1
+                  fi
+                - |
+                  echo "Pipeline ARN: $PIPELINE_ARN"
+                - |
+                  PIPELINE_NAME=$(echo $PIPELINE_ARN | cut -d':' -f6)
+                - |
+                  echo "Pipeline Name: $PIPELINE_NAME"
+                # Only wait for the pipeline when WAIT_FOR_DEPLOYMENT=true.
+                # Fire-and-forget (false) returns here; watch CodePipeline yourself.
+                - |
+                  if [ "$WAIT_FOR_DEPLOYMENT" = "true" ]; then
+                    ./scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
+                  else
+                    echo "WAIT_FOR_DEPLOYMENT=false: pipeline launched, not waiting."
+                  fi
+            post_build:
+              commands:
+                # Report-only. NO teardown, NO cleanup state machine (ADR-0001).
+                # A failed build signals FAILURE to the wait condition so the
+                # stack is marked failed, but the CDK application stacks are left
+                # in place for inspection and retry. Tear down deliberately with
+                # `npm run cleanup -- --discover` or teardown-stepfunction.yaml.
+                - |
+                  if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ] && [ "$WAIT_FOR_DEPLOYMENT" = "true" ]; then
+                    echo "Build failed. Signaling FAILURE to the wait condition. CDK stacks are left in place for inspection; no teardown is performed."
+                    WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name $STACK_NAME --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region $AWS_REGION)
+                    curl -X PUT -H 'Content-Type:' --data-binary '{"Status" : "FAILURE","Reason" : "Build failed (no teardown performed)","UniqueId" : "'$(uuidgen)'","Data" : "Build execution failed"}' "$WAIT_HANDLE_URL"
+                  else
+                    echo "Build state: $CODEBUILD_BUILD_SUCCEEDING (signal already sent during pipeline monitoring, or fire-and-forget mode)."
+                  fi
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cdk-deployment
+
+  rStartDeployment:
+    Type: Custom::StartDeployment
+    DependsOn:
+      - rConfigBucket
+      - rCodeBuildServiceRole
+    Properties:
+      ServiceToken: !GetAtt rStartDeploymentFunction.Arn
+      CodeBuildProjectName: !Ref rCDKDeploymentProject
+      WaitConditionHandle: !If
+        - cWaitForDeployment
+        - !Ref rCDKDeploymentWaitConditionHandle
+        - !Ref AWS::NoValue
+
+  rStartDeploymentFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt rStartDeploymentFunctionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import time
+
+          def handler(event, context):
+              if event['RequestType'] in ['Create', 'Update']:
+                  try:
+                      codebuild = boto3.client('codebuild')
+                      project_name = event['ResourceProperties']['CodeBuildProjectName']
+                      response = codebuild.start_build(projectName=project_name)
+                      build_id = response['build']['id']
+                      time.sleep(5)
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                          'BuildId': build_id
+                      })
+                  except Exception as e:
+                      print(f"Error starting CodeBuild project: {str(e)}")
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {
+                          'Error': str(e)
+                      })
+              else:  # Delete
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+      Timeout: 30
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-function
+
+  rStartDeploymentFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                Resource: !GetAtt rCDKDeploymentProject.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-start-deployment-role
+
+Outputs:
+  oConfigBucketName:
+    Description: Name of the S3 bucket storing configuration files
+    Value: !Ref rConfigBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-ConfigBucketName
+
+  oCodeBuildProjectName:
+    Description: Name of the CodeBuild project orchestrating CDK deployment
+    Value: !Ref rCDKDeploymentProject
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeBuildProjectName
+
+  oDeploymentStatus:
+    Description: Status of the CDK deployment
+    Value: !Sub Check CodeBuild project ${rCDKDeploymentProject} for deployment status
+    Export:
+      Name: !Sub ${AWS::StackName}-DeploymentStatus
+
+  oTeardownNote:
+    Description: How to tear down this deployment (no automatic teardown is performed by this template)
+    Value: 'Run `npm run cleanup -- --discover` from src/cdk, or deploy and run teardown-stepfunction.yaml.'
+
+  oRepositoryInfo:
+    Description: Repository information used for deployment
+    Value: !Sub 'Organization: ${pOrganizationName}, Repository: ${pRepositoryName}, Branch: ${pBranchName}'
+    Export:
+      Name: !Sub ${AWS::StackName}-RepositoryInfo

@@ -42,9 +42,13 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ### CloudFormation Templates
 
-This repository provides CloudFormation templates for automated deployment:
+This repository provides three CloudFormation templates (see [ADR-0001](https://aws-samples.github.io/one-observability-demo/architecture/decisions/0001-deployment-template-split-and-safer-teardown/)):
 
-- **[codebuild-deployment-template.yaml](./src/templates/codebuild-deployment-template.yaml)** - CodeBuild CDK deployment template with intelligent retry handling
+- **[codebuild-deployment-template.yaml](./src/templates/codebuild-deployment-template.yaml)** - Full deploy bootstrapper. Waits for the CDK pipeline and reports status. Does NOT auto-roll-back or tear down on failure.
+- **[codebuild-deployment-lite.yaml](./src/templates/codebuild-deployment-lite.yaml)** - Lite deploy bootstrapper. Same deploy flow, smallest footprint, no cleanup machinery. Supports fire-and-forget (`pWaitForDeployment=false`).
+- **[teardown-stepfunction.yaml](./src/templates/teardown-stepfunction.yaml)** - Standalone, opt-in teardown. Deployed and invoked deliberately; supports a dry-run preview. Never triggered automatically.
+
+Neither deploy template tears down the CDK stacks on failure: a failed or slow deploy leaves them in place for inspection and retry.
 
 ### Quick Start
 
@@ -66,7 +70,10 @@ For step-by-step deployment instructions, source options (CodeConnection or S3),
 
 ## Cleanup
 
-After completing the workshop, clean up your AWS resources to avoid ongoing charges.
+Teardown is deliberate: no deploy template tears down the CDK stacks automatically. After completing the workshop, clean up your AWS resources to avoid ongoing charges, by either:
+
+- Running `npm run cleanup -- --discover` from `src/cdk` (the discovery-based cleanup script), or
+- Deploying **[teardown-stepfunction.yaml](./src/templates/teardown-stepfunction.yaml)** and starting its state machine with `{"confirm":"DELETE"}` (add `"dryRun":true` to preview what would be deleted first).
 
 For comprehensive cleanup instructions, troubleshooting, and safety guidelines, see:
 

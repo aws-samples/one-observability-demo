@@ -83,6 +83,9 @@ nav:
       - Overview: architecture/overview.md
       - Deployment Stages: architecture/stages.md
       - Observability Patterns: architecture/observability.md
+      - Decision Records:
+          - Overview: architecture/decisions/index.md
+          - ADR-0001 Template split and safer teardown: architecture/decisions/0001-deployment-template-split-and-safer-teardown.md
   - Microservices:
       - Overview: microservices/index.md
       - payforadoption-go: microservices/payforadoption-go.md

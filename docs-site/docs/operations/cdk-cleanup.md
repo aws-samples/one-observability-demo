@@ -1,64 +1,95 @@
-# CDK Stack Cleanup
+# CDK Stack Cleanup (standalone teardown)
 
-Automated cleanup mechanism using Step Functions with async polling for reliable deletion of CDK stacks, S3 buckets, and bootstrap resources.
+Teardown of the CDK-pipeline-created stacks is handled by a **standalone, opt-in**
+CloudFormation template, `src/templates/teardown-stepfunction.yaml`. It is
+deployed separately from the deploy bootstrapper and is **never triggered
+automatically** (see [ADR-0001](../architecture/decisions/0001-deployment-template-split-and-safer-teardown.md)).
 
-## Problem Solved
+## Why it exists
 
-- **Timeout Limitations** — Original Lambda approach had 15-minute timeout, insufficient for EKS/Aurora (30+ minutes)
-- **Orphaned Resources** — Failed cleanups would delete the cleanup mechanism itself
-- **Silent Failures** — Stack deletion could complete even if cleanup failed
+The deploy bootstrapper does not create the application infrastructure itself; it
+launches a self-mutating CDK pipeline that does. From CloudFormation's point of
+view the resulting `Core`/`Backend`/`Microservices` stacks, the `CDKToolkitPetsite`
+bootstrap stack, the `cdk-petsite-assets-*` bucket, and the
+`cdk-petsite-container-assets-*` ECR repo are orphans it cannot delete. This Step
+Function discovers those stacks by tag and deletes them in the right order.
+
+## Why it is opt-in (not automatic)
+
+Previously the cleanup state machine was embedded in the deploy template and
+triggered automatically from the CodeBuild failure path, a stack-rollback custom
+resource, and an EventBridge `DELETE_IN_PROGRESS` rule. That coupled "the deploy
+timed out being watched" to "destroy the whole environment", so a healthy-but-slow
+deploy could be torn down (the 2026-09-14 RCA). All of those automatic triggers
+have been removed. Teardown is now an explicit operator action with a confirmation
+token and a dry-run preview.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    List["List Tagged Stacks"] --> Check{"Stacks Found?"}
-    Check -->|Yes| Delete["Delete Stacks (sequential)"]
-    Check -->|No| Done["Done"]
+    Confirm{"confirm == DELETE?"} -->|No| Fail["Fail: ConfirmationRequired"]
+    Confirm -->|Yes| Dry{"dryRun?"}
+    Dry -->|Yes| Preview["List stacks that WOULD be deleted (END)"]
+    Dry -->|No| List["List Tagged Stacks (application AND parent)"]
+    List --> Check{"Stacks Found?"}
+    Check -->|Yes| Delete["Delete Stacks (reverse sequence, sequential)"]
+    Check -->|No| Staging["Cleanup CDK Staging Bucket"]
     Delete --> Eval{"All Succeeded?"}
-    Eval -->|Yes| Staging["Cleanup CDK Staging Bucket"]
-    Eval -->|No| Skip["Skip Cleanup (END)"]
-    Staging --> Cache["Cleanup Cache Bucket"]
-    Cache --> Toolkit["Delete CDK Toolkit Stack"]
+    Eval -->|Yes| Staging
+    Eval -->|No| Skip["Skip Cleanup (allow retry, END)"]
+    Staging --> Toolkit["Delete CDK Toolkit Stack"]
     Toolkit --> Complete["Cleanup Complete"]
 ```
 
-## Execution Workflows
+## Deploy and run
 
-### Successful Cleanup
+```bash
+# 1. Deploy the teardown stack (parameterized to one deployment)
+aws cloudformation create-stack \
+  --stack-name OneObservability-Teardown \
+  --template-body file://src/templates/teardown-stepfunction.yaml \
+  --capabilities CAPABILITY_IAM \
+  --parameters \
+    ParameterKey=pApplicationName,ParameterValue="One Observability Workshop" \
+    ParameterKey=pParentStackName,ParameterValue=<your deploy stack name>
 
-1. CloudFormation stack deletion initiated
-2. Custom resource starts Step Function
-3. CDK stacks listed and deleted sequentially
-4. All deletions succeed → cleanup S3 buckets and bootstrap stack
-5. Cleanup completion function removes all retained resources
-6. No resources left behind
+# 2. Preview what WOULD be deleted (deletes nothing)
+aws stepfunctions start-execution \
+  --state-machine-arn <StateMachineArn output> \
+  --input '{"confirm":"DELETE","dryRun":true}'
 
-### Failed Cleanup
+# 3. Perform the teardown
+aws stepfunctions start-execution \
+  --state-machine-arn <StateMachineArn output> \
+  --input '{"confirm":"DELETE"}'
+```
 
-1. One or more stack deletions fail
-2. Step Function skips cleanup steps
-3. CloudFormation stack deletion fails (`DELETE_FAILED`)
-4. All cleanup resources preserved for retry
+The `oDryRunCommand` and `oTeardownCommand` stack outputs print these commands
+with the ARN already filled in.
 
-### Retry After Failure
+## Guard rails
 
-1. Investigate Step Function execution history
-2. Manually resolve the issue
-3. Delete the CloudFormation stack again
-4. Step Function automatically retries
+- **Confirmation required** — the state machine fails immediately unless started
+  with `{"confirm":"DELETE"}`. An accidental or empty invocation is a no-op.
+- **Dry-run** — `{"confirm":"DELETE","dryRun":true}` lists the stacks that would
+  be deleted, in order, and deletes nothing.
+- **Two-tag scoping** — only stacks carrying BOTH `application=<pApplicationName>`
+  AND `parent=<pParentStackName>` are deleted, so concurrent workshops in one
+  account cannot delete each other's stacks. The IAM `DeleteStack` permission is
+  conditioned on both tags as well.
+- **Reverse-sequence, fail-safe deletion** — stacks are deleted highest
+  `sequence` first; if any stack fails to delete, bootstrap cleanup is skipped so
+  the deployment can be retried.
 
-## Key Features
+## Key features
 
-- **No timeout limits** — Step Functions can run up to 1 year
-- **Failure detection** — Cleanup only proceeds if ALL deletions succeed
-- **Retry capability** — Failed cleanups preserve all resources for retry
-- **Complete cleanup** — On success, all Lambda functions, IAM roles, EventBridge rules, and the state machine itself are deleted
-
-## Triggers
-
-- **Stack Deletion** — EventBridge rule monitors `DELETE_IN_PROGRESS` status
-- **CodeBuild Failure** — EventBridge rule monitors `FAILED`, `FAULT`, `STOPPED`, `TIMED_OUT`
+- **No timeout limits** — Step Functions can run far longer than a Lambda, enough
+  for EKS/Aurora teardown (30+ minutes).
+- **Failure detection** — bootstrap cleanup only proceeds if ALL stack deletions
+  succeed.
+- **Self-contained** — deleting the teardown CloudFormation stack removes the
+  state machine and its Lambdas/roles.
 
 ## Troubleshooting
 
