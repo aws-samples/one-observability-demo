@@ -24,7 +24,7 @@ Parameters:
 
   pParentStackName:
     Type: String
-    Description: Value of the 'parent' tag (the deploy bootstrapper stack name) used to scope deletion to one deployment. Pipeline stages are tagged parent=<bootstrapper stack name>.
+    Description: Value of the 'stackName' tag (the deploy bootstrapper stack name) used to scope deletion to one deployment. Pipeline stages are tagged stackName=<bootstrapper stack name> and parent=<CDK app name>; stackName is the per-deployment discriminator (parent is shared by every deploy of the app).
     AllowedPattern: '[A-Za-z0-9-]+'
     ConstraintDescription: Must be a valid CloudFormation stack name
 
@@ -72,8 +72,16 @@ Resources:
                 "Type": "Choice",
                 "Choices": [
                   {
-                    "Variable": "$.dryRun",
-                    "BooleanEquals": true,
+                    "And": [
+                      {
+                        "Variable": "$.dryRun",
+                        "IsPresent": true
+                      },
+                      {
+                        "Variable": "$.dryRun",
+                        "BooleanEquals": true
+                      }
+                    ],
                     "Next": "DryRunListStacks"
                   }
                 ],
@@ -371,7 +379,7 @@ Resources:
                 Condition:
                   StringEquals:
                     "aws:ResourceTag/application": !Ref pApplicationName
-                    "aws:ResourceTag/parent": !Ref pParentStackName
+                    "aws:ResourceTag/stackName": !Ref pParentStackName
               - Effect: Allow
                 Action:
                   - cloudformation:DeleteStack
@@ -400,6 +408,16 @@ Resources:
                   - ssm:DeleteParameter
                   - ssm:GetParameter
                 Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-bootstrap/${pBootstrapQualifier}/*'
+              - Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-${pBootstrapQualifier}-*'
 
   rDeletionResultCheckerFunction:
     Type: AWS::Lambda::Function
@@ -467,14 +485,14 @@ Resources:
                               tags = stack_detail['Stacks'][0].get('Tags', [])
 
                               has_app_tag = False
-                              has_parent_tag = False
+                              has_deployment_tag = False
                               sequence_value = 1
 
                               for tag in tags:
                                   if tag['Key'] == 'application' and tag['Value'] == application_name:
                                       has_app_tag = True
-                                  elif tag['Key'] == 'parent' and tag['Value'] == parent_stack_name:
-                                      has_parent_tag = True
+                                  elif tag['Key'] == 'stackName' and tag['Value'] == parent_stack_name:
+                                      has_deployment_tag = True
                                   elif tag['Key'] == 'sequence':
                                       try:
                                           sequence_value = int(tag['Value'])
@@ -483,7 +501,10 @@ Resources:
 
                               # Require BOTH tags so concurrent deployments in one
                               # account cannot delete each other's stacks (ADR-0001).
-                              if has_app_tag and has_parent_tag:
+                              # The per-deployment discriminator is the 'stackName'
+                              # tag (= the bootstrapper stack name); 'parent' is the
+                              # CDK app name and is shared by every deploy of this app.
+                              if has_app_tag and has_deployment_tag:
                                   stacks.append({
                                       'name': stack['StackName'],
                                       'region': current_region,

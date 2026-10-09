@@ -76,8 +76,9 @@ non-destructive by default.
    operator wants managed teardown. It survives a failed deploy (which is exactly
    when it is needed), requires an explicit confirmation input, supports a
    dry-run that logs the blast radius without deleting, and narrows stack
-   matching to the `application` **and** `parent` tags so concurrent workshops in
-   one account cannot delete each other's stacks.
+   matching to the `application` **and** `stackName` tags so concurrent workshops in
+   one account cannot delete each other's stacks (the `stackName` tag carries the
+   per-deployment bootstrapper name; the `parent` tag is the shared CDK app name).
 
 The ordered, `sequence`-aware deletion logic, versioned-bucket emptying, and
 self-deleting helper functions from the original Step Function are preserved;
