@@ -51,6 +51,7 @@ function legacyRuntimeLogicalId(constructId: string): string {
 /** A Bedrock AgentCore Runtime for one Waggle AI agent (orchestrator or sub-agent). */
 export class AgentRuntimeConstruct extends Construct {
     public readonly agentRuntime: Runtime;
+    public readonly runtimeResource: CfnRuntime;
 
     constructor(scope: Construct, id: string, properties: AgentRuntimeProperties) {
         super(scope, id);
@@ -211,6 +212,7 @@ export class AgentRuntimeConstruct extends Construct {
         // The L2's internal Resource child adds a path segment. Restore the former L1 logical ID to avoid replacement.
         const runtimeResource = this.agentRuntime.node.defaultChild as CfnRuntime;
         runtimeResource.overrideLogicalId(legacyRuntimeLogicalId(this.node.id));
+        this.runtimeResource = runtimeResource;
 
         if (properties.ssmArnParameterName) {
             Utilities.createSsmParameters(

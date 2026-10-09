@@ -684,6 +684,9 @@ export abstract class EcsService extends Microservice {
      * @returns CloudWatch agent configuration object
      */
     private buildCloudWatchConfig(traceMode: CloudWatchAgentTraceMode): Record<string, unknown> {
+        // Start with the always-present sections. The top-level `metrics` section is added
+        // ONLY when we populate it (OTLP mode) — CW Agent rejects an empty metrics_collected
+        // with "Must have at least 1 properties".
         const config: Record<string, unknown> = {
             traces: {
                 traces_collected: {},
@@ -694,27 +697,34 @@ export abstract class EcsService extends Microservice {
         };
 
         const tracesCollected = (config.traces as { traces_collected: Record<string, unknown> }).traces_collected;
-        const metricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
+        const logsMetricsCollected = (config.logs as { metrics_collected: Record<string, unknown> }).metrics_collected;
 
         switch (traceMode) {
             case CloudWatchAgentTraceMode.APPLICATION_SIGNALS: {
                 // AWS Application Signals configuration - provides automatic service maps and metrics
                 tracesCollected.application_signals = {};
-                metricsCollected.application_signals = {};
+                logsMetricsCollected.application_signals = {};
                 break;
             }
 
             case CloudWatchAgentTraceMode.OTLP: {
-                // OpenTelemetry Protocol configuration - for services using OTEL that don't support Application Signals
-                tracesCollected.otlp = {};
-                // Note: OTLP mode doesn't include Application Signals metrics collection
-                break;
+                // OTLP-native services: the agent translates this single key into its full
+                // OTel pipeline (traces to X-Ray, metrics to the CloudWatch OTLP endpoint, and
+                // span-derived RED metrics via the spanmetrics connector). Matches the agent's
+                // own ECS default (translator/config/defaults/otel_ecs.json).
+                return {
+                    opentelemetry: {
+                        collect: {
+                            otlp: { span_metrics_enabled: true },
+                        },
+                    },
+                };
             }
 
             default: {
                 // Default to Application Signals for backward compatibility
                 tracesCollected.application_signals = {};
-                metricsCollected.application_signals = {};
+                logsMetricsCollected.application_signals = {};
             }
         }
 

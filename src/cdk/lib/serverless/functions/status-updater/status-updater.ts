@@ -16,7 +16,7 @@ import {
     WokshopLambdaFunction,
     WorkshopLambdaFunctionProperties,
     getLambdaInsightsLayerArn,
-    getOpenTelemetryPythonLayerArn,
+    getOpenTelemetryNodeJSLayerArn,
 } from '../../../constructs/lambda';
 import { Construct } from 'constructs';
 import { ManagedPolicy, PolicyDocument, Effect, PolicyStatement, StarPrincipal } from 'aws-cdk-lib/aws-iam';
@@ -204,9 +204,16 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
         }
     }
     getEnvironmentVariables(properties: StatusUpdaterServiceProperties): { [key: string]: string } | undefined {
-        // No environment variables to create
         return {
             TABLE_NAME: properties.table.tableName,
+            OTEL_NODE_DISABLED_INSTRUMENTATIONS: 'none',
+            OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
+            OTEL_METRICS_EXPORTER: 'none',
+            OTEL_LOGS_EXPORTER: 'none',
+            OTEL_SERVICE_NAME: properties.name,
+            OTEL_SERVICE_VERSION: '0.1.0',
+            OTEL_RESOURCE_ATTRIBUTES: 'service.namespace=petadoptions',
+            AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',
         };
     }
     getLayers(): ILayerVersion[] {
@@ -219,7 +226,7 @@ export class StatusUpdatedService extends WokshopLambdaFunction {
             LayerVersion.fromLayerVersionArn(
                 this,
                 'OpenTelemetryLayer',
-                getOpenTelemetryPythonLayerArn(Stack.of(this).region),
+                getOpenTelemetryNodeJSLayerArn(Stack.of(this).region),
             ),
         ];
     }

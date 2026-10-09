@@ -1,6 +1,6 @@
 # Adoption (LlamaIndex) — Bedrock AgentCore Runtime, ARM64.
 #   docker build -f deploy/Dockerfile.adoption -t <repo>:latest .
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM public.ecr.aws/docker/library/python:3.13-slim
 WORKDIR /app
 
 ENV UV_SYSTEM_PYTHON=1 UV_COMPILE_BYTECODE=1 \
@@ -8,7 +8,7 @@ ENV UV_SYSTEM_PYTHON=1 UV_COMPILE_BYTECODE=1 \
     AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true DOCKER_CONTAINER=1
 
 COPY deploy/requirements.adoption.txt /tmp/requirements.txt
-RUN uv pip install -r /tmp/requirements.txt
+RUN pip install --no-cache-dir uv && uv pip install -r /tmp/requirements.txt
 
 RUN useradd -m -u 1000 bedrock_agentcore
 COPY --chown=bedrock_agentcore:bedrock_agentcore . /app/waggle_ai_agents/
@@ -20,4 +20,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ping', timeout=2)"]
 
-CMD ["opentelemetry-instrument", "python", "-m", "waggle_ai_agents.adoption_llamaindex.server"]
+# Append, never set: AgentCore injects service.name and aws.log.group.names into this same variable.
+CMD ["sh", "-c", "export OTEL_RESOURCE_ATTRIBUTES=\"${OTEL_RESOURCE_ATTRIBUTES:+$OTEL_RESOURCE_ATTRIBUTES,}service.namespace=petadoptions\" && exec opentelemetry-instrument python -m waggle_ai_agents.adoption_llamaindex.server"]

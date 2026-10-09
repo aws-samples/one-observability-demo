@@ -90,6 +90,7 @@ import { WaggleAIAutoReload } from '../microservices/waggle-ai-agents-autoreload
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
 import { CfnWebACLAssociation } from 'aws-cdk-lib/aws-wafv2';
 import { DynamoDBWriteTestConstruct } from '../serverless/functions/dynamo-capacity/dynamo-database-write-test-construct';
+import { ManagedPrometheusCollector } from '../constructs/managed-prometheus-collector';
 
 /** Defines where and how a microservice is deployed (host type, compute type, architecture). */
 export interface MicroserviceApplicationPlacement {
@@ -260,6 +261,7 @@ export class MicroservicesStack extends Stack {
     private createMicroservices(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
         this.microservices = new Map<string, Microservice>();
         const agentGatewayTargets: AgentGatewayTarget[] = [];
+        const agentRuntimes: AgentRuntimeConstruct[] = [];
 
         const albEKSCheck = new KubernetesObjectValue(this, 'ALBEKS', {
             cluster: imports.eksExports.cluster,
@@ -300,6 +302,8 @@ export class MicroservicesStack extends Stack {
                         cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         additionalEnvironment: {
                             PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
+                            OTEL_RESOURCE_ATTRIBUTES:
+                                'service.name=payforadoption-api-go,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -343,7 +347,7 @@ export class MicroservicesStack extends Stack {
                             PYTHONPATH:
                                 '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petlistadoptions-api-py,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petlistadoptions-api-py,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
                             OTEL_METRICS_EXPORTER: 'none',
                             OTEL_LOGS_EXPORTER: 'none',
@@ -398,7 +402,7 @@ export class MicroservicesStack extends Stack {
                         additionalEnvironment: {
                             OTEL_SERVICE_NAME: 'petsearch-api-java',
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petsearch-api-java,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petsearch-api-java,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -441,7 +445,7 @@ export class MicroservicesStack extends Stack {
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
                             OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petfood-rs-api,deployment.environment=ecs:PetsiteECS-cluster',
+                                'service.name=petfood-api-rs,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,
@@ -517,11 +521,18 @@ export class MicroservicesStack extends Stack {
                     environmentVariables: agentCfg.env,
                     ssmArnParameterName: agentCfg.ssmArnParameterName,
                 });
+                agentRuntimes.push(runtime);
                 agentGatewayTargets.push({
                     targetName: agentCfg.targetName,
                     runtimeArn: runtime.agentRuntime.agentRuntimeArn,
                 });
             }
+        }
+
+        // Resource-level dep (not construct-level, which cycles): serialize the first runtime so it
+        // alone creates the AgentCore service-linked roles, avoiding the concurrent-create 402.
+        for (const runtime of agentRuntimes.slice(1)) {
+            runtime.runtimeResource.addDependency(agentRuntimes[0].runtimeResource);
         }
 
         // Gateway fronts the runtimes (ingress + delegation); one shared Memory serves all agents.
@@ -547,6 +558,24 @@ export class MicroservicesStack extends Stack {
             }
             new WaggleAIAutoReload(this, 'WaggleAIAutoReload', { repoToRuntime });
         }
+
+        // Managed Prometheus Collector - scrapes ECS services and delivers to CloudWatch
+        const cloudMapNamespaceName = 'Workshop-space'; // Cloud Map namespace, matches network.ts `${name}-space` pattern
+        const privateSubnetIds = imports.vpcExports.privateSubnets.map(
+            (subnet: { subnetId: string }) => subnet.subnetId,
+        );
+
+        new ManagedPrometheusCollector(this, 'ManagedPrometheusCollector', {
+            vpc: imports.vpcExports,
+            securityGroup: imports.ecsExports.securityGroup,
+            privateSubnetIds: privateSubnetIds,
+            cloudMapNamespaceName: cloudMapNamespaceName,
+            targetServices: [
+                { name: 'payforadoption-go', port: 8080 },
+                // petlistadoption-py is added by workshop participants via update-scraper as a hands-on exercise
+            ],
+            additionalUpdateTargets: [{ name: 'petlistadoption-py', port: 8080 }],
+        });
     }
 
     private createCanariesAndLambdas(properties: MicroserviceApplicationsProperties, imports: ImportedResources) {
