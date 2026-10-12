@@ -94,10 +94,16 @@ export const TAGS = {
      * Without this, SpringClean scales EC2/ASG-backed resources (e.g. the EKS
      * managed nodegroup's Auto Scaling Group) to zero at shift end, taking down
      * the EKS-hosted PetSite frontend outside business hours. This only
-     * controls the *stop* action; deletion is separately governed by the
-     * `auto-delete` tag applied at the top-level CloudFormation stack.
+     * controls the *stop* action; deletion is governed by `auto-delete` below.
      */
     'auto-stop': 'no',
+    /**
+     * Exempts all workshop resources from AWS SpringClean's deletion cycle.
+     * Without this, SpringClean deletes the EKS nodegroup and then the cluster
+     * itself roughly a week after deployment, leaving CloudFormation reporting
+     * resources that no longer exist.
+     */
+    'auto-delete': 'no',
 };
 
 /** Default retention period for logs */
