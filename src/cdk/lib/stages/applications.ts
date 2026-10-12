@@ -439,6 +439,7 @@ export class MicroservicesStack extends Stack {
                         cloudMapNamespace: imports.cloudMap,
                         petFoodTable: imports.dynamodbExports.petFoodsTable,
                         petFoodCartTable: imports.dynamodbExports.petFoodsCartTable,
+                        eventBus: imports.eventBusExports.eventBus,
                         additionalEnvironment: {
                             PETFOOD_ENABLE_JSON_LOGGING: 'true',
                             PETFOOD_SERVICE_NAME: 'petfood-api-rs',
