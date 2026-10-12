@@ -30,6 +30,8 @@ export interface TrafficGeneratorProperties extends EcsServiceProperties {
     concurrentUsers: number;
     /** Waggle AI chats per hour across all users (each chat invokes Bedrock models); 0 disables them */
     waggleChatsPerHour?: number;
+    /** Adoptions per hour across all users; adopted pets stay unavailable until the 30-minute housekeeping reset */
+    adoptionsPerHour?: number;
 }
 
 /** ECS service that runs the Locust traffic generator. */
@@ -47,6 +49,7 @@ export class TrafficGeneratorService extends EcsService {
                 LOCUST_USERS: `${Math.max(properties.concurrentUsers, 1)}`,
                 LOCUST_SPAWN_RATE: '1',
                 WAGGLE_CHATS_PER_HOUR: `${properties.waggleChatsPerHour ?? 4}`,
+                ADOPTIONS_PER_HOUR: `${properties.adoptionsPerHour ?? 40}`,
                 OTEL_SERVICE_NAME: 'traffic-generator',
                 OTEL_RESOURCE_ATTRIBUTES:
                     'service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
