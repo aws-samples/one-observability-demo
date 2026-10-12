@@ -10,6 +10,8 @@ Each simulated user keeps one `userId` and repeats weighted journeys with 3–10
 |---|---|---|
 | browse | 6 | home page |
 | search | 8 | search by pet type and color |
+| search-by-color | 2 | search by color across all pet types |
+| search-by-pet-id | 2 | look up one pet by its id |
 | adopt | 2 | search → adoption page → `TakeMeHome` → `MakePayment` |
 | adoption-list | 2 | adoption list (petlistadoption-py) |
 | buy-food | 3 | food page → add to cart → cart count → checkout page → pay and check out |
