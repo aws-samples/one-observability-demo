@@ -153,6 +153,17 @@ class PetSiteUser(HttpUser):
             self._get("/", "/ (search)", selectedPetType=pet_type, selectedPetColor=color)
 
     @task(2)
+    def search_by_color(self):
+        with self._journey("search-by-color"):
+            self._get("/", "/ (search by color)", selectedPetType="all", selectedPetColor=random.choice(COLORS))
+
+    @task(2)
+    def search_by_pet_id(self):
+        pet_id, _ = random.choice(PETS[random.choice(list(PETS))])
+        with self._journey("search-by-pet-id"):
+            self._get("/", "/ (search by pet id)", selectedPetType="all", selectedPetColor="all", petid=pet_id)
+
+    @task(2)
     def adopt(self):
         pet_type = random.choice(list(PETS))
         pet_id, color = random.choice(PETS[pet_type])
