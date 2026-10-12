@@ -81,8 +81,8 @@ export const BRANCH_NAME = process.env.BRANCH_NAME || 'feat/cdkpipeline';
 /** Working directory for CDK operations */
 export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 
-/** Max number of concurrent users for traffic generator. User 0 to disable */
-export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
+/** Concurrent simulated users for the Locust traffic generator. Use 0 to run no generator tasks */
+export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 10;
 
 /** Default tags applied to all resources */
 export const TAGS = {
@@ -177,6 +177,17 @@ export const PETFOOD_RS = {
     architecture: ContainerArchitecture.AMD64,
 };
 
+/** Locust traffic generator: continuous synthetic user journeys against the PetSite (ECS, no load balancer) */
+export const TRAFFIC_GENERATOR = {
+    // Not 'traffic-generator': some accounts still have an ECR repository by that name from an older generator
+    name: 'traffic-generator-locust',
+    dockerFilePath: 'src/applications/traffic-generator-locust',
+    hostType: HostType.ECS,
+    computeType: ComputeType.Fargate,
+    disableService: false,
+    architecture: ContainerArchitecture.AMD64,
+};
+
 /** Waggle AI multi-agent system: 5 ARM64 agents sharing one build context, deployed via AgentCore. */
 const WAGGLE_AI_AGENTS_CONTEXT = 'src/applications/microservices/waggle_ai_agents';
 const waggleAiAgent = (name: string, dockerfile: string) => ({
@@ -210,6 +221,7 @@ export const APPLICATION_LIST = [
     PETSEARCH_JAVA,
     PETSITE_NET,
     PETFOOD_RS,
+    TRAFFIC_GENERATOR,
     ...WAGGLE_AI_AGENTS,
 ];
 
@@ -220,6 +232,7 @@ export const MICROSERVICES_PLACEMENT = new Map<string, MicroserviceApplicationPl
     [PETSEARCH_JAVA.name, PETSEARCH_JAVA],
     [PETSITE_NET.name, PETSITE_NET],
     [PETFOOD_RS.name, PETFOOD_RS],
+    [TRAFFIC_GENERATOR.name, TRAFFIC_GENERATOR],
     ...WAGGLE_AI_AGENTS.map((a) => [a.name, a] as [string, MicroserviceApplicationPlacement]),
 ]);
 
@@ -243,18 +256,6 @@ export const STATUS_UPDATER_FUNCTION = {
     memorySize: 128,
     handler: 'handler',
     enableSchedule: false,
-};
-
-export const TRAFFIC_GENERATOR_FUNCTION = {
-    name: 'traffic-generator-node',
-    runtime: Runtime.NODEJS_22_X,
-    depsLockFilePath: '../applications/lambda/traffic-generator-node/package-lock.json',
-    entry: '../applications/lambda/traffic-generator-node/index.js',
-    memorySize: 128,
-    handler: 'handler',
-    scheduleExpression: 'rate(2 minutes)',
-    enableSchedule: CONCURRENT_USERS > 0,
-    timeout: Duration.seconds(90),
 };
 
 export const PETFOOD_IMAGE_GENERATOR_FUNCTION = {
@@ -318,7 +319,6 @@ export const DYNAMO_CAPACITY_TEST_FUNCTION = {
 /** Map of Lambda function names to their configurations */
 export const LAMBDA_FUNCTIONS = new Map<string, WorkshopLambdaFunctionProperties>([
     [STATUS_UPDATER_FUNCTION.name, STATUS_UPDATER_FUNCTION],
-    [TRAFFIC_GENERATOR_FUNCTION.name, TRAFFIC_GENERATOR_FUNCTION],
     [PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name, PETFOOD_CLEANUP_PROCESSOR_FUNCTION],
     [PETFOOD_STOCK_PROCESSOR_FUNCTION.name, PETFOOD_STOCK_PROCESSOR_FUNCTION],
     [PETFOOD_IMAGE_GENERATOR_FUNCTION.name, PETFOOD_IMAGE_GENERATOR_FUNCTION],

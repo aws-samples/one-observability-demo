@@ -15,10 +15,11 @@ SPDX-License-Identifier: Apache-2.0
  * - `petsearch-java` — Java/Spring Boot on ECS Fargate with Application Signals, manual + auto instrumentation
  * - `petsite-net` — .NET on EKS with CloudWatch agent, Application Signals
  * - `petfood-rs` — Rust/Axum on ECS Fargate with OpenTelemetry Rust SDK, custom Prometheus metrics
+ * - `traffic-generator-locust` — Locust on ECS Fargate generating continuous user journeys (no load balancer)
  * - `waggle-ai-*` — multi-framework AI agents on Bedrock AgentCore (orchestrator + sub-agents)
  *
- * **Lambda Functions** (8 functions):
- * - Status updater, traffic generator, RDS seeder, user creator
+ * **Lambda Functions** (7 functions):
+ * - Status updater, RDS seeder, user creator
  * - Petfood image generator, stock processor, cleanup processor
  * - DynamoDB capacity test
  *
@@ -41,6 +42,7 @@ import { WorkshopEcs } from '../constructs/ecs';
 import { Microservice, MicroservicesNames } from '../constructs/microservice';
 import {
     ComputeType,
+    CONCURRENT_USERS,
     CUSTOM_ENABLE_SLO,
     CUSTOM_ENABLE_WAF,
     ENABLE_OPENSEARCH,
@@ -70,7 +72,7 @@ import { EventBusResources } from '../constructs/eventbus';
 import { QueueResources } from '../constructs/queue';
 import { PetFoodECSService } from '../microservices/petfood';
 import { CanaryNames, WorkshopCanaryProperties } from '../constructs/canary';
-import { TrafficGeneratorFunction } from '../serverless/functions/traffic-generator/traffic-generator';
+import { TrafficGeneratorService } from '../microservices/traffic-generator';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { HouseKeepingCanary } from '../serverless/canaries/housekeeping/housekeeping';
 import { TrafficGeneratorCanary } from '../serverless/canaries/traffic-generator/traffic-generator';
@@ -477,6 +479,30 @@ export class MicroservicesStack extends Stack {
                     }
                 }
             }
+            if (name == MicroservicesNames.TrafficGenerator) {
+                if (service?.hostType == HostType.ECS) {
+                    svc = new TrafficGeneratorService(this, name, {
+                        hostType: service.hostType,
+                        computeType: service.computeType,
+                        securityGroup: imports.ecsExports.securityGroup,
+                        ecsCluster: imports.ecsExports.cluster,
+                        disableService: service.disableService,
+                        cpu: 1024,
+                        memoryLimitMiB: 2048,
+                        desiredTaskCount: 1,
+                        name: name,
+                        repositoryURI: `${imports.baseURI}/${name}`,
+                        vpc: imports.vpcExports,
+                        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+                        enableCloudWatchAgent: true,
+                        cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
+                        concurrentUsers: CONCURRENT_USERS,
+                    });
+                    this.microservices.set(name, svc);
+                } else {
+                    throw new Error(`Only ECS is supported for ${name}`);
+                }
+            }
             if (name == MicroservicesNames.PetSite) {
                 if (service?.hostType == HostType.EKS) {
                     svc = new PetSite(this, name, {
@@ -626,11 +652,6 @@ export class MicroservicesStack extends Stack {
                         webAclArn: imports.regionalAclArn,
                     });
                 }
-            }
-            if (name == LambdaFunctionNames.TrafficGenerator) {
-                new TrafficGeneratorFunction(this, name, {
-                    ...lambdafunction,
-                });
             }
             if (name == LambdaFunctionNames.PetfoodCleanupProcessor) {
                 new PetfoodCleanupProcessorFunction(this, name, {

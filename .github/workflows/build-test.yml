@@ -23,6 +23,8 @@ jobs:
                       path: src/applications/microservices/petsearch-java
                     - name: petsite-net
                       path: src/applications/microservices/petsite-net/petsite
+                    - name: traffic-generator-locust
+                      path: src/applications/traffic-generator-locust
         steps:
             - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
 
@@ -50,9 +52,6 @@ jobs:
                       node-version: '22'
                     - name: petstatusupdater
                       path: src/applications/lambda/petstatusupdater-node/
-                      node-version: '22'
-                    - name: traffic-generator
-                      path: src/applications/lambda/traffic-generator-node/
                       node-version: '22'
 
         steps:

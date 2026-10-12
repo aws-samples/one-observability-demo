@@ -46,7 +46,6 @@
     - [Petfood Stock Processor](serverless/functions/petfood/stock-processor/index.md)
     - [RDS Seeder](serverless/functions/rds-seeder/rds-seeder/index.md)
     - [Status Updater](serverless/functions/status-updater/status-updater/index.md)
-    - [Traffic Generator](serverless/functions/traffic-generator/traffic-generator/index.md)
     - [User Creator](serverless/functions/user-creator/user-creator/index.md)
 - Utilities
     - [Utilities](utils/utilities/index.md)
