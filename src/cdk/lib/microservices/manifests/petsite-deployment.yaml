@@ -82,6 +82,26 @@ spec:
                         value: 'service.name=petsite-frontend-dotnet,service.namespace=petadoptions,deployment.environment=eks:{{ EKS_CLUSTER_NAME }}'
                       - name: RESOURCE_DETECTORS_ENABLED
                         value: 'false'
+                      # Export the custom PetSite meter (Telemetry/PetSiteMetrics.cs) over OTLP to the
+                      # CloudWatch agent's OTLP receiver. The injected auto-instrumentation keeps
+                      # these values instead of its OTEL_METRICS_EXPORTER=none default.
+                      - name: OTEL_METRICS_EXPORTER
+                        value: 'otlp'
+                      - name: OTEL_DOTNET_AUTO_METRICS_ADDITIONAL_SOURCES
+                        value: 'PetSite'
+                      - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+                        value: 'http://cloudwatch-agent.amazon-cloudwatch:4318/v1/metrics'
+                      - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+                        value: 'http/protobuf'
+                      - name: OTEL_METRIC_EXPORT_INTERVAL
+                        value: '60000'
+                      # Export only the custom meter: built-in HTTP/Kestrel metrics duplicate what
+                      # Application Signals already provides. Keep runtime instrumentation enabled;
+                      # Application Signals' .NET runtime metrics depend on it.
+                      - name: OTEL_DOTNET_AUTO_METRICS_ASPNETCORE_INSTRUMENTATION_ENABLED
+                        value: 'false'
+                      - name: OTEL_DOTNET_AUTO_METRICS_HTTPCLIENT_INSTRUMENTATION_ENABLED
+                        value: 'false'
                       - name: AWS_PAGER
                         value: ''
 ---

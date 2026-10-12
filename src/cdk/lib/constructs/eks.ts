@@ -271,6 +271,13 @@ export class WorkshopEks extends Construct {
                             application_signals: {},
                         },
                     },
+                    // OTLP receiver (4317 gRPC / 4318 HTTP) that forwards application OTel metrics,
+                    // such as the PetSite custom meter, to the CloudWatch OTLP metrics endpoint
+                    opentelemetry: {
+                        collect: {
+                            otlp: { grpc_endpoint: '0.0.0.0:4317', http_endpoint: '0.0.0.0:4318' },
+                        },
+                    },
                 },
             },
         };
