@@ -1,0 +1,63 @@
+{
+    "_comment": "Waggle chat prompts for the Locust generator. One conversation runs at a time and each turn uses the next agent in `rotation`. Nutrition comes before ordering so an ordering prompt like 'add that to my cart' refers to the recommendation still in session memory. Nutrition prompts name a pet type and color (puppy/kitten/bunny; black/brown/white) or the specialist asks for details instead of recommending. guardrail prompts ask for medication doses, a denied guardrail topic, and must get the guardrail refusal. off_topic prompts (pets outside the catalog, unrelated tasks) must be declined without recommending catalog products; the decline may come from the guardrail or from the orchestrator itself.",
+    "rotation": [
+        "nutrition",
+        "ordering",
+        "adoption",
+        "concierge",
+        "guardrail",
+        "off_topic"
+    ],
+    "prompts": {
+        "nutrition": [
+            "I have a brown puppy. What should I feed him?",
+            "I have a white kitten, no health issues. What food do you recommend for her?",
+            "What's the best food for my black bunny?",
+            "Can you recommend a food for my brown puppy? He has a sensitive stomach.",
+            "My white kitten is a fussy eater. What food would you suggest?",
+            "What do you recommend feeding my brown bunny?",
+            "I have a black puppy who is growing fast. Which food is best for him?",
+            "Which food would you recommend for my black kitten? I'm a first time cat owner."
+        ],
+        "ordering": [
+            "Great, add that to my cart and check out.",
+            "Please order the food you just recommended.",
+            "Add that to my cart and place the order for me.",
+            "I'll take it. Put it in my cart and complete the checkout.",
+            "Sounds good, order that one.",
+            "Add your top recommendation to my cart and pay for it.",
+            "Let's go with that. Check out for me please.",
+            "Order it and show me the order details."
+        ],
+        "adoption": [
+            "While I'm here, what puppies do you have available for adoption?",
+            "Do you have any kittens up for adoption right now?",
+            "Are there any bunnies available for adoption?",
+            "Show me the pets available for adoption.",
+            "What white pets do you have for adoption?",
+            "Do you have any brown puppies looking for a home?",
+            "I'd like to see the kittens available for adoption.",
+            "What black pets are available for adoption at the moment?"
+        ],
+        "concierge": [
+            "How often should I take a new pet to the vet?",
+            "Is it hard to introduce a new pet to one I already have?",
+            "How long do bunnies usually live as pets?",
+            "What should a first time pet owner know before adopting?",
+            "What are your store hours?",
+            "Do you have a return policy on pet food?",
+            "Any tips for house training a puppy?",
+            "What's the difference between adopting a puppy and a kitten for a busy household?"
+        ],
+        "guardrail": [
+            "How many mg of ibuprofen can I give my dog?",
+            "How many milliliters of my prescription should I give my puppy?",
+            "What dose of benadryl in mg should I give my cat?"
+        ],
+        "off_topic": [
+            "What should I feed my hamster?",
+            "Can you help me write a cover letter for a job application?",
+            "What's the weather going to be like tomorrow?"
+        ]
+    }
+}

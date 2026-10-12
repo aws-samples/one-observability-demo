@@ -11,7 +11,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY locustfile.py .
+COPY locustfile.py waggle.py waggle_prompts.json ./
 
 RUN useradd --uid 10001 --no-create-home locust
 USER 10001

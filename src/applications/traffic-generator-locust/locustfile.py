@@ -21,7 +21,6 @@ import os
 import random
 import re
 import time
-import uuid
 
 import boto3
 import gevent
@@ -31,6 +30,9 @@ from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Status, StatusCode
+
+import waggle
 
 logger = logging.getLogger("traffic-generator")
 
@@ -54,16 +56,11 @@ FOODS = {
     "bunny": ["F046a4eca", "F36a222eb", "F57580f2e"],
 }
 COLORS = ["black", "brown", "grey", "white"]
-WAGGLE_PROMPTS = [
-    "What food would you recommend for a new puppy?",
-    "Which pets are available for adoption right now?",
-    "How much should I feed a kitten each day?",
-    "What do bunnies like to eat?",
-]
 
 # Waggle calls invoke Bedrock models, so they are rate limited for the whole process.
 WAGGLE_CHATS_PER_HOUR = float(os.environ.get("WAGGLE_CHATS_PER_HOUR", "4"))
 _next_waggle_chat = time.monotonic()
+_conversation = waggle.Conversation()
 
 # Each adoption marks a pet unavailable until the housekeeping canary resets them every 30 minutes,
 # so adoptions are capped to leave pets available for the next cycle.
@@ -269,18 +266,58 @@ class PetSiteUser(HttpUser):
 
     @task(1)
     def waggle_chat(self):
+        """Next turn of the shared Waggle conversation, with transport and expectation checks."""
         global _next_waggle_chat
-        if WAGGLE_CHATS_PER_HOUR <= 0 or time.monotonic() < _next_waggle_chat:
+        conversation = _conversation
+        if WAGGLE_CHATS_PER_HOUR <= 0 or conversation.busy or time.monotonic() < _next_waggle_chat:
             return
         _next_waggle_chat = time.monotonic() + 3600 / WAGGLE_CHATS_PER_HOUR
-        with self._journey("waggle-chat"):
-            self._get("/Waggle", "/Waggle")
-            self.client.post(
+        agent, message = conversation.next_turn()
+        conversation.busy = True
+        try:
+            self._waggle_turn(conversation, agent, message)
+        finally:
+            conversation.busy = False
+
+    def _waggle_turn(self, conversation, agent, message):
+        with self._journey("waggle-chat") as span:
+            span.set_attribute("waggle.agent", agent)
+            span.set_attribute("waggle.turn", conversation.turn + 1)
+            self.client.get("/Waggle", params={"userId": conversation.user_id}, name="/Waggle")
+            with self.client.post(
                 "/Waggle/SendMessage",
-                json={"message": random.choice(WAGGLE_PROMPTS), "userId": self.user_id, "sessionId": str(uuid.uuid4())},
-                name="/Waggle/SendMessage",
-                timeout=120,
+                json={"message": message, "userId": conversation.user_id, "sessionId": conversation.session_id},
+                name=f"/Waggle/SendMessage ({agent})",
+                timeout=240,
+                catch_response=True,
+            ) as response:
+                reply = response.text or ""
+                problem = (
+                    f"HTTP {response.status_code}" if response.status_code >= 400 else waggle.transport_error(reply)
+                )
+                if problem:
+                    response.failure(problem)
+                    span.set_status(Status(StatusCode.ERROR, problem))
+                    logger.warning("waggle %s turn failed: %s | %s", agent, problem, " ".join(reply.split())[:200])
+                    return
+                conversation.advance(response.headers.get("X-Session-Id"))
+
+            # Quality of the answer is reported as its own Locust stat so it doesn't hide transport errors
+            expectation = waggle.expectation_error(agent, reply)
+            span.set_attribute("waggle.expectation", "fail" if expectation else "pass")
+            self.environment.events.request.fire(
+                request_type="WAGGLE",
+                name=f"expect {agent}",
+                response_time=0,
+                response_length=len(reply),
+                exception=AssertionError(expectation) if expectation else None,
+                context={},
             )
+            if expectation:
+                span.set_status(Status(StatusCode.ERROR, expectation))
+                logger.warning("waggle %s expectation failed: %s | %s", agent, expectation, " ".join(reply.split())[:200])
+            else:
+                logger.info("waggle %s ok (turn %d of session %s)", agent, conversation.turn, conversation.session_id)
 
     def _checkout_payload(self):
         address = {
