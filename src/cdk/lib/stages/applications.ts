@@ -487,8 +487,12 @@ export class MicroservicesStack extends Stack {
                         securityGroup: imports.ecsExports.securityGroup,
                         ecsCluster: imports.ecsExports.cluster,
                         disableService: service.disableService,
-                        cpu: 1024,
-                        memoryLimitMiB: 2048,
+                        // Smallest Fargate size: the generator (128 CPU / 256 MiB) plus the
+                        // CloudWatch agent sidecar (128 / 256) fill the task exactly
+                        cpu: 256,
+                        memoryLimitMiB: 512,
+                        containerCpu: 128,
+                        containerMemoryLimitMiB: 256,
                         desiredTaskCount: 1,
                         name: name,
                         repositoryURI: `${imports.baseURI}/${name}`,
