@@ -49,6 +49,8 @@ namespace PetSite.Services
 
         public async Task<List<Pet>> GetPetDetails(string pettype, string petcolor, string petid, string userId)
         {
+            PetSite.Telemetry.PetSiteMetrics.RecordSearch(pettype, petcolor);
+
             switch (pettype)
             {
                 case "puppy":

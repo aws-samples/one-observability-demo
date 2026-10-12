@@ -26,6 +26,27 @@ Each microservice demonstrates a different observability instrumentation strateg
 - Prometheus metrics exposed by `petfood-rs` and `petlistadoptions-py`
 - Application Signals SLOs on `petsearch-java`
 
+### Custom OpenTelemetry metrics
+
+`petsite-net`, `petsearch-java` and `petfood-rs` record custom business metrics with the OpenTelemetry API. Each service exports them over OTLP to its local CloudWatch agent, and the agent's `opentelemetry.collect.otlp` receiver forwards them to the CloudWatch OTLP metrics endpoint. Query them with PromQL in CloudWatch Query Studio, or use them in dashboards and alarms.
+
+| Metric | Service | Type | Attributes |
+|--------|---------|------|------------|
+| `petsite.searches` | petsite-net | Counter | `pet.type`, `pet.color` |
+| `petsite.adoptions` | petsite-net | Counter | `pet.type`, `outcome` |
+| `petsite.payment.duration` | petsite-net | Histogram (s) | `pet.type`, `outcome` |
+| `petsite.pets.available` | petsite-net | Gauge | — |
+| `petsearch.request.duration` | petsearch-java | Histogram (s) | `http.route`, `http.response.status_code` |
+| `petsearch.response.size` | petsearch-java | Histogram (By) | `http.route`, `http.response.status_code` |
+| `petsearch.pets.returned` | petsearch-java | Counter | `pet.type` |
+
+Attribute values are normalized to small fixed sets (unknown pet types become `other`) to keep cardinality bounded. Static metadata such as `service.name` comes from resource attributes. Example queries:
+
+```promql
+sum by ("pet.type") (increase({"petsite.searches"}[10m]))
+histogram_quantile(0.95, sum(rate({"petsearch.request.duration"}[5m])))
+```
+
 ## Instrumentation by Service
 
 ### payforadoption-go

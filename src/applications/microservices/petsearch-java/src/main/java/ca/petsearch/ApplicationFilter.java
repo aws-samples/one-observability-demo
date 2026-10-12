@@ -22,7 +22,7 @@ public class ApplicationFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
 
-        long requestStartTime = System.currentTimeMillis();
+        long requestStartNanos = System.nanoTime();
 
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper((HttpServletResponse) response);
 
@@ -33,11 +33,10 @@ public class ApplicationFilter implements Filter {
         responseWrapper.copyBodyToResponse();
 
         String statusCode = String.valueOf(((HttpServletResponse)response).getStatus());
+        // The filter is only registered for fixed URL patterns, so the servlet path is a bounded route
+        String route = ((HttpServletRequest)request).getServletPath();
 
-        metricEmitter.emitReturnTimeMetric(
-                System.currentTimeMillis() - requestStartTime, ((HttpServletRequest)request).getServletPath(), statusCode);
-
-
-        metricEmitter.emitBytesSentMetric(loadSize, ((HttpServletRequest)request).getServletPath(), statusCode);
+        metricEmitter.emitRequestDuration((System.nanoTime() - requestStartNanos) / 1e9, route, statusCode);
+        metricEmitter.emitResponseSize(loadSize, route, statusCode);
     }
 }
