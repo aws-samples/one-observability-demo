@@ -12,7 +12,7 @@ Each simulated user keeps one `userId` and repeats weighted journeys with 3–10
 | search | 8 | search by pet type and color |
 | search-by-color | 2 | search by color across all pet types |
 | search-by-pet-id | 2 | look up one pet by its id |
-| adopt | 2 | search → adoption page → `TakeMeHome` → `MakePayment` |
+| adopt | 2 | search → pick a pet the page shows as available → adoption page → `TakeMeHome` → `MakePayment`. Capped by `ADOPTIONS_PER_HOUR` |
 | adoption-list | 2 | adoption list (petlistadoption-py) |
 | buy-food | 3 | food page → add to cart → cart count → checkout page → pay and check out |
 | abandon-cart | 1 | add to cart → remove item → clear cart |
@@ -30,6 +30,7 @@ Every journey is a root OpenTelemetry span. Outgoing requests propagate W3C and 
 | `LOCUST_USERS` | `10` | Concurrent simulated users |
 | `LOCUST_SPAWN_RATE` | `1` | Users started per second |
 | `WAGGLE_CHATS_PER_HOUR` | `4` | Waggle chats per hour across all users; `0` disables them |
+| `ADOPTIONS_PER_HOUR` | `40` | Adoptions per hour across all users. Each adoption keeps a pet unavailable until the housekeeping canary resets pets every 30 minutes, so keep this below the 26 seeded pets per reset cycle |
 | `PETSITE_URL` | — | PetSite base URL; overrides the SSM lookup |
 | `PETSITE_URL_PARAMETER_NAME` | — | SSM parameter that holds the PetSite URL |
 

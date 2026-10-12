@@ -19,6 +19,7 @@ from locust import HttpUser, between, events, task  # isort: skip
 import logging
 import os
 import random
+import re
 import time
 import uuid
 
@@ -63,6 +64,27 @@ WAGGLE_PROMPTS = [
 # Waggle calls invoke Bedrock models, so they are rate limited for the whole process.
 WAGGLE_CHATS_PER_HOUR = float(os.environ.get("WAGGLE_CHATS_PER_HOUR", "4"))
 _next_waggle_chat = time.monotonic()
+
+# Each adoption marks a pet unavailable until the housekeeping canary resets them every 30 minutes,
+# so adoptions are capped to leave pets available for the next cycle.
+ADOPTIONS_PER_HOUR = float(os.environ.get("ADOPTIONS_PER_HOUR", "40"))
+_next_adoption = time.monotonic()
+
+# Each pet card on a search page is a form holding either the "Take me home" button or "Unavailable"
+_PET_FORM = re.compile(r"<form[^>]*takemehome[^>]*>(.*?)</form>", re.IGNORECASE | re.DOTALL)
+_HIDDEN = re.compile(r'<input type="hidden"[^>]*name="(petid|pettype|petcolor)"[^>]*value="([^"]*)"')
+
+
+def available_pets(html):
+    """(petid, pettype, petcolor) for every pet the page offers for adoption."""
+    pets = []
+    for form in _PET_FORM.findall(html):
+        if "ps-unavailable" in form:
+            continue
+        fields = dict(_HIDDEN.findall(form))
+        if {"petid", "pettype", "petcolor"} <= fields.keys():
+            pets.append((fields["petid"], fields["pettype"], fields["petcolor"]))
+    return pets
 
 
 def resolve_host():
@@ -165,10 +187,17 @@ class PetSiteUser(HttpUser):
 
     @task(2)
     def adopt(self):
-        pet_type = random.choice(list(PETS))
-        pet_id, color = random.choice(PETS[pet_type])
+        global _next_adoption
+        if ADOPTIONS_PER_HOUR <= 0 or time.monotonic() < _next_adoption:
+            return
+        _next_adoption = time.monotonic() + 3600 / ADOPTIONS_PER_HOUR
         with self._journey("adopt"):
-            self._get("/", "/ (search)", selectedPetType=pet_type, selectedPetColor=color)
+            # Like a real user, only pick a pet the search page offers for adoption
+            page = self._get("/", "/ (search)", selectedPetType=random.choice(list(PETS)), selectedPetColor="all")
+            choices = available_pets(page.text)
+            if not choices:
+                return
+            pet_id, pet_type, color = random.choice(choices)
             self._get("/Adoption", "/Adoption", petid=pet_id)
             self.client.post(
                 "/Adoption/TakeMeHome",
