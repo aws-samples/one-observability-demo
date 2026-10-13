@@ -1,5 +1,5 @@
 {
-    "_comment": "Waggle chat prompts for the Locust generator. One conversation runs at a time and each turn uses the next agent in `rotation`. Nutrition comes before ordering so an ordering prompt like 'add that to my cart' refers to the recommendation still in session memory. Nutrition prompts name a pet type and color (puppy/kitten/bunny; black/brown/white) or the specialist asks for details instead of recommending. guardrail prompts ask for medication doses, a denied guardrail topic, and must get the guardrail refusal. off_topic prompts (pets outside the catalog, unrelated tasks) must be declined without recommending catalog products; the decline may come from the guardrail or from the orchestrator itself.",
+    "_comment": "Waggle chat prompts for the Locust generator. One conversation runs at a time and each turn uses the next agent in `rotation`. Nutrition comes before ordering so an ordering prompt refers to the recommendation still in session memory. Ordering prompts must say exactly which foods to buy (all of them, the top pick, the first one): nutrition usually recommends several, and 'add that' makes the orchestrator ask which one instead of ordering. Nutrition prompts name a pet type and color (puppy/kitten/bunny; black/brown/white) or the specialist asks for details instead of recommending. guardrail prompts ask for medication doses, a denied guardrail topic, and must get the guardrail refusal. off_topic prompts (pets outside the catalog, unrelated tasks) must be declined without recommending catalog products; the decline may come from the guardrail or from the orchestrator itself.",
     "rotation": [
         "nutrition",
         "ordering",
@@ -20,14 +20,14 @@
             "Which food would you recommend for my black kitten? I'm a first time cat owner."
         ],
         "ordering": [
-            "Great, add that to my cart and check out.",
-            "Please order the food you just recommended.",
-            "Add that to my cart and place the order for me.",
-            "I'll take it. Put it in my cart and complete the checkout.",
-            "Sounds good, order that one.",
+            "Great, please add all of those to my cart and check out.",
+            "Please order every food you just recommended.",
+            "Add your top recommendation to my cart and place the order.",
+            "I'll take the first one you listed. Put it in my cart and complete the checkout.",
+            "Order all of the recommended foods, one of each.",
             "Add your top recommendation to my cart and pay for it.",
-            "Let's go with that. Check out for me please.",
-            "Order it and show me the order details."
+            "Let's go with all of them. Add them to my cart and check out please.",
+            "Order your number one pick and show me the order details."
         ],
         "adoption": [
             "While I'm here, what puppies do you have available for adoption?",
