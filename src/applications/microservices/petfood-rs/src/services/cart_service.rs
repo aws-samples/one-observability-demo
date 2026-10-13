@@ -1,3 +1,4 @@
+use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{info, instrument, warn};
@@ -6,6 +7,7 @@ use crate::models::{
     AddCartItemRequest, Cart, CartItem, CartItemResponse, CartResponse, ServiceError,
     ServiceResult, StockPurchaseEvent, StockPurchaseItem, UpdateCartItemRequest,
 };
+use crate::observability::business;
 use crate::repositories::{CartRepository, FoodRepository};
 use crate::services::EventEmitter;
 
@@ -484,9 +486,45 @@ impl CartService {
         Ok(())
     }
 
-    /// Checkout cart and create order
-    #[instrument(skip(self, request), fields(user_id = %user_id))]
+    /// Checkout cart and create order, recording the order's business telemetry
+    #[instrument(
+        skip(self, request),
+        fields(
+            user_id = %user_id,
+            order.id = tracing::field::Empty,
+            order.total_amount = tracing::field::Empty,
+            order.item_count = tracing::field::Empty,
+            payment.method = tracing::field::Empty,
+            order.failure_reason = tracing::field::Empty,
+        )
+    )]
     pub async fn checkout(
+        &self,
+        user_id: &str,
+        request: crate::models::CheckoutRequest,
+    ) -> ServiceResult<crate::models::CheckoutResponse> {
+        let result = self.process_checkout(user_id, request).await;
+        let span = tracing::Span::current();
+        match &result {
+            Ok(order) => {
+                let amount = order.total_amount.to_f64().unwrap_or_default();
+                let item_count: u64 = order.items.iter().map(|i| u64::from(i.quantity)).sum();
+                span.record("order.id", order.order_id.as_str());
+                span.record("order.total_amount", amount);
+                span.record("order.item_count", item_count);
+                span.record("payment.method", order.payment_method.as_str());
+                business::record_order_confirmed(&order.payment_method, amount, item_count);
+            }
+            Err(error) => {
+                let reason = business::checkout_failure_reason(error);
+                span.record("order.failure_reason", reason);
+                business::record_order_failed(reason);
+            }
+        }
+        result
+    }
+
+    async fn process_checkout(
         &self,
         user_id: &str,
         request: crate::models::CheckoutRequest,
