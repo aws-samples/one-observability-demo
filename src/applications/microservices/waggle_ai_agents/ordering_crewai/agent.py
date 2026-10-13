@@ -3,11 +3,25 @@
 from __future__ import annotations
 
 import json
+import threading
+from collections import defaultdict
 
 from crewai import LLM, Agent, Crew, Process, Task
 from crewai.tools import tool
 
 from waggle_ai_agents.common import models, petstore
+
+# CrewAI runs the tool calls of one model response concurrently. Without this, "add these and
+# check out" sends the adds and the checkout at the same moment, and petfood can receive the
+# checkout before any item is in the cart (404 "Cart not found"). Cart operations for a user
+# therefore run one at a time.
+_cart_locks: defaultdict[str, threading.Lock] = defaultdict(threading.Lock)
+_cart_locks_guard = threading.Lock()
+
+
+def _cart_lock(user_id: str) -> threading.Lock:
+    with _cart_locks_guard:
+        return _cart_locks[user_id]
 
 
 @tool("list_available_foods")
@@ -20,22 +34,52 @@ def list_available_foods() -> str:
 
 @tool("add_food_to_cart")
 def add_food_to_cart(user_id: str, food_id: str, quantity: int = 1) -> str:
-    """Add `quantity` of a food item to `user_id`'s cart. `food_id` MUST be a real id
-    from `list_available_foods` (not a name or a guess), or the cart returns 404.
-    Returns JSON."""
-    return json.dumps(petstore.add_to_cart(user_id, food_id, quantity))
+    """Add `quantity` of a food item to `user_id`'s cart WITHOUT buying it. `food_id` MUST
+    be a real id from `list_available_foods` (not a name or a guess), or the cart returns
+    404. To buy foods, use `checkout_cart` with `items` instead. Returns JSON."""
+    with _cart_lock(user_id):
+        return json.dumps(petstore.add_to_cart(user_id, food_id, quantity))
 
 
 @tool("view_cart")
 def view_cart(user_id: str) -> str:
     """Return the current contents of `user_id`'s cart as JSON."""
-    return json.dumps(petstore.get_cart(user_id))
+    with _cart_lock(user_id):
+        return json.dumps(petstore.get_cart(user_id))
 
 
 @tool("checkout_cart")
-def checkout_cart(user_id: str) -> str:
-    """Check out `user_id`'s cart, placing the food order. Returns JSON."""
-    return json.dumps(petstore.checkout(user_id))
+def checkout_cart(user_id: str, items: list[dict] | None = None) -> str:
+    """Place the food order for `user_id`. Pass the foods to buy as `items`, a list of
+    {"food_id": <id from list_available_foods>, "quantity": <int>}: they are added to the
+    cart and the cart is checked out in ONE step, in that order. Do not also call
+    add_food_to_cart for these items. With no `items`, checks out what is already in the
+    cart. If any item can't be added, nothing is checked out and the error is returned.
+    Returns JSON."""
+    with _cart_lock(user_id):
+        if not items:
+            cart = petstore.get_cart(user_id)
+            if not isinstance(cart, dict) or "error" in cart or not cart.get("items"):
+                # Not an error: steer the model to the one-step call instead of a 404 from petfood
+                return json.dumps(
+                    {
+                        "checked_out": False,
+                        "reason": "The cart is empty, so nothing was ordered yet.",
+                        "next_step": (
+                            "Call checkout_cart again with items=[{\"food_id\": ..., \"quantity\": 1}] for the "
+                            "foods the customer wants to buy. If you don't know which foods, ask the customer."
+                        ),
+                    }
+                )
+        added = []
+        for item in items or []:
+            food_id = item.get("food_id")
+            quantity = int(item.get("quantity", 1))
+            result = petstore.add_to_cart(user_id, food_id, quantity)
+            if isinstance(result, dict) and "error" in result:
+                return json.dumps({"error": f"could not add {food_id}: {result['error']}", "added": added})
+            added.append({"food_id": food_id, "quantity": quantity})
+        return json.dumps({"added": added, "checkout": petstore.checkout(user_id)})
 
 
 _llm = LLM(model=models.litellm_model("ordering"))
@@ -51,7 +95,10 @@ def run(query: str, user_id: str | None = None, session_id: str | None = None) -
             "review cart contents, and place orders via checkout. When a customer "
             "names a food, you FIRST call list_available_foods to find its real "
             "food_id, then add that id to the cart — you never guess an id, because "
-            "the cart rejects unknown ids. If the customer refers to a food by PHOTO "
+            "the cart rejects unknown ids. To buy, you place the order with a single "
+            "checkout_cart call that lists the foods to buy as items; you only use "
+            "add_food_to_cart when the customer wants to add without buying. "
+            "If the customer refers to a food by PHOTO "
             "URL (they clicked a photo in the chat), call list_available_foods and "
             "match that URL against each item's image_url to identify the food. "
             "Checkout places a real order, so state what you are about to buy and its "
