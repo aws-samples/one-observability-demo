@@ -36,7 +36,7 @@ def list_available_foods() -> str:
 def add_food_to_cart(user_id: str, food_id: str, quantity: int = 1) -> str:
     """Add `quantity` of a food item to `user_id`'s cart WITHOUT buying it. `food_id` MUST
     be a real id from `list_available_foods` (not a name or a guess), or the cart returns
-    404. To buy foods, use `checkout_cart` with `items` instead. Returns JSON."""
+    404. To buy foods, use `checkout_cart` with `food_ids` instead. Returns JSON."""
     with _cart_lock(user_id):
         return json.dumps(petstore.add_to_cart(user_id, food_id, quantity))
 
@@ -48,37 +48,46 @@ def view_cart(user_id: str) -> str:
         return json.dumps(petstore.get_cart(user_id))
 
 
+def _quantities_in_cart(cart) -> dict[str, int]:
+    """food_id -> quantity already in a cart response ({} for a missing or empty cart)."""
+    if not isinstance(cart, dict) or "error" in cart:
+        return {}
+    return {i.get("food_id"): int(i.get("quantity", 0)) for i in cart.get("items") or [] if isinstance(i, dict)}
+
+
 @tool("checkout_cart")
-def checkout_cart(user_id: str, items: list[dict] | None = None) -> str:
-    """Place the food order for `user_id`. Pass the foods to buy as `items`, a list of
-    {"food_id": <id from list_available_foods>, "quantity": <int>}: they are added to the
-    cart and the cart is checked out in ONE step, in that order. Do not also call
-    add_food_to_cart for these items. With no `items`, checks out what is already in the
-    cart. If any item can't be added, nothing is checked out and the error is returned.
-    Returns JSON."""
+def checkout_cart(user_id: str, food_ids: list[str] | None = None, quantity: int = 1) -> str:
+    """Place the food order for `user_id`. Pass the foods to buy as `food_ids`, a list of
+    food ids from `list_available_foods` (for example ["F233c473c", "F3e40f637"]). The
+    order will contain `quantity` of each: foods already in the cart are counted, so
+    nothing is bought twice. Then the cart is checked out, all in ONE step. With no
+    `food_ids`, checks out what is already in the cart. If any food can't be added,
+    nothing is checked out and the error is returned. Returns JSON."""
+    food_ids = list(dict.fromkeys(f.strip() for f in (food_ids or []) if isinstance(f, str) and f.strip()))
     with _cart_lock(user_id):
-        if not items:
-            cart = petstore.get_cart(user_id)
-            if not isinstance(cart, dict) or "error" in cart or not cart.get("items"):
-                # Not an error: steer the model to the one-step call instead of a 404 from petfood
-                return json.dumps(
-                    {
-                        "checked_out": False,
-                        "reason": "The cart is empty, so nothing was ordered yet.",
-                        "next_step": (
-                            "Call checkout_cart again with items=[{\"food_id\": ..., \"quantity\": 1}] for the "
-                            "foods the customer wants to buy. If you don't know which foods, ask the customer."
-                        ),
-                    }
-                )
+        in_cart = _quantities_in_cart(petstore.get_cart(user_id))
+        if not food_ids and not in_cart:
+            # Not an error: steer the model to the one-step call instead of a 404 from petfood
+            return json.dumps(
+                {
+                    "checked_out": False,
+                    "reason": "The cart is empty, so nothing was ordered yet.",
+                    "next_step": (
+                        "Call checkout_cart again with food_ids set to the ids of the foods the "
+                        "customer wants to buy. If you don't know which foods, ask the customer."
+                    ),
+                }
+            )
         added = []
-        for item in items or []:
-            food_id = item.get("food_id")
-            quantity = int(item.get("quantity", 1))
-            result = petstore.add_to_cart(user_id, food_id, quantity)
+        for food_id in food_ids:
+            # The model often adds a food and then also lists it here: top up instead of adding again
+            missing = quantity - in_cart.get(food_id, 0)
+            if missing <= 0:
+                continue
+            result = petstore.add_to_cart(user_id, food_id, missing)
             if isinstance(result, dict) and "error" in result:
                 return json.dumps({"error": f"could not add {food_id}: {result['error']}", "added": added})
-            added.append({"food_id": food_id, "quantity": quantity})
+            added.append({"food_id": food_id, "quantity": missing})
         return json.dumps({"added": added, "checkout": petstore.checkout(user_id)})
 
 
@@ -96,7 +105,7 @@ def run(query: str, user_id: str | None = None, session_id: str | None = None) -
             "names a food, you FIRST call list_available_foods to find its real "
             "food_id, then add that id to the cart — you never guess an id, because "
             "the cart rejects unknown ids. To buy, you place the order with a single "
-            "checkout_cart call that lists the foods to buy as items; you only use "
+            "checkout_cart call that lists the ids of the foods to buy as food_ids; you only use "
             "add_food_to_cart when the customer wants to add without buying. "
             "If the customer refers to a food by PHOTO "
             "URL (they clicked a photo in the chat), call list_available_foods and "
