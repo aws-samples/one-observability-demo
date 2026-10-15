@@ -52,7 +52,8 @@ import {
     AccessScopeType,
 } from 'aws-cdk-lib/aws-eks';
 import { KubectlV33Layer } from '@aws-cdk/lambda-layer-kubectl-v33';
-import { ManagedPolicy, Role, ServicePrincipal, OpenIdConnectProvider } from 'aws-cdk-lib/aws-iam';
+import { ManagedPolicy, Role, ServicePrincipal, OpenIdConnectProvider, PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 import { NagSuppressions } from 'cdk-nag';
 import {
     EKS_CLUSTER_ARN_EXPORT_NAME,
@@ -67,6 +68,7 @@ import {
     CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON,
     CUSTOM_ENABLE_ZEUS,
     EKS_CLUSTER_ACCESS_ROLE_NAME,
+    TAGS,
 } from '../../bin/environment';
 
 /** Properties for the EKS cluster construct. */
@@ -111,6 +113,9 @@ export class WorkshopEks extends Construct {
                 },
             ],
             clusterName: `${id}-cluster`,
+            // The cluster is a custom resource, so the Tags aspect never reaches the actual
+            // EKS cluster; pass them explicitly so SpringClean sees the exemption tags.
+            tags: TAGS,
         });
 
         if (EKS_CLUSTER_ACCESS_ROLE_NAME) {
@@ -128,6 +133,7 @@ export class WorkshopEks extends Construct {
         }
 
         this.setupAddons();
+        this.tagNodegroupAutoScalingGroup();
         this.setupSuppressions();
         this.createExports();
     }
@@ -265,6 +271,13 @@ export class WorkshopEks extends Construct {
                             application_signals: {},
                         },
                     },
+                    // OTLP receiver (4317 gRPC / 4318 HTTP) that forwards application OTel metrics,
+                    // such as the PetSite custom meter, to the CloudWatch OTLP metrics endpoint
+                    opentelemetry: {
+                        collect: {
+                            otlp: { grpc_endpoint: '0.0.0.0:4317', http_endpoint: '0.0.0.0:4318' },
+                        },
+                    },
                 },
             },
         };
@@ -305,6 +318,63 @@ export class WorkshopEks extends Construct {
                 RoleArn: iamRoleNetworkFlowAgent.roleArn,
             },
         ]);
+    }
+
+    /**
+     * Copies the SpringClean exemption tags onto the default nodegroup's Auto Scaling Group.
+     * EKS managed nodegroups do not propagate their tags to the underlying ASG, and
+     * SpringClean evaluates the ASG's own tags, so without this it scales the nodes to
+     * zero and the EKS-hosted PetSite frontend goes down.
+     */
+    private tagNodegroupAutoScalingGroup(): void {
+        const nodegroup = this.cluster.defaultNodegroup;
+        if (!nodegroup) return;
+
+        const describeNodegroup = new AwsCustomResource(this, 'DescribeDefaultNodegroup', {
+            onUpdate: {
+                service: 'EKS',
+                action: 'describeNodegroup',
+                parameters: {
+                    clusterName: this.cluster.clusterName,
+                    nodegroupName: nodegroup.nodegroupName,
+                },
+                physicalResourceId: PhysicalResourceId.of(`${nodegroup.nodegroupName}-asg-lookup`),
+                outputPaths: ['nodegroup.resources.autoScalingGroups.0.name'],
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+                new PolicyStatement({
+                    actions: ['eks:DescribeNodegroup'],
+                    resources: [nodegroup.nodegroupArn],
+                }),
+            ]),
+        });
+        const autoScalingGroupName = describeNodegroup.getResponseField('nodegroup.resources.autoScalingGroups.0.name');
+
+        new AwsCustomResource(this, 'TagDefaultNodegroupAsg', {
+            onUpdate: {
+                service: 'AutoScaling',
+                action: 'createOrUpdateTags',
+                parameters: {
+                    Tags: (['auto-stop', 'auto-delete'] as const).map((key) => ({
+                        ResourceId: autoScalingGroupName,
+                        ResourceType: 'auto-scaling-group',
+                        Key: key,
+                        Value: TAGS[key],
+                        PropagateAtLaunch: true,
+                    })),
+                },
+                physicalResourceId: PhysicalResourceId.of(`${nodegroup.nodegroupName}-asg-springclean-tags`),
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+                new PolicyStatement({
+                    actions: ['autoscaling:CreateOrUpdateTags'],
+                    resources: ['*'],
+                    conditions: {
+                        StringEquals: { 'aws:ResourceTag/eks:cluster-name': this.cluster.clusterName },
+                    },
+                }),
+            ]),
+        });
     }
 
     private setupSuppressions(): void {
@@ -353,6 +423,10 @@ export class WorkshopEks extends Construct {
                 {
                     id: 'Workshop-CWL2',
                     reason: 'Cluste resource provider do not implement log retention',
+                },
+                {
+                    id: 'Workshop-Lambda1',
+                    reason: 'AwsCustomResource provider Lambda is implemented by CDK and out of scope',
                 },
             ],
             true,
