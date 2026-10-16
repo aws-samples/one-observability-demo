@@ -694,6 +694,11 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
+      # Must exceed setup + scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min) + seeding.
+      # Unset, CodeBuild defaults to 60 min and kills the build mid-wait: neither the SUCCESS
+      # signal nor post_build's FAILURE is sent, so rCDKDeploymentWaitCondition times out with
+      # "Received 0 conditions" and seeding never runs, even though the pipeline finishes.
+      TimeoutInMinutes: 150
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
