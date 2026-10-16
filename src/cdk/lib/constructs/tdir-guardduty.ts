@@ -63,17 +63,18 @@ export class TdirGuardDuty extends Construct {
         this.detector = new CfnDetector(this, 'Detector', {
             enable: true,
             findingPublishingFrequency: properties?.findingPublishingFrequency || 'FIFTEEN_MINUTES',
-            dataSources: {
-                s3Logs: {
-                    enable: properties?.enableS3Protection !== false,
-                },
-                kubernetes: {
-                    auditLogs: {
-                        enable: properties?.enableEksProtection !== false,
-                    },
-                },
-            },
+            // Features only. GuardDuty rejects a detector that sets both dataSources and features
+            // ("both data sources and features were provided"), so S3 and EKS audit log coverage
+            // is requested here as S3_DATA_EVENTS and EKS_AUDIT_LOGS rather than as dataSources.
             features: [
+                {
+                    name: 'S3_DATA_EVENTS',
+                    status: properties?.enableS3Protection === false ? 'DISABLED' : 'ENABLED',
+                },
+                {
+                    name: 'EKS_AUDIT_LOGS',
+                    status: properties?.enableEksProtection === false ? 'DISABLED' : 'ENABLED',
+                },
                 {
                     name: 'LAMBDA_NETWORK_LOGS',
                     status: properties?.enableLambdaProtection === false ? 'DISABLED' : 'ENABLED',
