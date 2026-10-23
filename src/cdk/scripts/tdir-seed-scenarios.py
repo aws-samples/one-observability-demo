@@ -1157,7 +1157,7 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
     API calls genuinely happen:
 
         TdirCompromisedAgentRole  --iam:CreateRole-->     AgentEscalatedAccess
-        TdirCompromisedAgentRole  --iam:PutRolePolicy-->  itself   (the widening)
+        TdirCompromisedAgentRole  --iam:PutRolePolicy-->  AgentEscalatedAccess (ExpandedToolAccess)
         AgentEscalatedAccess      --sts:AssumeRole-->     (session, from this host's IP)
         AgentEscalatedAccess      --bedrock:DeleteGuardrail-->  a throwaway guardrail
 
