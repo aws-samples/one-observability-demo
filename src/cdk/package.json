@@ -46,7 +46,7 @@
         "@aws-sdk/client-ssm": "^3.914.0",
         "@types/yaml": "^1.9.7",
         "aws-cdk": "2.1141.0",
-        "aws-cdk-lib": "2.269.0",
+        "aws-cdk-lib": "2.273.0",
         "cdk-nag": "^2.37.55",
         "constructs": "^10.4.2",
         "dotenv": "^17.2.3",

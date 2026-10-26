@@ -9,8 +9,20 @@ global_settings:
       not be scanned
   - path: cdk.out
     reason: CDK synthesized output directory
+  - path: node_modules/**
+    reason: Repo-root tooling dependencies (installed output, not source) - SCA runs
+      against lockfiles/manifests, not vendored trees
   - path: src/cdk/node_modules/**
-    reason: Skip node_modules folder
+    reason: CDK app dependencies (installed output, not source); scanning the vendored
+      tree produces false positives from bundled scaffolding such as aws-cdk
+      init-templates
+  - path: src/applications/lambda/**/node_modules/**
+    reason: Node lambda dependencies (installed output, not source)
+  - path: src/applications/microservices/**/node_modules/**
+    reason: Node microservice dependencies (installed output, not source)
+  # NOTE: canary handler code lives at src/applications/canaries/*/nodejs/node_modules/index.js
+  # (a path CloudWatch Synthetics mandates) and is deliberately NOT excluded - it is
+  # first-party source and must still be scanned.
   - path: docs-site/site
     reason: MkDocs build output directory
   - path: docs-site/docs/api/**
