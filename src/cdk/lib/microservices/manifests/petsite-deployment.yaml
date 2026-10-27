@@ -78,6 +78,10 @@ spec:
                         value: {{ RUM_SCRIPT_PARAMETER_NAME }}
                       - name: WAGGLE_AI_RUNTIME_ARN_PARAM_NAME
                         value: {{ WAGGLE_AI_RUNTIME_ARN_PARAM_NAME }}
+                      # Set explicitly: the auto-instrumentation injector otherwise sets
+                      # OTEL_SERVICE_NAME to the Deployment name, which wins over service.name below.
+                      - name: OTEL_SERVICE_NAME
+                        value: '{{ OTEL_SERVICE_NAME }}'
                       - name: OTEL_RESOURCE_ATTRIBUTES
                         value: 'service.name={{ OTEL_SERVICE_NAME }},service.namespace=petadoptions,deployment.environment=eks:{{ EKS_CLUSTER_NAME }}'
                       - name: RESOURCE_DETECTORS_ENABLED
