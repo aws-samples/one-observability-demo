@@ -1337,6 +1337,13 @@ Resources:
           }
         }
 
+  # Retained clean-up resources. The Step Function, the Lambda functions it calls and their IAM
+  # roles carry DeletionPolicy RetainExceptOnCreate because they must outlive this stack: stack
+  # deletion triggers them to delete the CDK stacks this stack deployed, which takes longer than
+  # the stack's own delete. When that finishes, the cleanup-completion function deletes all of
+  # them. RetainExceptOnCreate (not Retain) lets CloudFormation delete them if this stack's own
+  # create rolls back, so a failed launch leaves nothing that blocks a relaunch. They cost nothing
+  # while idle.
   # IAM Role for Step Function
   rCDKCleanupRole:
     Type: AWS::IAM::Role
@@ -1603,8 +1610,11 @@ Resources:
                       if 'DeletionTime' in stack:
                           stack['DeletionTime'] = stack['DeletionTime'].isoformat()
                       return {'stack': stack}
-              except cf_client.exceptions.ValidationError:
-                  return {'status': 'DELETE_COMPLETE'}
+              except cf_client.exceptions.ClientError as e:
+                  # describe_stacks on a deleted stack raises ClientError with code ValidationError.
+                  if e.response.get('Error', {}).get('Code') == 'ValidationError':
+                      return {'status': 'DELETE_COMPLETE'}
+                  raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
               except Exception as e:
                   raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
 
