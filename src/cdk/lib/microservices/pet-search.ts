@@ -89,11 +89,28 @@ export class PetSearchService extends EcsService {
                 sdkVersion: JavaInstrumentationVersion.V2_10_0,
             },
             serviceName: 'petsearch-api-java',
+            // The integration disables OTel metric export by default; re-enable it so the custom
+            // metrics in MetricEmitter reach the sidecar's OTLP receiver (60s is the standard interval).
+            overrideEnvironments: [
+                { name: 'OTEL_METRICS_EXPORTER', value: 'otlp' },
+                { name: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT', value: 'http://localhost:4318/v1/metrics' },
+                { name: 'OTEL_EXPORTER_OTLP_METRICS_PROTOCOL', value: 'http/protobuf' },
+                { name: 'OTEL_METRIC_EXPORT_INTERVAL', value: '60000' },
+            ],
             cloudWatchAgentSidecar: {
                 containerName: 'ecs-cwagent',
                 enableLogging: true,
                 cpu: 256,
                 memoryLimitMiB: 512,
+                // Default Application Signals config plus the agent's OTLP receiver, which forwards
+                // OTel metrics to the CloudWatch OTLP endpoint (queryable with PromQL).
+                agentConfig: JSON.stringify({
+                    logs: { metrics_collected: { application_signals: { enabled: true } } },
+                    traces: { traces_collected: { application_signals: { enabled: true } } },
+                    opentelemetry: {
+                        collect: { otlp: { grpc_endpoint: '0.0.0.0:4317', http_endpoint: '0.0.0.0:4318' } },
+                    },
+                }),
             },
         });
 
