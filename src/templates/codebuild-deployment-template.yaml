@@ -1341,11 +1341,13 @@ Resources:
           }
         }
 
-  # Retained clean-up resources. The Step Function, the Lambda functions it calls and their IAM
-  # roles carry DeletionPolicy RetainExceptOnCreate because they must outlive this stack: stack
+  # Retained clean-up resources. The Lambda functions the Step Function calls and the IAM roles
+  # carry DeletionPolicy RetainExceptOnCreate because they must outlive this stack: stack
   # deletion triggers them to delete the CDK stacks this stack deployed, which takes longer than
   # the stack's own delete. When that finishes, the cleanup-completion function deletes all of
-  # them. RetainExceptOnCreate (not Retain) lets CloudFormation delete them if this stack's own
+  # them. The Step Function itself is not retained: the cleanup monitor waits for its execution to
+  # finish, then CloudFormation deletes it with the stack. The cleanup-completion function also
+  # deletes it; whichever runs second finds it already gone, and both handle that. RetainExceptOnCreate (not Retain) lets CloudFormation delete them if this stack's own
   # create rolls back, so a failed launch leaves nothing that blocks a relaunch. They cost nothing
   # while idle.
   # IAM Role for Step Function
