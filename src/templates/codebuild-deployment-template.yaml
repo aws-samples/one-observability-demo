@@ -521,6 +521,10 @@ Resources:
               Service: codebuild.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
+        # AdministratorAccess is deliberate: this role runs cdk bootstrap and cdk deploy for every
+        # workshop stack, which create IAM roles and resources across about 15 services. It is meant for
+        # short-lived, single-purpose workshop accounts only. For long-lived accounts, bootstrap CDK with
+        # scoped --cloudformation-execution-policies and grant this role only what it deploys.
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
       Policies:
         - PolicyName: EnhancedPipelineMonitoring
