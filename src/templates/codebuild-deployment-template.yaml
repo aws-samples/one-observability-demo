@@ -31,6 +31,7 @@ Metadata:
           - pCDKStackName
           - pParameterStoreBasePath
           - pWaitForDeployment
+          - pServiceNameSuffix
       - Label:
           default: Network Configuration
         Parameters:
@@ -211,6 +212,13 @@ Parameters:
     Default: /petstore
     AllowedPattern: '^/[a-zA-Z0-9/_-]+$'
     ConstraintDescription: Must be a valid Parameter Store path starting with /
+
+  pServiceNameSuffix:
+    Type: String
+    Description: Optional suffix appended to every OpenTelemetry service name (e.g. '-dev'), to tell environments apart in Application Signals.
+    Default: ''
+    AllowedPattern: '^[a-z0-9-]{0,20}$'
+    ConstraintDescription: Must be up to 20 lowercase alphanumeric characters or hyphens
 
   pWaitForDeployment:
     Type: String
@@ -747,6 +755,9 @@ Resources:
           - Name: WAIT_FOR_DEPLOYMENT
             Value: !Ref pWaitForDeployment
             Type: PLAINTEXT
+          - Name: SERVICE_NAME_SUFFIX
+            Value: !Ref pServiceNameSuffix
+            Type: PLAINTEXT
       Cache:
         Type: LOCAL
         Modes:
@@ -798,6 +809,7 @@ Resources:
                   CODE_CONNECTION_ARN=$CODE_CONNECTION_ARN
                   PARAMETER_STORE_BASE_PATH=$PARAMETER_STORE_BASE_PATH
                   CONFIG_PARAM_NAME=$CONFIG_PARAM_NAME
+                  SERVICE_NAME_SUFFIX=$SERVICE_NAME_SUFFIX
                   EOF
                 # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |

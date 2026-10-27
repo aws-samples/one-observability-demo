@@ -26,7 +26,7 @@ import { LambdaRestApi } from 'aws-cdk-lib/aws-apigateway';
 import { NagSuppressions } from 'cdk-nag';
 import { SSM_PARAMETER_NAMES } from '../../../../bin/constants';
 import { Stack } from 'aws-cdk-lib';
-import { CONCURRENT_USERS, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
+import { CONCURRENT_USERS, otelServiceName, PARAMETER_STORE_PREFIX } from '../../../../bin/environment';
 // import { CfnServiceLevelObjective } from 'aws-cdk-lib/aws-applicationsignals';
 
 /** Node.js Lambda that generates synthetic traffic against the workshop microservices. */
@@ -115,7 +115,7 @@ export class TrafficGeneratorFunction extends WokshopLambdaFunction {
             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
             OTEL_METRICS_EXPORTER: 'none',
             OTEL_LOGS_EXPORTER: 'none',
-            OTEL_SERVICE_NAME: 'traffic-generator-node',
+            OTEL_SERVICE_NAME: otelServiceName('traffic-generator-node'),
             OTEL_SERVICE_VERSION: '0.1.0',
             OTEL_RESOURCE_ATTRIBUTES: 'service.namespace=petadoptions',
             AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',

@@ -29,7 +29,7 @@ import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { otelServiceName, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
@@ -88,7 +88,7 @@ export class PetSearchService extends EcsService {
             instrumentation: {
                 sdkVersion: JavaInstrumentationVersion.V2_10_0,
             },
-            serviceName: 'petsearch-api-java',
+            serviceName: otelServiceName('petsearch-api-java'),
             cloudWatchAgentSidecar: {
                 containerName: 'ecs-cwagent',
                 enableLogging: true,
@@ -105,7 +105,7 @@ export class PetSearchService extends EcsService {
                     sliMetric: {
                         keyAttributes: {
                             Type: 'Service',
-                            Name: 'petsearch-api-java',
+                            Name: otelServiceName('petsearch-api-java'),
                             Environment: 'ecs:PetsiteECS-cluster',
                         },
                         operationName: 'GET /api/search',

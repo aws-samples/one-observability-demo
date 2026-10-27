@@ -46,6 +46,7 @@ import {
     ENABLE_OPENSEARCH,
     ENABLE_WAGGLE_AI_AGENTS,
     HostType,
+    otelServiceName,
     PARAMETER_STORE_PREFIX,
 } from '../../bin/environment';
 import {
@@ -301,9 +302,8 @@ export class MicroservicesStack extends Stack {
                         enableCloudWatchAgent: true,
                         cloudWatchAgentTraceMode: CloudWatchAgentTraceMode.OTLP,
                         additionalEnvironment: {
-                            PAYFORADOPTION_SERVICE_NAME: 'payforadoption-api-go',
-                            OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=payforadoption-api-go,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
+                            PAYFORADOPTION_SERVICE_NAME: otelServiceName('payforadoption-api-go'),
+                            OTEL_RESOURCE_ATTRIBUTES: `service.name=${otelServiceName('payforadoption-api-go')},service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster`,
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -346,8 +346,7 @@ export class MicroservicesStack extends Stack {
                             PORT: '8080',
                             PYTHONPATH:
                                 '/otel-auto-instrumentation-python/opentelemetry/instrumentation/auto_instrumentation:/app:/otel-auto-instrumentation-python',
-                            OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petlistadoptions-api-py,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
+                            OTEL_RESOURCE_ATTRIBUTES: `service.name=${otelServiceName('petlistadoptions-api-py')},service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster`,
                             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
                             OTEL_METRICS_EXPORTER: 'none',
                             OTEL_LOGS_EXPORTER: 'none',
@@ -400,9 +399,8 @@ export class MicroservicesStack extends Stack {
                         table: imports.dynamodbExports.table,
                         bucket: imports.assetsBucket,
                         additionalEnvironment: {
-                            OTEL_SERVICE_NAME: 'petsearch-api-java',
-                            OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petsearch-api-java,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
+                            OTEL_SERVICE_NAME: otelServiceName('petsearch-api-java'),
+                            OTEL_RESOURCE_ATTRIBUTES: `service.name=${otelServiceName('petsearch-api-java')},service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster`,
                         },
                         enableSLO: CUSTOM_ENABLE_SLO,
                     });
@@ -441,11 +439,10 @@ export class MicroservicesStack extends Stack {
                         petFoodCartTable: imports.dynamodbExports.petFoodsCartTable,
                         additionalEnvironment: {
                             PETFOOD_ENABLE_JSON_LOGGING: 'true',
-                            PETFOOD_SERVICE_NAME: 'petfood-api-rs',
+                            PETFOOD_SERVICE_NAME: otelServiceName('petfood-api-rs'),
                             PETFOOD_OTLP_ENDPOINT: 'http://localhost:4317',
                             AWS_REGION: Stack.of(this).region,
-                            OTEL_RESOURCE_ATTRIBUTES:
-                                'service.name=petfood-api-rs,service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
+                            OTEL_RESOURCE_ATTRIBUTES: `service.name=${otelServiceName('petfood-api-rs')},service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster`,
                         },
                         assetsBucket: imports.assetsBucket,
                         containerPort: 8080,

@@ -84,6 +84,16 @@ export const WORKING_FOLDER = process.env.WORKING_FOLDER || 'src/cdk';
 /** Max number of concurrent users for traffic generator. User 0 to disable */
 export const CONCURRENT_USERS = process.env.CONCURRENT_USERS ? Number(process.env.CONCURRENT_USERS) : 5;
 
+/**
+ * Suffix appended to every OpenTelemetry service name (e.g. '-dev'), so that
+ * the same application deployed to several accounts stays distinguishable in
+ * Application Signals / X-Ray. Empty by default.
+ */
+export const SERVICE_NAME_SUFFIX = process.env.SERVICE_NAME_SUFFIX || '';
+
+/** Returns the OpenTelemetry service name for an application, including {@link SERVICE_NAME_SUFFIX}. */
+export const otelServiceName = (name: string) => `${name}${SERVICE_NAME_SUFFIX}`;
+
 /** Default tags applied to all resources */
 export const TAGS = {
     environment: 'non-prod',

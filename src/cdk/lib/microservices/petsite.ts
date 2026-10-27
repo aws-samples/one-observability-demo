@@ -49,7 +49,7 @@ import {
 import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
-import { DEFAULT_RETENTION_DAYS, PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { DEFAULT_RETENTION_DAYS, otelServiceName, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES, PETSITE_URL_EXPORT_NAME } from '../../bin/constants';
 import { Peer, Port, PrefixList } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, ObjectOwnership } from 'aws-cdk-lib/aws-s3';
@@ -252,6 +252,7 @@ export class PetSite extends EKSDeployment {
             REDEPLOY_TOKEN: process.env.CODEBUILD_RESOLVED_SOURCE_VERSION || process.env.BRANCH_NAME || 'dev',
             NAMESPACE: this.namespace,
             EKS_CLUSTER_NAME: properties.eksCluster!.clusterName,
+            OTEL_SERVICE_NAME: otelServiceName('petsite-frontend-dotnet'),
             SERVICE_ACCOUNT_NAME: this.serviceAccountName,
             TARGET_GROUP_ARN: this.targetGroup.targetGroupArn,
             PARAMETER_STORE_PREFIX: PARAMETER_STORE_PREFIX,
