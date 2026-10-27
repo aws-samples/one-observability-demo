@@ -702,6 +702,10 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
+      # Must exceed the signaller in scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min) plus
+      # ~10 min of pre_build/synth. The 60 min CodeBuild default kills a healthy deploy before it
+      # signals, so the wait condition expires and rolls back into the destructive cleanup path.
+      TimeoutInMinutes: 120
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
