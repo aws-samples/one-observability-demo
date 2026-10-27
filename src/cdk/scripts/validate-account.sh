@@ -96,7 +96,18 @@ validate_auto_transaction_search() {
     rm -f "$error_output"
 
     if [[ "$result" == "CloudWatchLogs" ]]; then
-        AUTO_TRANSACTION_SEARCH_CONFIGURED="true"
+        # If Core-Stack is what enabled it (a redeploy), keep managing it: reporting "true" would
+        # make the Core update delete its TransactionSearchConfig and turn Transaction Search off.
+        local owned
+        owned=$(aws cloudformation list-stack-resources --stack-name Core-Stack --region "$region" \
+            --query "StackResourceSummaries[?ResourceType=='AWS::XRay::TransactionSearchConfig'].LogicalResourceId" \
+            --output text 2>/dev/null)
+        if [[ -n "$owned" && "$owned" != "None" ]]; then
+            echo "[INFO] Transaction Search is managed by Core-Stack ($owned); keeping it under CDK management"
+            AUTO_TRANSACTION_SEARCH_CONFIGURED="false"
+        else
+            AUTO_TRANSACTION_SEARCH_CONFIGURED="true"
+        fi
     else
         AUTO_TRANSACTION_SEARCH_CONFIGURED="false"
     fi
