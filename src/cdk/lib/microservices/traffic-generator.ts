@@ -20,7 +20,7 @@ import { Stack } from 'aws-cdk-lib';
 import { Effect, ManagedPolicy, Policy, PolicyDocument, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { otelServiceName, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { Utilities } from '../utils/utilities';
 
@@ -50,7 +50,7 @@ export class TrafficGeneratorService extends EcsService {
                 LOCUST_SPAWN_RATE: '1',
                 WAGGLE_CHATS_PER_HOUR: `${properties.waggleChatsPerHour ?? 4}`,
                 ADOPTIONS_PER_HOUR: `${properties.adoptionsPerHour ?? 40}`,
-                OTEL_SERVICE_NAME: 'traffic-generator',
+                OTEL_SERVICE_NAME: otelServiceName('traffic-generator'),
                 OTEL_RESOURCE_ATTRIBUTES:
                     'service.namespace=petadoptions,deployment.environment=ecs:PetsiteECS-cluster',
                 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: 'http://localhost:4318/v1/traces',

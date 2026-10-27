@@ -29,7 +29,7 @@ import { EcsService, EcsServiceProperties } from '../constructs/ecs-service';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { ManagedPolicy, Policy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { otelServiceName, PARAMETER_STORE_PREFIX } from '../../bin/environment';
 import { SSM_PARAMETER_NAMES } from '../../bin/constants';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
@@ -106,7 +106,7 @@ export class ListAdoptionsService extends EcsService {
                     sliMetric: {
                         keyAttributes: {
                             Type: 'Service',
-                            Name: 'petlistadoptions-api-py',
+                            Name: otelServiceName('petlistadoptions-api-py'),
                             Environment: 'ecs:PetsiteECS-cluster',
                         },
                         operationName: 'GET /health/status',

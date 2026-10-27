@@ -19,6 +19,7 @@ import { Stack, Duration } from 'aws-cdk-lib';
 import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { NagSuppressions } from 'cdk-nag';
 import { ISecret } from 'aws-cdk-lib/aws-secretsmanager';
+import { otelServiceName } from '../../../../bin/environment';
 
 /** Properties for the RDS seeder Lambda. */
 export interface RdsSeederProperties extends WorkshopLambdaFunctionProperties {
@@ -90,7 +91,7 @@ export class RdsSeederFunction extends WokshopLambdaFunction {
             OTEL_AWS_APPLICATION_SIGNALS_ENABLED: 'true',
             OTEL_METRICS_EXPORTER: 'none',
             OTEL_LOGS_EXPORTER: 'none',
-            OTEL_SERVICE_NAME: properties.name,
+            OTEL_SERVICE_NAME: otelServiceName(properties.name),
             OTEL_SERVICE_VERSION: '0.1.0',
             OTEL_RESOURCE_ATTRIBUTES: 'service.namespace=petadoptions',
             AWS_LAMBDA_EXEC_WRAPPER: '/opt/otel-instrument',

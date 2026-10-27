@@ -20,7 +20,7 @@ import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
 import { stableCfnOutput } from '../utils/stable-output';
 import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
+import { otelServiceName, PARAMETER_STORE_PREFIX, SERVICE_NAME_SUFFIX } from '../../bin/environment';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 
@@ -204,6 +204,10 @@ export class AgentRuntimeConstruct extends Construct {
                 AWS_AGENTIC_INSTRUMENTATION_OPT_IN: 'true',
                 AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT: 'true',
                 UNIFIED_TRACES_DESTINATION_ENABLED: 'true',
+                // AgentCore names the service '<runtime>.DEFAULT'; OTEL_SERVICE_NAME takes precedence over it.
+                ...(SERVICE_NAME_SUFFIX && {
+                    OTEL_SERVICE_NAME: otelServiceName(`${properties.runtimeName}.DEFAULT`),
+                }),
                 ...properties.environmentVariables,
             },
             protocolConfiguration: ProtocolType.HTTP,

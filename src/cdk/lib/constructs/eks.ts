@@ -68,6 +68,7 @@ import {
     CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON,
     CUSTOM_ENABLE_ZEUS,
     EKS_CLUSTER_ACCESS_ROLE_NAME,
+    otelServiceName,
     TAGS,
 } from '../../bin/environment';
 
@@ -208,7 +209,10 @@ export class WorkshopEks extends Construct {
                                     {
                                         selectors: [{ dimension: 'RemoteService', match: '*petfood-rs*' }],
                                         replacements: [
-                                            { target_dimension: 'RemoteService', value: 'petfood-api-rs' },
+                                            {
+                                                target_dimension: 'RemoteService',
+                                                value: otelServiceName('petfood-api-rs'),
+                                            },
                                             { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
                                         ],
                                         action: 'replace',
@@ -216,7 +220,10 @@ export class WorkshopEks extends Construct {
                                     {
                                         selectors: [{ dimension: 'RemoteService', match: '*petsearch-java*' }],
                                         replacements: [
-                                            { target_dimension: 'RemoteService', value: 'petsearch-api-java' },
+                                            {
+                                                target_dimension: 'RemoteService',
+                                                value: otelServiceName('petsearch-api-java'),
+                                            },
                                             { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
                                         ],
                                         action: 'replace',
@@ -224,7 +231,10 @@ export class WorkshopEks extends Construct {
                                     {
                                         selectors: [{ dimension: 'RemoteService', match: '*payforadoption-go*' }],
                                         replacements: [
-                                            { target_dimension: 'RemoteService', value: 'payforadoption-api-go' },
+                                            {
+                                                target_dimension: 'RemoteService',
+                                                value: otelServiceName('payforadoption-api-go'),
+                                            },
                                             { target_dimension: 'RemoteEnvironment', value: 'ecs:PetsiteECS-cluster' },
                                         ],
                                         action: 'replace',
@@ -234,7 +244,7 @@ export class WorkshopEks extends Construct {
                                         replacements: [
                                             {
                                                 target_dimension: 'RemoteService',
-                                                value: 'WaggleAIOrchestrator.DEFAULT',
+                                                value: otelServiceName('WaggleAIOrchestrator.DEFAULT'),
                                             },
                                             {
                                                 target_dimension: 'RemoteEnvironment',
@@ -250,7 +260,7 @@ export class WorkshopEks extends Construct {
                                         replacements: [
                                             {
                                                 target_dimension: 'RemoteService',
-                                                value: 'WaggleAIOrchestrator.DEFAULT',
+                                                value: otelServiceName('WaggleAIOrchestrator.DEFAULT'),
                                             },
                                             {
                                                 target_dimension: 'RemoteEnvironment',
