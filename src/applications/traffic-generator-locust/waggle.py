@@ -18,7 +18,11 @@ import os
 import random
 import re
 
-PROMPTS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "waggle_prompts.json")))
+PROMPTS = json.load(
+    open(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "waggle_prompts.json"),
+    ),
+)
 ROTATION = PROMPTS["rotation"]
 SESSION_TURNS = int(os.environ.get("WAGGLE_SESSION_TURNS", str(2 * len(ROTATION))))
 
@@ -32,17 +36,32 @@ PETSITE_ERRORS = (
 )
 
 # Guardrail blockedInputMessaging / blockedOutputsMessaging (waggle-ai-agents-guardrail.ts)
-REFUSALS = ("I can only help with pet care, food, and adoption questions", "let's keep it about your pet")
+REFUSALS = (
+    "I can only help with pet care, food, and adoption questions",
+    "let's keep it about your pet",
+)
 
 # Mirrors src/cdk/scripts/petfood-seed.json
 FOOD_NAMES = (
-    "Fresh Veggie Mix", "Beef and Turkey Kibbles", "Carrot and Herb Crunchies", "Catnip Kitten Treats",
-    "Raw Chicken Bites", "Salmon and Tuna Delight", "Puppy Training Treats", "Timothy Hay Pellets",
+    "Fresh Veggie Mix",
+    "Beef and Turkey Kibbles",
+    "Carrot and Herb Crunchies",
+    "Catnip Kitten Treats",
+    "Raw Chicken Bites",
+    "Salmon and Tuna Delight",
+    "Puppy Training Treats",
+    "Timothy Hay Pellets",
     "Kitten Growth Formula",
 )
 
-_ORDER_PROBLEM = re.compile(r"\b(snag|issue|problem|error|unable|couldn't|could not|failed|fail|404|500)\b", re.I)
-_ORDER_DONE = re.compile(r"\b(order|ordered|checked out|checkout|purchase|placed|confirmation)\b", re.I)
+_ORDER_PROBLEM = re.compile(
+    r"\b(snag|issue|problem|error|unable|couldn't|could not|failed|fail|404|500)\b",
+    re.I,
+)
+_ORDER_DONE = re.compile(
+    r"\b(order|ordered|checked out|checkout|purchase|placed|confirmation)\b",
+    re.I,
+)
 _PET_ID = re.compile(r"\b0[0-2]\d\b")
 
 
@@ -64,7 +83,11 @@ def expectation_error(agent, reply):
         return None if refused else "expected a guardrail refusal"
     if agent == "off_topic":
         # A decline may come from the guardrail or the orchestrator; it must not sell catalog products
-        return "recommended catalog food for an off-topic request" if recommends_food else None
+        return (
+            "recommended catalog food for an off-topic request"
+            if recommends_food
+            else None
+        )
     if refused:
         return "unexpected guardrail refusal"
     if agent == "nutrition":
@@ -74,9 +97,15 @@ def expectation_error(agent, reply):
             return "order reported a problem"
         return None if _ORDER_DONE.search(reply) else "no order confirmation"
     if agent == "adoption":
-        return None if _PET_ID.search(reply) or "adopt" in reply.lower() else "no adoptable pets listed"
+        return (
+            None
+            if _PET_ID.search(reply) or "adopt" in reply.lower()
+            else "no adoptable pets listed"
+        )
     if agent == "concierge":
-        return None if len(reply.strip()) >= 150 else "reply too short for a care question"
+        return (
+            None if len(reply.strip()) >= 150 else "reply too short for a care question"
+        )
     return None
 
 

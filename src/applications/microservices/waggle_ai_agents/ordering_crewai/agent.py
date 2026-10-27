@@ -52,18 +52,30 @@ def _quantities_in_cart(cart) -> dict[str, int]:
     """food_id -> quantity already in a cart response ({} for a missing or empty cart)."""
     if not isinstance(cart, dict) or "error" in cart:
         return {}
-    return {i.get("food_id"): int(i.get("quantity", 0)) for i in cart.get("items") or [] if isinstance(i, dict)}
+    return {
+        i.get("food_id"): int(i.get("quantity", 0))
+        for i in cart.get("items") or []
+        if isinstance(i, dict)
+    }
 
 
 @tool("checkout_cart")
-def checkout_cart(user_id: str, food_ids: list[str] | None = None, quantity: int = 1) -> str:
+def checkout_cart(
+    user_id: str,
+    food_ids: list[str] | None = None,
+    quantity: int = 1,
+) -> str:
     """Place the food order for `user_id`. Pass the foods to buy as `food_ids`, a list of
     food ids from `list_available_foods` (for example ["F233c473c", "F3e40f637"]). The
     order will contain `quantity` of each: foods already in the cart are counted, so
     nothing is bought twice. Then the cart is checked out, all in ONE step. With no
     `food_ids`, checks out what is already in the cart. If any food can't be added,
     nothing is checked out and the error is returned. Returns JSON."""
-    food_ids = list(dict.fromkeys(f.strip() for f in (food_ids or []) if isinstance(f, str) and f.strip()))
+    food_ids = list(
+        dict.fromkeys(
+            f.strip() for f in (food_ids or []) if isinstance(f, str) and f.strip()
+        ),
+    )
     with _cart_lock(user_id):
         in_cart = _quantities_in_cart(petstore.get_cart(user_id))
         if not food_ids and not in_cart:
@@ -76,7 +88,7 @@ def checkout_cart(user_id: str, food_ids: list[str] | None = None, quantity: int
                         "Call checkout_cart again with food_ids set to the ids of the foods the "
                         "customer wants to buy. If you don't know which foods, ask the customer."
                     ),
-                }
+                },
             )
         added = []
         for food_id in food_ids:
@@ -86,7 +98,12 @@ def checkout_cart(user_id: str, food_ids: list[str] | None = None, quantity: int
                 continue
             result = petstore.add_to_cart(user_id, food_id, missing)
             if isinstance(result, dict) and "error" in result:
-                return json.dumps({"error": f"could not add {food_id}: {result['error']}", "added": added})
+                return json.dumps(
+                    {
+                        "error": f"could not add {food_id}: {result['error']}",
+                        "added": added,
+                    },
+                )
             added.append({"food_id": food_id, "quantity": missing})
         return json.dumps({"added": added, "checkout": petstore.checkout(user_id)})
 

@@ -40,13 +40,30 @@ logger = logging.getLogger("traffic-generator")
 # foods that exist. Keep these in sync with the seed data.
 PETS = {
     "puppy": [
-        ("001", "black"), ("002", "black"), ("003", "brown"), ("004", "black"), ("005", "brown"),
-        ("006", "brown"), ("007", "brown"), ("008", "brown"), ("009", "black"), ("010", "brown"),
-        ("011", "white"), ("012", "white"), ("013", "white"), ("014", "black"), ("015", "white"),
+        ("001", "black"),
+        ("002", "black"),
+        ("003", "brown"),
+        ("004", "black"),
+        ("005", "brown"),
+        ("006", "brown"),
+        ("007", "brown"),
+        ("008", "brown"),
+        ("009", "black"),
+        ("010", "brown"),
+        ("011", "white"),
+        ("012", "white"),
+        ("013", "white"),
+        ("014", "black"),
+        ("015", "white"),
     ],
     "kitten": [
-        ("016", "white"), ("017", "white"), ("018", "black"), ("019", "grey"), ("020", "brown"),
-        ("021", "brown"), ("022", "black"),
+        ("016", "white"),
+        ("017", "white"),
+        ("018", "black"),
+        ("019", "grey"),
+        ("020", "brown"),
+        ("021", "brown"),
+        ("022", "black"),
     ],
     "bunny": [("023", "white"), ("024", "brown"), ("025", "brown"), ("026", "brown")],
 }
@@ -68,8 +85,13 @@ ADOPTIONS_PER_HOUR = float(os.environ.get("ADOPTIONS_PER_HOUR", "40"))
 _next_adoption = time.monotonic()
 
 # Each pet card on a search page is a form holding either the "Take me home" button or "Unavailable"
-_PET_FORM = re.compile(r"<form[^>]*takemehome[^>]*>(.*?)</form>", re.IGNORECASE | re.DOTALL)
-_HIDDEN = re.compile(r'<input type="hidden"[^>]*name="(petid|pettype|petcolor)"[^>]*value="([^"]*)"')
+_PET_FORM = re.compile(
+    r"<form[^>]*takemehome[^>]*>(.*?)</form>",
+    re.IGNORECASE | re.DOTALL,
+)
+_HIDDEN = re.compile(
+    r'<input type="hidden"[^>]*name="(petid|pettype|petcolor)"[^>]*value="([^"]*)"',
+)
 
 
 def available_pets(html):
@@ -94,7 +116,11 @@ def resolve_host():
         try:
             return ssm.get_parameter(Name=name)["Parameter"]["Value"].rstrip("/")
         except ssm.exceptions.ParameterNotFound:
-            logger.warning("SSM parameter %s not found yet (attempt %d), retrying", name, attempt + 1)
+            logger.warning(
+                "SSM parameter %s not found yet (attempt %d), retrying",
+                name,
+                attempt + 1,
+            )
             time.sleep(10)
     raise RuntimeError(f"SSM parameter {name} not found")
 
@@ -149,10 +175,17 @@ class PetSiteUser(HttpUser):
         self.user_id = f"user{random.randint(30000, 40000):05d}"
 
     def _journey(self, name):
-        return tracer.start_as_current_span(f"journey {name}", attributes={"journey.name": name})
+        return tracer.start_as_current_span(
+            f"journey {name}",
+            attributes={"journey.name": name},
+        )
 
     def _get(self, path, name, **params):
-        return self.client.get(path, params={"userId": self.user_id, **params}, name=name)
+        return self.client.get(
+            path,
+            params={"userId": self.user_id, **params},
+            name=name,
+        )
 
     def _expect_error(self, response):
         """Deliberate bad requests: count the expected 4xx/5xx as a success in Locust's stats."""
@@ -169,18 +202,34 @@ class PetSiteUser(HttpUser):
         pet_type = random.choice(list(PETS))
         color = random.choice(COLORS + ["all"])
         with self._journey("search"):
-            self._get("/", "/ (search)", selectedPetType=pet_type, selectedPetColor=color)
+            self._get(
+                "/",
+                "/ (search)",
+                selectedPetType=pet_type,
+                selectedPetColor=color,
+            )
 
     @task(2)
     def search_by_color(self):
         with self._journey("search-by-color"):
-            self._get("/", "/ (search by color)", selectedPetType="all", selectedPetColor=random.choice(COLORS))
+            self._get(
+                "/",
+                "/ (search by color)",
+                selectedPetType="all",
+                selectedPetColor=random.choice(COLORS),
+            )
 
     @task(2)
     def search_by_pet_id(self):
         pet_id, _ = random.choice(PETS[random.choice(list(PETS))])
         with self._journey("search-by-pet-id"):
-            self._get("/", "/ (search by pet id)", selectedPetType="all", selectedPetColor="all", petid=pet_id)
+            self._get(
+                "/",
+                "/ (search by pet id)",
+                selectedPetType="all",
+                selectedPetColor="all",
+                petid=pet_id,
+            )
 
     @task(2)
     def adopt(self):
@@ -190,7 +239,12 @@ class PetSiteUser(HttpUser):
         _next_adoption = time.monotonic() + 3600 / ADOPTIONS_PER_HOUR
         with self._journey("adopt"):
             # Like a real user, only pick a pet the search page offers for adoption
-            page = self._get("/", "/ (search)", selectedPetType=random.choice(list(PETS)), selectedPetColor="all")
+            page = self._get(
+                "/",
+                "/ (search)",
+                selectedPetType=random.choice(list(PETS)),
+                selectedPetColor="all",
+            )
             choices = available_pets(page.text)
             if not choices:
                 return
@@ -227,7 +281,11 @@ class PetSiteUser(HttpUser):
             )
             self._get("/FoodService/GetCartCount", "/FoodService/GetCartCount")
             self._get("/Checkout", "/Checkout")
-            self.client.post("/Checkout/PayAndCheckOut", json=self._checkout_payload(), name="/Checkout/PayAndCheckOut")
+            self.client.post(
+                "/Checkout/PayAndCheckOut",
+                json=self._checkout_payload(),
+                name="/Checkout/PayAndCheckOut",
+            )
 
     @task(1)
     def abandon_cart(self):
@@ -244,14 +302,22 @@ class PetSiteUser(HttpUser):
                 json={"userId": self.user_id, "food_id": food_id},
                 name="/Checkout/RemoveItem",
             )
-            self.client.post("/Checkout/ClearCart", data={"userId": self.user_id}, name="/Checkout/ClearCart")
+            self.client.post(
+                "/Checkout/ClearCart",
+                data={"userId": self.user_id},
+                name="/Checkout/ClearCart",
+            )
 
     @task(1)
     def invalid_requests(self):
         with self._journey("invalid-requests"):
             with self.client.get(
                 "/",
-                params={"userId": self.user_id, "selectedPetType": "lizard", "selectedPetColor": "all"},
+                params={
+                    "userId": self.user_id,
+                    "selectedPetType": "lizard",
+                    "selectedPetColor": "all",
+                },
                 name="/ (invalid pet type)",
                 catch_response=True,
             ) as response:
@@ -269,7 +335,11 @@ class PetSiteUser(HttpUser):
         """Next turn of the shared Waggle conversation, with transport and expectation checks."""
         global _next_waggle_chat
         conversation = _conversation
-        if WAGGLE_CHATS_PER_HOUR <= 0 or conversation.busy or time.monotonic() < _next_waggle_chat:
+        if (
+            WAGGLE_CHATS_PER_HOUR <= 0
+            or conversation.busy
+            or time.monotonic() < _next_waggle_chat
+        ):
             return
         _next_waggle_chat = time.monotonic() + 3600 / WAGGLE_CHATS_PER_HOUR
         agent, message = conversation.next_turn()
@@ -283,22 +353,37 @@ class PetSiteUser(HttpUser):
         with self._journey("waggle-chat") as span:
             span.set_attribute("waggle.agent", agent)
             span.set_attribute("waggle.turn", conversation.turn + 1)
-            self.client.get("/Waggle", params={"userId": conversation.user_id}, name="/Waggle")
+            self.client.get(
+                "/Waggle",
+                params={"userId": conversation.user_id},
+                name="/Waggle",
+            )
             with self.client.post(
                 "/Waggle/SendMessage",
-                json={"message": message, "userId": conversation.user_id, "sessionId": conversation.session_id},
+                json={
+                    "message": message,
+                    "userId": conversation.user_id,
+                    "sessionId": conversation.session_id,
+                },
                 name=f"/Waggle/SendMessage ({agent})",
                 timeout=240,
                 catch_response=True,
             ) as response:
                 reply = response.text or ""
                 problem = (
-                    f"HTTP {response.status_code}" if response.status_code >= 400 else waggle.transport_error(reply)
+                    f"HTTP {response.status_code}"
+                    if response.status_code >= 400
+                    else waggle.transport_error(reply)
                 )
                 if problem:
                     response.failure(problem)
                     span.set_status(Status(StatusCode.ERROR, problem))
-                    logger.warning("waggle %s turn failed: %s | %s", agent, problem, " ".join(reply.split())[:200])
+                    logger.warning(
+                        "waggle %s turn failed: %s | %s",
+                        agent,
+                        problem,
+                        " ".join(reply.split())[:200],
+                    )
                     return
                 conversation.advance(response.headers.get("X-Session-Id"))
 
@@ -315,9 +400,19 @@ class PetSiteUser(HttpUser):
             )
             if expectation:
                 span.set_status(Status(StatusCode.ERROR, expectation))
-                logger.warning("waggle %s expectation failed: %s | %s", agent, expectation, " ".join(reply.split())[:200])
+                logger.warning(
+                    "waggle %s expectation failed: %s | %s",
+                    agent,
+                    expectation,
+                    " ".join(reply.split())[:200],
+                )
             else:
-                logger.info("waggle %s ok (turn %d of session %s)", agent, conversation.turn, conversation.session_id)
+                logger.info(
+                    "waggle %s ok (turn %d of session %s)",
+                    agent,
+                    conversation.turn,
+                    conversation.session_id,
+                )
 
     def _checkout_payload(self):
         address = {
@@ -337,7 +432,7 @@ class PetSiteUser(HttpUser):
                     "expiry_year": 2030,
                     "cvv": "123",
                     "cardholder_name": "Workshop User",
-                }
+                },
             },
             "shipping_address": address,
             "billing_address": address,
