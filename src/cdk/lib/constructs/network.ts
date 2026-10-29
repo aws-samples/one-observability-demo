@@ -37,7 +37,7 @@ import {
     CfnResolverQueryLoggingConfig,
     CfnResolverQueryLoggingConfigAssociation,
 } from 'aws-cdk-lib/aws-route53resolver';
-import { CfnOutput, Fn, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnOutput, Fn, RemovalPolicy, Tags } from 'aws-cdk-lib';
 import { VpcEndpoints } from './vpc-endpoints';
 import { ENABLE_WAGGLE_AI_AGENTS, MAX_AVAILABILITY_ZONES, AVAILABILITY_ZONES } from '../../bin/environment';
 import {
@@ -180,6 +180,10 @@ export class WorkshopNetwork extends Construct {
             destinationArn: resolverLogGroup.logGroupArn,
             name: 'ResolverQueryLogConfig',
         });
+        // Tags on a query logging config are create-only: adding a key replaces the config, and the
+        // replacement's association fails because the VPC is still associated with the old one.
+        // Keep 'auto-delete' (added after existing deployments) off it so updates stay in place.
+        Tags.of(cfnResolverQueryConfig).remove('auto-delete', { priority: 200 });
 
         const cfnResolverAssociation = new CfnResolverQueryLoggingConfigAssociation(
             this,
