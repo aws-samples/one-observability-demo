@@ -35,8 +35,11 @@ import {
     ApplicationLoadBalancer,
     ApplicationProtocol,
     ApplicationTargetGroup,
+    ListenerAction,
+    ListenerCondition,
     TargetType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import {
     AllowedMethods,
     CachePolicy,
@@ -105,11 +108,30 @@ export class PetSite extends EKSDeployment {
             },
         });
 
-        this.loadBalancer.addListener('listener', {
+        // The security group admits every CloudFront distribution (the shared origin-facing prefix
+        // list), so the listener also requires a secret header that only this distribution sends.
+        const originVerifySecret = new Secret(this, 'OriginVerifySecret', {
+            description: 'Value CloudFront sends in X-Origin-Verify so the PetSite ALB accepts only its distribution',
+            generateSecretString: { excludePunctuation: true, passwordLength: 32 },
+        });
+        const originVerifyValue = originVerifySecret.secretValue.unsafeUnwrap();
+        NagSuppressions.addResourceSuppressions(originVerifySecret, [
+            {
+                id: 'AwsSolutions-SMG4',
+                reason: 'Origin-verify header shared by CloudFront and the ALB listener; rotating it needs both updated together',
+            },
+        ]);
+
+        const listener = this.loadBalancer.addListener('listener', {
             port: properties.listenerPort || 80,
             protocol: ApplicationProtocol.HTTP,
-            defaultTargetGroups: [this.targetGroup],
+            defaultAction: ListenerAction.fixedResponse(403, { contentType: 'text/plain', messageBody: 'Forbidden' }),
             open: false,
+        });
+        listener.addAction('from-cloudfront', {
+            priority: 1,
+            conditions: [ListenerCondition.httpHeader('X-Origin-Verify', [originVerifyValue])],
+            action: ListenerAction.forward([this.targetGroup]),
         });
 
         const cloudfrontAccessBucket = new Bucket(this, 'CloudfrontAccessLogs', {
@@ -134,6 +156,7 @@ export class PetSite extends EKSDeployment {
                     readTimeout: Duration.seconds(60),
                     customHeaders: {
                         'X-Custom-Header': 'petsite-asset-validation-string',
+                        'X-Origin-Verify': originVerifyValue,
                     },
                 }),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
