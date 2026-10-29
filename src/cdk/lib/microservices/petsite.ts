@@ -101,7 +101,9 @@ export class PetSite extends EKSDeployment {
             port: properties.containerPort || 8080,
             vpc: properties.vpc!,
             protocol: ApplicationProtocol.HTTP,
-            targetGroupName: `TG-${properties.name}`,
+            // Renamed with the internal ALB: a target group can serve only one load balancer, so the
+            // replacement listener needs a new one rather than the group still bound to the old ALB.
+            targetGroupName: `TG-${properties.name}-int`,
             targetType: TargetType.IP,
             healthCheck: {
                 path: properties.healthCheck,
