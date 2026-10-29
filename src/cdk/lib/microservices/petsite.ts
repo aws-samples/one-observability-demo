@@ -46,7 +46,7 @@ import {
     SecurityPolicyProtocol,
     ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import { LoadBalancerV2Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { VpcOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { NagSuppressions } from 'cdk-nag';
 import { Utilities } from '../utils/utilities';
 import { DEFAULT_RETENTION_DAYS, otelServiceName, PARAMETER_STORE_PREFIX } from '../../bin/environment';
@@ -75,12 +75,15 @@ export class PetSite extends EKSDeployment {
     public readonly distribution: Distribution;
     constructor(scope: Construct, id: string, properties: PetSetProperties) {
         super(scope, id, properties);
+        // Internal ALB reached only through a CloudFront VPC origin: no public ingress path, so the
+        // site keeps working where VPC Block Public Access is enforced. The name differs from the
+        // former internet-facing ALB because changing the scheme replaces it.
         this.loadBalancer = new ApplicationLoadBalancer(scope, 'loadBalancer', {
             vpc: properties.vpc!,
-            internetFacing: true,
-            loadBalancerName: `LB-${properties.name}`,
+            internetFacing: false,
+            loadBalancerName: `LB-${properties.name}-int`,
             vpcSubnets: {
-                subnets: properties.vpc!.publicSubnets,
+                subnets: properties.vpc!.privateSubnets,
             },
         });
 
@@ -128,7 +131,7 @@ export class PetSite extends EKSDeployment {
 
         this.distribution = new Distribution(this, 'Distribution', {
             defaultBehavior: {
-                origin: new LoadBalancerV2Origin(this.loadBalancer, {
+                origin: VpcOrigin.withApplicationLoadBalancer(this.loadBalancer, {
                     protocolPolicy: OriginProtocolPolicy.HTTP_ONLY,
                     // A delegating round-trip runs ~30-40s, past CloudFront's default 30s timeout; 60s is the max.
                     readTimeout: Duration.seconds(60),
