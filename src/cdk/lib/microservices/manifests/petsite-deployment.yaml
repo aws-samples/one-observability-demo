@@ -112,8 +112,7 @@ spec:
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
-  # New name with the new target group: targetGroupARN cannot change on an existing binding.
-  name: petsite-tgb-int
+  name: petsite-tgb
   namespace: {{ NAMESPACE }}
 spec:
   serviceRef:
