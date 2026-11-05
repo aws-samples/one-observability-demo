@@ -521,6 +521,10 @@ Resources:
               Service: codebuild.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
+        # AdministratorAccess is deliberate: this role runs cdk bootstrap and cdk deploy for every
+        # workshop stack, which create IAM roles and resources across about 15 services. It is meant for
+        # short-lived, single-purpose workshop accounts only. For long-lived accounts, bootstrap CDK with
+        # scoped --cloudformation-execution-policies and grant this role only what it deploys.
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
       Policies:
         - PolicyName: EnhancedPipelineMonitoring
@@ -1337,6 +1341,15 @@ Resources:
           }
         }
 
+  # Retained clean-up resources. The Lambda functions the Step Function calls and the IAM roles
+  # carry DeletionPolicy RetainExceptOnCreate because they must outlive this stack: stack
+  # deletion triggers them to delete the CDK stacks this stack deployed, which takes longer than
+  # the stack's own delete. When that finishes, the cleanup-completion function deletes all of
+  # them. The Step Function itself is not retained: the cleanup monitor waits for its execution to
+  # finish, then CloudFormation deletes it with the stack. The cleanup-completion function also
+  # deletes it; whichever runs second finds it already gone, and both handle that. RetainExceptOnCreate (not Retain) lets CloudFormation delete them if this stack's own
+  # create rolls back, so a failed launch leaves nothing that blocks a relaunch. They cost nothing
+  # while idle.
   # IAM Role for Step Function
   rCDKCleanupRole:
     Type: AWS::IAM::Role
@@ -1603,8 +1616,11 @@ Resources:
                       if 'DeletionTime' in stack:
                           stack['DeletionTime'] = stack['DeletionTime'].isoformat()
                       return {'stack': stack}
-              except cf_client.exceptions.ValidationError:
-                  return {'status': 'DELETE_COMPLETE'}
+              except cf_client.exceptions.ClientError as e:
+                  # describe_stacks on a deleted stack raises ClientError with code ValidationError.
+                  if e.response.get('Error', {}).get('Code') == 'ValidationError':
+                      return {'status': 'DELETE_COMPLETE'}
+                  raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
               except Exception as e:
                   raise Exception(f"Error in {operation} operation for {stack_name} in {region}: {str(e)}")
 
