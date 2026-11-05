@@ -694,6 +694,11 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${AWS::StackName}-cdk-deployment
+      # Must exceed setup + scripts/wait-for-pipeline.sh (TIMEOUT=5100, 85 min) + seeding.
+      # Unset, CodeBuild defaults to 60 min and kills the build mid-wait: neither the SUCCESS
+      # signal nor post_build's FAILURE is sent, so rCDKDeploymentWaitCondition times out with
+      # "Received 0 conditions" and seeding never runs, even though the pipeline finishes.
+      TimeoutInMinutes: 150
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
@@ -802,12 +807,21 @@ Resources:
                 # Store complete configuration in Parameter Store (parameter created by CloudFormation)
                 - |
                   echo "Storing complete configuration in Parameter Store parameter"
-                  # Update the CloudFormation-created parameter with complete configuration
-                  aws ssm put-parameter \
+                  # Update the CloudFormation-created parameter with complete configuration.
+                  # Fail here rather than later: a merged .env over the SSM Standard tier's
+                  # 4096-character limit makes this call fail, and without the check the build
+                  # carries on and the pipeline's synth reads the unpopulated placeholder
+                  # instead, failing ~25 minutes later with an unrelated-looking error.
+                  if ! aws ssm put-parameter \
                     --name "${CONFIG_PARAM_NAME}" \
                     --value "$(cat ${WORKING_FOLDER}/.env)" \
                     --type "String" \
-                    --overwrite
+                    --overwrite; then
+                    echo "ERROR: could not store configuration in ${CONFIG_PARAM_NAME}"
+                    echo "Merged .env is $(wc -c < ${WORKING_FOLDER}/.env) characters; the SSM Standard tier caps values at 4096."
+                    echo "Shrink the preset selected by pConfigFileUrl, or store it in the advanced tier."
+                    exit 1
+                  fi
 
                   echo "Configuration successfully stored in Parameter Store"
                   echo "Configuration content:"
@@ -875,6 +889,24 @@ Resources:
                 # Wait for pipeline to complete
                 - |
                   ./scripts/wait-for-pipeline.sh "$PIPELINE_NAME" "$STACK_NAME" "$AWS_REGION"
+                # Seed the TDIR scenario. Runs here, after wait-for-pipeline.sh, because seeding needs
+                # resources from every stack the pipeline creates - the knowledge base, the workshop
+                # roles, and the agent runtimes. Deliberately non-fatal: an environment that deployed
+                # correctly but failed to seed is fixed by re-running one script, whereas failing the
+                # build triggers the cleanup state machine and destroys it.
+                - |
+                  if grep -q '^CUSTOM_ENABLE_TDIR_ESCALATED_ROLE=true' .env 2>/dev/null; then
+                    echo "TDIR preset detected - seeding scenario evidence"
+                    pip install -q -r ./scripts/requirements.txt
+                    if python3 ./scripts/tdir-seed-scenarios.py --region "$AWS_REGION"; then
+                      echo "Scenario seeded"
+                    else
+                      echo "WARNING: seeding failed. The environment is deployed but the labs have no"
+                      echo "evidence to investigate. Re-run: python3 scripts/tdir-seed-scenarios.py --region $AWS_REGION"
+                    fi
+                  else
+                    echo "Not a TDIR deployment - skipping scenario seeding"
+                  fi
             post_build:
               commands:
                 - |
@@ -1308,7 +1340,7 @@ Resources:
   # IAM Role for Step Function
   rCDKCleanupRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1387,7 +1419,7 @@ Resources:
   # Lambda function to check deletion results
   rDeletionResultCheckerFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-deletion-result-checker
@@ -1409,7 +1441,7 @@ Resources:
   # IAM Role for Deletion Result Checker Lambda
   rDeletionResultCheckerRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1425,7 +1457,7 @@ Resources:
   # Lambda function to list CDK stacks by tag
   rCDKStackListerFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cdk-stack-lister
@@ -1507,7 +1539,7 @@ Resources:
   # IAM Role for CDK Stack Lister Lambda
   rCDKStackListerRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1533,7 +1565,7 @@ Resources:
   # Lambda function for cross-region stack operations
   rCrossRegionStackOperationFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cross-region-stack-ops
@@ -1579,7 +1611,7 @@ Resources:
   # IAM Role for Cross-Region Stack Operation Lambda
   rCrossRegionStackOperationRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1605,7 +1637,7 @@ Resources:
   # Lambda function to clean up retained resources after Step Function completes
   rCleanupCompletionFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cleanup-completion
@@ -1613,10 +1645,68 @@ Resources:
       Handler: index.handler
       Role: !GetAtt rCleanupCompletionRole.Arn
       Timeout: 300
+      Environment:
+        Variables:
+          STACK_ID: !Ref AWS::StackId
       Code:
         ZipFile: !Sub |
           import boto3
+          import os
           import time
+
+          # Logical ids of the retained roles. CloudFormation generates their names, so they are
+          # looked up from the stack's resource list rather than guessed from the stack name.
+          RETAINED_ROLE_IDS = {
+              'rCDKCleanupRole', 'rCDKStackListerRole', 'rDeletionResultCheckerRole',
+              'rCrossRegionStackOperationRole', 'rBucketCleanupRole', 'rCleanupCompletionRole',
+              'rCleanupMonitorRole', 'rEventBridgeRole',
+          }
+
+          # Created outside CloudFormation (by the TDIR seeding script and by AgentCore), so no
+          # stack deletion removes them.
+          WORKSHOP_ROLE = 'AgentEscalatedAccess'
+          WORKSHOP_LOG_GROUP_PREFIXES = [
+              '/aws/tdir-workshop/',
+              '/aws/cloudtrail/tdir-workshop-evidence',
+              '/aws/bedrock-agentcore/runtimes/WaggleAI',
+          ]
+
+          def retained_role_names():
+              names = []
+              cfn_client = boto3.client('cloudformation')
+              paginator = cfn_client.get_paginator('list_stack_resources')
+              for page in paginator.paginate(StackName=os.environ['STACK_ID']):
+                  for res in page['StackResourceSummaries']:
+                      if res['LogicalResourceId'] in RETAINED_ROLE_IDS and res.get('PhysicalResourceId'):
+                          names.append(res['PhysicalResourceId'])
+              return names
+
+          def delete_role(iam_client, role_name):
+              for policy in iam_client.list_attached_role_policies(RoleName=role_name)['AttachedPolicies']:
+                  iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy['PolicyArn'])
+              for policy in iam_client.list_role_policies(RoleName=role_name)['PolicyNames']:
+                  iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy)
+              iam_client.delete_role(RoleName=role_name)
+
+          def delete_workshop_leftovers(iam_client):
+              try:
+                  delete_role(iam_client, WORKSHOP_ROLE)
+                  print(f"Deleted IAM role: {WORKSHOP_ROLE}")
+              except iam_client.exceptions.NoSuchEntityException:
+                  pass
+              except Exception as e:
+                  print(f"Error deleting role {WORKSHOP_ROLE}: {str(e)}")
+
+              logs_client = boto3.client('logs')
+              for prefix in WORKSHOP_LOG_GROUP_PREFIXES:
+                  try:
+                      paginator = logs_client.get_paginator('describe_log_groups')
+                      for page in paginator.paginate(logGroupNamePrefix=prefix):
+                          for group in page['logGroups']:
+                              logs_client.delete_log_group(logGroupName=group['logGroupName'])
+                              print(f"Deleted log group: {group['logGroupName']}")
+                  except Exception as e:
+                      print(f"Error deleting log groups under {prefix}: {str(e)}")
 
           def handler(event, context):
               stack_name = event.get('StackName')
@@ -1667,25 +1757,19 @@ Resources:
                       print(f"Error deleting EventBridge rules: {str(e)}")
 
                   # Delete IAM roles
-                  for role_name in [
-                      f"{stack_name}-cdk-cleanup-role",
-                      f"{stack_name}-cdk-stack-lister-role",
-                      f"{stack_name}-deletion-result-checker-role",
-                      f"{stack_name}-bucket-cleanup-role",
-                      f"{stack_name}-cleanup-completion-role",
-                      f"{stack_name}-cleanup-monitor-role",
-                      f"{stack_name}-eventbridge-role"
-                  ]:
+                  try:
+                      role_names = retained_role_names()
+                  except Exception as e:
+                      print(f"Error listing retained roles: {str(e)}")
+                      role_names = []
+                  for role_name in role_names:
                       try:
-                          iam_client.list_attached_role_policies(RoleName=role_name)
-                          for policy in iam_client.list_attached_role_policies(RoleName=role_name)['AttachedPolicies']:
-                              iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy['PolicyArn'])
-                          for policy in iam_client.list_role_policies(RoleName=role_name)['PolicyNames']:
-                              iam_client.delete_role_policy(RoleName=role_name, PolicyName=policy)
-                          iam_client.delete_role(RoleName=role_name)
+                          delete_role(iam_client, role_name)
                           print(f"Deleted IAM role: {role_name}")
                       except Exception as e:
                           print(f"Error deleting role {role_name}: {str(e)}")
+
+                  delete_workshop_leftovers(iam_client)
 
                   # Delete Step Function
                   try:
@@ -1708,7 +1792,7 @@ Resources:
   # IAM Role for Cleanup Completion Lambda
   rCleanupCompletionRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1758,12 +1842,31 @@ Resources:
                   - iam:DeleteRolePolicy
                   - iam:ListAttachedRolePolicies
                   - iam:ListRolePolicies
-                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/tdir-workshop/AgentEscalatedAccess"
+              # Find the retained roles' generated names
+              - Effect: Allow
+                Action:
+                  - cloudformation:ListStackResources
+                Resource: !Ref AWS::StackId
+              # Workshop log groups created outside CloudFormation
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:DeleteLogGroup
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/tdir-workshop/*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/cloudtrail/tdir-workshop-evidence*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/WaggleAI*"
 
   # Lambda function to clean up S3 buckets
   rBucketCleanupFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-bucket-cleanup
@@ -1820,7 +1923,7 @@ Resources:
   # IAM Role for Bucket Cleanup Lambda
   rBucketCleanupRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1866,7 +1969,7 @@ Resources:
   # Lambda function to monitor cleanup execution
   rCleanupMonitorFunction:
     Type: AWS::Lambda::Function
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${AWS::StackName}-cleanup-monitor
@@ -1939,7 +2042,7 @@ Resources:
   # IAM Role for Cleanup Monitor Lambda
   rCleanupMonitorRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
@@ -1968,7 +2071,7 @@ Resources:
   # EventBridge Rule for Stack Deletion
   rStackDeletionRule:
     Type: AWS::Events::Rule
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       Description: Trigger cleanup when stack is being deleted
@@ -1989,7 +2092,7 @@ Resources:
   # IAM Role for EventBridge to invoke Step Function
   rEventBridgeRole:
     Type: AWS::IAM::Role
-    DeletionPolicy: Retain
+    DeletionPolicy: RetainExceptOnCreate
     UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:

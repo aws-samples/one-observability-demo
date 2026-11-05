@@ -1,8 +1,10 @@
 # CDK Scripts Python Dependencies
 # Required for manage-exports.py script
 
-# AWS SDK for Python - CloudFormation, S3, STS operations
-boto3>=1.28.0
+# AWS SDK for Python. 1.39 is the floor, not a preference: tdir-seed-scenarios.py and
+# tdir-reset.py use the bedrock-agentcore-control client, which older botocore does not
+# ship a service model for and which therefore fails with UnknownServiceError.
+boto3>=1.39.0
 
 # Template engine for HTML dashboard generation
 jinja2>=3.1.0
