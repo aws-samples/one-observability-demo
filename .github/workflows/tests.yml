@@ -130,3 +130,14 @@ jobs:
       - name: Check cargo build
         run: cargo build --release
         working-directory: src/applications/microservices/petfood-rs
+
+  omni-use-case-release-patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # inject-fault.sh applies this patch in the workshop; a change to the patched functions must regenerate it.
+      - name: Check the Omni use-case release patch still applies
+        run: git apply --check src/applications/microservices/waggle_ai_agents/omni-use-cases-simulation-scripts/fault/release.patch

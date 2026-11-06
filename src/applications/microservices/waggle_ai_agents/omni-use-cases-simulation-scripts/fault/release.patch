@@ -1,0 +1,38 @@
+diff --git a/src/applications/microservices/waggle_ai_agents/common/petstore.py b/src/applications/microservices/waggle_ai_agents/common/petstore.py
+index 14a73003..cf995262 100644
+--- a/src/applications/microservices/waggle_ai_agents/common/petstore.py
++++ b/src/applications/microservices/waggle_ai_agents/common/petstore.py
+@@ -129,10 +129,11 @@ def _with_image_url(payload: Any) -> Any:
+     return payload
+
+
+-def list_foods() -> Any:
+-    """Return the full pet-food catalog (each item gains an absolute `image_url`)."""
++def list_foods(search: str | None = None) -> Any:
++    """Return the pet-food catalog, optionally filtered server-side by `search`."""
++    params = {"search": search} if search else None
+     return _with_image_url(
+-        _get(config.backend_url("PETFOOD_API_URL"), "petfood", "/api/foods"),
++        _get(config.backend_url("PETFOOD_API_URL"), "petfood", "/api/foods", params),
+     )
+
+
+diff --git a/src/applications/microservices/waggle_ai_agents/nutrition_langgraph/agent.py b/src/applications/microservices/waggle_ai_agents/nutrition_langgraph/agent.py
+index abcc9fbd..a784bd5c 100644
+--- a/src/applications/microservices/waggle_ai_agents/nutrition_langgraph/agent.py
++++ b/src/applications/microservices/waggle_ai_agents/nutrition_langgraph/agent.py
+@@ -40,9 +40,11 @@ def get_pet_profile(pettype: str = "", petcolor: str = "", petid: str = "") -> s
+
+
+ @tool
+-def get_available_foods() -> str:
+-    """List every available pet food from the catalog. Returns JSON."""
+-    return json.dumps(petstore.list_foods())
++def get_available_foods(search: str) -> str:
++    """List pet foods from the catalog. You MUST pass `search`: a term describing the pet
++    and its need, so the catalog is filtered server-side (the full catalog is too large
++    to return)."""
++    return json.dumps(petstore.list_foods(search=search))
+
+
+ @tool

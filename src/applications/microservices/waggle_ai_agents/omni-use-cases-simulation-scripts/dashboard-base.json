@@ -1,0 +1,316 @@
+{
+  "panels": [
+    {
+      "type": "markdown",
+      "variant": "transparent",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 100
+      },
+      "config": {
+        "content": "## Waggle SRE dashboard\nRead top to bottom: **1. RED** for every request into the PetAdoptions services and the Waggle agents, **2. USE** for the ECS and EKS capacity they run on, **3. AI agents** for volume, errors, latency and tokens per agent."
+      }
+    },
+    {
+      "type": "divider",
+      "layout": {
+        "x": 0,
+        "y": 100,
+        "w": 60,
+        "h": 40
+      },
+      "config": {
+        "title": "1. RED: requests, errors, duration (all services)",
+        "collapsed": false
+      }
+    },
+    {
+      "type": "explore",
+      "title": "Total requests",
+      "layout": {
+        "x": 0,
+        "y": 140,
+        "w": 20,
+        "h": 140
+      },
+      "config": {
+        "queryString": "SELECT count(*) AS requests FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder'",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "Total errors",
+      "layout": {
+        "x": 20,
+        "y": 140,
+        "w": 20,
+        "h": 140
+      },
+      "config": {
+        "queryString": "SELECT sum(CASE WHEN upper(TRY_CAST(status['code'] AS VARCHAR)) IN ('2', 'ERROR', 'STATUS_CODE_ERROR') THEN 1 ELSE 0 END) AS errors, round(100.0 * sum(CASE WHEN upper(TRY_CAST(status['code'] AS VARCHAR)) IN ('2', 'ERROR', 'STATUS_CODE_ERROR') THEN 1 ELSE 0 END) / count(*), 2) AS error_rate_pct FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder'",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "Latency",
+      "layout": {
+        "x": 40,
+        "y": 140,
+        "w": 20,
+        "h": 140
+      },
+      "config": {
+        "queryString": "SELECT round(approx_percentile_cont(CAST(durationNano AS DOUBLE) / 1e6, 0.5), 0) AS p50_ms, round(approx_percentile_cont(CAST(durationNano AS DOUBLE) / 1e6, 0.9), 0) AS p90_ms FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder' AND durationNano IS NOT NULL",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "Requests",
+      "layout": {
+        "x": 0,
+        "y": 280,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, replace(resource['attributes']['service.name'], '.DEFAULT', '') AS service, count(*) AS requests FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder' GROUP BY t, service ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "Error rate %",
+      "layout": {
+        "x": 20,
+        "y": 280,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, replace(resource['attributes']['service.name'], '.DEFAULT', '') AS service, round(100.0 * sum(CASE WHEN upper(TRY_CAST(status['code'] AS VARCHAR)) IN ('2', 'ERROR', 'STATUS_CODE_ERROR') THEN 1 ELSE 0 END) / count(*), 2) AS error_rate_pct FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder' GROUP BY t, service ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "p90 latency (ms)",
+      "layout": {
+        "x": 40,
+        "y": 280,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, replace(resource['attributes']['service.name'], '.DEFAULT', '') AS service, round(approx_percentile_cont(CAST(durationNano AS DOUBLE) / 1e6, 0.9), 0) AS p90_ms FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder' AND durationNano IS NOT NULL GROUP BY t, service ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "RED by service",
+      "layout": {
+        "x": 0,
+        "y": 580,
+        "w": 60,
+        "h": 380
+      },
+      "config": {
+        "queryString": "SELECT replace(resource['attributes']['service.name'], '.DEFAULT', '') AS service, count(*) AS requests, sum(CASE WHEN upper(TRY_CAST(status['code'] AS VARCHAR)) IN ('2', 'ERROR', 'STATUS_CODE_ERROR') THEN 1 ELSE 0 END) AS errors, round(100.0 * sum(CASE WHEN upper(TRY_CAST(status['code'] AS VARCHAR)) IN ('2', 'ERROR', 'STATUS_CODE_ERROR') THEN 1 ELSE 0 END) / count(*), 2) AS error_rate_pct, round(approx_percentile_cont(CAST(durationNano AS DOUBLE) / 1e6, 0.5), 0) AS p50_ms, round(approx_percentile_cont(CAST(durationNano AS DOUBLE) / 1e6, 0.9), 0) AS p90_ms FROM traces.default WHERE kind = 'SERVER' AND resource['attributes']['service.name'] NOT LIKE '%canary' AND resource['attributes']['service.name'] NOT LIKE 'traffic-generator%' AND resource['attributes']['service.name'] <> 'rds-seeder' AND durationNano IS NOT NULL GROUP BY service ORDER BY errors DESC, requests DESC",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "divider",
+      "layout": {
+        "x": 0,
+        "y": 960,
+        "w": 60,
+        "h": 40
+      },
+      "config": {
+        "title": "2. USE: utilization, saturation, errors (ECS and EKS)",
+        "collapsed": false
+      }
+    },
+    {
+      "type": "explore",
+      "title": "ECS CPU %",
+      "layout": {
+        "x": 0,
+        "y": 1000,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, ServiceName AS service, round(max(TRY_CAST(TaskCpuUtilization AS DOUBLE)), 1) AS cpu_pct FROM logs.default WHERE `@logGroupName` LIKE '/aws/ecs/containerinsights/%/performance' AND Type = 'Task' GROUP BY t, service ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "ECS memory %",
+      "layout": {
+        "x": 20,
+        "y": 1000,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, ServiceName AS service, round(max(TRY_CAST(TaskMemoryUtilization AS DOUBLE)), 1) AS mem_pct FROM logs.default WHERE `@logGroupName` LIKE '/aws/ecs/containerinsights/%/performance' AND Type = 'Task' GROUP BY t, service ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "EKS node %",
+      "layout": {
+        "x": 40,
+        "y": 1000,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, round(max(TRY_CAST(node_cpu_utilization AS DOUBLE)), 1) AS cpu_pct, round(max(TRY_CAST(node_memory_utilization AS DOUBLE)), 1) AS mem_pct FROM logs.default WHERE `@logGroupName` LIKE '/aws/containerinsights/%/performance' AND Type = 'Node' GROUP BY t ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "line",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "ECS tasks (S/E)",
+      "layout": {
+        "x": 0,
+        "y": 1300,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT ServiceName AS service, max(TRY_CAST(DesiredTaskCount AS BIGINT)) AS desired, min(TRY_CAST(RunningTaskCount AS BIGINT)) AS min_running, max(TRY_CAST(PendingTaskCount AS BIGINT)) AS max_pending FROM logs.default WHERE `@logGroupName` LIKE '/aws/ecs/containerinsights/%/performance' AND Type = 'Service' GROUP BY service ORDER BY service",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "EKS cluster (S/E)",
+      "layout": {
+        "x": 20,
+        "y": 1300,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT max(TRY_CAST(cluster_node_count AS BIGINT)) AS nodes, max(TRY_CAST(cluster_failed_node_count AS BIGINT)) AS failed_nodes, max(TRY_CAST(cluster_number_of_running_pods AS BIGINT)) AS running_pods FROM logs.default WHERE `@logGroupName` LIKE '/aws/containerinsights/%/performance' AND Type = 'Cluster'",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "explore",
+      "title": "EKS pods (S/E)",
+      "layout": {
+        "x": 40,
+        "y": 1300,
+        "w": 20,
+        "h": 300
+      },
+      "config": {
+        "queryString": "SELECT PodName AS pod, max(TRY_CAST(pod_number_of_container_restarts AS BIGINT)) AS restarts, round(max(TRY_CAST(pod_cpu_utilization_over_pod_limit AS DOUBLE)), 1) AS cpu_pct_of_limit FROM logs.default WHERE `@logGroupName` LIKE '/aws/containerinsights/%/performance' AND Type = 'Pod' AND Namespace NOT IN ('kube-system', 'amazon-cloudwatch') GROUP BY pod ORDER BY restarts DESC LIMIT 10",
+        "queryLanguage": "sql",
+        "visualization": "table",
+        "autoRun": true
+      }
+    },
+    {
+      "type": "divider",
+      "layout": {
+        "x": 0,
+        "y": 1600,
+        "w": 60,
+        "h": 40
+      },
+      "config": {
+        "title": "3. AI agents (Waggle on Amazon Bedrock AgentCore)",
+        "collapsed": false
+      }
+    },
+    {
+      "type": "agent-kpi-strip",
+      "layout": {
+        "x": 0,
+        "y": 1640,
+        "w": 60,
+        "h": 160
+      },
+      "config": {}
+    },
+    {
+      "type": "agent-health-table",
+      "layout": {
+        "x": 0,
+        "y": 1800,
+        "w": 30,
+        "h": 320
+      },
+      "config": {}
+    },
+    {
+      "type": "explore",
+      "title": "Tokens by agent (5 min)",
+      "layout": {
+        "x": 30,
+        "y": 1800,
+        "w": 30,
+        "h": 320
+      },
+      "config": {
+        "queryString": "SELECT date_bin(INTERVAL '5 minutes', `@timestamp`) AS t, replace(resource['attributes']['service.name'], '.DEFAULT', '') AS agent, sum(TRY_CAST(attributes['gen_ai.usage.input_tokens'] AS BIGINT) + TRY_CAST(attributes['gen_ai.usage.output_tokens'] AS BIGINT)) AS tokens FROM traces.default WHERE resource['attributes']['service.name'] LIKE 'WaggleAI%' AND attributes['gen_ai.operation.name'] = 'chat' GROUP BY t, agent ORDER BY t",
+        "queryLanguage": "sql",
+        "visualization": "bar",
+        "autoRun": true,
+        "chartOptions": {
+          "view": "bar",
+          "plotOptions": {
+            "style": {
+              "barOptions": {
+                "stacked": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "scope": {
+    "timeRange": {
+      "start": "now-4h",
+      "end": "now"
+    }
+  }
+}
