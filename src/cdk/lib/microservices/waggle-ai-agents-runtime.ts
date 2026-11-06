@@ -17,6 +17,7 @@ import {
     RuntimeNetworkConfiguration,
 } from 'aws-cdk-lib/aws-bedrockagentcore';
 import { ISecurityGroup, IVpc } from 'aws-cdk-lib/aws-ec2';
+import { stableCfnOutput } from '../utils/stable-output';
 import { PolicyStatement, Role, ServicePrincipal, Effect, PrincipalWithConditions, Policy } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { PARAMETER_STORE_PREFIX } from '../../bin/environment';
@@ -225,6 +226,35 @@ export class AgentRuntimeConstruct extends Construct {
         new CfnOutput(this, 'AgentRuntimeArn', {
             value: this.agentRuntime.agentRuntimeArn,
             description: `ARN of the ${properties.runtimeName} AgentCore runtime`,
+        });
+
+        // The runtime id carries a service-generated suffix, and the log group AgentCore writes
+        // to is `/aws/bedrock-agentcore/runtimes/<runtimeId>-<endpointName>`. Neither can be
+        // predicted before deployment, so anything that needs to read agent logs — runbooks,
+        // workshop instructions, log-query tooling — has to discover them. Publishing both as
+        // outputs removes the guesswork. Verified against a deployed runtime:
+        // /aws/bedrock-agentcore/runtimes/WaggleAIOrchestrator-grYRZyAJh8-DEFAULT
+        stableCfnOutput(this, `${properties.runtimeName}RuntimeId`, {
+            value: this.agentRuntime.agentRuntimeId,
+            description: `Id of the ${properties.runtimeName} AgentCore runtime`,
+        });
+        // Also published to SSM so anything reading agent logs — runbooks, workshop instructions,
+        // log tooling — can resolve the group without a CloudFormation lookup. Lower-cased so the
+        // parameter path is predictable from the runtime name.
+        Utilities.createSsmParameters(
+            this,
+            PARAMETER_STORE_PREFIX,
+            new Map([
+                [
+                    `waggleai/${properties.runtimeName.toLowerCase()}loggroup`,
+                    `/aws/bedrock-agentcore/runtimes/${this.agentRuntime.agentRuntimeId}-DEFAULT`,
+                ],
+            ]),
+        );
+
+        stableCfnOutput(this, `${properties.runtimeName}LogGroup`, {
+            value: `/aws/bedrock-agentcore/runtimes/${this.agentRuntime.agentRuntimeId}-DEFAULT`,
+            description: `CloudWatch log group for the ${properties.runtimeName} runtime (DEFAULT endpoint)`,
         });
 
         NagSuppressions.addResourceSuppressions(

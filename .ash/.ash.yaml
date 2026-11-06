@@ -258,6 +258,18 @@ global_settings:
     reason: rustls-webpki 0.101.7 locked by hyper-rustls 0.24.x semver constraint;
       fix requires major dep upgrade
     expires: '2026-11-19'
+  - rule_id: GHSA-c8m5-c952-6cm4-rustls
+    path: src/applications/microservices/petfood-rs/Cargo.lock
+    reason: rustls 0.21.12 is pulled only by aws-smithy-http-client's legacy hyper-rustls
+      0.24 path (fix exists only in 0.23.46). The advisory requires a custom
+      ClientSessionStore that Debug-formats session values; petfood-rs has none.
+    expires: '2027-02-06'
+  - rule_id: GHSA-g3hv-75wg-m249-minimatch
+    path: src/cdk/package-lock.json
+    reason: minimatch 10.2.6 is bundled inside aws-cdk-lib 2.275.0 (latest) and cannot
+      be overridden; fix requires 11.0.1. It runs only at synth time on glob patterns
+      from this repo's own CDK code, not on untrusted input.
+    expires: '2027-02-06'
 ash_plugin_modules:
 - automated_security_helper.plugin_modules.ash_trivy_plugins
 converters:

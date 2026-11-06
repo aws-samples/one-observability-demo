@@ -361,6 +361,24 @@ export const EKS_CLUSTER_ACCESS_ROLE_NAME = process.env.EKS_CLUSTER_ACCESS_ROLE_
 export const CUSTOM_ENABLE_SLO = process.env.CUSTOM_ENABLE_SLO == 'true' || false;
 export const CUSTOM_ENABLE_ZEUS = process.env.CUSTOM_ENABLE_ZEUS == 'true' || false;
 
+/** Threat Detection and Incident Response (TDIR) feature flags */
+export const CUSTOM_ENABLE_DETECTIVE = process.env.CUSTOM_ENABLE_DETECTIVE == 'true' || false;
+export const CUSTOM_ENABLE_UDS = process.env.CUSTOM_ENABLE_UDS == 'true' || false;
+export const CUSTOM_ENABLE_GUARDDUTY_DETECTOR = process.env.CUSTOM_ENABLE_GUARDDUTY_DETECTOR == 'true' || false;
+export const CUSTOM_ENABLE_SECURITY_HUB = process.env.CUSTOM_ENABLE_SECURITY_HUB == 'true' || false;
+export const CUSTOM_ENABLE_KNOWLEDGE_BASE = process.env.CUSTOM_ENABLE_KNOWLEDGE_BASE == 'true' || false;
+export const CUSTOM_ENABLE_TDIR_REMEDIATION = process.env.CUSTOM_ENABLE_TDIR_REMEDIATION == 'true' || false;
+export const CUSTOM_ENABLE_TDIR_ESCALATED_ROLE = process.env.CUSTOM_ENABLE_TDIR_ESCALATED_ROLE == 'true' || false;
+export const CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE =
+    process.env.CUSTOM_ENABLE_TDIR_REMEDIATION_ENFORCE == 'true' || false;
+export const CUSTOM_ENABLE_UDS_WAF_LOGS = process.env.CUSTOM_ENABLE_UDS_WAF_LOGS == 'true' || false;
+export const CUSTOM_ENABLE_UDS_CLOUDTRAIL_LOGS = process.env.CUSTOM_ENABLE_UDS_CLOUDTRAIL_LOGS == 'true' || false;
+export const CUSTOM_ENABLE_UDS_GUARDDUTY_FINDINGS = process.env.CUSTOM_ENABLE_UDS_GUARDDUTY_FINDINGS == 'true' || false;
+export const CUSTOM_ENABLE_UDS_BEDROCK_AGENTCORE_LOGS =
+    process.env.CUSTOM_ENABLE_UDS_BEDROCK_AGENTCORE_LOGS == 'true' || false;
+export const CUSTOM_ENABLE_UDS_EKS_LOGS = process.env.CUSTOM_ENABLE_UDS_EKS_LOGS == 'true' || false;
+export const CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS = process.env.CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS == 'true' || false;
+
 /**
  * This section contains values that will affect the workshop deployment
  * based on the current status of the account where the workshop is being deployed
