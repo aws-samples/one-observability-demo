@@ -58,6 +58,9 @@ spec:
                       - containerPort: 8080
                         protocol: TCP
                   env:
+                      # Pod Identity supplies credentials but not a region, and IMDS is unreachable at hop limit 1.
+                      - name: AWS_REGION
+                        value: {{ AWS_REGION }}
                       - name: PARAMETER_STORE_PREFIX
                         value: {{ PARAMETER_STORE_PREFIX }}
                       - name: PET_HISTORY_URL_PARAM_NAME
