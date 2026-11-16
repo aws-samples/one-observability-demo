@@ -1,5 +1,5 @@
 # Ordering runtime (CrewAI, talks to Bedrock via LiteLLM).
-crewai
+crewai==1.15.28
 boto3
 httpx
 python-dotenv
