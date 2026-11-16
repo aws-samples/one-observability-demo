@@ -1223,11 +1223,13 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
         AgentEscalatedAccess      --sts:AssumeRole-->     (session, from this host's IP)
         AgentEscalatedAccess      --bedrock:DeleteGuardrail-->  a throwaway guardrail
 
-    Safety: every role here carries the TdirWorkshopBoundary permissions boundary, which caps
-    effective permissions to read-only plus the guardrail lifecycle. The escalated role's
-    inline policy looks administrative because the workshop asks participants to notice
-    overbroad permissions; the boundary means it confers nothing dangerous. The compromised
-    role can only create roles under /tdir-workshop/ and only with that boundary attached.
+    Safety: the escalated role carries the TdirWorkshopBoundary permissions boundary, which
+    caps effective permissions to read-only plus the guardrail lifecycle, with no IAM write.
+    Its inline policy looks administrative because the workshop asks participants to notice
+    overbroad permissions; the boundary means it confers nothing dangerous, even to a
+    participant who assumes the role or rewrites its inline policy. The compromised role
+    carries TdirCompromisedAgentBoundary, which adds only CreateRole and PutRolePolicy under
+    /tdir-workshop/, and CreateRole only with TdirWorkshopBoundary attached.
 
     Idempotent: an existing escalated role is deleted and recreated so CloudTrail shows a
     fresh CreateRole for each workshop run.
