@@ -65,6 +65,7 @@ import {
 } from '../../bin/constants';
 import {
     CUSTOM_ENABLE_GUARDDUTY_EKS_ADDON,
+    CUSTOM_ENABLE_PARTICIPANT_ROLES,
     CUSTOM_ENABLE_ZEUS,
     EKS_CLUSTER_ACCESS_ROLE_NAME,
 } from '../../bin/environment';
@@ -161,6 +162,30 @@ export class WorkshopEks extends Construct {
                 addonName: 'aws-guardduty-agent',
                 preserveOnDelete: false,
             });
+        }
+
+        // EBS CSI driver for the Keycloak IdP used by the Managed Grafana SAML module. keycloak-setup.sh used to
+        // create this add-on and its IRSA role with eksctl, which the hardened participant policy cannot do
+        // (no iam:CreateRole). Installed here with Pod Identity; the script skips both steps when it finds it.
+        if (CUSTOM_ENABLE_PARTICIPANT_ROLES) {
+            const ebsCsiRole = new Role(this, 'EbsCsiDriverRole', {
+                description: 'Allows the EBS CSI driver controller to manage EBS volumes for the PetsiteEKS cluster',
+                managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEBSCSIDriverPolicy')],
+                assumedBy: new ServicePrincipal('pods.eks.amazonaws.com').withSessionTags(),
+            });
+
+            const ebsCsiAddon = new Addon(this, 'ebsCsiDriverAddon', {
+                cluster: this.cluster,
+                addonName: 'aws-ebs-csi-driver',
+                preserveOnDelete: false,
+            });
+
+            (ebsCsiAddon.node.defaultChild as CfnAddon).addPropertyOverride('PodIdentityAssociations', [
+                {
+                    ServiceAccount: 'ebs-csi-controller-sa',
+                    RoleArn: ebsCsiRole.roleArn,
+                },
+            ]);
         }
 
         const iamRoleCloudwatchAddon = new Role(this, 'CloudwatchAddonRole', {
