@@ -41,6 +41,8 @@ import {
     CUSTOM_ENABLE_UDS_EKS_LOGS,
     CUSTOM_ENABLE_UDS_GUARDDUTY_FINDINGS,
     CUSTOM_ENABLE_UDS_WAF_LOGS,
+    CUSTOM_ENABLE_OMNI_ROLES,
+    CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE,
     DEFAULT_RETENTION_DAYS,
 } from '../../bin/environment';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
@@ -50,6 +52,7 @@ import { TdirSecurityHub } from '../constructs/tdir-security-hub';
 import { TdirKnowledgeBase } from '../constructs/tdir-knowledge-base';
 import { TdirRemediation } from '../constructs/tdir-remediation';
 import { TdirUnifiedDataStore } from '../constructs/tdir-unified-data-store';
+import { OmniRoles } from '../constructs/omni-roles';
 import { TdirEscalatedRole } from '../constructs/tdir-escalated-role';
 
 /**
@@ -266,6 +269,12 @@ export class CoreStack extends Stack {
                 ingestEksLogs: CUSTOM_ENABLE_UDS_EKS_LOGS,
                 ingestCloudFrontLogs: CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS,
                 logRetentionDays: properties.defaultRetentionDays || RetentionDays.ONE_WEEK,
+            });
+        }
+
+        if (CUSTOM_ENABLE_OMNI_ROLES) {
+            new OmniRoles(this, 'OmniRoles', {
+                createOnlineEvaluationRole: CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE,
             });
         }
     }
