@@ -380,6 +380,13 @@ export const CUSTOM_ENABLE_UDS_EKS_LOGS = process.env.CUSTOM_ENABLE_UDS_EKS_LOGS
 export const CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS = process.env.CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS == 'true' || false;
 
 /**
+ * CloudWatch Omni feature flags. These default to on, unlike the flags above, because Omni space setup cannot
+ * create its own IAM roles under the hardened participant policy. Set either to the string 'false' to opt out.
+ */
+export const CUSTOM_ENABLE_OMNI_ROLES = process.env.CUSTOM_ENABLE_OMNI_ROLES != 'false';
+export const CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE = process.env.CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE != 'false';
+
+/**
  * This section contains values that will affect the workshop deployment
  * based on the current status of the account where the workshop is being deployed
  */
