@@ -15,21 +15,25 @@ SPDX-License-Identifier: Apache-2.0
  *
  * > **Safety — read before changing anything here.**
  * >
- * > The escalation is real in *shape* and harmless in *effect*, enforced by a permissions
- * > boundary rather than by trust policies:
+ * > The escalation is real in *shape* and harmless in *effect*, enforced by two permissions
+ * > boundaries rather than by trust policies:
  * >
- * > 1. `TdirWorkshopBoundary` allows only read-only calls plus Bedrock guardrail lifecycle.
- * >    It is attached as a **permissions boundary**, so it caps the effective permissions of
- * >    any role that carries it no matter what its inline policies say.
- * > 2. `TdirCompromisedAgentRole` may only call `iam:CreateRole` for roles under the
- * >    `/tdir-workshop/` path, and only when the request attaches that boundary. It therefore
- * >    cannot mint a role more powerful than the boundary.
+ * > 1. `TdirWorkshopBoundary` caps the escalated role, `AgentEscalatedAccess`. It allows only
+ * >    read-only calls plus the Bedrock guardrail lifecycle, and **no IAM write of any kind**.
+ * >    As a permissions boundary it caps the role's effective permissions whatever its inline
+ * >    policies say, including any inline policy a participant writes while containing it.
+ * > 2. `TdirCompromisedAgentBoundary` caps `TdirCompromisedAgentRole`, the only role that needs
+ * >    IAM write: `iam:CreateRole` and `iam:PutRolePolicy` under `/tdir-workshop/`, and
+ * >    `CreateRole` only when the request attaches `TdirWorkshopBoundary`. Every role it creates
+ * >    is therefore capped by the boundary without IAM write.
  * > 3. The escalated role's inline policy deliberately *looks* administrative, because the
  * >    workshop asks participants to observe overbroad permissions. The boundary means it
  * >    confers nothing dangerous.
  * >
- * > Do not remove the boundary condition on `iam:CreateRole`, and do not widen the boundary.
- * > Those two things are what make a genuinely-performed privilege escalation safe to run.
+ * > Participants can assume `AgentEscalatedAccess` and write its inline policy (Labs 1.2 and 3),
+ * > so `TdirWorkshopBoundary` must never allow an IAM write. If it allowed `iam:CreateRole`, a
+ * > participant could create an unbounded role trusting their own account and grant it `*`.
+ * > Do not add IAM write to it, and do not remove the boundary condition on `iam:CreateRole`.
  *
  * @packageDocumentation
  */
@@ -56,8 +60,10 @@ export const WORKSHOP_ROLE_PATH = '/tdir-workshop/';
  * privilege escalation, so Amazon Detective has genuine CloudTrail activity to correlate.
  */
 export class TdirEscalatedRole extends Construct {
-    /** Boundary that caps every workshop-created role. */
+    /** Boundary that caps every workshop-created role, the escalated role included. No IAM write. */
     public readonly boundary: ManagedPolicy;
+    /** Boundary of the compromised agent role: `boundary` plus creating boundary-capped workshop roles. */
+    public readonly compromisedAgentBoundary: ManagedPolicy;
     /** Stand-in for the compromised agent runtime role; starts the escalation chain. */
     public readonly compromisedAgentRole: Role;
     /** ARN the escalated role will have once the seeding script creates it. */
@@ -72,37 +78,64 @@ export class TdirEscalatedRole extends Construct {
         // --- The control that makes a real escalation safe ---
         // Everything a workshop role can ever do, regardless of its own policies. Read-only,
         // plus the Bedrock guardrail lifecycle the scenario needs to generate CloudTrail.
+        // Both boundaries start from these statements; a factory, because a PolicyStatement
+        // belongs to one document.
+        const readOnlyAndGuardrailLifecycle = (): PolicyStatement[] => [
+            new PolicyStatement({
+                sid: 'ReadOnlyReconnaissance',
+                effect: Effect.ALLOW,
+                actions: [
+                    'sts:GetCallerIdentity',
+                    'iam:Get*',
+                    'iam:List*',
+                    'bedrock:List*',
+                    'bedrock:Get*',
+                    's3:ListAllMyBuckets',
+                    'cloudtrail:LookupEvents',
+                ],
+                resources: ['*'],
+            }),
+            new PolicyStatement({
+                // Scoped to guardrails so the scenario can create and delete a throwaway
+                // one, producing the bedrock:DeleteGuardrail call the workshop looks for.
+                sid: 'GuardrailLifecycleForScenario',
+                effect: Effect.ALLOW,
+                actions: ['bedrock:CreateGuardrail', 'bedrock:DeleteGuardrail'],
+                resources: [`arn:aws:bedrock:${region}:${account}:guardrail/*`],
+            }),
+        ];
         this.boundary = new ManagedPolicy(this, 'Boundary', {
             managedPolicyName: 'TdirWorkshopBoundary',
             description: 'Caps every TDIR workshop role. The escalation is real in shape and harmless in effect.',
+            statements: readOnlyAndGuardrailLifecycle(),
+        });
+
+        // The compromised role's ceiling: the escalated role's, plus the two IAM writes the
+        // seeded chain performs. Separate from `boundary` because participants can use the
+        // escalated role, and it must never be able to create or widen a role.
+        this.compromisedAgentBoundary = new ManagedPolicy(this, 'CompromisedAgentBoundary', {
+            managedPolicyName: 'TdirCompromisedAgentBoundary',
+            description:
+                'Caps the TDIR compromised agent role: read-only, guardrail lifecycle, and creating boundary-capped workshop roles.',
             statements: [
+                ...readOnlyAndGuardrailLifecycle(),
                 new PolicyStatement({
-                    sid: 'ReadOnlyReconnaissance',
+                    // Only with TdirWorkshopBoundary attached, so a created role can never hold
+                    // IAM write: a ceiling cannot be raised by the role it caps.
+                    sid: 'CreateBoundaryCappedWorkshopRoles',
                     effect: Effect.ALLOW,
-                    actions: [
-                        'sts:GetCallerIdentity',
-                        'iam:Get*',
-                        'iam:List*',
-                        'bedrock:List*',
-                        'bedrock:Get*',
-                        's3:ListAllMyBuckets',
-                        'cloudtrail:LookupEvents',
-                    ],
-                    resources: ['*'],
+                    actions: ['iam:CreateRole'],
+                    resources: [`arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}*`],
+                    conditions: {
+                        StringEquals: {
+                            'iam:PermissionsBoundary': this.boundary.managedPolicyArn,
+                        },
+                    },
                 }),
                 new PolicyStatement({
-                    // Scoped to guardrails so the scenario can create and delete a throwaway
-                    // one, producing the bedrock:DeleteGuardrail call the workshop looks for.
-                    sid: 'GuardrailLifecycleForScenario',
+                    sid: 'WriteWorkshopRoleInlinePolicies',
                     effect: Effect.ALLOW,
-                    actions: ['bedrock:CreateGuardrail', 'bedrock:DeleteGuardrail'],
-                    resources: [`arn:aws:bedrock:${region}:${account}:guardrail/*`],
-                }),
-                new PolicyStatement({
-                    // Only within the workshop path, and only with the boundary attached.
-                    sid: 'WorkshopRoleManagementOnly',
-                    effect: Effect.ALLOW,
-                    actions: ['iam:CreateRole', 'iam:PutRolePolicy', 'iam:DeleteRole', 'iam:DeleteRolePolicy'],
+                    actions: ['iam:PutRolePolicy'],
                     resources: [`arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}*`],
                 }),
             ],
@@ -116,7 +149,7 @@ export class TdirEscalatedRole extends Construct {
             roleName: COMPROMISED_AGENT_ROLE_NAME,
             path: WORKSHOP_ROLE_PATH,
             assumedBy: new AccountRootPrincipal(),
-            permissionsBoundary: this.boundary,
+            permissionsBoundary: this.compromisedAgentBoundary,
             description: 'TDIR workshop: stands in for the compromised agent runtime role. Boundary-capped.',
         });
 
@@ -138,9 +171,10 @@ export class TdirEscalatedRole extends Construct {
                     },
                 }),
                 new PolicyStatement({
+                    // Write only: the seeding script clears previous runs with its own credentials.
                     sid: 'AttachPolicyToWorkshopRoles',
                     effect: Effect.ALLOW,
-                    actions: ['iam:PutRolePolicy', 'iam:DeleteRolePolicy', 'iam:DeleteRole'],
+                    actions: ['iam:PutRolePolicy'],
                     resources: [`arn:aws:iam::${account}:role${WORKSHOP_ROLE_PATH}*`],
                 }),
                 new PolicyStatement({
@@ -212,6 +246,16 @@ export class TdirEscalatedRole extends Construct {
                 {
                     id: 'AwsSolutions-IAM5',
                     reason: 'This is a permissions boundary, not a grant: the wildcards define the ceiling for workshop roles, and every action in it is read-only apart from the guardrail lifecycle the scenario requires.',
+                },
+            ],
+            true,
+        );
+        NagSuppressions.addResourceSuppressions(
+            this.compromisedAgentBoundary,
+            [
+                {
+                    id: 'AwsSolutions-IAM5',
+                    reason: 'This is a permissions boundary, not a grant: read-only wildcards plus iam:CreateRole and iam:PutRolePolicy scoped to the /tdir-workshop/ path, with CreateRole requiring TdirWorkshopBoundary on the new role.',
                 },
             ],
             true,

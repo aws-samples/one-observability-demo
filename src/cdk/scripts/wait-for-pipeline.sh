@@ -69,6 +69,14 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
   case "$EXECUTION_STATUS" in
     "Succeeded")
       echo "Pipeline execution completed successfully!"
+      # Opt-in: a caller that still has post-deployment work (TDIR scenario seeding) sets
+      # DEFER_SUCCESS_SIGNAL=true and sends the SUCCESS signal itself once that work is done, so
+      # the stack does not report ready before the environment is. Unset for every other
+      # workshop, which keeps signalling here exactly as before.
+      if [ "${DEFER_SUCCESS_SIGNAL:-false}" = "true" ]; then
+        echo "DEFER_SUCCESS_SIGNAL=true - leaving the CloudFormation success signal to the caller"
+        exit 0
+      fi
       WAIT_HANDLE_URL=$(aws cloudformation describe-stack-resource --stack-name "$STACK_NAME" --logical-resource-id rCDKDeploymentWaitConditionHandle --query 'StackResourceDetail.PhysicalResourceId' --output text --region "$REGION")
       curl -X PUT -H 'Content-Type:' --data-binary '{"Status":"SUCCESS","Reason":"Pipeline completed successfully","UniqueId":"'$(uuidgen)'","Data":"Pipeline execution finished"}' "$WAIT_HANDLE_URL"
       exit 0
