@@ -385,6 +385,12 @@ export const CUSTOM_ENABLE_UDS_CLOUDFRONT_LOGS = process.env.CUSTOM_ENABLE_UDS_C
  */
 export const CUSTOM_ENABLE_OMNI_ROLES = process.env.CUSTOM_ENABLE_OMNI_ROLES != 'false';
 export const CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE = process.env.CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE != 'false';
+/**
+ * Pre-provisions the AWS DevOps Agent space `one-observability-workshop` and its IAM roles.
+ * Defaults to on so Workshop Studio participants do not need to create the space manually.
+ * Set to the string 'false' to opt out (self-paced deployments that prefer manual setup).
+ */
+export const CUSTOM_ENABLE_DEVOPS_AGENT_SPACE = process.env.CUSTOM_ENABLE_DEVOPS_AGENT_SPACE != 'false';
 
 /**
  * This section contains values that will affect the workshop deployment
