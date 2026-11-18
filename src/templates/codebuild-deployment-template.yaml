@@ -495,6 +495,26 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
+          # The CDK pipeline deploys whatever repo.zip is in this bucket (S3 source mode), with an admin
+          # CloudFormation role. Workshop participants must never be able to change it, whatever their
+          # identity policy grants. Matches the Workshop Studio participant role; a no-op elsewhere.
+          - Sid: DenyParticipantWrites
+            Effect: Deny
+            Principal: '*'
+            Action:
+              - s3:PutObject*
+              - s3:DeleteObject*
+              - s3:RestoreObject
+              - s3:PutBucketPolicy
+              - s3:DeleteBucketPolicy
+              - s3:PutBucketVersioning
+              - s3:PutLifecycleConfiguration
+            Resource:
+              - !GetAtt rConfigBucket.Arn
+              - !Sub ${rConfigBucket.Arn}/*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/WSParticipantRole
 
   # Parameter Store parameter to store configuration
   rWorkshopConfigParameter:
