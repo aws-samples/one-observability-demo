@@ -7,95 +7,72 @@ package ca.petsearch;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.LongHistogram;
 import io.opentelemetry.api.metrics.Meter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+/**
+ * Custom business metrics for the pet search API, recorded through the OpenTelemetry API.
+ *
+ * <p>The ADOT Java agent provides the SDK at runtime and exports these over OTLP to the
+ * CloudWatch agent sidecar, which forwards them to the CloudWatch OTLP metrics endpoint.
+ * Names and units follow OpenTelemetry conventions; per-task identity comes from resource
+ * attributes, so it is never baked into metric names. Attribute values are kept to small,
+ * fixed sets to bound cardinality.
+ */
 public class MetricEmitter {
 
-    private Logger logger = LoggerFactory.getLogger(MetricEmitter.class);
+    static final AttributeKey<String> HTTP_ROUTE = AttributeKey.stringKey("http.route");
+    static final AttributeKey<String> HTTP_STATUS_CODE = AttributeKey.stringKey("http.response.status_code");
+    static final AttributeKey<String> PET_TYPE = AttributeKey.stringKey("pet.type");
 
-    static final String DIMENSION_API_NAME = "apiName";
-    static final String DIMENSION_STATUS_CODE = "statusCode";
+    static final String REQUEST_DURATION_METRIC = "petsearch.request.duration";
+    static final String RESPONSE_SIZE_METRIC = "petsearch.response.size";
+    static final String PETS_RETURNED_METRIC = "petsearch.pets.returned";
 
-    static String API_COUNTER_METRIC = "apiBytesSent";
-    static String API_LATENCY_METRIC = "latency";
-    static String PETS_RETURNED_METRIC = "petsReturned";
-
-    private LongCounter apiBytesSentCounter;
-    private LongHistogram apiLatencyHistogram;
-    private LongCounter petsReturned;
+    private final DoubleHistogram requestDuration;
+    private final LongHistogram responseSize;
+    private final LongCounter petsReturned;
 
     public MetricEmitter(OpenTelemetry otel) {
-        Meter meter = otel.meterBuilder("aws-otel").setInstrumentationVersion("1.0").build();
+        Meter meter = otel.meterBuilder("ca.petsearch").setInstrumentationVersion("1.0").build();
 
-        logger.debug("OTLP port is: " + System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"));
+        requestDuration = meter
+                .histogramBuilder(REQUEST_DURATION_METRIC)
+                .setDescription("Duration of pet search API requests")
+                .setUnit("s")
+                .build();
 
-        String latencyMetricName = API_LATENCY_METRIC;
-        String apiBytesSentMetricName = API_COUNTER_METRIC;
-        String petsReturnedMetricName = PETS_RETURNED_METRIC;
+        responseSize = meter
+                .histogramBuilder(RESPONSE_SIZE_METRIC)
+                .ofLongs()
+                .setDescription("Size of pet search API response bodies")
+                .setUnit("By")
+                .build();
 
-        String instanceId = System.getenv("INSTANCE_ID");
-        if (instanceId != null && !instanceId.trim().equals("")) {
-            latencyMetricName = API_LATENCY_METRIC + "_" + instanceId;
-            apiBytesSentMetricName = API_COUNTER_METRIC + "_" + instanceId;
-            petsReturnedMetricName = PETS_RETURNED_METRIC + "_" + instanceId;
-        }
+        petsReturned = meter
+                .counterBuilder(PETS_RETURNED_METRIC)
+                .setDescription("Number of pets returned by searches")
+                .setUnit("{pet}")
+                .build();
+    }
 
-        apiBytesSentCounter =
-                meter
-                        .counterBuilder(apiBytesSentMetricName)
-                        .setDescription("API request load sent in bytes")
-                        .setUnit("one")
-                        .build();
+    public void emitRequestDuration(double seconds, String route, String statusCode) {
+        requestDuration.record(seconds, Attributes.of(HTTP_ROUTE, route, HTTP_STATUS_CODE, statusCode));
+    }
 
-        petsReturned =
-                meter
-                        .counterBuilder(petsReturnedMetricName)
-                        .setDescription("Number of pets returned by this service")
-                        .setUnit("one")
-                        .build();
-
-
-        apiLatencyHistogram =
-                meter
-                        .histogramBuilder(latencyMetricName).ofLongs()
-                        .setDescription("API latency time")
-                        .setUnit("ms")
-                        .build();
+    public void emitResponseSize(long bytes, String route, String statusCode) {
+        responseSize.record(bytes, Attributes.of(HTTP_ROUTE, route, HTTP_STATUS_CODE, statusCode));
     }
 
     /**
-     * emit http request latency metrics with summary metric type
-     *
-     * @param returnTime
-     * @param apiName
-     * @param statusCode
+     * @param petsCount number of pets in the search result
+     * @param petType   validated pet type, or empty for an unfiltered search
      */
-    public void emitReturnTimeMetric(Long returnTime, String apiName, String statusCode) {
-        logger.debug(
-                "emit metric with return time " + returnTime + "ms, " + apiName + ", status code:" + statusCode);
-        apiLatencyHistogram.record(
-                returnTime, Attributes.of(AttributeKey.stringKey(DIMENSION_API_NAME), apiName, AttributeKey.stringKey(DIMENSION_STATUS_CODE), statusCode));
-    }
-
-    /**
-     * emit http request load size with counter metrics type
-     *
-     * @param bytes
-     * @param apiName
-     * @param statusCode
-     */
-    public void emitBytesSentMetric(int bytes, String apiName, String statusCode) {
-        logger.debug("emit metric with http request size " + bytes + " bytes, " + apiName);
-        apiBytesSentCounter.add(
-                bytes, Attributes.of(AttributeKey.stringKey(DIMENSION_API_NAME), apiName, AttributeKey.stringKey(DIMENSION_STATUS_CODE), statusCode));
-    }
-
-    public void emitPetsReturnedMetric(int petsCount) {
-        petsReturned.add(petsCount);
+    public void emitPetsReturnedMetric(int petsCount, String petType) {
+        String type = petType == null || petType.trim().isEmpty() ? "all" : petType;
+        petsReturned.add(petsCount, Attributes.of(PET_TYPE, type));
     }
 
 }

@@ -107,7 +107,10 @@ namespace PetSite.Controllers
                     var paymentapiurl = await ParameterNames.GetParameterValueAsync(ParameterNames.PAYMENT_API_URL, _refreshManager);
                     var url = UrlHelper.BuildUrl(paymentapiurl, null,
                         ("petId", petId), ("petType", petType), ("userId", userId));
-                    await httpClient.PostAsync(url, null);
+                    var paymentTimer = Stopwatch.StartNew();
+                    using var paymentResponse = await httpClient.PostAsync(url, null);
+                    PetSite.Telemetry.PetSiteMetrics.RecordAdoption(
+                        petType, paymentResponse.IsSuccessStatusCode, paymentTimer.Elapsed.TotalSeconds);
                 }
 
                 //Increase purchase metric count

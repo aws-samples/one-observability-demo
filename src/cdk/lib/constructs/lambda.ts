@@ -26,7 +26,6 @@ import {
     PETFOOD_IMAGE_GENERATOR_FUNCTION,
     PETFOOD_STOCK_PROCESSOR_FUNCTION,
     STATUS_UPDATER_FUNCTION,
-    TRAFFIC_GENERATOR_FUNCTION,
 } from '../../bin/environment';
 import { Queue } from 'aws-cdk-lib/aws-sqs';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
@@ -236,7 +235,6 @@ export interface WorkshopLambdaFunctionProperties {
 export const LambdaFunctionNames = {
     /** Pet status updater function name */
     StatusUpdater: STATUS_UPDATER_FUNCTION.name,
-    TrafficGenerator: TRAFFIC_GENERATOR_FUNCTION.name,
     PetfoodImageGenerator: PETFOOD_IMAGE_GENERATOR_FUNCTION.name,
     PetfoodCleanupProcessor: PETFOOD_CLEANUP_PROCESSOR_FUNCTION.name,
     PetfoodStockProcessor: PETFOOD_STOCK_PROCESSOR_FUNCTION.name,

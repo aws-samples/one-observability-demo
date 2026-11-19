@@ -24,6 +24,7 @@ Builds and pushes container images for all microservices using a dedicated CodeP
 | `petsearch-java` | Java/Spring Boot | AMD64 |
 | `petsite-net` | .NET | AMD64 |
 | `petfood-rs` | Rust/Axum | AMD64 |
+| `traffic-generator-locust` | Python/Locust | AMD64 |
 | `waggle-ai-*` (5 agents) | Python | ARM64 |
 
 Pipeline: Source Stage → Parallel Build Stage (all services)
@@ -62,6 +63,7 @@ Deploys all microservices, serverless functions, canaries, and WAF rules.
 ### Microservices
 
 - 4 ECS services: payforadoption-go, petlistadoptions-py, petsearch-java, petfood-rs
+- 1 ECS traffic generator: Locust running continuous user journeys against the PetSite (`CONCURRENT_USERS` simulated users; `0` disables it). See `src/applications/traffic-generator-locust/README.md`
 - 1 EKS deployment: petsite-net (with CloudFront distribution)
 - 5 Bedrock AgentCore runtimes: waggle-ai-orchestrator, -nutrition, -ordering, -adoption, -concierge
 
@@ -72,7 +74,6 @@ Deploys all microservices, serverless functions, canaries, and WAF rules.
 | StatusUpdater | Node.js | Updates pet adoption status in DynamoDB |
 | UserCreator | Python | Creates user records in Aurora PostgreSQL |
 | RdsSeeder | Python | Seeds Aurora PostgreSQL |
-| TrafficGenerator | Node.js | Generates synthetic traffic |
 | PetfoodStockProcessor | Node.js | Processes food stock events from EventBridge |
 | PetfoodImageGenerator | Python | Generates pet food images via Bedrock |
 | PetfoodCleanupProcessor | Node.js | Cleans up expired food listings |

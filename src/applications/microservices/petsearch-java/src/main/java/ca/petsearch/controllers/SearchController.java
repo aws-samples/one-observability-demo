@@ -327,7 +327,7 @@ public class SearchController {
                            pet.getAvailability(), pet.getCuteness_rate(), pet.getPrice());
             }
 
-            metricEmitter.emitPetsReturnedMetric(result.size());
+            metricEmitter.emitPetsReturnedMetric(result.size(), validatedPetType);
             logger.info("Search completed successfully for userId '{}' - returning {} pets", resolvedUserId, result.size());
             return ResponseEntity.ok(result);
 

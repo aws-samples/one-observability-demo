@@ -1,0 +1,7 @@
+locust==2.46.7
+boto3==1.43.111
+opentelemetry-api==1.45.1
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-instrumentation-requests==0.66b1
+opentelemetry-propagator-aws-xray==1.0.2

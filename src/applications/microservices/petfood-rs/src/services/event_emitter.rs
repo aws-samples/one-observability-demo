@@ -137,6 +137,7 @@ impl EventEmitter {
                         event_bus = %self.config.event_bus_name,
                         "Event successfully emitted to EventBridge"
                     );
+                    crate::observability::business::record_event(&payload.detail_type, true);
                     return Ok(());
                 }
                 Err(e) => {
@@ -150,6 +151,7 @@ impl EventEmitter {
                             error = %e,
                             "Failed to emit event after maximum retry attempts"
                         );
+                        crate::observability::business::record_event(&payload.detail_type, false);
                         return Err(EventEmitterError::MaxRetriesExceeded);
                     }
 

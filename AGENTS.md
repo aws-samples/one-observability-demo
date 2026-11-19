@@ -117,7 +117,7 @@ Cross-stack wiring uses CloudFormation exports and SSM parameters — names cent
 - **`src/cdk/lib/stages/`** — each file exports both a `*Stage` (pipeline stage) and a `*Stack` (used by `local.ts`). `containers.ts` also defines the ECR build action and `ContainerDefinition` used to describe each service.
 - **`src/cdk/lib/microservices/`** — glue between stages and service source; `manifests/` holds EKS YAML for petsite.
 - **`src/applications/microservices/<svc>/`** — each has a `Dockerfile` + `README.md`. Notable: `petfood-rs/API_DOCUMENTATION.md`, `petsearch-java/manual-instrumentation-complete/`, `petsite-net/petsite.sln`, `waggle_ai_agents/<agent>/agent.py`.
-- **`src/applications/lambda/`** — feature Lambdas: image generation, stock/cleanup processors, status updater, RDS seeder, traffic generator, user creator, pipeline-retry, capacity test.
+- **`src/applications/lambda/`** — feature Lambdas: image generation, stock/cleanup processors, status updater, RDS seeder, user creator, pipeline-retry, capacity test.
 - **`docs-site/docs/`** — authoritative human docs: `architecture/`, `deployment/`, `operations/`, `microservices/`. Prefer these over `archive/`.
 
 ## 8. Conventions & guardrails

@@ -189,6 +189,14 @@ namespace PetSite.Controllers
             // Sets the metric value to the number of pets available for adoption at the moment
             PetsWaitingForAdoption.Set(Pets.Where(pet => pet.availability == "yes").Count());
 
+            // Only an unfiltered listing reflects the whole catalog, so only it updates the OTel gauge
+            if ((string.IsNullOrEmpty(selectedPetType) || selectedPetType == "all") &&
+                (string.IsNullOrEmpty(selectedPetColor) || selectedPetColor == "all") &&
+                string.IsNullOrEmpty(petid))
+            {
+                PetSite.Telemetry.PetSiteMetrics.SetPetsAvailable(Pets.Count(pet => pet.availability == "yes"));
+            }
+
             return View(PetDetails);
         }
 

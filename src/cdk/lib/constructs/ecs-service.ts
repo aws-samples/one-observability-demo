@@ -101,6 +101,16 @@ export interface EcsServiceProperties extends MicroserviceProperties {
      * @default CloudWatchAgentTraceMode.APPLICATION_SIGNALS
      */
     cloudWatchAgentTraceMode?: CloudWatchAgentTraceMode;
+    /**
+     * CPU units for the application container. Sidecars need their share within the task's cpu.
+     * @default 256
+     */
+    containerCpu?: number;
+    /**
+     * Hard memory limit in MiB for the application container. Container limits must fit within the task's memory.
+     * @default 512
+     */
+    containerMemoryLimitMiB?: number;
 }
 
 /**
@@ -227,8 +237,8 @@ export abstract class EcsService extends Microservice {
 
         const container = taskDefinition.addContainer('container', {
             image: image,
-            memoryLimitMiB: 512,
-            cpu: 256,
+            memoryLimitMiB: properties.containerMemoryLimitMiB ?? 512,
+            cpu: properties.containerCpu ?? 256,
             logging,
             environment,
         });
