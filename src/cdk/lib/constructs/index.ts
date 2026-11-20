@@ -1,6 +1,7 @@
 export * from './assets';
 export * from './cloudtrail';
 export * from './database';
+export * from './devops-agent-roles';
 export * from './devops-agent-space';
 export * from './dynamodb';
 export * from './ecs';
