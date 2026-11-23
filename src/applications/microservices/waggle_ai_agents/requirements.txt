@@ -8,7 +8,7 @@ langchain-aws
 langchain-core
 
 # Ordering sub-agent (CrewAI, talks to Bedrock via LiteLLM)
-crewai
+crewai==1.15.28
 
 # Adoption sub-agent (LlamaIndex on Bedrock Converse)
 llama-index-core
