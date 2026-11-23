@@ -79,6 +79,31 @@ EXFIL_BYTES = 14832
 # Decimal KB, matching how the finding text has always read (14832 / 1000), not KiB.
 EXFIL_KB = f"{EXFIL_BYTES / 1000:.1f} KB"
 
+# How far back the oldest runtime-log evidence event sits, in minutes before seeding.
+#
+# CloudWatch Logs Insights never indexes an event whose timestamp is older than the log group
+# that holds it, so every seeded event must be younger than its log group. The deployment
+# template therefore creates the two evidence log groups at stack start, and seeding waits
+# until they are older than the oldest event it is about to write (--max-log-group-wait).
+#
+# The runtime log was authored on a two-hour scale. Nothing in the guide quotes those times -
+# only their order ("the first CRITICAL event is the C2 callback") - so the window is
+# compressed to sit inside the CloudTrail evidence's own span (68 minutes, which the guide
+# does quote), instead of making every deployment wait an extra hour for it.
+RUNTIME_LOG_WINDOW_MINUTES = 65
+
+# Headroom added on top of the oldest event's age before a log group counts as old enough.
+LOG_GROUP_AGE_MARGIN_MINUTES = 5
+
+# Created by the deployment template (pCreateTdirEvidenceLogGroups) so they predate seeding.
+CLOUDTRAIL_EVIDENCE_LOG_GROUP = "/aws/cloudtrail/tdir-workshop-evidence"
+
+
+def runtime_evidence_log_group(runtime_name: str) -> str:
+    """Workshop-owned evidence log group for a runtime (never the runtime's real log group)."""
+    return f"/aws/tdir-workshop/{runtime_name}/security-evidence"
+
+
 # Matches PARAMETER_STORE_PREFIX in bin/environment.ts.
 DEFAULT_PARAMETER_STORE_PREFIX = os.environ.get(
     "PARAMETER_STORE_BASE_PATH",
@@ -323,6 +348,25 @@ def xray_trace_id(epoch_seconds: float) -> str:
     return f"1-{int(epoch_seconds):08x}-{uuid.uuid4().hex[:24]}"
 
 
+def _compress_window(events: list, now_ms: int, window_minutes: int) -> list:
+    """
+    Rescale event timestamps so the oldest sits window_minutes before now_ms.
+
+    Linear about now, so the order of events and their relative spacing are both preserved:
+    an event twice as old as another stays twice as old. A no-op when the events already fit.
+    """
+    if not events:
+        return events
+    span = now_ms - min(e["timestamp"] for e in events)
+    limit = window_minutes * 60 * 1000
+    if span <= limit:
+        return events
+    scale = limit / span
+    for e in events:
+        e["timestamp"] = now_ms - int((now_ms - e["timestamp"]) * scale)
+    return events
+
+
 def _retime_trace_ids(events: list) -> list:
     """
     Rewrite each event's trace_id so its epoch matches the event's own timestamp.
@@ -343,6 +387,7 @@ def generate_agent_runtime_logs(
     region: str,
     ident: dict = None,
 ) -> list:
+    """Generate AgentCore runtime log events showing attack progression."""
     ident = ident or default_identities(account_id)
     runtime = ident["runtime_name"]
     lateral = ident["lateral_target"]
@@ -350,8 +395,10 @@ def generate_agent_runtime_logs(
     escalated = ident["escalated_role_name"]
     kb_id = ident["knowledge_base_id"]
     guardrail = ident["guardrail_name"]
-    """Generate AgentCore runtime log events showing attack progression."""
 
+    # The offsets below are authored on a two-hour scale for readability, then compressed into
+    # RUNTIME_LOG_WINDOW_MINUTES before returning - see _compress_window. The "T-2h" and "T-1h"
+    # phase labels therefore describe the authored scale, not the seeded timestamps.
     now = int(time.time() * 1000)
     hour_ago = now - (3600 * 1000)
     two_hours_ago = now - (7200 * 1000)
@@ -651,7 +698,9 @@ def generate_agent_runtime_logs(
         },
     ]
 
-    return _retime_trace_ids(events)
+    # Compress before retiming: X-Ray trace ids embed their event's epoch, so they must be
+    # derived from the final timestamps or the log-to-trace correlation in lab 2.2 breaks.
+    return _retime_trace_ids(_compress_window(events, now, RUNTIME_LOG_WINDOW_MINUTES))
 
 
 # =============================================================================
@@ -883,6 +932,19 @@ SECURITY_HUB_FINDINGS = [
         "Type": "TTPs/Command and Control/C2 Callback via Agent Tool",
         "ResourceType": "AwsBedrockAgentCoreRuntime",
         "ResourceKey": "runtime",
+        # Structured copies of the two values the guide asks participants to note. They used to
+        # exist only inside the free-text Description, which the console does not surface as
+        # fields, so a dry-run reviewer could not find them where the guide pointed.
+        "Network": {
+            "Direction": "OUT",
+            "Protocol": "HTTPS",
+            "DestinationDomain": "c2-relay.external-audit.example.com",
+        },
+        "ProductFields": {
+            "tdir/DestinationDomain": "c2-relay.external-audit.example.com",
+            "tdir/DataExfiltrated": EXFIL_KB,
+            "tdir/BytesExfiltrated": str(EXFIL_BYTES),
+        },
         "FirstObservedMinutesAgo": 35,
         "LastObservedMinutesAgo": 33,
     },
@@ -1161,11 +1223,13 @@ def perform_real_escalation_chain(session, account_id: str, region: str, ident: 
         AgentEscalatedAccess      --sts:AssumeRole-->     (session, from this host's IP)
         AgentEscalatedAccess      --bedrock:DeleteGuardrail-->  a throwaway guardrail
 
-    Safety: every role here carries the TdirWorkshopBoundary permissions boundary, which caps
-    effective permissions to read-only plus the guardrail lifecycle. The escalated role's
-    inline policy looks administrative because the workshop asks participants to notice
-    overbroad permissions; the boundary means it confers nothing dangerous. The compromised
-    role can only create roles under /tdir-workshop/ and only with that boundary attached.
+    Safety: the escalated role carries the TdirWorkshopBoundary permissions boundary, which
+    caps effective permissions to read-only plus the guardrail lifecycle, with no IAM write.
+    Its inline policy looks administrative because the workshop asks participants to notice
+    overbroad permissions; the boundary means it confers nothing dangerous, even to a
+    participant who assumes the role or rewrites its inline policy. The compromised role
+    carries TdirCompromisedAgentBoundary, which adds only CreateRole and PutRolePolicy under
+    /tdir-workshop/, and CreateRole only with TdirWorkshopBoundary attached.
 
     Idempotent: an existing escalated role is deleted and recreated so CloudTrail shows a
     fresh CreateRole for each workshop run.
@@ -1497,6 +1561,36 @@ def seed_guardduty_sample_findings(guardduty_client, region: str):
         logger.error(f"  ✗ Failed to generate GuardDuty findings: {e}")
 
 
+def clear_log_streams(logs_client, log_group_name: str, prefix: str, keep: str = None):
+    """
+    Delete every stream under prefix except keep. Safe: these hold only seeded evidence.
+
+    Used where the stream name is not stable across runs, so that reset_log_stream alone
+    cannot stop evidence from accumulating.
+    """
+    try:
+        paginator = logs_client.get_paginator("describe_log_streams")
+        for page in paginator.paginate(
+            logGroupName=log_group_name,
+            logStreamNamePrefix=prefix,
+        ):
+            for stream in page.get("logStreams", []):
+                name = stream["logStreamName"]
+                if name == keep:
+                    continue
+                logs_client.delete_log_stream(
+                    logGroupName=log_group_name,
+                    logStreamName=name,
+                )
+                logger.info(f"  Removed evidence from an earlier seeding: {name}")
+    except logs_client.exceptions.ResourceNotFoundException:
+        pass
+    except Exception as exc:  # noqa: BLE001 - non-fatal, reported
+        logger.warning(
+            f"  Could not clear earlier evidence streams in {log_group_name}: {exc}",
+        )
+
+
 def reset_log_stream(logs_client, log_group_name: str, stream_name: str):
     """
     Delete and recreate a log stream so re-seeding replaces evidence instead of appending.
@@ -1583,6 +1677,87 @@ def warn_if_events_predate_log_group(
     )
 
 
+def evidence_backdate_seconds(account_id: str, region: str, ident: dict) -> int:
+    """
+    Age of the oldest event seeding is about to write, in seconds.
+
+    Measured by running the same generators the seeding uses (they are pure: they only read the
+    clock), so this cannot drift from the narrative the way a hand-maintained constant would.
+    """
+    now_ms = int(time.time() * 1000)
+    runtime = generate_agent_runtime_logs(account_id, region, ident)
+    trail = generate_cloudtrail_events(account_id, region, ident)
+    oldest_runtime = min(e["timestamp"] for e in runtime)
+    oldest_trail = min(
+        int(datetime.fromisoformat(e["eventTime"]).timestamp() * 1000) for e in trail
+    )
+    return int((now_ms - min(oldest_runtime, oldest_trail)) / 1000)
+
+
+def wait_for_evidence_log_groups(
+    logs_client,
+    group_names: list,
+    required_age_seconds: int,
+    max_wait_seconds: int,
+) -> bool:
+    """
+    Wait until every evidence log group is older than the oldest event about to be written.
+
+    Logs Insights never indexes an event older than its log group, and the evidence is
+    backdated on purpose. The deployment template creates these groups at stack start; this
+    makes seeding wait for the rest of the gap instead of writing events that every Logs
+    Insights step in the guide would then fail to find.
+
+    Creates a group that does not exist yet, so a facilitator re-seed works on older templates.
+    Waits only when the whole gap fits inside max_wait_seconds: a partial wait buys nothing,
+    because the events would still predate the group. Returns True when the groups are old
+    enough to seed into.
+    """
+    created = {}
+    for name in group_names:
+        try:
+            logs_client.create_log_group(logGroupName=name)
+            logger.info(f"  Created log group: {name} (the template did not create it)")
+        except logs_client.exceptions.ResourceAlreadyExistsException:
+            pass
+        described = logs_client.describe_log_groups(logGroupNamePrefix=name)
+        match = [
+            g for g in described.get("logGroups", []) if g.get("logGroupName") == name
+        ]
+        if match:
+            created[name] = match[0]["creationTime"] / 1000
+
+    if not created:
+        return False
+    youngest = max(created.values())
+    needed = int(youngest + required_age_seconds - time.time())
+    if needed <= 0:
+        logger.info(
+            f"  Evidence log groups are old enough for Logs Insights "
+            f"(need {required_age_seconds // 60} min of age, have "
+            f"{int((time.time() - youngest) // 60)} min)",
+        )
+        return True
+    if needed > max_wait_seconds:
+        logger.warning(
+            f"  ! Evidence log groups need {needed // 60} more min to predate the seeded events, "
+            f"over the {max_wait_seconds // 60} min wait budget. Seeding anyway: Logs Insights "
+            "will not index these events, and the guide's filter-log-events fallback applies.",
+        )
+        return False
+
+    logger.info(
+        f"  Waiting {needed // 60} min {needed % 60} s for the evidence log groups to predate "
+        "the seeded events, so Logs Insights can index them",
+    )
+    deadline = time.time() + needed
+    while (remaining := deadline - time.time()) > 0:
+        time.sleep(min(remaining, 60))
+        if remaining > 60:
+            logger.info(f"    {int(remaining - 60) // 60} min remaining")
+    return True
+
+
 def seed_agentcore_observability_logs(
     logs_client,
     account_id: str,
@@ -1599,9 +1774,7 @@ def seed_agentcore_observability_logs(
     # that is the shared Waggle AI agents' real log group, and injecting fabricated
     # security events into it would corrupt telemetry for every other workshop built on
     # this scaffolding. Participants are pointed here by the workshop guide.
-    log_group_name = log_group_name or (
-        f"/aws/tdir-workshop/{ident['runtime_name']}/security-evidence"
-    )
+    log_group_name = log_group_name or runtime_evidence_log_group(ident["runtime_name"])
 
     try:
         try:
@@ -1610,10 +1783,15 @@ def seed_agentcore_observability_logs(
         except logs_client.exceptions.ResourceAlreadyExistsException:
             logger.info(f"  Log group already exists: {log_group_name}")
 
-        # Stream for security events
+        # Stream for security events. The name carries the seeding date, so resetting only
+        # today's stream left every earlier day's evidence in place: a re-seed on another day
+        # (tdir-reset.py --recover) doubled every count the guide states - 18 CRITICAL events
+        # where it promises nine. Clear all previous evidence streams first.
+        stream_prefix = "security-events/"
         stream_name = (
-            f"security-events/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}"
+            f"{stream_prefix}{datetime.now(timezone.utc).strftime('%Y/%m/%d')}"
         )
+        clear_log_streams(logs_client, log_group_name, stream_prefix, keep=stream_name)
         reset_log_stream(logs_client, log_group_name, stream_name)
 
         events = generate_agent_runtime_logs(account_id, region, ident)
@@ -1653,7 +1831,7 @@ def seed_cloudtrail_evidence_logs(
 
     # CloudTrail events are typically in /aws/cloudtrail but we create a
     # separate evidence group for workshop clarity
-    log_group_name = "/aws/cloudtrail/tdir-workshop-evidence"
+    log_group_name = CLOUDTRAIL_EVIDENCE_LOG_GROUP
 
     try:
         try:
@@ -1838,6 +2016,12 @@ def seed_security_hub_findings(
             resource_type = finding_data.get("ResourceType", "Other")
             resource_key = finding_data.get("ResourceKey", "runtime")
             resource_id = resources.get(resource_key, resources["runtime"])
+            # Optional ASFF sections a finding may carry, passed through unchanged.
+            extra = {
+                k: finding_data[k]
+                for k in ("Network", "ProductFields")
+                if k in finding_data
+            }
 
             # Staggered so the attack sequence is readable in the console and matches the
             # seeded CloudTrail evidence. Without this every finding shares one timestamp
@@ -1878,6 +2062,7 @@ def seed_security_hub_findings(
                     ],
                     "WorkflowState": "NEW",
                     "RecordState": "ACTIVE",
+                    **extra,
                 },
             )
 
@@ -2014,6 +2199,17 @@ def main():
         action="store_true",
         help="Skip all CloudWatch log seeding",
     )
+    parser.add_argument(
+        "--max-log-group-wait",
+        type=int,
+        default=0,
+        metavar="SECONDS",
+        help=(
+            "Wait up to this long for the evidence log groups to become older than the oldest "
+            "seeded event, so Logs Insights can index the evidence (default 0: never wait). "
+            "The deployment buildspec passes its remaining time budget."
+        ),
+    )
 
     args = parser.parse_args()
     region = args.region
@@ -2070,6 +2266,19 @@ def main():
     logger.info("  Resolved scenario identities:")
     for key, value in finding_resources.items():
         logger.info(f"    {key:<16} {value}")
+
+    evidence_groups = [
+        runtime_evidence_log_group(identities["runtime_name"]),
+        CLOUDTRAIL_EVIDENCE_LOG_GROUP,
+    ]
+    required_age = (
+        evidence_backdate_seconds(account_id, region, identities)
+        + LOG_GROUP_AGE_MARGIN_MINUTES * 60
+    )
+    logger.info(
+        f"  Evidence log groups must be at least {required_age // 60} min old for Logs Insights",
+    )
+
     if args.dry_run:
         logger.info("  --dry-run: resolution complete, nothing written to AWS.")
         logger.info("")
@@ -2090,6 +2299,17 @@ def main():
         return
 
     logger.info("")
+
+    # 0a. Before writing anything, let the evidence log groups age past the oldest event. Done
+    #     first rather than just before the log seeding, so every artefact - findings, logs,
+    #     traces, CloudTrail - is timed against the same "now" and the narrative stays aligned.
+    if not args.skip_logs:
+        wait_for_evidence_log_groups(
+            session.client("logs"),
+            evidence_groups,
+            required_age,
+            max(args.max_log_group_wait, 0),
+        )
 
     # 0b. Real escalation chain. Must run for the Detective step to have anything to show:
     #     Detective correlates real CloudTrail, not the fabricated log entries below.
