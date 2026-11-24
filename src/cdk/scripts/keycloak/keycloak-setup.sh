@@ -306,31 +306,9 @@ wait_for_active_amg_workspace() {
 # EBS CSI
 # ------------------------------------------------------------------------------
 install_ebs_csi_driver() {
-  log "Checking IRSA for EBS CSI driver add-on..."
-  local irsa
-  irsa="$(
-    eksctl get iamserviceaccount \
-      --cluster "$CLUSTER_NAME" \
-      --namespace kube-system \
-      --name "$EBS_SERVICE_ACCOUNT" \
-      -o json 2>/dev/null | jq -r '.[].metadata.name' || true
-  )"
-
-  if [[ -z "$irsa" ]]; then
-    log "IRSA for EBS CSI driver add-on will be created."
-    eksctl create iamserviceaccount \
-      --name "$EBS_SERVICE_ACCOUNT" \
-      --namespace kube-system \
-      --cluster "$CLUSTER_NAME" \
-      --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
-      --approve \
-      --role-only \
-      --role-name "$EBS_ROLE_NAME" \
-      >/dev/null
-  else
-    log "Found IRSA for EBS CSI driver add-on."
-  fi
-
+  # The workshop CDK pre-installs the add-on with a Pod Identity role, because the participant role cannot
+  # create IAM roles (eksctl create iamserviceaccount fails). Check for it first and only fall back to the
+  # eksctl IRSA path when it is missing, e.g. in a self-managed account with IAM permissions.
   log "Checking if EBS CSI add-on is installed..."
   local addon
   addon="$(
@@ -341,7 +319,35 @@ install_ebs_csi_driver() {
       --output text || true
   )"
 
-  if [[ -z "$addon" ]]; then
+  if [[ -n "$addon" ]]; then
+    log "EBS CSI driver add-on is already installed."
+  else
+    log "Checking IRSA for EBS CSI driver add-on..."
+    local irsa
+    irsa="$(
+      eksctl get iamserviceaccount \
+        --cluster "$CLUSTER_NAME" \
+        --namespace kube-system \
+        --name "$EBS_SERVICE_ACCOUNT" \
+        -o json 2>/dev/null | jq -r '.[].metadata.name' || true
+    )"
+
+    if [[ -z "$irsa" ]]; then
+      log "IRSA for EBS CSI driver add-on will be created."
+      eksctl create iamserviceaccount \
+        --name "$EBS_SERVICE_ACCOUNT" \
+        --namespace kube-system \
+        --cluster "$CLUSTER_NAME" \
+        --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+        --approve \
+        --role-only \
+        --role-name "$EBS_ROLE_NAME" \
+        >/dev/null \
+        || die "Failed to create the EBS CSI IAM role. The workshop deployment should pre-install the aws-ebs-csi-driver add-on; check CUSTOM_ENABLE_PARTICIPANT_ROLES."
+    else
+      log "Found IRSA for EBS CSI driver add-on."
+    fi
+
     log "Installing EBS CSI driver add-on..."
     eksctl create addon \
       --name aws-ebs-csi-driver \
@@ -349,16 +355,14 @@ install_ebs_csi_driver() {
       --service-account-role-arn "arn:aws:iam::$ACCOUNT_ID:role/$EBS_ROLE_NAME" \
       --force \
       >/dev/null
-
-    log "Waiting for EBS CSI add-on to become ACTIVE..."
-    aws eks wait addon-active \
-      --region "$AWS_REGION" \
-      --cluster-name "$CLUSTER_NAME" \
-      --addon-name aws-ebs-csi-driver \
-      || die "Failed waiting for EBS CSI add-on to become ACTIVE."
-  else
-    log "EBS CSI driver add-on is already installed."
   fi
+
+  log "Waiting for EBS CSI add-on to become ACTIVE..."
+  aws eks wait addon-active \
+    --region "$AWS_REGION" \
+    --cluster-name "$CLUSTER_NAME" \
+    --addon-name aws-ebs-csi-driver \
+    || die "Failed waiting for EBS CSI add-on to become ACTIVE."
 
   log "Checking if StorageClass '$EBS_STORAGE_CLASS' exists..."
   if ! kubectl get storageclass "$EBS_STORAGE_CLASS" >/dev/null 2>&1; then

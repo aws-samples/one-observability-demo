@@ -43,6 +43,7 @@ import {
     CUSTOM_ENABLE_UDS_WAF_LOGS,
     CUSTOM_ENABLE_OMNI_ROLES,
     CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE,
+    CUSTOM_ENABLE_PARTICIPANT_ROLES,
     DEFAULT_RETENTION_DAYS,
 } from '../../bin/environment';
 import { GlobalWaf, RegionalWaf } from '../constructs/waf';
@@ -53,6 +54,7 @@ import { TdirKnowledgeBase } from '../constructs/tdir-knowledge-base';
 import { TdirRemediation } from '../constructs/tdir-remediation';
 import { TdirUnifiedDataStore } from '../constructs/tdir-unified-data-store';
 import { OmniRoles } from '../constructs/omni-roles';
+import { ParticipantRoles } from '../constructs/participant-roles';
 import { TdirEscalatedRole } from '../constructs/tdir-escalated-role';
 
 /**
@@ -276,6 +278,10 @@ export class CoreStack extends Stack {
             new OmniRoles(this, 'OmniRoles', {
                 createOnlineEvaluationRole: CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE,
             });
+        }
+
+        if (CUSTOM_ENABLE_PARTICIPANT_ROLES) {
+            new ParticipantRoles(this, 'ParticipantRoles');
         }
     }
 }

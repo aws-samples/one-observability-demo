@@ -140,6 +140,10 @@ export class PetFoodECSService extends EcsService {
 
         this.taskRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AWSXRayDaemonWriteAccess'));
 
+        // Pre-attached for the AMP-on-ECS module: the participant policy can no longer attach it, and the
+        // OTel collector sidecar added in that module remote-writes to the participant's AMP workspace.
+        this.taskRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonPrometheusRemoteWriteAccess'));
+
         const taskPolicy = new Policy(this, 'taskPolicy', {
             policyName: 'PetFoodTaskPolicy',
             document: new PolicyDocument({

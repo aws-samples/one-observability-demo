@@ -387,6 +387,13 @@ export const CUSTOM_ENABLE_OMNI_ROLES = process.env.CUSTOM_ENABLE_OMNI_ROLES != 
 export const CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE = process.env.CUSTOM_ENABLE_OMNI_ONLINE_EVAL_ROLE != 'false';
 
 /**
+ * Pre-provisioned roles for the console wizards (Synthetics, custom-widget/EMF Lambda, RUM, Managed Grafana,
+ * CloudWatch Investigations) and the EBS CSI add-on used by the Keycloak setup. On by default for the same
+ * reason as the Omni flags: the hardened participant policy cannot create these roles. Set to 'false' to opt out.
+ */
+export const CUSTOM_ENABLE_PARTICIPANT_ROLES = process.env.CUSTOM_ENABLE_PARTICIPANT_ROLES != 'false';
+
+/**
  * This section contains values that will affect the workshop deployment
  * based on the current status of the account where the workshop is being deployed
  */
