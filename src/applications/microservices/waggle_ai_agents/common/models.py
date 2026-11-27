@@ -6,32 +6,28 @@ import os
 
 from waggle_ai_agents.common import config
 
-# --- Model palette across four providers (Anthropic · Amazon · Meta · OpenAI-OSS); override any via env.
-SONNET_4_6 = (
+# --- Model palette across three providers (Anthropic · Amazon · OpenAI-OSS); override any via env.
+SONNET_5_5 = (
     config.CLAUDE_MODEL_ID
 )  # backbone Claude, from config (BEDROCK_CLAUDE_MODEL_ID)
 NOVA_2_LITE = os.getenv("BEDROCK_NOVA_LITE_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
-LLAMA_4_MAVERICK = os.getenv(
-    "BEDROCK_LLAMA_MODEL_ID",
-    "us.meta.llama4-maverick-17b-instruct-v1:0",
-)
 GPT_OSS = config.GPT_OSS_MODEL_ID  # from config (BEDROCK_GPT_OSS_MODEL_ID)
 
 # --- Per-agent assignment (env override wins), tiered by task cost: capable models for reasoning only.
 AGENT_MODELS: dict[str, str] = {
     "orchestrator": os.getenv(
         "ORCHESTRATOR_MODEL_ID",
-        SONNET_4_6,
+        SONNET_5_5,
     ),  # routing / reasoning
     "nutrition": os.getenv(
         "NUTRITION_MODEL_ID",
-        SONNET_4_6,
+        SONNET_5_5,
     ),  # reasoning-heavy analysis
     "ordering": os.getenv("ORDERING_MODEL_ID", NOVA_2_LITE),  # lightweight tool calls
     "adoption": os.getenv(
         "ADOPTION_MODEL_ID",
-        LLAMA_4_MAVERICK,
-    ),  # LlamaIndex on Llama 4
+        NOVA_2_LITE,
+    ),  # LlamaIndex on Nova (Llama 4 is Bedrock-Legacy with no active successor)
     "concierge": os.getenv("CONCIERGE_MODEL_ID", GPT_OSS),  # OpenAI SDK on gpt-oss
 }
 
